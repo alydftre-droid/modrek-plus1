@@ -71,6 +71,7 @@ export default function ExamTakePage() {
   const antiCheatKey = `exam-anti-${examId}-${attempt?.id || "init"}`;
   const answersRef = useRef<Record<string, AnswerState>>({});
   const draftHydratedRef = useRef(false);
+  const skipNextDraftPersistRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -261,9 +262,11 @@ export default function ExamTakePage() {
       if (raw) {
         const parsed = JSON.parse(raw);
         answersRef.current = parsed;
+        skipNextDraftPersistRef.current = true;
         setAnswers(parsed);
       } else {
         answersRef.current = {};
+        skipNextDraftPersistRef.current = true;
         setAnswers({});
       }
     } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
@@ -272,6 +275,10 @@ export default function ExamTakePage() {
   useEffect(() => {
     if (!attempt) return;
     if (!draftHydratedRef.current) return;
+    if (skipNextDraftPersistRef.current) {
+      skipNextDraftPersistRef.current = false;
+      return;
+    }
     answersRef.current = answers;
     try { localStorage.setItem(draftKey, JSON.stringify(answers)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }, [answers, draftKey, attempt]);
