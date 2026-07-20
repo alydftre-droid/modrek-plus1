@@ -7,7 +7,7 @@
 //
 // This value is also the `buster` passed to PersistQueryClientProvider — see
 // src/App.tsx.
-export const DATA_SCHEMA_VERSION = "exam-submit-recovery-20260720-v4";
+export const DATA_SCHEMA_VERSION = "exam-submit-resilient-production-20260720-v5";
 
 const BUSTER_STORAGE_KEY = "mp-data-schema-version";
 

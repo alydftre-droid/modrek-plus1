@@ -171,19 +171,7 @@ export default function ExamSubmitPage() {
         answers_count: draftAnswers.length,
         is_auto: isAuto,
       });
-      let res: any;
-      try {
-        res = await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
-      } catch (submitError) {
-        if (!isAttemptNotFoundError(submitError)) throw submitError;
-        console.debug("[exam-debug] ExamSubmitPage.retryWithoutStaleAttempt", {
-          student_id: user?.id || null,
-          exam_id: examId || null,
-          stale_attempt_id: attemptIdForSubmit || null,
-        });
-        clearStaleAttemptContext();
-        res = await submit.mutateAsync({ ...submitPayload, attemptId: null, examId: examId!, answers: draftAnswers });
-      }
+      const res: any = await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
       if (res?.success) {
         const finalAttemptId = res.resolved_attempt_id || res.attempt_id || attemptIdForSubmit;
         console.debug("[exam-debug] ExamSubmitPage.submitSuccess", {

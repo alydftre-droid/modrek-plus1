@@ -127,7 +127,7 @@ export async function loadModrekTrainingQuestionsViaFunction(attemptId: string):
 }
 
 export async function submitModrekTrainingAttemptViaFunction(input: {
-  attemptId: string;
+  attemptId?: string | null;
   examId?: string | null;
   answers?: Array<{
     questionId: string;
@@ -146,19 +146,23 @@ export async function submitModrekTrainingAttemptViaFunction(input: {
   training_exam?: boolean;
   error?: string;
 }> {
-  const { data, error } = await supabase.functions.invoke("modrek-ai-exams", {
-    body: {
-      action: "submit-training-attempt",
-      attemptId: input.attemptId,
-      examId: input.examId || null,
-      answers: input.answers || [],
-      tabSwitches: input.tabSwitches || 0,
-      fullscreenExits: input.fullscreenExits || 0,
-    },
+  console.debug("[exam-debug] submitModrekTrainingAttemptViaFunction.beforeRpc", {
+    attempt_id: input.attemptId || null,
+    exam_id: input.examId || null,
+    answers_count: input.answers?.length || 0,
+    rpc: "submit_exam_attempt_resilient",
   });
+  const { data, error } = await supabase.rpc("submit_exam_attempt_resilient", {
+    _exam_id: input.examId || null,
+    _attempt_id: input.attemptId || null,
+    _answers: input.answers || [],
+    _tab_switches: input.tabSwitches || 0,
+    _fullscreen_exits: input.fullscreenExits || 0,
+  } as any);
   if (error) {
-    const body = await readFunctionErrorBody(error);
-    throw new Error(body?.message || error.message || "تعذر تسليم التدريب");
+    console.debug("[exam-debug] submitModrekTrainingAttemptViaFunction.rpcError", { error });
+    throw new Error(error.message || "تعذر تسليم التدريب");
   }
+  console.debug("[exam-debug] submitModrekTrainingAttemptViaFunction.afterRpc", { response: data });
   return data as any;
 }

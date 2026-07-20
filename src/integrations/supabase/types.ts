@@ -6249,6 +6249,14 @@ export type Database = {
         }[]
       }
       get_teacher_exam_roster: { Args: { _exam_id: string }; Returns: Json }
+      grade_exam_attempt_core: {
+        Args: {
+          _attempt_id: string
+          _fullscreen_exits?: number
+          _tab_switches?: number
+        }
+        Returns: Json
+      }
       has_ai_lesson_page_access: { Args: { _name: string }; Returns: boolean }
       has_content_storage_access: {
         Args: { _bucket: string; _name: string }
