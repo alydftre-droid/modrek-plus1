@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useExam, useExamQuestions, useAttemptAnswers } from "@/hooks/useExams";
+import { useExam, useExamReviewQuestions, useAttemptAnswers } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,12 +11,12 @@ export default function ExamReviewPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
   const { data: exam } = useExam(examId);
-  const { data: questions = [], isLoading } = useExamQuestions(examId);
+  const { data: questions = [], isLoading } = useExamReviewQuestions(attemptId);
   const { data: answers = [] } = useAttemptAnswers(attemptId);
 
   if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
 
-  const showCorrect = exam?.show_correct_answers !== false;
+  const showCorrect = true;
   const answerByQ = new Map(answers.map((a: any) => [a.question_id, a]));
 
   return (
@@ -69,7 +69,7 @@ export default function ExamReviewPage() {
                       {isCorrect && <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 ml-1" />صحيح</Badge>}
                       {isWrong && <Badge variant="destructive"><XCircle className="h-3 w-3 ml-1" />خطأ</Badge>}
                     </div>
-                    <Badge variant="outline">{a?.marks_awarded || 0} / {q.marks}</Badge>
+                    <Badge variant="outline">{Number(a?.marks_awarded || 0)} / {q.marks} درجة</Badge>
                   </div>
                   <p className="font-bold">{q.question_text}</p>
 
@@ -103,12 +103,12 @@ export default function ExamReviewPage() {
                     <div className="space-y-2">
                       <div className="p-3 rounded-xl bg-muted/40">
                         <div className="text-xs text-muted-foreground mb-1">إجابتك:</div>
-                        <div>{a?.answer_text || <span className="text-muted-foreground italic">لم تجب</span>}</div>
+                        <div className="whitespace-pre-wrap">{a?.answer_text || <span className="text-muted-foreground italic">لم تجب على هذا السؤال</span>}</div>
                       </div>
                       {showCorrect && q.correct_answer && (
                         <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
-                          <div className="text-xs text-green-700 dark:text-green-300 mb-1">الإجابة الصحيحة:</div>
-                          <div>{q.correct_answer}</div>
+                          <div className="text-xs text-green-700 dark:text-green-300 mb-1">الإجابة الصحيحة / النموذجية:</div>
+                          <div className="whitespace-pre-wrap">{q.correct_answer}</div>
                         </div>
                       )}
                       {a?.ai_feedback && (

@@ -65,9 +65,13 @@ export default function ExamTakePage() {
   const [tabSwitches, setTabSwitches] = useState(0);
   const [reloadCount, setReloadCount] = useState(0);
   const [showWarning, setShowWarning] = useState<string | null>(null);
+  const [leavingToSubmit, setLeavingToSubmit] = useState(false);
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
   const draftKey = `exam-draft-${examId}-${attempt?.id || "init"}`;
   const antiCheatKey = `exam-anti-${examId}-${attempt?.id || "init"}`;
+  const answersRef = useRef<Record<string, AnswerState>>({});
+  const draftHydratedRef = useRef(false);
+  const skipNextDraftPersistRef = useRef(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -252,22 +256,42 @@ export default function ExamTakePage() {
   // Local draft
   useEffect(() => {
     if (!attempt) return;
-    try { const raw = localStorage.getItem(draftKey); if (raw) setAnswers(JSON.parse(raw)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+    draftHydratedRef.current = false;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        answersRef.current = parsed;
+        skipNextDraftPersistRef.current = true;
+        setAnswers(parsed);
+      } else {
+        answersRef.current = {};
+        skipNextDraftPersistRef.current = true;
+        setAnswers({});
+      }
+    } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+    draftHydratedRef.current = true;
   }, [draftKey, attempt]);
   useEffect(() => {
     if (!attempt) return;
+    if (!draftHydratedRef.current) return;
+    if (skipNextDraftPersistRef.current) {
+      skipNextDraftPersistRef.current = false;
+      return;
+    }
+    answersRef.current = answers;
     try { localStorage.setItem(draftKey, JSON.stringify(answers)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
   }, [answers, draftKey, attempt]);
 
   const saveTimers = useRef<Record<string, any>>({});
   const updateAnswer = useCallback((qId: string, patch: Partial<AnswerState>) => {
-    setAnswers(prev => ({
-      ...prev,
-      [qId]: { selectedOptionIds: [], answerText: "", flagged: false, ...prev[qId], ...patch },
-    }));
+    const nextAnswer = { selectedOptionIds: [], answerText: "", flagged: false, ...(answersRef.current[qId] || {}), ...patch };
+    const nextAnswers = { ...answersRef.current, [qId]: nextAnswer };
+    answersRef.current = nextAnswers;
+    setAnswers(nextAnswers);
+    try { localStorage.setItem(draftKey, JSON.stringify(nextAnswers)); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
     if (!attempt) return;
     if (saveTimers.current[qId]) clearTimeout(saveTimers.current[qId]);
-    const nextAnswer = { selectedOptionIds: [], answerText: "", flagged: false, ...answers[qId], ...patch };
     saveTimers.current[qId] = setTimeout(() => {
       saveAnswer.mutate({
         attemptId: attempt.id,
@@ -277,7 +301,34 @@ export default function ExamTakePage() {
         flagged: nextAnswer.flagged,
       });
     }, 700);
-  }, [answers, attempt, saveAnswer]);
+  }, [attempt, draftKey, saveAnswer]);
+
+  const goToSubmit = useCallback(async () => {
+    if (!attempt || leavingToSubmit) return;
+    setLeavingToSubmit(true);
+    try {
+      for (const qId of Object.keys(saveTimers.current)) {
+        if (saveTimers.current[qId]) clearTimeout(saveTimers.current[qId]);
+      }
+      const realIds = new Set(realQuestions.map((q: any) => q.id));
+      const draftEntries = Object.entries(answersRef.current).filter(([qId, value]) => {
+        if (!realIds.has(qId)) return false;
+        const answer = value as AnswerState;
+        return answer.selectedOptionIds?.length > 0 || String(answer.answerText || "").trim().length > 0 || (answer.matrix && Object.keys(answer.matrix).length > 0);
+      });
+      await Promise.all(draftEntries.map(([qId, answer]) => saveAnswer.mutateAsync({
+        attemptId: attempt.id,
+        questionId: qId,
+        selectedOptionIds: answer.selectedOptionIds || [],
+        answerText: answer.matrix ? JSON.stringify(answer.matrix) : (answer.answerText || ""),
+        flagged: answer.flagged,
+      })));
+      navigate(`/student/exams/${examId}/submit${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`);
+    } catch (error: any) {
+      setLeavingToSubmit(false);
+      toast.error(error?.message || "تعذّر حفظ الإجابات قبل التسليم");
+    }
+  }, [attempt, leavingToSubmit, realQuestions, saveAnswer, navigate, examId, trainingAttemptId]);
 
   if (
     examLoading ||
@@ -414,11 +465,12 @@ export default function ExamTakePage() {
       <footer className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-[#EFEDF7]">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
           <button
-            onClick={() => navigate(`/student/exams/${examId}/submit${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`)}
+            onClick={goToSubmit}
+            disabled={leavingToSubmit}
             className="h-11 px-5 sm:px-7 rounded-xl text-white font-bold text-[13.5px] flex items-center gap-2 shadow-[0_8px_18px_-6px_rgba(109,74,255,0.55)] active:scale-[0.99] transition"
             style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
           >
-            <span>التالي</span>
+            <span>{leavingToSubmit ? "جاري الحفظ..." : "التالي"}</span>
             <ChevronLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-2 text-[12px] text-[#6B6B7B]">

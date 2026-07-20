@@ -6181,6 +6181,10 @@ export type Database = {
         Args: { _exam_id: string }
         Returns: Json
       }
+      get_exam_review_questions: {
+        Args: { _attempt_id: string }
+        Returns: Json
+      }
       get_modrek_library_bootstrap: { Args: never; Returns: Json }
       get_modrek_training_questions_for_attempt: {
         Args: { _attempt_id: string }
@@ -6470,6 +6474,7 @@ export type Database = {
       }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
+      normalize_exam_grading_text: { Args: { _value: string }; Returns: string }
       normalize_exam_target_education_type: {
         Args: { _value: string }
         Returns: string
@@ -6594,6 +6599,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      smart_exam_text_score: {
+        Args: { _answer: string; _max_score: number; _model: string }
+        Returns: number
+      }
       start_exam_attempt: { Args: { _exam_id: string }; Returns: Json }
       start_modrek_training_attempt: {
         Args: { _attempt_id?: string; _exam_id: string }

@@ -103,7 +103,7 @@ export default function ExamSubmitPage() {
     submittingRef.current = true;
     setConfirmOpen(false);
     try {
-      const draftAnswers = Object.keys(draft).map((qId) => {
+      const draftAnswers = Object.keys(draft).filter((qId) => realQuestionIds.has(qId)).map((qId) => {
         const a = draft[qId];
         return {
           questionId: qId,
@@ -121,7 +121,7 @@ export default function ExamSubmitPage() {
             selectedOptionIds: a.selectedOptionIds,
             answerText: a.answerText,
             flagged: a.flagged,
-          }).catch(() => {});
+          });
         }
       }
       let antiCheat = { tabSwitches: 0, reloads: 0 };
@@ -131,8 +131,11 @@ export default function ExamSubmitPage() {
         ? await submitTraining.mutateAsync({ ...submitPayload, answers: draftAnswers })
         : await submit.mutateAsync(submitPayload);
       if (res?.success) {
-        if (res.needs_ai_grading || res.needs_manual_grading) {
-          await supabase.functions.invoke("grade-essay", { body: { attemptId: attempt.id } }).catch(() => null);
+        if (res.needs_ai_grading) {
+          const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId: attempt.id } });
+          if (error) {
+            toast.info("تم التسليم، وسيظهر التصحيح المتقدم بعد مراجعة المعلم إذا احتاج السؤال لذلك");
+          }
         }
         try { localStorage.removeItem(draftKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         try { localStorage.removeItem(antiCheatKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
