@@ -129,7 +129,7 @@ export default function TeacherAttemptDetailPage() {
                     </div>
                     <Badge variant="outline">{Number(a?.marks_awarded || 0)} / {q.marks}</Badge>
                   </div>
-                  <p className="font-bold">{q.question_text}</p>
+                  <p className="font-bold whitespace-pre-wrap">{q.question_text}</p>
 
                   {(q.question_type === "mcq" || q.question_type === "true_false") && (
                     <div className="space-y-2">
@@ -152,6 +152,12 @@ export default function TeacherAttemptDetailPage() {
                     </div>
                   )}
 
+                  {!a && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-sm text-red-700">
+                      لا توجد إجابة محفوظة لهذا السؤال.
+                    </div>
+                  )}
+
                   {isEssayLike && (
                     <div className="space-y-2">
                       <div className="p-3 rounded-xl bg-muted/40">
@@ -170,15 +176,16 @@ export default function TeacherAttemptDetailPage() {
                           <div className="text-sm">{a.ai_feedback}</div>
                         </div>
                       )}
-                      {a && (
-                        <ManualGrade
-                          initial={Number(a.marks_awarded || 0)}
-                          maxMark={Number(q.marks || 0)}
-                          saving={savingId === a.id}
-                          onSave={(m) => saveMark(a, m, Number(q.marks || 0))}
-                        />
-                      )}
                     </div>
+                  )}
+
+                  {a && (
+                    <ManualGrade
+                      initial={Number(a.marks_awarded || 0)}
+                      maxMark={Number(q.marks || 0)}
+                      saving={savingId === a.id}
+                      onSave={(m) => saveMark(a, m, Number(q.marks || 0))}
+                    />
                   )}
                 </CardContent>
               </Card>

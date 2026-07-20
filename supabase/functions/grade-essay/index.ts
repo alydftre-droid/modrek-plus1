@@ -179,34 +179,36 @@ serve(async (req) => {
       fallbackDelayMs: settings.fallback_delay_ms,
     });
 
-    if (!result.ok) return errorResponseFromStatus(result.status, corsHeaders);
-    const response = result.response;
-
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-
     const scores: Record<string, number> = {};
     const feedback: Record<string, string> = {};
 
-    if (toolCall) {
-      const parsed = JSON.parse(toolCall.function.arguments);
-      (parsed.results || []).forEach((r: any) => {
-        const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
-        const key = String(essayItem?.index ?? r.index);
-        scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
-        feedback[key] = r.feedback;
-      });
-    } else {
-      const content = String(data.choices?.[0]?.message?.content || "").replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-      if (content) {
-        const parsed = JSON.parse(content);
+    if (result.ok) {
+      const response = result.response;
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+
+      if (toolCall) {
+        const parsed = JSON.parse(toolCall.function.arguments);
         (parsed.results || []).forEach((r: any) => {
           const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
           const key = String(essayItem?.index ?? r.index);
           scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
           feedback[key] = r.feedback;
         });
+      } else {
+        const content = String(data.choices?.[0]?.message?.content || "").replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+        if (content) {
+          const parsed = JSON.parse(content);
+          (parsed.results || []).forEach((r: any) => {
+            const essayItem = effectiveEssays[r.index] || effectiveEssays.find((e: any) => e.index === r.index);
+            const key = String(essayItem?.index ?? r.index);
+            scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
+            feedback[key] = r.feedback;
+          });
+        }
       }
+    } else {
+      console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
     }
 
     effectiveEssays.forEach((item: any, index: number) => {
@@ -214,7 +216,7 @@ serve(async (req) => {
       if (scores[key] === undefined) {
         scores[key] = fallbackScore(item.studentAnswer, item.modelAnswer, Number(item.maxPoints || 0));
         feedback[key] = scores[key] > 0
-          ? "تم احتساب الدرجة بالتصحيح الاحتياطي حسب العناصر الصحيحة في الإجابة."
+          ? "تم احتساب الدرجة بتصحيح احتياطي ذكي حسب العناصر الصحيحة ومعنى الإجابة."
           : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.";
       }
     });

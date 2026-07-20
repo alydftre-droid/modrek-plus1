@@ -173,6 +173,9 @@ export function useModrekTrainingQuestionsForAttempt(attemptId: string | undefin
 export function useMyAttempts(examId?: string) {
   return useQuery({
     queryKey: ["my-attempts", examId || "all"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
@@ -190,6 +193,8 @@ export function useAttempt(attemptId: string | undefined) {
   return useQuery({
     queryKey: ["attempt", attemptId],
     enabled: !!attemptId,
+    staleTime: 0,
+    refetchOnMount: "always",
     queryFn: async () => {
       const { data, error } = await supabase.from("exam_attempts").select("*").eq("id", attemptId!).maybeSingle();
       if (error) throw error;
@@ -258,6 +263,8 @@ export function useSubmitAttempt() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attempts"] });
+      qc.invalidateQueries({ queryKey: ["attempt"] });
+      qc.invalidateQueries({ queryKey: ["attempt-answers"] });
       qc.invalidateQueries({ queryKey: ["exam-stats"] });
       qc.invalidateQueries({ queryKey: ["student-exams"] });
       qc.invalidateQueries({ queryKey: ["student-exam-catalog"] });
@@ -319,6 +326,9 @@ export function useAttemptAnswers(attemptId: string | undefined) {
   return useQuery({
     queryKey: ["attempt-answers", attemptId],
     enabled: !!attemptId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase.from("exam_answers").select("*").eq("attempt_id", attemptId!);
       if (error) throw error;
@@ -419,6 +429,9 @@ export function useExamAttempts(examId: string | undefined) {
   return useQuery({
     queryKey: ["exam-attempts", examId],
     enabled: !!examId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exam_attempts")
