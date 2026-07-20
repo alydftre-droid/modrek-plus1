@@ -123,11 +123,28 @@ export default function ExamSubmitPage() {
       let antiCheat = { tabSwitches: 0, reloads: 0 };
       try { antiCheat = { ...antiCheat, ...JSON.parse(localStorage.getItem(antiCheatKey) || "{}") }; } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
       const submitPayload = { attemptId: attemptIdForSubmit || null, tabSwitches: Number(antiCheat.tabSwitches || 0), fullscreenExits: Number(antiCheat.reloads || 0) };
+      console.debug("[exam-debug] ExamSubmitPage.beforeSubmit", {
+        student_id: user?.id || null,
+        exam_id: examId || null,
+        route_attempt_id: routeAttemptId || null,
+        persisted_attempt_id: persistedAttemptId || null,
+        active_attempt_id: activeAttemptId || null,
+        attempt_id_for_submit: attemptIdForSubmit || null,
+        attempt_status: attempt?.status || null,
+        answers_count: draftAnswers.length,
+        is_auto: isAuto,
+      });
       const res = isModrekTraining
         ? await submitTraining.mutateAsync({ ...submitPayload, attemptId: attemptIdForSubmit!, answers: draftAnswers })
         : await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
       if (res?.success) {
         const finalAttemptId = res.resolved_attempt_id || res.attempt_id || attemptIdForSubmit;
+        console.debug("[exam-debug] ExamSubmitPage.submitSuccess", {
+          student_id: user?.id || null,
+          exam_id: examId || null,
+          final_attempt_id: finalAttemptId || null,
+          response: res,
+        });
         if (!finalAttemptId) {
           toast.error("تم التسليم لكن تعذّر فتح النتيجة تلقائياً");
           navigate(`/student/exams/${examId}`, { replace: true });
@@ -149,6 +166,12 @@ export default function ExamSubmitPage() {
       }
     } catch (e: any) {
       submittingRef.current = false;
+      console.debug("[exam-debug] ExamSubmitPage.submitError", {
+        student_id: user?.id || null,
+        exam_id: examId || null,
+        attempt_id_for_submit: attemptIdForSubmit || null,
+        message: e?.message || String(e || ""),
+      });
       toast.error(e?.message || "خطأ في التسليم");
     }
   };
