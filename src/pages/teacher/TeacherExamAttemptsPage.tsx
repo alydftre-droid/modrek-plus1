@@ -61,7 +61,7 @@ export default function TeacherExamAttemptsPage() {
           ) : (
             <div className="space-y-2">
               {filtered.map((a: any) => (
-                <Card key={a.id} className="hover:shadow-md transition-all">
+                <Card key={a.id} className="hover:shadow-md transition-all cursor-pointer" onClick={() => navigate(`/teacher/exams/${examId}/attempts/${a.id}`)}>
                   <CardContent className="p-4 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-mudrik text-white flex items-center justify-center font-bold">
                       {(a.profiles?.full_name || "?")[0]}
@@ -79,6 +79,9 @@ export default function TeacherExamAttemptsPage() {
                     </div>
                     <Badge variant={a.passed ? "default" : "destructive"} className="text-base px-3">{a.percentage}%</Badge>
                     <Badge variant="outline">{a.status === "in_progress" ? "جاري" : a.status === "submitted" ? "ينتظر التصحيح" : "مصحح"}</Badge>
+                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); navigate(`/teacher/exams/${examId}/attempts/${a.id}`); }}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
                   </CardContent>
                 </Card>
               ))}

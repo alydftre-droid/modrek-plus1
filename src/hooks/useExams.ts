@@ -186,6 +186,18 @@ export function useMyAttempts(examId?: string) {
   });
 }
 
+export function useAttempt(attemptId: string | undefined) {
+  return useQuery({
+    queryKey: ["attempt", attemptId],
+    enabled: !!attemptId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("exam_attempts").select("*").eq("id", attemptId!).maybeSingle();
+      if (error) throw error;
+      return data as ExamAttempt | null;
+    },
+  });
+}
+
 export function useStartAttempt() {
   const qc = useQueryClient();
   return useMutation({
