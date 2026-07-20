@@ -1297,6 +1297,39 @@ export type Database = {
           },
         ]
       }
+      exam_attempt_debug_logs: {
+        Row: {
+          attempt_id: string | null
+          created_at: string
+          exam_id: string | null
+          id: string
+          payload: Json
+          stage: string
+          student_id: string | null
+          trace_id: string
+        }
+        Insert: {
+          attempt_id?: string | null
+          created_at?: string
+          exam_id?: string | null
+          id?: string
+          payload?: Json
+          stage: string
+          student_id?: string | null
+          trace_id?: string
+        }
+        Update: {
+          attempt_id?: string | null
+          created_at?: string
+          exam_id?: string | null
+          id?: string
+          payload?: Json
+          stage?: string
+          student_id?: string | null
+          trace_id?: string
+        }
+        Relationships: []
+      }
       exam_attempts: {
         Row: {
           attempt_number: number
@@ -6341,6 +6374,16 @@ export type Database = {
       library_track_display_name: { Args: { _code: string }; Returns: string }
       library_track_sort_order: { Args: { _code: string }; Returns: number }
       library_worker_heartbeat: { Args: never; Returns: undefined }
+      log_exam_attempt_debug: {
+        Args: {
+          _attempt_id?: string
+          _exam_id?: string
+          _payload?: Json
+          _stage: string
+          _student_id?: string
+        }
+        Returns: undefined
+      }
       log_library_processing_event: {
         Args: {
           _book_id: string

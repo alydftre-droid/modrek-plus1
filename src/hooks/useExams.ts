@@ -221,8 +221,21 @@ export function useStartAttempt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (examId: string) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.debug("[exam-debug] startExam.beforeRpc", {
+        student_id: sessionData.session?.user?.id || null,
+        exam_id: examId,
+      });
       const { data, error } = await supabase.rpc("start_exam_attempt", { _exam_id: examId } as any);
       if (error) throw error;
+      console.debug("[exam-debug] startExam.afterRpc", {
+        student_id: sessionData.session?.user?.id || null,
+        exam_id: examId,
+        attempt_id: (data as any)?.attempt_id || null,
+        created_at: (data as any)?.created_at || null,
+        status: (data as any)?.status || null,
+        response: data,
+      });
       return data as any;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["my-attempts"] }),
@@ -249,6 +262,14 @@ export function useSaveAnswer() {
       timeSpent?: number;
       flagged?: boolean;
     }) => {
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.debug("[exam-debug] saveAnswer.beforeRpc", {
+        student_id: sessionData.session?.user?.id || null,
+        attempt_id: params.attemptId,
+        question_id: params.questionId,
+        selected_count: params.selectedOptionIds?.length || 0,
+        has_text: Boolean(params.answerText && params.answerText.trim()),
+      });
       const { data, error } = await supabase.rpc("save_exam_answer", {
         _attempt_id: params.attemptId,
         _question_id: params.questionId,
@@ -258,6 +279,12 @@ export function useSaveAnswer() {
         _flagged: params.flagged || false,
       } as any);
       if (error) throw error;
+      console.debug("[exam-debug] saveAnswer.afterRpc", {
+        student_id: sessionData.session?.user?.id || null,
+        attempt_id: params.attemptId,
+        question_id: params.questionId,
+        response: data,
+      });
       if ((data as any)?.success === false) throw new Error((data as any)?.error || "تعذّر حفظ الإجابة");
       return data;
     },
@@ -279,21 +306,31 @@ export function useSubmitAttempt() {
       tabSwitches?: number;
       fullscreenExits?: number;
     }) => {
-      const hasResilientPayload = Boolean(params.examId) || Boolean(params.answers?.length);
-      const { data, error } = hasResilientPayload
-        ? await supabase.rpc("submit_exam_attempt_resilient", {
-            _exam_id: params.examId || null,
-            _attempt_id: params.attemptId || null,
-            _answers: params.answers || [],
-            _tab_switches: params.tabSwitches || 0,
-            _fullscreen_exits: params.fullscreenExits || 0,
-          } as any)
-        : await supabase.rpc("submit_exam_attempt", {
-            _attempt_id: params.attemptId,
-            _tab_switches: params.tabSwitches || 0,
-            _fullscreen_exits: params.fullscreenExits || 0,
-          } as any);
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!params.examId) {
+        throw new Error("بيانات الامتحان غير مكتملة — لا يمكن التسليم بدون معرف الامتحان");
+      }
+      console.debug("[exam-debug] submitExam.beforeRpc", {
+        student_id: sessionData.session?.user?.id || null,
+        attempt_id: params.attemptId || null,
+        exam_id: params.examId || null,
+        answers_count: params.answers?.length || 0,
+        rpc: "submit_exam_attempt_resilient",
+      });
+      const { data, error } = await supabase.rpc("submit_exam_attempt_resilient", {
+        _exam_id: params.examId,
+        _attempt_id: params.attemptId || null,
+        _answers: params.answers || [],
+        _tab_switches: params.tabSwitches || 0,
+        _fullscreen_exits: params.fullscreenExits || 0,
+      } as any);
       if (error) throw error;
+      console.debug("[exam-debug] submitExam.afterRpc", {
+        student_id: sessionData.session?.user?.id || null,
+        attempt_id: params.attemptId || null,
+        exam_id: params.examId || null,
+        response: data,
+      });
       if ((data as any)?.success === false) throw new Error((data as any)?.error || "تعذّر تسليم الامتحان");
       return data as any;
     },

@@ -61,6 +61,13 @@ export default function ExamDetailPage() {
 
   const handleStart = async () => {
     try {
+      console.debug("[exam-debug] ExamDetailPage.startClick", {
+        student_id: user?.id || null,
+        exam_id: examId || null,
+        in_progress_attempt_id: inProgress?.id || null,
+        in_progress_created_at: (inProgress as any)?.created_at || null,
+        in_progress_status: inProgress?.status || null,
+      });
       if (isModrekTraining) {
         const res = await startModrek.mutateAsync({ examId: examId!, attemptId: trainingAttemptId });
         if (res?.redirect_to_review && res?.attempt_id) {
@@ -77,6 +84,14 @@ export default function ExamDetailPage() {
         const res = await start.mutateAsync(examId!);
         if (!res?.success) { toast.error(res?.error || "تعذّر بدء الامتحان"); return; }
         attemptIdToUse = res.attempt_id;
+      }
+      if (attemptIdToUse) {
+        console.debug("[exam-debug] ExamDetailPage.startResolved", {
+          student_id: user?.id || null,
+          exam_id: examId || null,
+          attempt_id: attemptIdToUse,
+        });
+        try { localStorage.setItem(`exam-active-attempt-${examId}`, attemptIdToUse); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
       }
       navigate(`/student/exams/${examId}/take${attemptIdToUse ? `?attempt=${attemptIdToUse}` : ""}`);
     } catch (e: any) {

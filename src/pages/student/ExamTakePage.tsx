@@ -93,6 +93,13 @@ export default function ExamTakePage() {
           return;
         }
         if (res.attempt_id) {
+          console.debug("[exam-debug] ExamTakePage.startAttempt.persist", {
+            student_id: user?.id || null,
+            exam_id: examId,
+            attempt_id: res.attempt_id,
+            created_at: res.created_at || null,
+            status: res.status || null,
+          });
           try { localStorage.setItem(`exam-active-attempt-${examId}`, res.attempt_id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
           navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id}`, { replace: true });
         }
@@ -157,8 +164,15 @@ export default function ExamTakePage() {
 
   useEffect(() => {
     if (!examId || !attempt?.id || attempt.status !== "in_progress") return;
+    console.debug("[exam-debug] ExamTakePage.activeAttempt.persist", {
+      student_id: user?.id || null,
+      exam_id: examId,
+      attempt_id: attempt.id,
+      created_at: attempt.created_at,
+      status: attempt.status,
+    });
     try { localStorage.setItem(`exam-active-attempt-${examId}`, attempt.id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-  }, [examId, attempt?.id, attempt?.status]);
+  }, [examId, attempt?.id, attempt?.status, attempt?.created_at, user?.id]);
 
   // Timer
   useEffect(() => {
@@ -352,6 +366,14 @@ export default function ExamTakePage() {
         const answer = value as AnswerState;
         return answer.selectedOptionIds?.length > 0 || String(answer.answerText || "").trim().length > 0 || (answer.matrix && Object.keys(answer.matrix).length > 0);
       });
+      console.debug("[exam-debug] ExamTakePage.beforeSubmitNavigation", {
+        student_id: user?.id || null,
+        exam_id: examId,
+        attempt_id: attempt.id,
+        attempt_status: attempt.status,
+        route_attempt_id: routeAttemptId,
+        draft_answers_count: draftEntries.length,
+      });
       await Promise.all(draftEntries.map(([qId, answer]) => saveAnswer.mutateAsync({
         attemptId: attempt.id,
         questionId: qId,
@@ -359,7 +381,14 @@ export default function ExamTakePage() {
         answerText: answer.matrix ? JSON.stringify(answer.matrix) : (answer.answerText || ""),
         flagged: answer.flagged,
       })));
-      navigate(buildSubmitUrl(false));
+      const submitUrl = buildSubmitUrl(false);
+      console.debug("[exam-debug] ExamTakePage.navigateSubmit", {
+        student_id: user?.id || null,
+        exam_id: examId,
+        attempt_id: attempt.id,
+        submit_url: submitUrl,
+      });
+      navigate(submitUrl);
     } catch (error: any) {
       setLeavingToSubmit(false);
       if (isRecoverableAttemptError(error)) {
