@@ -132,6 +132,7 @@ export default function ExamSubmitPage() {
   const [profile, setProfile] = useState<{ full_name?: string; grade?: string } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitDiagnostic, setSubmitDiagnostic] = useState<SubmitDiagnostic | null>(null);
+  const [isSubmittingNow, setIsSubmittingNow] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const autoFiredRef = useRef(false);
   const submittingRef = useRef(false);
@@ -207,7 +208,14 @@ export default function ExamSubmitPage() {
     const attemptIdForSubmit = (attempt?.status === "in_progress" ? attempt.id : undefined) || activeAttemptId;
     if (!examId) return;
     if (submittingRef.current) return;
+    if (attempt?.id && attempt.status !== "in_progress") {
+      clearStaleAttemptContext();
+      toast.info("تم تسليم هذا الامتحان بالفعل — جاري فتح النتيجة");
+      navigate(`/student/exams/${examId}/result/${attempt.id}`, { replace: true });
+      return;
+    }
     submittingRef.current = true;
+    setIsSubmittingNow(true);
     setConfirmOpen(false);
     setSubmitDiagnostic(null);
     try {
@@ -267,10 +275,12 @@ export default function ExamSubmitPage() {
         const diagnostic = buildSubmitDiagnostic({ response: res, context: diagnosticContext });
         setSubmitDiagnostic(diagnostic);
         submittingRef.current = false;
+        setIsSubmittingNow(false);
         toast.error(diagnostic.title);
       }
     } catch (e: any) {
       submittingRef.current = false;
+      setIsSubmittingNow(false);
       const diagnostic = buildSubmitDiagnostic({
         error: e,
         context: {
@@ -430,12 +440,12 @@ export default function ExamSubmitPage() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={() => setConfirmOpen(true)}
-              disabled={submit.isPending}
+              disabled={submit.isPending || isSubmittingNow}
               className="h-12 rounded-xl text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-[0_10px_22px_-8px_rgba(109,74,255,0.6)] disabled:opacity-60 active:scale-[0.99] transition"
               style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
             >
               <Send className="h-4 w-4" />
-              تسليم الامتحان الآن
+              {submit.isPending || isSubmittingNow ? "جاري التسليم..." : "تسليم الامتحان الآن"}
             </button>
             <button
               onClick={() => navigate(takeUrl)}
@@ -471,12 +481,12 @@ export default function ExamSubmitPage() {
               <button onClick={() => setConfirmOpen(false)} className="flex-1 h-11 rounded-xl border border-[#E5E1F2] text-[#3F3F4A] font-semibold text-[13px]">إلغاء</button>
               <button
                 onClick={() => doSubmit(false)}
-                disabled={submit.isPending}
+                disabled={submit.isPending || isSubmittingNow}
                 className="flex-1 h-11 rounded-xl text-white font-bold text-[13px] flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
               >
                 <Send className="h-4 w-4" />
-                تأكيد التسليم
+                {submit.isPending || isSubmittingNow ? "جاري التسليم..." : "تأكيد التسليم"}
               </button>
             </div>
           </div>
