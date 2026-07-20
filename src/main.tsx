@@ -22,6 +22,7 @@ initCapacitor();
   try {
     if (window.localStorage.getItem("mp-ui-buster") !== liveUiBuster) {
       window.localStorage.removeItem("mp-rq-cache-v1");
+      window.localStorage.removeItem("mp-rq-cache-v2");
       window.localStorage.setItem("mp-ui-buster", liveUiBuster);
     }
   } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }

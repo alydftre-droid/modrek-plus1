@@ -32,12 +32,13 @@ export default function ExamSubmitPage() {
     try { return localStorage.getItem(`exam-active-attempt-${examId}`); } catch { return null; }
   }, [routeAttemptId, examId]);
   const inProgressAttempt = attempts.find(a => a.status === "in_progress");
-  const cachedAttempt = persistedAttemptId
-    ? attempts.find(a => a.id === persistedAttemptId) || inProgressAttempt
-    : inProgressAttempt;
+  const persistedAttempt = persistedAttemptId ? attempts.find(a => a.id === persistedAttemptId) : undefined;
+  const cachedAttempt = persistedAttempt?.status === "in_progress"
+    ? persistedAttempt
+    : inProgressAttempt || persistedAttempt;
   const { data: fetchedAttempt, isLoading: attemptLookupLoading } = useAttempt(persistedAttemptId && !cachedAttempt ? persistedAttemptId : undefined);
   const attempt = cachedAttempt || ((fetchedAttempt as any)?.status === "in_progress" ? fetchedAttempt as any : null) || (fetchedAttempt as any) || null;
-  const activeAttemptId = attempt?.id || persistedAttemptId || undefined;
+  const activeAttemptId = (attempt?.status === "in_progress" ? attempt.id : undefined) || inProgressAttempt?.id || persistedAttemptId || undefined;
   const trainingAttemptId = isModrekTraining ? activeAttemptId : undefined;
   const { data: regularQuestions = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
   const { data: trainingQuestions = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
@@ -104,7 +105,7 @@ export default function ExamSubmitPage() {
   }, [auto, attempt]);
 
   const doSubmit = async (isAuto = false) => {
-    const attemptIdForSubmit = attempt?.id || activeAttemptId;
+    const attemptIdForSubmit = (attempt?.status === "in_progress" ? attempt.id : undefined) || activeAttemptId;
     if (!attemptIdForSubmit && (isModrekTraining || !examId)) return;
     if (submittingRef.current) return;
     submittingRef.current = true;

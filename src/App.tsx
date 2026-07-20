@@ -16,6 +16,7 @@ import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
+import { DATA_SCHEMA_VERSION } from "@/lib/dataIntegrity/cacheVersion";
 import { useIntegrityGuard } from "@/lib/dataIntegrity/useIntegrityGuard";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "react-router-dom";
@@ -166,7 +167,7 @@ const queryPersister = (() => {
     if (typeof window === "undefined") return null;
     return createSyncStoragePersister({
       storage: window.localStorage,
-      key: "mp-rq-cache-v2",
+      key: "mp-rq-cache-v3",
       throttleTime: 1500,
     });
   } catch {
@@ -438,7 +439,7 @@ function App() {
       persistOptions={{
         persister: queryPersister,
         maxAge: 24 * 60 * 60_000,
-        buster: (import.meta as any).env?.VITE_APP_VERSION || "wave5-integrity-20260714",
+        buster: (import.meta as any).env?.VITE_APP_VERSION || DATA_SCHEMA_VERSION,
         dehydrateOptions: {
           // Wave-4 guard: never persist auth-sensitive keys, never persist
           // live-critical keys (wallet/subs/notifications), and never persist
