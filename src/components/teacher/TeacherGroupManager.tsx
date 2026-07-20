@@ -315,7 +315,15 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       return row.education_type === effectiveEducationType;
     });
 
+    // Prefer the most recently updated price so any developer change on the
+    // subscriptions page (whether at category level or subject level) wins
+    // immediately over older, more specific rows. Specificity is only used
+    // as a tiebreaker when timestamps match.
     const bestPrice = matchingPrices.sort((a, b) => {
+      const aTime = new Date(a.updated_at || 0).getTime();
+      const bTime = new Date(b.updated_at || 0).getTime();
+      if (aTime !== bTime) return bTime - aTime;
+
       const aSubject = a.subject_name === subjectInfo.name ? 1 : 0;
       const bSubject = b.subject_name === subjectInfo.name ? 1 : 0;
       if (aSubject !== bSubject) return bSubject - aSubject;
@@ -326,10 +334,9 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
       const aEducation = a.education_type === effectiveEducationType ? 1 : 0;
       const bEducation = b.education_type === effectiveEducationType ? 1 : 0;
-      if (aEducation !== bEducation) return bEducation - aEducation;
-
-      return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+      return bEducation - aEducation;
     })[0];
+
 
     setDefaultPrice(Number(bestPrice?.price) || legacyPrice);
     setDefaultEducationType(teacherEducationType);
