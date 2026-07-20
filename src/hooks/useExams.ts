@@ -449,11 +449,138 @@ export function useExamAttempts(examId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("exam_attempts")
-        .select("*, profiles!exam_attempts_student_id_fkey(full_name, student_code)")
+        .select("*")
         .eq("exam_id", examId!)
         .order("submitted_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as any[];
+      const rows = (data || []) as any[];
+      const studentIds = [...new Set(rows.map((row) => row.student_id).filter(Boolean))];
+      if (studentIds.length === 0) return rows;
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, student_code, avatar_url")
+        .in("id", studentIds);
+      const profilesById = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+      return rows.map((row) => ({ ...row, profiles: profilesById.get(row.student_id) || null }));
+    },
+  });
+}
+
+export function useTeacherExamRoster(examId: string | undefined) {
+  return useQuery({
+    queryKey: ["teacher-exam-roster", examId],
+    enabled: !!examId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const { data: rpcRoster, error: rpcError } = await (supabase as any).rpc("get_teacher_exam_roster", { _exam_id: examId! });
+      if (!rpcError && rpcRoster) return rpcRoster as any;
+
+      const { data: exam, error: examError } = await supabase
+        .from("exams")
+        .select("id, group_id, title, total_marks, pass_marks, duration_minutes")
+        .eq("id", examId!)
+        .maybeSingle();
+      if (examError) throw examError;
+
+      const [{ data: attempts, error: attemptsError }, { data: purchases, error: purchasesError }] = await Promise.all([
+        supabase
+          .from("exam_attempts")
+          .select("*")
+          .eq("exam_id", examId!)
+          .order("started_at", { ascending: false }),
+        exam?.group_id
+          ? supabase
+              .from("student_group_purchases")
+              .select("student_id, purchased_at, group_id")
+              .eq("group_id", exam.group_id)
+          : Promise.resolve({ data: [], error: null } as any),
+      ]);
+      if (attemptsError) throw attemptsError;
+      if (purchasesError) throw purchasesError;
+
+      const attemptRows = (attempts || []) as any[];
+      const purchaseRows = (purchases || []) as any[];
+      const studentIds = [
+        ...new Set([
+          ...purchaseRows.map((row: any) => row.student_id),
+          ...attemptRows.map((row: any) => row.student_id),
+        ].filter(Boolean)),
+      ];
+
+      const [{ data: profiles }, { data: answerRows }] = await Promise.all([
+        studentIds.length
+          ? supabase
+              .from("profiles")
+              .select("id, full_name, student_code, avatar_url")
+              .in("id", studentIds)
+          : Promise.resolve({ data: [] } as any),
+        attemptRows.length
+          ? supabase
+              .from("exam_answers")
+              .select("attempt_id, answer_text, selected_option_ids, marks_awarded")
+              .in("attempt_id", attemptRows.map((row: any) => row.id))
+          : Promise.resolve({ data: [] } as any),
+      ]);
+
+      const profilesById = new Map((profiles || []).map((profile: any) => [profile.id, profile]));
+      const purchasesByStudent = new Map(purchaseRows.map((row: any) => [row.student_id, row]));
+      const answersByAttempt = new Map<string, { answered: number; marks: number }>();
+      (answerRows || []).forEach((answer: any) => {
+        const prev = answersByAttempt.get(answer.attempt_id) || { answered: 0, marks: 0 };
+        const hasText = String(answer.answer_text || "").trim().length > 0;
+        const hasChoice = Array.isArray(answer.selected_option_ids) && answer.selected_option_ids.length > 0;
+        answersByAttempt.set(answer.attempt_id, {
+          answered: prev.answered + (hasText || hasChoice ? 1 : 0),
+          marks: prev.marks + Number(answer.marks_awarded || 0),
+        });
+      });
+
+      const attemptsByStudent = new Map<string, any[]>();
+      attemptRows.forEach((attempt: any) => {
+        attemptsByStudent.set(attempt.student_id, [...(attemptsByStudent.get(attempt.student_id) || []), attempt]);
+      });
+
+      const completedStatuses = new Set(["submitted", "graded", "expired"]);
+      const rows = studentIds.map((studentId) => {
+        const studentAttempts = attemptsByStudent.get(studentId) || [];
+        const completed = studentAttempts.find((attempt) => completedStatuses.has(attempt.status) || attempt.submitted_at);
+        const active = studentAttempts.find((attempt) => attempt.status === "in_progress");
+        const selectedAttempt = completed || active || null;
+        const answerSummary = selectedAttempt ? answersByAttempt.get(selectedAttempt.id) : null;
+        const solved = !!completed;
+        return {
+          student_id: studentId,
+          profile: profilesById.get(studentId) || null,
+          purchase: purchasesByStudent.get(studentId) || null,
+          subscribed: purchasesByStudent.has(studentId),
+          attempt: selectedAttempt,
+          attempts_count: studentAttempts.length,
+          solved,
+          in_progress: !solved && !!active,
+          absent: !solved,
+          answered_count: answerSummary?.answered || 0,
+          marks_total: answerSummary?.marks || Number(selectedAttempt?.total_score || 0),
+        };
+      });
+
+      const solvedRows = rows.filter((row) => row.solved);
+      const percentages = solvedRows.map((row) => Number(row.attempt?.percentage || 0));
+      return {
+        exam,
+        rows,
+        stats: {
+          enrolled: purchaseRows.length || rows.length,
+          solved: solvedRows.length,
+          absent: rows.filter((row) => row.absent).length,
+          inProgress: rows.filter((row) => row.in_progress).length,
+          average: percentages.length ? Math.round(percentages.reduce((sum, pct) => sum + pct, 0) / percentages.length) : 0,
+          highest: percentages.length ? Math.round(Math.max(...percentages)) : 0,
+          passCount: solvedRows.filter((row) => row.attempt?.passed).length,
+        },
+      } as any;
     },
   });
 }
