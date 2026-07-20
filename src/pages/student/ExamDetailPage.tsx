@@ -76,6 +76,17 @@ export default function ExamDetailPage() {
           return;
         }
         if (!res?.success) { toast.error(res?.error || "تعذّر بدء التدريب"); return; }
+        if (res.attempt_id) {
+          console.debug("[exam-debug] ExamDetailPage.trainingStartResolved", {
+            student_id: user?.id || null,
+            exam_id: examId || null,
+            attempt_id: res.attempt_id,
+          });
+          try {
+            localStorage.setItem(`exam-active-attempt-${examId}-${user?.id}`, res.attempt_id);
+            localStorage.removeItem(`exam-active-attempt-${examId}`);
+          } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+        }
         navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id || trainingAttemptId}`);
         return;
       }
@@ -91,7 +102,10 @@ export default function ExamDetailPage() {
           exam_id: examId || null,
           attempt_id: attemptIdToUse,
         });
-        try { localStorage.setItem(`exam-active-attempt-${examId}`, attemptIdToUse); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+        try {
+          localStorage.setItem(`exam-active-attempt-${examId}-${user?.id}`, attemptIdToUse);
+          localStorage.removeItem(`exam-active-attempt-${examId}`);
+        } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
       }
       navigate(`/student/exams/${examId}/take${attemptIdToUse ? `?attempt=${attemptIdToUse}` : ""}`);
     } catch (e: any) {

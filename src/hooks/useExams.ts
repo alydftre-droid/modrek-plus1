@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
-import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction, submitModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
+import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
 type StudentExamVisibilityProfile = { section?: string | null; education_type?: string | null } | null;
@@ -291,6 +291,64 @@ export function useSaveAnswer() {
   });
 }
 
+async function submitAttemptResilient(params: {
+  attemptId?: string | null;
+  examId?: string | null;
+  answers?: Array<{
+    questionId: string;
+    selectedOptionIds?: string[];
+    answerText?: string | null;
+    flagged?: boolean;
+  }>;
+  tabSwitches?: number;
+  fullscreenExits?: number;
+  source?: string;
+}) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!params.examId) {
+    throw new Error("بيانات الامتحان غير مكتملة — لا يمكن التسليم بدون معرف الامتحان");
+  }
+  console.debug("[exam-debug] submitExam.beforeRpc", {
+    student_id: sessionData.session?.user?.id || null,
+    attempt_id: params.attemptId || null,
+    exam_id: params.examId || null,
+    answers_count: params.answers?.length || 0,
+    source: params.source || "standard",
+    rpc: "submit_exam_attempt_resilient",
+  });
+  const { data, error } = await supabase.rpc("submit_exam_attempt_resilient", {
+    _exam_id: params.examId,
+    _attempt_id: params.attemptId || null,
+    _answers: params.answers || [],
+    _tab_switches: params.tabSwitches || 0,
+    _fullscreen_exits: params.fullscreenExits || 0,
+  } as any);
+  if (error) {
+    console.debug("[exam-debug] submitExam.rpcError", {
+      student_id: sessionData.session?.user?.id || null,
+      attempt_id: params.attemptId || null,
+      exam_id: params.examId || null,
+      source: params.source || "standard",
+      error,
+    });
+    throw error;
+  }
+  console.debug("[exam-debug] submitExam.afterRpc", {
+    student_id: sessionData.session?.user?.id || null,
+    attempt_id: params.attemptId || null,
+    exam_id: params.examId || null,
+    source: params.source || "standard",
+    response: data,
+  });
+  if ((data as any)?.success === false) {
+    const err: any = new Error((data as any)?.error || "تعذّر تسليم الامتحان");
+    err.code = (data as any)?.code;
+    err.response = data;
+    throw err;
+  }
+  return data as any;
+}
+
 export function useSubmitAttempt() {
   const qc = useQueryClient();
   return useMutation({
@@ -306,38 +364,7 @@ export function useSubmitAttempt() {
       tabSwitches?: number;
       fullscreenExits?: number;
     }) => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!params.examId) {
-        throw new Error("بيانات الامتحان غير مكتملة — لا يمكن التسليم بدون معرف الامتحان");
-      }
-      console.debug("[exam-debug] submitExam.beforeRpc", {
-        student_id: sessionData.session?.user?.id || null,
-        attempt_id: params.attemptId || null,
-        exam_id: params.examId || null,
-        answers_count: params.answers?.length || 0,
-        rpc: "submit_exam_attempt_resilient",
-      });
-      const { data, error } = await supabase.rpc("submit_exam_attempt_resilient", {
-        _exam_id: params.examId,
-        _attempt_id: params.attemptId || null,
-        _answers: params.answers || [],
-        _tab_switches: params.tabSwitches || 0,
-        _fullscreen_exits: params.fullscreenExits || 0,
-      } as any);
-      if (error) throw error;
-      console.debug("[exam-debug] submitExam.afterRpc", {
-        student_id: sessionData.session?.user?.id || null,
-        attempt_id: params.attemptId || null,
-        exam_id: params.examId || null,
-        response: data,
-      });
-      if ((data as any)?.success === false) {
-        const err: any = new Error((data as any)?.error || "تعذّر تسليم الامتحان");
-        err.code = (data as any)?.code;
-        err.response = data;
-        throw err;
-      }
-      return data as any;
+      return submitAttemptResilient({ ...params, source: "standard" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attempts"] });
@@ -357,7 +384,7 @@ export function useSubmitModrekTrainingAttempt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: {
-      attemptId: string;
+      attemptId?: string | null;
       examId?: string | null;
       answers?: Array<{
         questionId: string;
@@ -368,7 +395,7 @@ export function useSubmitModrekTrainingAttempt() {
       tabSwitches?: number;
       fullscreenExits?: number;
     }) => {
-      return await submitModrekTrainingAttemptViaFunction(params);
+      return submitAttemptResilient({ ...params, source: "modrek-training" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-attempts"] });
