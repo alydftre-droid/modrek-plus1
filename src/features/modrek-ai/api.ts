@@ -128,6 +128,7 @@ export async function loadModrekTrainingQuestionsViaFunction(attemptId: string):
 
 export async function submitModrekTrainingAttemptViaFunction(input: {
   attemptId: string;
+  examId?: string | null;
   answers?: Array<{
     questionId: string;
     selectedOptionIds?: string[];
@@ -149,6 +150,7 @@ export async function submitModrekTrainingAttemptViaFunction(input: {
     body: {
       action: "submit-training-attempt",
       attemptId: input.attemptId,
+      examId: input.examId || null,
       answers: input.answers || [],
       tabSwitches: input.tabSwitches || 0,
       fullscreenExits: input.fullscreenExits || 0,

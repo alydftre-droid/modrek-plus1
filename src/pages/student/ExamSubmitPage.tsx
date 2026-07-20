@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useSubmitModrekTrainingAttempt, useAttempt } from "@/hooks/useExams";
+import { useExam, useStudentExamQuestions, useModrekTrainingQuestionsForAttempt, useMyAttempts, useSubmitAttempt, useAttempt } from "@/hooks/useExams";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   BookOpen, Star, Clock, User, LogOut as ExitIcon,
@@ -23,7 +23,6 @@ export default function ExamSubmitPage() {
   const { data: exam, isLoading: examLoading } = useExam(examId);
   const { data: attempts = [] } = useMyAttempts(examId);
   const submit = useSubmitAttempt();
-  const submitTraining = useSubmitModrekTrainingAttempt();
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
   const persistedAttemptId = useMemo(() => {
@@ -106,7 +105,7 @@ export default function ExamSubmitPage() {
 
   const doSubmit = async (isAuto = false) => {
     const attemptIdForSubmit = (attempt?.status === "in_progress" ? attempt.id : undefined) || activeAttemptId;
-    if (!attemptIdForSubmit && (isModrekTraining || !examId)) return;
+    if (!examId) return;
     if (submittingRef.current) return;
     submittingRef.current = true;
     setConfirmOpen(false);
@@ -134,9 +133,7 @@ export default function ExamSubmitPage() {
         answers_count: draftAnswers.length,
         is_auto: isAuto,
       });
-      const res = isModrekTraining
-        ? await submitTraining.mutateAsync({ ...submitPayload, attemptId: attemptIdForSubmit!, answers: draftAnswers })
-        : await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
+      const res = await submit.mutateAsync({ ...submitPayload, examId: examId!, answers: draftAnswers });
       if (res?.success) {
         const finalAttemptId = res.resolved_attempt_id || res.attempt_id || attemptIdForSubmit;
         console.debug("[exam-debug] ExamSubmitPage.submitSuccess", {
@@ -280,7 +277,7 @@ export default function ExamSubmitPage() {
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               onClick={() => setConfirmOpen(true)}
-              disabled={submit.isPending || submitTraining.isPending}
+              disabled={submit.isPending}
               className="h-12 rounded-xl text-white font-bold text-[14px] flex items-center justify-center gap-2 shadow-[0_10px_22px_-8px_rgba(109,74,255,0.6)] disabled:opacity-60 active:scale-[0.99] transition"
               style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
             >
@@ -321,7 +318,7 @@ export default function ExamSubmitPage() {
               <button onClick={() => setConfirmOpen(false)} className="flex-1 h-11 rounded-xl border border-[#E5E1F2] text-[#3F3F4A] font-semibold text-[13px]">إلغاء</button>
               <button
                 onClick={() => doSubmit(false)}
-                disabled={submit.isPending || submitTraining.isPending}
+                disabled={submit.isPending}
                 className="flex-1 h-11 rounded-xl text-white font-bold text-[13px] flex items-center justify-center gap-2"
                 style={{ background: `linear-gradient(135deg, ${PURPLE} 0%, #8B5CFF 100%)` }}
               >
