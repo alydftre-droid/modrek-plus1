@@ -1,12 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useExam, useExamQuestions, useAttemptAnswers, useAttempt } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, CheckCircle2, XCircle, Sparkles, Save } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, Sparkles, Save, UserRound, Trophy, FileText, Clock } from "lucide-react";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,8 +20,21 @@ export default function TeacherAttemptDetailPage() {
   const { data: attempt, refetch: refetchAttempt } = useAttempt(attemptId);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [aiRunning, setAiRunning] = useState(false);
+  const [studentProfile, setStudentProfile] = useState<any>(null);
 
   const answerByQ = new Map(answers.map((a: any) => [a.question_id, a]));
+  const questionCount = questions.filter((q: any) => q.question_type !== "section").length;
+  const answeredCount = answers.filter((a: any) => String(a.answer_text || "").trim() || (Array.isArray(a.selected_option_ids) && a.selected_option_ids.length > 0)).length;
+
+  useEffect(() => {
+    if (!attempt?.student_id) return;
+    supabase
+      .from("profiles")
+      .select("id, full_name, student_code, avatar_url")
+      .eq("id", attempt.student_id)
+      .maybeSingle()
+      .then(({ data }) => setStudentProfile(data || null));
+  }, [attempt?.student_id]);
 
   const runAiGrade = async () => {
     if (!attemptId) return;
@@ -77,27 +90,41 @@ export default function TeacherAttemptDetailPage() {
 
   return (
     <TeacherSidebarLayout title="مراجعة المحاولة">
-      <div className="container max-w-3xl mx-auto p-4 space-y-4">
+      <div className="container max-w-5xl mx-auto p-4 space-y-5 pb-24">
         <div className="flex items-center justify-between gap-2">
-          <Button variant="ghost" onClick={() => navigate(`/teacher/exams/${examId}/attempts`)}>
-            <ArrowRight className="h-4 w-4 ml-1" />رجوع للمحاولات
+          <Button variant="ghost" onClick={() => navigate(`/teacher/exams/${examId}/attempts`)} className="gap-1">
+            <ArrowRight className="h-4 w-4" />رجوع للإحصائيات
           </Button>
           <Button onClick={runAiGrade} disabled={aiRunning} className="gap-1">
             <Sparkles className="h-4 w-4" />{aiRunning ? "جاري التصحيح..." : "تصحيح ذكي للأسئلة المقالية"}
           </Button>
         </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <h1 className="text-lg font-extrabold">{exam?.title}</h1>
-            <p className="text-sm text-muted-foreground">
-              الدرجة: <span className="font-bold">{attempt?.total_score ?? 0} / {attempt?.max_score ?? exam?.total_marks ?? 0}</span>
-              {" "}({attempt?.percentage ?? 0}%)
-              {" — "}
-              الحالة: {attempt?.status === "graded" ? "مصحح" : attempt?.status === "submitted" ? "ينتظر التصحيح" : "جاري"}
-            </p>
-          </CardContent>
-        </Card>
+        <section className="rounded-3xl border bg-card overflow-hidden shadow-sm">
+          <div className="bg-primary/10 p-5 md:p-7 space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="space-y-3">
+                <Badge variant="secondary" className="w-fit gap-1"><UserRound className="h-3 w-3" />مراجعة إجابة طالب</Badge>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-normal">{studentProfile?.full_name || "طالب"}</h1>
+                  <p className="text-sm text-muted-foreground mt-1">{exam?.title} {studentProfile?.student_code ? `• كود ${studentProfile.student_code}` : ""}</p>
+                </div>
+              </div>
+              <div className="rounded-2xl border bg-background/80 p-4 min-w-[180px]">
+                <div className="text-xs text-muted-foreground mb-1">الدرجة النهائية</div>
+                <div className="text-4xl font-black text-primary">{attempt?.percentage ?? 0}%</div>
+                <div className="text-sm text-muted-foreground mt-1">{attempt?.total_score ?? 0} / {attempt?.max_score ?? exam?.total_marks ?? 0}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <ReviewMetric icon={<Trophy className="h-5 w-5" />} label="الدرجة" value={`${attempt?.total_score ?? 0}/${attempt?.max_score ?? exam?.total_marks ?? 0}`} />
+          <ReviewMetric icon={<FileText className="h-5 w-5" />} label="الإجابات" value={`${answeredCount}/${questionCount}`} />
+          <ReviewMetric icon={<Clock className="h-5 w-5" />} label="الوقت" value={`${Math.floor(Number(attempt?.time_spent_seconds || 0) / 60)} د`} />
+          <ReviewMetric icon={<CheckCircle2 className="h-5 w-5" />} label="الحالة" value={attempt?.status === "graded" ? "مصحح" : attempt?.status === "submitted" ? "تم التسليم" : "جاري"} />
+        </div>
 
         {(() => {
           const nodes: JSX.Element[] = [];
@@ -129,7 +156,7 @@ export default function TeacherAttemptDetailPage() {
                     </div>
                     <Badge variant="outline">{Number(a?.marks_awarded || 0)} / {q.marks}</Badge>
                   </div>
-                  <p className="font-bold whitespace-pre-wrap">{q.question_text}</p>
+                  <p className="font-black whitespace-pre-wrap leading-8">{q.question_text}</p>
 
                   {(q.question_type === "mcq" || q.question_type === "true_false") && (
                     <div className="space-y-2">
@@ -171,8 +198,8 @@ export default function TeacherAttemptDetailPage() {
                         </div>
                       )}
                       {a?.ai_feedback && (
-                        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                          <div className="text-xs text-blue-700 mb-1">ملاحظات الذكاء الاصطناعي:</div>
+                        <div className="p-3 rounded-xl bg-primary/10 border border-primary/30">
+                          <div className="text-xs text-primary mb-1">ملاحظات التصحيح الذكي:</div>
                           <div className="text-sm">{a.ai_feedback}</div>
                         </div>
                       )}
@@ -195,6 +222,18 @@ export default function TeacherAttemptDetailPage() {
         })()}
       </div>
     </TeacherSidebarLayout>
+  );
+}
+
+function ReviewMetric({ icon, label, value }: { icon: JSX.Element; label: string; value: string | number }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3">{icon}</div>
+        <div className="text-xl font-black">{value}</div>
+        <div className="text-xs text-muted-foreground mt-1">{label}</div>
+      </CardContent>
+    </Card>
   );
 }
 
