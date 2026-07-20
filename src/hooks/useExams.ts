@@ -307,27 +307,23 @@ export function useSubmitAttempt() {
       fullscreenExits?: number;
     }) => {
       const { data: sessionData } = await supabase.auth.getSession();
-      const hasResilientPayload = Boolean(params.examId) || Boolean(params.answers?.length);
+      if (!params.examId) {
+        throw new Error("بيانات الامتحان غير مكتملة — لا يمكن التسليم بدون معرف الامتحان");
+      }
       console.debug("[exam-debug] submitExam.beforeRpc", {
         student_id: sessionData.session?.user?.id || null,
         attempt_id: params.attemptId || null,
         exam_id: params.examId || null,
         answers_count: params.answers?.length || 0,
-        rpc: hasResilientPayload ? "submit_exam_attempt_resilient" : "submit_exam_attempt",
+        rpc: "submit_exam_attempt_resilient",
       });
-      const { data, error } = hasResilientPayload
-        ? await supabase.rpc("submit_exam_attempt_resilient", {
-            _exam_id: params.examId || null,
-            _attempt_id: params.attemptId || null,
-            _answers: params.answers || [],
-            _tab_switches: params.tabSwitches || 0,
-            _fullscreen_exits: params.fullscreenExits || 0,
-          } as any)
-        : await supabase.rpc("submit_exam_attempt", {
-            _attempt_id: params.attemptId,
-            _tab_switches: params.tabSwitches || 0,
-            _fullscreen_exits: params.fullscreenExits || 0,
-          } as any);
+      const { data, error } = await supabase.rpc("submit_exam_attempt_resilient", {
+        _exam_id: params.examId,
+        _attempt_id: params.attemptId || null,
+        _answers: params.answers || [],
+        _tab_switches: params.tabSwitches || 0,
+        _fullscreen_exits: params.fullscreenExits || 0,
+      } as any);
       if (error) throw error;
       console.debug("[exam-debug] submitExam.afterRpc", {
         student_id: sessionData.session?.user?.id || null,
