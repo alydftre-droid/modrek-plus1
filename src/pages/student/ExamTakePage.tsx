@@ -51,9 +51,10 @@ export default function ExamTakePage() {
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
   const inProgressAttempt = attempts.find(a => a.status === "in_progress");
-  const cachedAttempt = routeAttemptId
-    ? attempts.find(a => a.id === routeAttemptId) || inProgressAttempt
-    : inProgressAttempt;
+  const routeAttempt = routeAttemptId ? attempts.find(a => a.id === routeAttemptId) : undefined;
+  const cachedAttempt = routeAttempt?.status === "in_progress"
+    ? routeAttempt
+    : inProgressAttempt || routeAttempt;
   const { data: fetchedAttempt } = useAttempt(routeAttemptId && !cachedAttempt ? routeAttemptId : undefined);
   const attempt = cachedAttempt || ((fetchedAttempt as any)?.status === "in_progress" ? fetchedAttempt as any : null) || (fetchedAttempt as any) || null;
   const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
@@ -81,10 +82,25 @@ export default function ExamTakePage() {
   }, [user?.id]);
 
   useEffect(() => {
-    if (!examId || !exam || attemptsLoading || attempt || startAttempt.isPending) return;
-    if ((exam as any).source !== "modrek_ai") return;
+    if (!examId || !exam || attemptsLoading || attempt || startAttempt.isPending || startModrekAttempt.isPending) return;
     if (autoStartRequestedRef.current === examId) return;
     autoStartRequestedRef.current = examId;
+
+    if ((exam as any).source !== "modrek_ai") {
+      startAttempt.mutateAsync(examId).then((res: any) => {
+        if (!res?.success) {
+          toast.error(res?.error || "تعذّر بدء الامتحان");
+          return;
+        }
+        if (res.attempt_id) {
+          try { localStorage.setItem(`exam-active-attempt-${examId}`, res.attempt_id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
+          navigate(`/student/exams/${examId}/take?attempt=${res.attempt_id}`, { replace: true });
+        }
+      }).catch((e: any) => {
+        toast.error(e?.message || "تعذّر بدء الامتحان");
+      });
+      return;
+    }
 
     startModrekAttempt.mutateAsync({ examId, attemptId: routeAttemptId }).then((res: any) => {
       if (res?.redirect_to_review && res?.attempt_id) {
@@ -100,7 +116,7 @@ export default function ExamTakePage() {
     }).catch((e: any) => {
       toast.error(e?.message || "تعذّر بدء الامتحان");
     });
-  }, [examId, exam, attemptsLoading, attempt, startAttempt.isPending, startModrekAttempt, routeAttemptId, navigate]);
+  }, [examId, exam, attemptsLoading, attempt, startAttempt, startAttempt.isPending, startModrekAttempt, startModrekAttempt.isPending, routeAttemptId, navigate]);
 
   useEffect(() => {
     if (!examId || !isModrekTraining || !attempt?.id || routeAttemptId === attempt.id) return;
@@ -131,18 +147,18 @@ export default function ExamTakePage() {
   );
 
   const buildSubmitUrl = useCallback((auto = false) => {
-    const activeAttemptId = attempt?.id || routeAttemptId || trainingAttemptId;
+    const activeAttemptId = (attempt?.status === "in_progress" ? attempt.id : undefined) || inProgressAttempt?.id || routeAttemptId || trainingAttemptId;
     const params = new URLSearchParams();
     if (auto) params.set("auto", "1");
     if (activeAttemptId) params.set("attempt", activeAttemptId);
     const query = params.toString();
     return `/student/exams/${examId}/submit${query ? `?${query}` : ""}`;
-  }, [attempt?.id, examId, routeAttemptId, trainingAttemptId]);
+  }, [attempt?.id, attempt?.status, examId, inProgressAttempt?.id, routeAttemptId, trainingAttemptId]);
 
   useEffect(() => {
-    if (!examId || !attempt?.id) return;
+    if (!examId || !attempt?.id || attempt.status !== "in_progress") return;
     try { localStorage.setItem(`exam-active-attempt-${examId}`, attempt.id); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
-  }, [examId, attempt?.id]);
+  }, [examId, attempt?.id, attempt?.status]);
 
   // Timer
   useEffect(() => {
@@ -361,6 +377,7 @@ export default function ExamTakePage() {
     attemptsLoading ||
     startAttempt.isPending ||
     startModrekAttempt.isPending ||
+    (!attempt && autoStartRequestedRef.current === examId) ||
     (isModrekTraining && !attempt && autoStartRequestedRef.current !== examId)
   ) {
     return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
@@ -371,7 +388,14 @@ export default function ExamTakePage() {
     return (
       <div className="p-8 text-center space-y-4 bg-[#F8F8FC] min-h-screen">
         <p className="text-[#3F3F4A]">لم يتم العثور على محاولة جارية</p>
-        <button onClick={() => navigate(`/student/exams/${examId}`)} className="px-4 py-2 rounded-xl bg-[#6D4AFF] text-white">العودة لصفحة الامتحان</button>
+          <button
+            onClick={() => {
+              autoStartRequestedRef.current = null;
+              if (examId) startAttempt.mutate(examId);
+            }}
+            className="px-4 py-2 rounded-xl bg-[#6D4AFF] text-white"
+          >إعادة تثبيت المحاولة</button>
+          <button onClick={() => navigate(`/student/exams/${examId}`)} className="px-4 py-2 rounded-xl bg-white border border-[#E5E1F2] text-[#3F3F4A]">العودة لصفحة الامتحان</button>
       </div>
     );
   }
