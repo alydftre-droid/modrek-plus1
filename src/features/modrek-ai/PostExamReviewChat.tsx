@@ -38,10 +38,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
         .eq("id", examId)
         .maybeSingle(),
       supabase
-        .from("exam_questions")
-        .select("id, order_index, question_type, question_text, correct_answer, explanation, marks")
-        .eq("exam_id", examId)
-        .order("order_index"),
+        .rpc("get_exam_review_questions", { _attempt_id: attemptId } as any),
       supabase
         .from("exam_attempts")
         .select("id, total_score, max_score, percentage, passed, status, is_graded, time_spent_seconds, attempt_number, started_at, submitted_at")
@@ -62,18 +59,6 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
         .maybeSingle();
       subjectName = (subj as any)?.name_ar || null;
     }
-
-    const questionIds = (questions || []).map((q: any) => q.id);
-    const { data: realOptions } = questionIds.length
-      ? await supabase
-          .from("exam_question_options")
-          .select("id, question_id, option_text, is_correct")
-          .in("question_id", questionIds)
-      : { data: [] as any[] };
-    const optionsByQuestion = new Map<string, any[]>();
-    (realOptions || []).forEach((option: any) => {
-      optionsByQuestion.set(option.question_id, [...(optionsByQuestion.get(option.question_id) || []), option]);
-    });
 
     const realQuestions = (questions || []).filter((q: any) => q.question_type !== "section");
     const correctCount = (answers || []).filter((a: any) => a.is_correct === true).length;
@@ -113,7 +98,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
       },
       questions: (questions || []).map((q: any) => {
         const a = (answers || []).find((x: any) => x.question_id === q.id);
-        const qOptions = optionsByQuestion.get(q.id) || [];
+        const qOptions = q.options || [];
         const selectedOptionTexts = qOptions
           .filter((option: any) => (a?.selected_option_ids || []).includes(option.id))
           .map((option: any) => option.option_text);
@@ -207,7 +192,7 @@ export default function PostExamReviewChat({ examId, attemptId, autoOpen = false
   return (
     <Card className="overflow-hidden h-[600px] relative">
       <ModrekChatWindow
-        assistantType="study"
+        assistantType="review"
         conversationId={convId || undefined}
         onConversationCreated={setConvId}
         headerTitle="راجع امتحانك مع Modrek AI"

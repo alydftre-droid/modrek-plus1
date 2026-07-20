@@ -27,12 +27,18 @@ export default function ExamSubmitPage() {
   const saveAnswer = useSaveAnswer();
 
   const isModrekTraining = (exam as any)?.source === "modrek_ai";
-  const cachedAttempt = routeAttemptId
-    ? attempts.find(a => a.id === routeAttemptId)
+  const persistedAttemptId = useMemo(() => {
+    if (routeAttemptId) return routeAttemptId;
+    if (!examId) return null;
+    try { return localStorage.getItem(`exam-active-attempt-${examId}`); } catch { return null; }
+  }, [routeAttemptId, examId]);
+  const cachedAttempt = persistedAttemptId
+    ? attempts.find(a => a.id === persistedAttemptId)
     : attempts.find(a => a.status === "in_progress");
-  const { data: fetchedAttempt } = useAttempt(routeAttemptId && !cachedAttempt ? routeAttemptId : undefined);
+  const { data: fetchedAttempt, isLoading: attemptLookupLoading } = useAttempt(persistedAttemptId && !cachedAttempt ? persistedAttemptId : undefined);
   const attempt = cachedAttempt || (fetchedAttempt as any) || null;
-  const trainingAttemptId = isModrekTraining ? (routeAttemptId || attempt?.id) : undefined;
+  const activeAttemptId = attempt?.id || persistedAttemptId || undefined;
+  const trainingAttemptId = isModrekTraining ? activeAttemptId : undefined;
   const { data: regularQuestions = [], isLoading: regularQLoading } = useStudentExamQuestions(examId, Boolean(exam) && !isModrekTraining);
   const { data: trainingQuestions = [], isLoading: trainingQLoading } = useModrekTrainingQuestionsForAttempt(trainingAttemptId);
   const questions = isModrekTraining ? trainingQuestions : regularQuestions;
@@ -151,7 +157,9 @@ export default function ExamSubmitPage() {
     }
   };
 
-  if (examLoading || qLoading) {
+  const takeUrl = `/student/exams/${examId}/take${activeAttemptId ? `?attempt=${activeAttemptId}` : ""}`;
+
+  if (examLoading || qLoading || attemptLookupLoading) {
     return <div className="p-4 max-w-3xl mx-auto space-y-3 bg-[#F8F8FC] min-h-screen">
       <Skeleton className="h-20" /><Skeleton className="h-[500px]" />
     </div>;
@@ -174,7 +182,7 @@ export default function ExamSubmitPage() {
       <header className="bg-white border-b border-[#EFEDF7]">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-3 flex items-center justify-between gap-3">
           <button
-            onClick={() => navigate(`/student/exams/${examId}/take${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`)}
+            onClick={() => navigate(takeUrl)}
             className="flex items-center gap-1.5 text-[12.5px] font-semibold text-[#EF4444] bg-white border border-[#FECACA] rounded-xl px-3 py-2 hover:bg-[#FEF2F2] transition"
           >
             <ExitIcon className="h-4 w-4" />
@@ -261,7 +269,7 @@ export default function ExamSubmitPage() {
               تسليم الامتحان الآن
             </button>
             <button
-              onClick={() => navigate(`/student/exams/${examId}/take${trainingAttemptId ? `?attempt=${trainingAttemptId}` : ""}`)}
+              onClick={() => navigate(takeUrl)}
               className="h-12 rounded-xl border-2 border-[#6D4AFF] text-[#6D4AFF] font-bold text-[14px] flex items-center justify-center gap-2 bg-white hover:bg-[#F4F0FF] active:scale-[0.99] transition"
             >
               <ChevronLeft className="h-4 w-4" />

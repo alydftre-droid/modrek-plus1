@@ -258,6 +258,7 @@ export function useSaveAnswer() {
         _flagged: params.flagged || false,
       } as any);
       if (error) throw error;
+      if ((data as any)?.success === false) throw new Error((data as any)?.error || "تعذّر حفظ الإجابة");
       return data;
     },
   });
