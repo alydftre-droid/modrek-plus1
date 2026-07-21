@@ -24,15 +24,15 @@ function normalizeSemanticToken(word: string) {
     .replace(/^(و|ف|ب|ك|ل)(?=\p{L}{3,})/u, "")
     .replace(/^ال(?=\p{L}{3,})/u, "")
     .replace(/(ه|ها|هم|نا|ات|ين|ون)$/u, "");
-  if (["salah", "salat", "sala", "prayer", "pray", "صلاه", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
+  if (["salah", "salat", "sala", "prayer", "pray", "صلاه", "صلا", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
   if (["wudu", "wudhu", "wodo", "ablution", "tahara", "purity", "وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر", "حدث", "الحدث", "نجاسه", "نجس", "نجاسة"].includes(w)) return "طهاره";
   if (["ghusl", "ghosl", "غسل", "اغتسال"].includes(w)) return "غسل";
   if (["قبله", "كعبه"].includes(w)) return "قبله";
-  if (["niyyah", "niya", "intention", "intent", "نيه", "نوي", "ينوي"].includes(w)) return "نيه";
+  if (["niyyah", "niya", "intention", "intent", "نيه", "ني", "نوي", "ينوي"].includes(w)) return "نيه";
   if (["فرض", "فريضه", "واجب", "واجبه"].includes(w)) return "فرض";
   if (["year", "aam", "hawl", "sanah", "sana", "عام", "حول", "سنه", "سنة"].includes(w)) return "عام";
-  if (["arafah", "arafa", "عرفه", "عرفة"].includes(w)) return "عرفه";
-  if (["zakat", "zakah", "زكاه", "زكاة"].includes(w)) return "زكاه";
+  if (["arafah", "arafa", "عرفه", "عرف", "عرفة"].includes(w)) return "عرفه";
+  if (["zakat", "zakah", "زكاه", "زكا", "زكاة"].includes(w)) return "زكاه";
   if (["sawm", "fasting", "fast", "صيام", "صوم"].includes(w)) return "صيام";
   if (["hajj", "haj", "حج"].includes(w)) return "حج";
   if (["الله", "رب", "ربه", "ربك", "الرب"].includes(w)) return "الله";
