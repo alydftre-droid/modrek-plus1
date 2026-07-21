@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
-import { useNavigate } from "react-router-dom";
+
 
 const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
