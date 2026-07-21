@@ -13,11 +13,28 @@ function normalizeOptionValue(value: unknown) {
   return String(value ?? "")
     .trim()
     .toLowerCase()
+    .replace(/^(true|yes|correct|right|صحيح)$/, "صح")
+    .replace(/^(false|no|wrong|incorrect|خطا|خطأ|غير صحيح)$/, "خطأ")
     .replace(/[أإآا]/g, "ا")
     .replace(/[ىي]/g, "ي")
     .replace(/ة/g, "ه")
     .replace(/[ًٌٍَُِّْـ]/g, "")
     .replace(/\s+/g, " ");
+}
+
+function questionClientKey(question: EditorQuestion, index: number) {
+  const seed = [
+    index,
+    normalizeQuestionType((question as any).type),
+    String(question.text ?? "").trim(),
+    String(question.modelAnswer ?? "").trim(),
+    Number(question.marks || 0),
+  ].join("::");
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = Math.imul(31, hash) + seed.charCodeAt(i) | 0;
+  }
+  return `q_${index}_${Math.abs(hash)}`;
 }
 
 function normalizeChoiceQuestion(q: EditorQuestion): EditorQuestion {
@@ -234,6 +251,7 @@ export function useReplaceExamQuestions() {
 
       const normalizedQuestions = questions.map((q) => normalizeChoiceQuestion(q));
 
+      const questionKeys = normalizedQuestions.map((q, i) => questionClientKey(q, i));
       const rows = normalizedQuestions.map((q, i) => ({
         exam_id: examId,
         order_index: i,
@@ -245,13 +263,18 @@ export function useReplaceExamQuestions() {
             ? JSON.stringify({ section: true, total: Number(q.sectionTotal || 0), title: q.sectionTitle || "" })
             : (q.modelAnswer ?? null),
       }));
-      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows as any).select();
+      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows as any).select("id, order_index");
       if (error) throw error;
+
+      const insertedByOrder = new Map((inserted || []).map((row: any) => [Number(row.order_index), row]));
 
       // insert options
       const optRows: any[] = [];
       normalizedQuestions.forEach((q, qi) => {
-        const dbq = inserted![qi];
+        const dbq = insertedByOrder.get(qi);
+        if (!dbq?.id) {
+          throw new Error(`تعذر ربط خيارات السؤال رقم ${qi + 1} بشكل آمن. حاول حفظ الامتحان مرة أخرى.`);
+        }
         if (q.type === "mcq" || q.type === "true_false") {
           q.options.forEach((o, oi) => {
             optRows.push({
