@@ -196,7 +196,7 @@ serve(async (req) => {
           .from("exam_questions")
           .select("id, question_text, question_type, correct_answer, marks, order_index")
           .eq("exam_id", attempt.exam_id)
-          .in("question_type", ["short_answer", "essay"])
+          .in("question_type", ["short_answer", "essay", "fill_blank"])
           .order("order_index", { ascending: true })
           .order("id", { ascending: true }),
         sb.from("exam_answers").select("id, question_id, answer_text").eq("attempt_id", attemptId),
