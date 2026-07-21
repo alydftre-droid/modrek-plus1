@@ -180,24 +180,48 @@ export default function AiAssistantPage() {
       const rawQs: any[] = data.exam?.questions ?? [];
       if (!rawQs.length) throw new Error("لم يتم توليد أي أسئلة، حاول تعديل الطلب أو ارفع مصدرًا أوضح");
 
+      const normalizeOptionValue = (value: unknown) => String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/[أإآا]/g, "ا")
+        .replace(/[ىي]/g, "ي")
+        .replace(/[ة]/g, "ه")
+        .replace(/\s+/g, " ");
+      const isTruthyAnswer = (value: unknown) => {
+        const normalized = normalizeOptionValue(value);
+        return value === true || ["true", "صح", "صحيح", "نعم", "yes", "1"].includes(normalized);
+      };
+      const isFalseyAnswer = (value: unknown) => {
+        const normalized = normalizeOptionValue(value);
+        return value === false || ["false", "خطا", "خطاء", "غير صحيح", "لا", "no", "0"].includes(normalized);
+      };
+
       const questions: EditorQuestion[] = rawQs.map((q: any, index: number) => {
         const type = normalizeAiQuestionType(q.type);
         const rawOptions: any[] = Array.isArray(q.options) ? q.options : [];
         const fallbackOptions = type === "true_false" && rawOptions.length === 0 ? ["صح", "خطأ"] : rawOptions;
         const correctAnswer = q.correct_answer || q.correctAnswer || q.model_answer || q.modelAnswer || "";
+        const correctIndex = typeof q.correctIndex === "number" ? q.correctIndex : typeof q.correct_index === "number" ? q.correct_index : null;
+        const trueFalseCorrect = type === "true_false" && isTruthyAnswer(correctAnswer)
+          ? "صح"
+          : type === "true_false" && isFalseyAnswer(correctAnswer)
+            ? "خطأ"
+            : null;
         return {
           id: crypto.randomUUID(),
           index: index + 1,
           type,
           text: q.question || q.text || "",
           marks: q.points || q.marks || 1,
-          modelAnswer: correctAnswer,
+          modelAnswer: type === "true_false" && trueFalseCorrect ? trueFalseCorrect : correctAnswer,
           options: fallbackOptions.map((option: any, optionIndex: number) => ({
             id: crypto.randomUUID(),
             text: typeof option === "string" ? option : option.text,
             isCorrect: typeof option === "object"
-              ? !!option.isCorrect
-              : correctAnswer === option || q.correctIndex === optionIndex || (type === "true_false" && !correctAnswer && optionIndex === 0),
+              ? !!(option.isCorrect ?? option.is_correct ?? (type === "true_false" && trueFalseCorrect && normalizeOptionValue(option.text) === normalizeOptionValue(trueFalseCorrect)))
+              : (type === "true_false" && trueFalseCorrect
+                ? normalizeOptionValue(option) === normalizeOptionValue(trueFalseCorrect)
+                : normalizeOptionValue(correctAnswer) === normalizeOptionValue(option) || correctIndex === optionIndex || (type === "true_false" && !correctAnswer && optionIndex === 0)),
           })),
         };
       });

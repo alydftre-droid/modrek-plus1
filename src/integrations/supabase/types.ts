@@ -5997,6 +5997,7 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }
       exam_target_matches_student: {
         Args: {
           _student_id: string
@@ -6528,6 +6529,10 @@ export type Database = {
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
       normalize_exam_grading_text: { Args: { _value: string }; Returns: string }
+      normalize_exam_semantic_token: {
+        Args: { _word: string }
+        Returns: string
+      }
       normalize_exam_target_education_type: {
         Args: { _value: string }
         Returns: string

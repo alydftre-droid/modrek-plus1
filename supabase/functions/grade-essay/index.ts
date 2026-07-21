@@ -19,43 +19,59 @@ function normalizeArabicText(value: string) {
     .trim();
 }
 
+function normalizeSemanticToken(word: string) {
+  let w = normalizeArabicText(word)
+    .replace(/^(و|ف|ب|ك|ل)(?=\p{L}{3,})/u, "")
+    .replace(/^ال(?=\p{L}{3,})/u, "")
+    .replace(/(ه|ها|هم|نا|ات|ين|ون)$/u, "");
+  if (["صلاه", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
+  if (["وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر", "حدث", "الحدث", "نجاسه", "نجس", "نجاسة"].includes(w)) return "طهاره";
+  if (["قبله", "كعبه"].includes(w)) return "قبله";
+  if (["نيه", "نوي", "ينوي"].includes(w)) return "نيه";
+  if (["فرض", "فريضه", "واجب", "واجبه"].includes(w)) return "فرض";
+  if (["الله", "رب", "ربه", "ربك", "الرب"].includes(w)) return "الله";
+  if (["صله", "صلة", "تقرب", "قرب", "تقويه", "تقوي", "علاقه"].includes(w)) return "صله_الله";
+  if (["خشوع", "خاشع", "تدبر", "طمأنينه", "طمأنينة", "سكينه"].includes(w)) return "خشوع";
+  if (["محبه", "الفه", "تعاون", "ترابط", "تكافل"].includes(w)) return "محبه";
+  if (["نظام", "انضباط", "انتظام"].includes(w)) return "انضباط";
+  return w;
+}
+
 const ARABIC_STOP_WORDS = new Set([
   "من", "في", "على", "علي", "عن", "الى", "الي", "ان", "إن", "أن", "هو", "هي", "هما", "هم", "هن",
   "هذا", "هذه", "ذلك", "تلك", "الذي", "التي", "الذين", "او", "أو", "و", "ثم", "كما", "كل", "اي", "أي",
   "لا", "لم", "لن", "ما", "مع", "بين", "عند", "اذا", "إذا", "كان", "كانت", "يكون", "تكون", "قد", "لقد",
   "الى", "حتى", "حتي", "فقط", "غير", "بعد", "قبل", "خلال", "حول", "له", "لها", "به", "بها", "فيها",
+  "سؤال", "السؤال", "سوال", "السوال", "اجابه", "اجابة", "اعرف", "ادري", "اعلم", "اجب", "اجيب",
+  "صلاه", "صلا",
 ]);
 
 function tokenizeMeaningful(value: string) {
   return normalizeArabicText(value)
     .split(" ")
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 3 && !ARABIC_STOP_WORDS.has(word));
+    .map((word) => normalizeSemanticToken(word.trim()))
+    .filter((word, index, arr) => word.length >= 3 && !ARABIC_STOP_WORDS.has(word) && arr.indexOf(word) === index);
 }
+
+const NON_ANSWER_PHRASES = [
+  "لا اعرف", "لا ادري", "لا اعلم", "مش عارف", "مش عارفه", "معرفش", "ماعرفش", "مش فاكر",
+  "لا اتذكر", "لم اجب", "لم اجيب", "لم تجب", "لم يجيب", "لم احل", "لم تحل", "بدون اجابه", "بدون إجابة", "لا توجد اجابه",
+  "لا يوجد اجابه", "ليس لدي اجابه", "لم اجب علي هذا السؤال", "لم اجيب علي هذا السؤال", "لم تجب علي هذا السؤال", "لم تجب على هذا السؤال",
+].map(normalizeArabicText);
 
 function isNonAnswer(answer: string) {
   const normalized = normalizeArabicText(answer);
   if (!normalized) return true;
   if (/^(\?|0|لا|لم|مش|معرفش|ماعرفش|مدري)$/.test(normalized)) return true;
-  return [
-    "لا اعرف",
-    "لا أعرف",
-    "لا ادري",
-    "لا أدري",
-    "لا اعلم",
-    "لا أعلم",
-    "مش عارف",
-    "مش عارفه",
-    "معرفش",
-    "ماعرفش",
-    "مش فاكر",
-    "لا اتذكر",
-    "لا أتذكر",
-    "لم اجب",
-    "لم أجب",
-    "بدون اجابه",
-    "بدون إجابة",
-  ].some((phrase) => normalized.includes(normalizeArabicText(phrase)));
+  const exactShort = NON_ANSWER_PHRASES.some((phrase) => normalized === phrase || normalized === `${phrase} علي هذا السؤال` || normalized === `${phrase} على هذا السؤال`);
+  if (exactShort) return true;
+  const matchedPhrase = NON_ANSWER_PHRASES.find((phrase) => normalized.includes(phrase));
+  if (!matchedPhrase) return false;
+  let remainder = normalized;
+  for (const phrase of NON_ANSWER_PHRASES) remainder = remainder.replaceAll(phrase, " ");
+  // Do not erase partially correct answers such as “الوضوء والطهارة، لا أعرف الشرط الثالث”.
+  // Treat it as a full non-answer only when almost no meaningful content remains.
+  return tokenizeMeaningful(remainder).length <= 1;
 }
 
 function overlapStats(answer: string, modelAnswer: string) {
@@ -78,12 +94,12 @@ function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
   const stats = overlapStats(answer, modelAnswer);
   if (a === m || (stats.modelWords.length <= 4 && (m.includes(a) || a.includes(m)))) return maxPoints;
   if (stats.common.length === 0) return 0;
-  const combined = Math.max(stats.modelCoverage, Math.min(stats.answerCoverage, stats.modelCoverage + 0.25));
-  if (combined >= 0.85) return maxPoints;
+  const combined = Math.max(stats.modelCoverage, Math.min(stats.answerCoverage, stats.modelCoverage + 0.35));
+  if (combined >= 0.85 && stats.modelCoverage >= 0.55) return maxPoints;
   if (combined >= 0.65) return Math.round(maxPoints * 0.8 * 100) / 100;
   if (combined >= 0.45) return Math.round(maxPoints * 0.6 * 100) / 100;
   if (combined >= 0.28) return Math.round(maxPoints * 0.4 * 100) / 100;
-  if (combined >= 0.15) return Math.round(maxPoints * 0.2 * 100) / 100;
+  if (combined >= 0.12) return Math.round(maxPoints * 0.2 * 100) / 100;
   return 0;
 }
 
@@ -108,8 +124,17 @@ function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback:
   if (!exactShortMatch && stats.common.length === 0 && safeScore > 0) {
     return { score: 0, feedback: "الإجابة لا تحتوي على عناصر يمكن ربطها بالإجابة النموذجية." };
   }
+  const fallback = fallbackScore(studentAnswer, modelAnswer, maxPoints);
+  if (!exactShortMatch && safeScore > fallback) {
+    return {
+      score: fallback,
+      feedback: fallback > 0
+        ? "تم ضبط الدرجة حسب العناصر المطابقة فعليًا في الإجابة."
+        : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.",
+    };
+  }
   if (!exactShortMatch && safeScore >= maxPoints && stats.modelCoverage < 0.35 && stats.answerCoverage < 0.75) {
-    const capped = Math.round(Math.max(fallbackScore(studentAnswer, modelAnswer, maxPoints), maxPoints * 0.4) * 100) / 100;
+    const capped = Math.round(Math.max(fallback, maxPoints * 0.4) * 100) / 100;
     return {
       score: Math.min(capped, maxPoints * 0.6),
       feedback: proposedFeedback || "تم تخفيض الدرجة لأن الإجابة لا تغطي عناصر كافية من النموذج.",
