@@ -179,11 +179,15 @@ function withAlignedModelAnswer(item: any) {
     ? { score: previousScore, modelAnswer: item.previousModelAnswer, source: "previous_model_answer" }
     : { score: nextScore, modelAnswer: item.nextModelAnswer, source: "next_model_answer" };
 
+  const currentModelMissing = !normalizeArabicText(item.modelAnswer);
   const strongAdjacentMatch = adjacent.score >= maxPoints * 0.6;
   const weakCurrentMatch = currentScore <= maxPoints * 0.4;
   const clearMargin = adjacent.score >= currentScore + maxPoints * 0.3;
 
-  if (normalizeArabicText(adjacent.modelAnswer) && strongAdjacentMatch && weakCurrentMatch && clearMargin) {
+  if (normalizeArabicText(adjacent.modelAnswer) && (
+    (currentModelMissing && adjacent.score > 0)
+    || (strongAdjacentMatch && weakCurrentMatch && clearMargin)
+  )) {
     return {
       ...item,
       modelAnswer: adjacent.modelAnswer,
@@ -298,7 +302,7 @@ serve(async (req) => {
           nextModelAnswer: orderedQuestions[index + 1]?.correct_answer || "",
           maxPoints: Number(question.marks || 0),
         };
-      }).filter((item: any) => item.answerId && item.maxPoints > 0 && String(item.modelAnswer || "").trim().length > 0);
+      }).filter((item: any) => item.answerId && item.maxPoints > 0);
     }
 
     if (!effectiveEssays || !Array.isArray(effectiveEssays) || effectiveEssays.length === 0) {
