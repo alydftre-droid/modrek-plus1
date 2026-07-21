@@ -133,7 +133,7 @@ serve(async (req) => {
       return null;
     };
 
-    const prompt = effectiveEssays.map((e: any, i: number) => `
+    const buildPrompt = (items: any[]) => items.map((e: any, i: number) => `
 معرف السؤال: ${e.questionId || `local-${i}`}
 معرف الإجابة: ${e.answerId || "غير محفوظ"}
 سؤال ${i + 1}: ${e.question}
@@ -141,6 +141,19 @@ serve(async (req) => {
 إجابة الطالب: ${e.studentAnswer}
 الدرجة القصوى: ${e.maxPoints}
 `).join("\n---\n");
+
+    const systemPrompt = `أنت مصحح امتحانات عربي عادل جداً مثل المعلم الخبير.
+قواعد إلزامية:
+- صحح كل عنصر مستقلًا عن أي عنصر آخر.
+- لا تنقل الدرجة أو الملاحظة أو نص إجابة الطالب بين الأسئلة أبداً.
+- لا تعطِ درجات عشوائية أبداً.
+- امنح الدرجة كاملة إذا كانت إجابة الطالب صحيحة بالمعنى حتى لو مختصرة أو بصياغة مختلفة.
+- اقبل طرق الحل المختلفة إذا وصلت لنفس النتيجة الصحيحة.
+- إذا الإجابة ناقصة امنح درجة جزئية دقيقة حسب العناصر الصحيحة فقط.
+- إذا السؤال مقالي فقارن الفكرة والمعنى والخطوات لا تطابق الكلمات فقط.
+- لا تعاقب الطالب على اختلاف الأسلوب أو ترتيب النقاط إذا المعنى صحيح.
+- الدرجة يجب أن تكون بين 0 والدرجة القصوى فقط، ويمكن استخدام كسور عشرية عادلة.
+- أعد نفس معرف السؤال questionId حرفياً كما هو مكتوب في كل عنصر، ولا تعتمد على ترتيب الأسئلة أبداً.`;
 
     const tools = [
       {
@@ -177,61 +190,88 @@ serve(async (req) => {
     const settings = await loadAiSettings(sb, "grade-essay");
     const { apiKey: GEMINI_API_KEY } = await resolveGeminiApiKey(sb, Deno.env.get("GEMINI_API_KEY") || "");
 
-    const result = await callGeminiWithFallback({
-      apiKey: GEMINI_API_KEY,
-      models: settings.models_to_try,
-      body: {
-        messages: [
-          { role: "system", content: `أنت مصحح امتحانات عربي عادل جداً مثل المعلم الخبير.
-قواعد إلزامية:
-- لا تعطِ درجات عشوائية أبداً.
-- امنح الدرجة كاملة إذا كانت إجابة الطالب صحيحة بالمعنى حتى لو مختصرة أو بصياغة مختلفة.
-- اقبل طرق الحل المختلفة إذا وصلت لنفس النتيجة الصحيحة.
-- إذا الإجابة ناقصة امنح درجة جزئية دقيقة حسب العناصر الصحيحة فقط.
-- إذا السؤال مقالي فقارن الفكرة والمعنى والخطوات لا تطابق الكلمات فقط.
-- لا تعاقب الطالب على اختلاف الأسلوب أو ترتيب النقاط إذا المعنى صحيح.
-- الدرجة يجب أن تكون بين 0 والدرجة القصوى فقط، ويمكن استخدام كسور عشرية عادلة.
-- أعد نفس معرف السؤال questionId حرفياً كما هو مكتوب في كل عنصر، ولا تعتمد على ترتيب الأسئلة أبداً.` },
-          { role: "user", content: prompt },
-        ],
-        tools,
-        tool_choice: { type: "function", function: { name: "grade_essays" } },
-      },
-      fallbackDelayMs: settings.fallback_delay_ms,
-    });
+    const parseAiResults = async (response: Response) => {
+      const data = await response.json();
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall) {
+        const parsed = JSON.parse(toolCall.function.arguments || "{}");
+        return Array.isArray(parsed.results) ? parsed.results : [];
+      }
+      const content = String(data.choices?.[0]?.message?.content || "").replace(/```json?\n?/g, "").replace(/```/g, "").trim();
+      if (!content) return [];
+      const parsed = JSON.parse(content);
+      return Array.isArray(parsed.results) ? parsed.results : [];
+    };
+
+    const clampScore = (value: any, maxPoints: number) => Math.max(0, Math.min(Number(value || 0), Number(maxPoints || 0)));
 
     const scores: Record<string, number> = {};
     const feedback: Record<string, string> = {};
 
-    if (result.ok) {
-      const response = result.response;
-      const data = await response.json();
-      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    const gradeOneStoredItem = async (item: any, index: number) => {
+      const key = itemKey(item, index);
+      try {
+        const result = await callGeminiWithFallback({
+          apiKey: GEMINI_API_KEY,
+          models: settings.models_to_try,
+          body: {
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: buildPrompt([item]) },
+            ],
+            tools,
+            tool_choice: { type: "function", function: { name: "grade_essays" } },
+          },
+          fallbackDelayMs: settings.fallback_delay_ms,
+        });
+        if (!result.ok) return;
+        const [r] = await parseAiResults(result.response);
+        if (!r) return;
+        // Stored attempts are updated by the locally known answerId/questionId only.
+        // The model never gets permission to remap a score/feedback to another row.
+        scores[key] = clampScore(r.score, Number(item.maxPoints || 0));
+        feedback[key] = String(r.feedback || "").trim() || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.";
+      } catch (error) {
+        console.warn("single essay grading failed; using deterministic fallback", JSON.stringify({ questionId: item.questionId || null, answerId: item.answerId || null, error: error instanceof Error ? error.message : String(error) }));
+      }
+    };
 
-      if (toolCall) {
-        const parsed = JSON.parse(toolCall.function.arguments);
-        (parsed.results || []).forEach((r: any) => {
+    if (attemptId) {
+      let cursor = 0;
+      const workerCount = Math.min(3, effectiveEssays.length);
+      await Promise.all(Array.from({ length: workerCount }, async () => {
+        while (cursor < effectiveEssays.length) {
+          const index = cursor++;
+          await gradeOneStoredItem(effectiveEssays[index], index);
+        }
+      }));
+    } else {
+      const result = await callGeminiWithFallback({
+        apiKey: GEMINI_API_KEY,
+        models: settings.models_to_try,
+        body: {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: buildPrompt(effectiveEssays) },
+          ],
+          tools,
+          tool_choice: { type: "function", function: { name: "grade_essays" } },
+        },
+        fallbackDelayMs: settings.fallback_delay_ms,
+      });
+
+      if (result.ok) {
+        const results = await parseAiResults(result.response);
+        results.forEach((r: any) => {
           const essayItem = resolveResultItem(r);
           if (!essayItem) return;
           const key = itemKey(essayItem);
-          scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
+          scores[key] = clampScore(r.score, Number(essayItem.maxPoints || r.score || 0));
           feedback[key] = r.feedback;
         });
       } else {
-        const content = String(data.choices?.[0]?.message?.content || "").replace(/```json?\n?/g, "").replace(/```/g, "").trim();
-        if (content) {
-          const parsed = JSON.parse(content);
-          (parsed.results || []).forEach((r: any) => {
-            const essayItem = resolveResultItem(r);
-            if (!essayItem) return;
-            const key = itemKey(essayItem);
-            scores[key] = Math.max(0, Math.min(Number(r.score || 0), essayItem?.maxPoints || r.score));
-            feedback[key] = r.feedback;
-          });
-        }
+        console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
       }
-    } else {
-      console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
     }
 
     effectiveEssays.forEach((item: any, index: number) => {
