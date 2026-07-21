@@ -158,9 +158,46 @@ function safeLocalFeedback(item: any, score: number) {
   if (maxPoints <= 0) return "لا توجد درجة مخصصة لهذا السؤال.";
   if (isNonAnswer(item.studentAnswer)) return "لم يقدم الطالب إجابة قابلة للتصحيح لهذا السؤال.";
   if (!normalizeArabicText(item.modelAnswer)) return "لا توجد إجابة نموذجية محفوظة لهذا السؤال؛ يحتاج مراجعة المعلم.";
+  if (item.alignmentSource === "previous_model_answer" || item.alignmentSource === "next_model_answer") {
+    if (score >= maxPoints) return "إجابة صحيحة بالمعنى بعد إصلاح محاذاة الإجابة النموذجية لهذا السؤال.";
+    if (score > 0) return "إجابة جزئية بعد إصلاح محاذاة الإجابة النموذجية لهذا السؤال.";
+  }
   if (score >= maxPoints) return "إجابة صحيحة بالمعنى لهذا السؤال.";
   if (score > 0) return "إجابة جزئية لهذا السؤال وتم احتساب الدرجة حسب عناصر الإجابة الصحيحة.";
   return "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية لهذا السؤال.";
+}
+
+function withAlignedModelAnswer(item: any) {
+  const maxPoints = Number(item.maxPoints || 0);
+  if (maxPoints <= 0 || isNonAnswer(item.studentAnswer)) return { ...item, alignmentSource: "current_model_answer" };
+
+  const currentScore = fallbackScore(item.studentAnswer, item.modelAnswer, maxPoints);
+  const previousScore = fallbackScore(item.studentAnswer, item.previousModelAnswer, maxPoints);
+  const nextScore = fallbackScore(item.studentAnswer, item.nextModelAnswer, maxPoints);
+
+  const adjacent = previousScore >= nextScore
+    ? { score: previousScore, modelAnswer: item.previousModelAnswer, source: "previous_model_answer" }
+    : { score: nextScore, modelAnswer: item.nextModelAnswer, source: "next_model_answer" };
+
+  const strongAdjacentMatch = adjacent.score >= maxPoints * 0.6;
+  const weakCurrentMatch = currentScore <= maxPoints * 0.4;
+  const clearMargin = adjacent.score >= currentScore + maxPoints * 0.3;
+
+  if (normalizeArabicText(adjacent.modelAnswer) && strongAdjacentMatch && weakCurrentMatch && clearMargin) {
+    return {
+      ...item,
+      modelAnswer: adjacent.modelAnswer,
+      originalModelAnswer: item.modelAnswer,
+      alignmentSource: adjacent.source,
+      alignmentScores: { current: currentScore, previous: previousScore, next: nextScore },
+    };
+  }
+
+  return {
+    ...item,
+    alignmentSource: "current_model_answer",
+    alignmentScores: { current: currentScore, previous: previousScore, next: nextScore },
+  };
 }
 
 serve(async (req) => {
@@ -248,7 +285,7 @@ serve(async (req) => {
       ]);
 
       const answerByQuestion = new Map((answers || []).map((answer: any) => [answer.question_id, answer]));
-      effectiveEssays = (questions || []).map((question: any) => {
+      effectiveEssays = (questions || []).map((question: any, index: number, orderedQuestions: any[]) => {
         const answer: any = answerByQuestion.get(question.id);
         return {
           answerId: answer?.id,
@@ -257,6 +294,8 @@ serve(async (req) => {
           question: question.question_text,
           studentAnswer: answer?.answer_text || "",
           modelAnswer: question.correct_answer || "",
+          previousModelAnswer: orderedQuestions[index - 1]?.correct_answer || "",
+          nextModelAnswer: orderedQuestions[index + 1]?.correct_answer || "",
           maxPoints: Number(question.marks || 0),
         };
       }).filter((item: any) => item.answerId && item.maxPoints > 0 && String(item.modelAnswer || "").trim().length > 0);
@@ -370,25 +409,29 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
 
     const gradeOneStoredItem = async (item: any) => {
       const key = itemKey(item);
+      const gradingItem = withAlignedModelAnswer(item);
       await logExamTrace("grade_essay.item.started", {
         question_id: item.questionId,
         question_order: item.questionOrder ?? null,
         answer_id: item.answerId,
         student_answer: trimForLog(item.studentAnswer),
-        correct_answer: trimForLog(item.modelAnswer),
+        correct_answer: trimForLog(gradingItem.modelAnswer),
+        original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+        alignment_source: gradingItem.alignmentSource,
+        alignment_scores: gradingItem.alignmentScores || null,
         max_score: Number(item.maxPoints || 0),
       });
-      const earlyGuard = enforceGradingGuard(item, 0, "");
-      if (earlyGuard.score === 0 && (isNonAnswer(item.studentAnswer) || !normalizeArabicText(item.modelAnswer))) {
+      const earlyGuard = enforceGradingGuard(gradingItem, 0, "");
+      if (earlyGuard.score === 0 && (isNonAnswer(gradingItem.studentAnswer) || !normalizeArabicText(gradingItem.modelAnswer))) {
         scores[key] = 0;
         feedback[key] = earlyGuard.feedback;
         await logExamTrace("grade_essay.item.guard_zero", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
           answer_id: item.answerId,
-          reason: isNonAnswer(item.studentAnswer) ? "non_answer" : "missing_model_answer",
+          reason: isNonAnswer(gradingItem.studentAnswer) ? "non_answer" : "missing_model_answer",
           student_answer: trimForLog(item.studentAnswer),
-          correct_answer: trimForLog(item.modelAnswer),
+          correct_answer: trimForLog(gradingItem.modelAnswer),
           score: 0,
           max_score: Number(item.maxPoints || 0),
         });
@@ -401,7 +444,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           body: {
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: buildPrompt([item]) },
+              { role: "user", content: buildPrompt([gradingItem]) },
             ],
             tools,
             tool_choice: { type: "function", function: { name: "grade_essays" } },
@@ -417,8 +460,8 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         const returnedCorrectAnswer = String(r.correctAnswer || r.correct_answer || "");
         const questionMatches = returnedQuestionId === String(item.questionId);
         const answerMatches = !item.answerId || !returnedAnswerId || returnedAnswerId === String(item.answerId);
-        const studentAnswerMatches = sameNormalizedText(returnedStudentAnswer, item.studentAnswer);
-        const correctAnswerMatches = sameNormalizedText(returnedCorrectAnswer, item.modelAnswer);
+        const studentAnswerMatches = sameNormalizedText(returnedStudentAnswer, gradingItem.studentAnswer);
+        const correctAnswerMatches = sameNormalizedText(returnedCorrectAnswer, gradingItem.modelAnswer);
         if (!questionMatches || !answerMatches || !studentAnswerMatches || !correctAnswerMatches) {
           await logExamTrace("grade_essay.item.rejected_mismatch", {
             expected_question_id: item.questionId,
@@ -426,9 +469,12 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
             expected_answer_id: item.answerId,
             returned_answer_id: returnedAnswerId || null,
             question_order: item.questionOrder ?? null,
-            expected_student_answer: trimForLog(item.studentAnswer),
+            expected_student_answer: trimForLog(gradingItem.studentAnswer),
             returned_student_answer: trimForLog(returnedStudentAnswer),
-            expected_correct_answer: trimForLog(item.modelAnswer),
+            expected_correct_answer: trimForLog(gradingItem.modelAnswer),
+            original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+            alignment_source: gradingItem.alignmentSource,
+            alignment_scores: gradingItem.alignmentScores || null,
             returned_correct_answer: trimForLog(returnedCorrectAnswer),
             student_answer_matches: studentAnswerMatches,
             correct_answer_matches: correctAnswerMatches,
@@ -440,18 +486,21 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         // Stored attempts are updated by the locally known answerId/questionId only.
         // The model never gets permission to remap a score/feedback to another row.
         const guarded = enforceGradingGuard(
-          item,
+          gradingItem,
           clampScore(r.score, Number(item.maxPoints || 0)),
           "",
         );
         scores[key] = guarded.score;
-        feedback[key] = safeLocalFeedback(item, guarded.score);
+        feedback[key] = safeLocalFeedback(gradingItem, guarded.score);
         await logExamTrace("grade_essay.item.graded", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
           answer_id: item.answerId,
           student_answer: trimForLog(item.studentAnswer),
-          correct_answer: trimForLog(item.modelAnswer),
+          correct_answer: trimForLog(gradingItem.modelAnswer),
+          original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+          alignment_source: gradingItem.alignmentSource,
+          alignment_scores: gradingItem.alignmentScores || null,
           ai_feedback: trimForLog(feedback[key]),
           score: scores[key],
           max_score: Number(item.maxPoints || 0),
@@ -505,16 +554,20 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
     for (const item of effectiveEssays) {
       const key = itemKey(item);
       if (scores[key] === undefined) {
-        scores[key] = fallbackScore(item.studentAnswer, item.modelAnswer, Number(item.maxPoints || 0));
+        const gradingItem = withAlignedModelAnswer(item);
+        scores[key] = fallbackScore(gradingItem.studentAnswer, gradingItem.modelAnswer, Number(gradingItem.maxPoints || 0));
         feedback[key] = scores[key] > 0
-          ? "تم احتساب الدرجة بتصحيح احتياطي ذكي حسب العناصر الصحيحة ومعنى الإجابة."
+          ? safeLocalFeedback(gradingItem, scores[key])
           : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.";
         await logExamTrace("grade_essay.item.deterministic", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
           answer_id: item.answerId,
           student_answer: trimForLog(item.studentAnswer),
-          correct_answer: trimForLog(item.modelAnswer),
+          correct_answer: trimForLog(gradingItem.modelAnswer),
+          original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+          alignment_source: gradingItem.alignmentSource,
+          alignment_scores: gradingItem.alignmentScores || null,
           ai_feedback: trimForLog(feedback[key]),
           score: scores[key],
           max_score: Number(item.maxPoints || 0),
@@ -525,6 +578,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
     if (attemptId && attempt && exam) {
       for (const item of effectiveEssays) {
         const key = itemKey(item);
+        const gradingItem = withAlignedModelAnswer(item);
         const score = Number(scores[key] || 0);
         let updateQuery = sb
           .from("exam_answers")
@@ -542,7 +596,10 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           question_order: item.questionOrder ?? null,
           answer_id: item.answerId,
           student_answer: trimForLog(item.studentAnswer),
-          correct_answer: trimForLog(item.modelAnswer),
+          correct_answer: trimForLog(gradingItem.modelAnswer),
+          original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+          alignment_source: gradingItem.alignmentSource,
+          alignment_scores: gradingItem.alignmentScores || null,
           ai_feedback: trimForLog(feedback[key]),
           score,
           max_score: Number(item.maxPoints || 0),
@@ -579,7 +636,9 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         question_id: item.questionId,
         answer_id: item.answerId || null,
         student_answer: item.studentAnswer || "",
-        correct_answer: item.modelAnswer || "",
+        correct_answer: withAlignedModelAnswer(item).modelAnswer || "",
+        original_correct_answer: withAlignedModelAnswer(item).originalModelAnswer || null,
+        alignment_source: withAlignedModelAnswer(item).alignmentSource,
         feedback: feedback[key] || null,
         score: scores[key] ?? null,
         max_score: Number(item.maxPoints || 0),
