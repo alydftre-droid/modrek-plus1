@@ -24,11 +24,17 @@ function normalizeSemanticToken(word: string) {
     .replace(/^(و|ف|ب|ك|ل)(?=\p{L}{3,})/u, "")
     .replace(/^ال(?=\p{L}{3,})/u, "")
     .replace(/(ه|ها|هم|نا|ات|ين|ون)$/u, "");
-  if (["صلاه", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
-  if (["وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر", "حدث", "الحدث", "نجاسه", "نجس", "نجاسة"].includes(w)) return "طهاره";
+  if (["salah", "salat", "sala", "prayer", "pray", "صلاه", "صلا", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
+  if (["wudu", "wudhu", "wodo", "ablution", "tahara", "purity", "وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر", "حدث", "الحدث", "نجاسه", "نجس", "نجاسة"].includes(w)) return "طهاره";
+  if (["ghusl", "ghosl", "غسل", "اغتسال"].includes(w)) return "غسل";
   if (["قبله", "كعبه"].includes(w)) return "قبله";
-  if (["نيه", "نوي", "ينوي"].includes(w)) return "نيه";
+  if (["niyyah", "niya", "intention", "intent", "نيه", "ني", "نوي", "ينوي"].includes(w)) return "نيه";
   if (["فرض", "فريضه", "واجب", "واجبه"].includes(w)) return "فرض";
+  if (["year", "aam", "hawl", "sanah", "sana", "عام", "حول", "سنه", "سنة"].includes(w)) return "عام";
+  if (["arafah", "arafa", "عرفه", "عرف", "عرفة"].includes(w)) return "عرفه";
+  if (["zakat", "zakah", "زكاه", "زكا", "زكاة"].includes(w)) return "زكاه";
+  if (["sawm", "fasting", "fast", "صيام", "صوم"].includes(w)) return "صيام";
+  if (["hajj", "haj", "حج"].includes(w)) return "حج";
   if (["الله", "رب", "ربه", "ربك", "الرب"].includes(w)) return "الله";
   if (["صله", "صلة", "تقرب", "قرب", "تقويه", "تقوي", "علاقه"].includes(w)) return "صله_الله";
   if (["خشوع", "خاشع", "تدبر", "طمأنينه", "طمأنينة", "سكينه"].includes(w)) return "خشوع";
@@ -141,6 +147,20 @@ function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback:
     };
   }
   return { score: safeScore, feedback: proposedFeedback || "تم التصحيح وفق نموذج الإجابة والمعنى الصحيح." };
+}
+
+function sameNormalizedText(a: unknown, b: unknown) {
+  return normalizeArabicText(String(a ?? "")) === normalizeArabicText(String(b ?? ""));
+}
+
+function safeLocalFeedback(item: any, score: number) {
+  const maxPoints = Number(item.maxPoints || 0);
+  if (maxPoints <= 0) return "لا توجد درجة مخصصة لهذا السؤال.";
+  if (isNonAnswer(item.studentAnswer)) return "لم يقدم الطالب إجابة قابلة للتصحيح لهذا السؤال.";
+  if (!normalizeArabicText(item.modelAnswer)) return "لا توجد إجابة نموذجية محفوظة لهذا السؤال؛ يحتاج مراجعة المعلم.";
+  if (score >= maxPoints) return "إجابة صحيحة بالمعنى لهذا السؤال.";
+  if (score > 0) return "إجابة جزئية لهذا السؤال وتم احتساب الدرجة حسب عناصر الإجابة الصحيحة.";
+  return "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية لهذا السؤال.";
 }
 
 serve(async (req) => {
@@ -315,7 +335,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
                       maxScore: { type: "number" },
                     feedback: { type: "string" },
                   },
-                  required: ["questionId", "score", "feedback"],
+                  required: ["questionId", "studentAnswer", "correctAnswer", "score", "feedback"],
                   additionalProperties: false,
                 },
               },
@@ -393,15 +413,25 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         if (!r) return;
         const returnedQuestionId = String(r.questionId || r.question_id || "");
         const returnedAnswerId = String(r.answerId || r.answer_id || "");
+        const returnedStudentAnswer = String(r.studentAnswer || r.student_answer || "");
+        const returnedCorrectAnswer = String(r.correctAnswer || r.correct_answer || "");
         const questionMatches = returnedQuestionId === String(item.questionId);
         const answerMatches = !item.answerId || !returnedAnswerId || returnedAnswerId === String(item.answerId);
-        if (!questionMatches || !answerMatches) {
+        const studentAnswerMatches = sameNormalizedText(returnedStudentAnswer, item.studentAnswer);
+        const correctAnswerMatches = sameNormalizedText(returnedCorrectAnswer, item.modelAnswer);
+        if (!questionMatches || !answerMatches || !studentAnswerMatches || !correctAnswerMatches) {
           await logExamTrace("grade_essay.item.rejected_mismatch", {
             expected_question_id: item.questionId,
             returned_question_id: returnedQuestionId || null,
             expected_answer_id: item.answerId,
             returned_answer_id: returnedAnswerId || null,
             question_order: item.questionOrder ?? null,
+            expected_student_answer: trimForLog(item.studentAnswer),
+            returned_student_answer: trimForLog(returnedStudentAnswer),
+            expected_correct_answer: trimForLog(item.modelAnswer),
+            returned_correct_answer: trimForLog(returnedCorrectAnswer),
+            student_answer_matches: studentAnswerMatches,
+            correct_answer_matches: correctAnswerMatches,
             rejected_feedback: trimForLog(r.feedback),
             rejected_score: r.score ?? null,
           });
@@ -412,10 +442,10 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         const guarded = enforceGradingGuard(
           item,
           clampScore(r.score, Number(item.maxPoints || 0)),
-          String(r.feedback || "").trim(),
+          "",
         );
         scores[key] = guarded.score;
-        feedback[key] = guarded.feedback || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.";
+        feedback[key] = safeLocalFeedback(item, guarded.score);
         await logExamTrace("grade_essay.item.graded", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
@@ -455,14 +485,17 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         results.forEach((r: any) => {
           const essayItem = resolveResultItem(r);
           if (!essayItem) return;
+          const returnedStudentAnswer = String(r.studentAnswer || r.student_answer || "");
+          const returnedCorrectAnswer = String(r.correctAnswer || r.correct_answer || "");
+          if (!sameNormalizedText(returnedStudentAnswer, essayItem.studentAnswer) || !sameNormalizedText(returnedCorrectAnswer, essayItem.modelAnswer)) return;
           const key = itemKey(essayItem);
           const guarded = enforceGradingGuard(
             essayItem,
             clampScore(r.score, Number(essayItem.maxPoints || r.score || 0)),
-            String(r.feedback || "").trim(),
+            "",
           );
           scores[key] = guarded.score;
-          feedback[key] = guarded.feedback;
+          feedback[key] = safeLocalFeedback(essayItem, guarded.score);
         });
       } else {
         console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
