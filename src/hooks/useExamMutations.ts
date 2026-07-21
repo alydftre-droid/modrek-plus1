@@ -229,8 +229,6 @@ export function useReplaceExamQuestions() {
   return useMutation({
     mutationFn: async (params: { examId: string; questions: EditorQuestion[] }) => {
       const { examId, questions } = params;
-      if (questions.length === 0) return { total_marks: 0 };
-
       const normalizedQuestions = questions.map((q) => normalizeChoiceQuestion(q));
 
       const payload = normalizedQuestions.map((q) => ({
