@@ -49,7 +49,7 @@ serve(async (req) => {
         }
       }
     } catch { /* noop */ }
-    // essays: Array<{ questionId?: string, answerId?: string, index?: number, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
+    // essays: Array<{ questionId: string, answerId?: string, question: string, studentAnswer: string, modelAnswer: string, maxPoints: number }>
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -143,10 +143,10 @@ serve(async (req) => {
 
     effectiveEssays = effectiveEssays.map((item: any) => ({
       ...item,
-      questionId: String(item?.questionId || item?.question_id || crypto.randomUUID()),
+      questionId: String(item?.questionId || item?.question_id || ""),
       answerId: item?.answerId || item?.answer_id || null,
       maxPoints: Number(item?.maxPoints || item?.max_points || 0),
-    }));
+    })).filter((item: any) => item.questionId);
 
     const itemKey = (item: any) => String(item?.questionId || item?.question_id || "");
     const essaysByQuestionId = new Map((effectiveEssays || []).filter((item: any) => item?.questionId).map((item: any) => [String(item.questionId), item]));
@@ -160,10 +160,10 @@ serve(async (req) => {
       return null;
     };
 
-    const buildPrompt = (items: any[]) => items.map((e: any, i: number) => `
-معرف السؤال: ${e.questionId || `local-${i}`}
+    const buildPrompt = (items: any[]) => items.map((e: any) => `
+معرف السؤال: ${e.questionId}
 معرف الإجابة: ${e.answerId || "غير محفوظ"}
-ترتيب السؤال للعرض فقط: ${e.questionOrder ?? i + 1}
+${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${e.questionOrder}` : ""}
 نص السؤال: ${e.question}
 الإجابة النموذجية: ${e.modelAnswer}
 إجابة الطالب: ${e.studentAnswer}
@@ -240,7 +240,7 @@ serve(async (req) => {
     const scores: Record<string, number> = {};
     const feedback: Record<string, string> = {};
 
-    const gradeOneStoredItem = async (item: any, index: number) => {
+    const gradeOneStoredItem = async (item: any) => {
       const key = itemKey(item);
       await logExamTrace("grade_essay.item.started", {
         question_id: item.questionId,
@@ -303,14 +303,9 @@ serve(async (req) => {
     };
 
     if (attemptId) {
-      let cursor = 0;
-      const workerCount = Math.min(3, effectiveEssays.length);
-      await Promise.all(Array.from({ length: workerCount }, async () => {
-        while (cursor < effectiveEssays.length) {
-          const index = cursor++;
-          await gradeOneStoredItem(effectiveEssays[index], index);
-        }
-      }));
+      for (const item of effectiveEssays) {
+        await gradeOneStoredItem(item);
+      }
     } else {
       const result = await callGeminiWithFallback({
         apiKey: GEMINI_API_KEY,
