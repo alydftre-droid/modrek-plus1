@@ -67,6 +67,29 @@ serve(async (req) => {
     let attempt: any = null;
     let exam: any = null;
 
+    const trimForLog = (value: unknown, max = 900) => {
+      const text = String(value ?? "");
+      return text.length > max ? `${text.slice(0, max)}…` : text;
+    };
+
+    const logExamTrace = async (stage: string, payload: Record<string, unknown>) => {
+      if (!attemptId) return;
+      try {
+        await sb.from("exam_attempt_debug_logs").insert({
+          stage,
+          student_id: attempt?.student_id || null,
+          exam_id: attempt?.exam_id || exam?.id || null,
+          attempt_id: attemptId,
+          payload,
+        });
+      } catch (error) {
+        console.warn("grade-essay trace log skipped", JSON.stringify({
+          stage,
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    };
+
 
     if (attemptId) {
       const verifiedUser = verifiedCaller;
@@ -92,17 +115,18 @@ serve(async (req) => {
           .select("id, question_text, question_type, correct_answer, marks, order_index")
           .eq("exam_id", attempt.exam_id)
           .in("question_type", ["short_answer", "essay"])
-          .order("order_index"),
+          .order("order_index", { ascending: true })
+          .order("id", { ascending: true }),
         sb.from("exam_answers").select("id, question_id, answer_text").eq("attempt_id", attemptId),
       ]);
 
       const answerByQuestion = new Map((answers || []).map((answer: any) => [answer.question_id, answer]));
-      effectiveEssays = (questions || []).map((question: any, index: number) => {
+      effectiveEssays = (questions || []).map((question: any) => {
         const answer: any = answerByQuestion.get(question.id);
         return {
-          index,
           answerId: answer?.id,
           questionId: question.id,
+          questionOrder: question.order_index,
           question: question.question_text,
           studentAnswer: answer?.answer_text || "",
           modelAnswer: question.correct_answer || "",
@@ -117,26 +141,30 @@ serve(async (req) => {
       });
     }
 
-    const itemKey = (item: any, fallbackIndex = 0) => String((item?.questionId || item?.question_id || item?.answerId || item?.answer_id || item?.index) ?? fallbackIndex);
+    effectiveEssays = effectiveEssays.map((item: any) => ({
+      ...item,
+      questionId: String(item?.questionId || item?.question_id || crypto.randomUUID()),
+      answerId: item?.answerId || item?.answer_id || null,
+      maxPoints: Number(item?.maxPoints || item?.max_points || 0),
+    }));
+
+    const itemKey = (item: any) => String(item?.questionId || item?.question_id || "");
     const essaysByQuestionId = new Map((effectiveEssays || []).filter((item: any) => item?.questionId).map((item: any) => [String(item.questionId), item]));
     const essaysByAnswerId = new Map((effectiveEssays || []).filter((item: any) => item?.answerId).map((item: any) => [String(item.answerId), item]));
-    const essaysByIndex = new Map((effectiveEssays || []).map((item: any, index: number) => [Number(item.index ?? index), item]));
 
     const resolveResultItem = (resultItem: any) => {
       const questionId = resultItem?.questionId || resultItem?.question_id;
       if (questionId && essaysByQuestionId.has(String(questionId))) return essaysByQuestionId.get(String(questionId));
       const answerId = resultItem?.answerId || resultItem?.answer_id;
       if (answerId && essaysByAnswerId.has(String(answerId))) return essaysByAnswerId.get(String(answerId));
-      // Direct non-attempt grading can still be index-only. For real stored attempts
-      // never rely on index unless no question ids exist at all.
-      if (!attemptId && resultItem?.index !== undefined) return essaysByIndex.get(Number(resultItem.index));
       return null;
     };
 
     const buildPrompt = (items: any[]) => items.map((e: any, i: number) => `
 معرف السؤال: ${e.questionId || `local-${i}`}
 معرف الإجابة: ${e.answerId || "غير محفوظ"}
-سؤال ${i + 1}: ${e.question}
+ترتيب السؤال للعرض فقط: ${e.questionOrder ?? i + 1}
+نص السؤال: ${e.question}
 الإجابة النموذجية: ${e.modelAnswer}
 إجابة الطالب: ${e.studentAnswer}
 الدرجة القصوى: ${e.maxPoints}
@@ -153,7 +181,9 @@ serve(async (req) => {
 - إذا السؤال مقالي فقارن الفكرة والمعنى والخطوات لا تطابق الكلمات فقط.
 - لا تعاقب الطالب على اختلاف الأسلوب أو ترتيب النقاط إذا المعنى صحيح.
 - الدرجة يجب أن تكون بين 0 والدرجة القصوى فقط، ويمكن استخدام كسور عشرية عادلة.
-- أعد نفس معرف السؤال questionId حرفياً كما هو مكتوب في كل عنصر، ولا تعتمد على ترتيب الأسئلة أبداً.`;
+- أعد نفس معرف السؤال questionId حرفياً كما هو مكتوب في كل عنصر.
+- أعد نفس معرف الإجابة answerId حرفياً عندما يكون موجوداً.
+- ممنوع الاعتماد على رقم السؤال أو ترتيب المصفوفة أو موضع العنصر في التصحيح.`;
 
     const tools = [
       {
@@ -168,11 +198,13 @@ serve(async (req) => {
                 type: "array",
                 items: {
                   type: "object",
-                  properties: {
+                    properties: {
                     questionId: { type: "string" },
                     answerId: { type: "string" },
-                    index: { type: "number" },
+                      studentAnswer: { type: "string" },
+                      correctAnswer: { type: "string" },
                     score: { type: "number" },
+                      maxScore: { type: "number" },
                     feedback: { type: "string" },
                   },
                   required: ["questionId", "score", "feedback"],
@@ -209,7 +241,15 @@ serve(async (req) => {
     const feedback: Record<string, string> = {};
 
     const gradeOneStoredItem = async (item: any, index: number) => {
-      const key = itemKey(item, index);
+      const key = itemKey(item);
+      await logExamTrace("grade_essay.item.started", {
+        question_id: item.questionId,
+        question_order: item.questionOrder ?? null,
+        answer_id: item.answerId,
+        student_answer: trimForLog(item.studentAnswer),
+        correct_answer: trimForLog(item.modelAnswer),
+        max_score: Number(item.maxPoints || 0),
+      });
       try {
         const result = await callGeminiWithFallback({
           apiKey: GEMINI_API_KEY,
@@ -227,10 +267,36 @@ serve(async (req) => {
         if (!result.ok) return;
         const [r] = await parseAiResults(result.response);
         if (!r) return;
+        const returnedQuestionId = String(r.questionId || r.question_id || "");
+        const returnedAnswerId = String(r.answerId || r.answer_id || "");
+        const questionMatches = returnedQuestionId === String(item.questionId);
+        const answerMatches = !item.answerId || !returnedAnswerId || returnedAnswerId === String(item.answerId);
+        if (!questionMatches || !answerMatches) {
+          await logExamTrace("grade_essay.item.rejected_mismatch", {
+            expected_question_id: item.questionId,
+            returned_question_id: returnedQuestionId || null,
+            expected_answer_id: item.answerId,
+            returned_answer_id: returnedAnswerId || null,
+            question_order: item.questionOrder ?? null,
+            rejected_feedback: trimForLog(r.feedback),
+            rejected_score: r.score ?? null,
+          });
+          return;
+        }
         // Stored attempts are updated by the locally known answerId/questionId only.
         // The model never gets permission to remap a score/feedback to another row.
         scores[key] = clampScore(r.score, Number(item.maxPoints || 0));
         feedback[key] = String(r.feedback || "").trim() || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.";
+        await logExamTrace("grade_essay.item.graded", {
+          question_id: item.questionId,
+          question_order: item.questionOrder ?? null,
+          answer_id: item.answerId,
+          student_answer: trimForLog(item.studentAnswer),
+          correct_answer: trimForLog(item.modelAnswer),
+          ai_feedback: trimForLog(feedback[key]),
+          score: scores[key],
+          max_score: Number(item.maxPoints || 0),
+        });
       } catch (error) {
         console.warn("single essay grading failed; using deterministic fallback", JSON.stringify({ questionId: item.questionId || null, answerId: item.answerId || null, error: error instanceof Error ? error.message : String(error) }));
       }
@@ -274,15 +340,25 @@ serve(async (req) => {
       }
     }
 
-    effectiveEssays.forEach((item: any, index: number) => {
-      const key = itemKey(item, index);
+    for (const item of effectiveEssays) {
+      const key = itemKey(item);
       if (scores[key] === undefined) {
         scores[key] = fallbackScore(item.studentAnswer, item.modelAnswer, Number(item.maxPoints || 0));
         feedback[key] = scores[key] > 0
           ? "تم احتساب الدرجة بتصحيح احتياطي ذكي حسب العناصر الصحيحة ومعنى الإجابة."
           : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.";
+        await logExamTrace("grade_essay.item.deterministic", {
+          question_id: item.questionId,
+          question_order: item.questionOrder ?? null,
+          answer_id: item.answerId,
+          student_answer: trimForLog(item.studentAnswer),
+          correct_answer: trimForLog(item.modelAnswer),
+          ai_feedback: trimForLog(feedback[key]),
+          score: scores[key],
+          max_score: Number(item.maxPoints || 0),
+        });
       }
-    });
+    }
 
     if (attemptId && attempt && exam) {
       for (const item of effectiveEssays) {
@@ -297,7 +373,18 @@ serve(async (req) => {
           })
           .eq("id", item.answerId);
         if (item.questionId) updateQuery = updateQuery.eq("question_id", item.questionId);
-        await updateQuery;
+        const { error: updateError } = await updateQuery;
+        if (updateError) throw updateError;
+        await logExamTrace("grade_essay.item.stored", {
+          question_id: item.questionId,
+          question_order: item.questionOrder ?? null,
+          answer_id: item.answerId,
+          student_answer: trimForLog(item.studentAnswer),
+          correct_answer: trimForLog(item.modelAnswer),
+          ai_feedback: trimForLog(feedback[key]),
+          score,
+          max_score: Number(item.maxPoints || 0),
+        });
       }
 
       const { data: answerRows } = await sb.from("exam_answers").select("marks_awarded").eq("attempt_id", attemptId);
@@ -324,7 +411,18 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ scores, feedback }), {
+    return new Response(JSON.stringify({ scores, feedback, results: effectiveEssays.map((item: any) => {
+      const key = itemKey(item);
+      return {
+        question_id: item.questionId,
+        answer_id: item.answerId || null,
+        student_answer: item.studentAnswer || "",
+        correct_answer: item.modelAnswer || "",
+        feedback: feedback[key] || null,
+        score: scores[key] ?? null,
+        max_score: Number(item.maxPoints || 0),
+      };
+    }) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
