@@ -595,13 +595,6 @@ function WithdrawalsTab({ overview, onReload }: any) {
         ))}
       </div>
 
-      <Button
-        variant="outline"
-        className="w-full h-11 gap-2"
-        onClick={() => navigate("/admin/withdrawals")}
-      >
-        <ArrowUpRight className="h-4 w-4" /> فتح صفحة إدارة السحب الكاملة
-      </Button>
 
       <ScrollArea className="max-h-[520px]">
         <div className="space-y-2">
