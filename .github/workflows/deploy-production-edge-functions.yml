@@ -84,8 +84,17 @@ jobs:
           # prompt unanswered and the step failing. Pipe `y` explicitly so the
           # prompt is always answered, and dump the remote migration list on
           # failure to surface the real underlying error.
-          if ! yes | supabase db push --linked --include-all --debug 2>&1 | tee /tmp/db-push.log; then
-            echo "::error::supabase db push failed. First failing statement and migration context follow."
+          # Do NOT use `yes | ...` with pipefail: `yes` receives SIGPIPE once the
+          # CLI stops reading and exits non-zero, which makes pipefail mark the
+          # whole step as failed even when the push succeeded ("Remote database
+          # is up to date."). Disable pipefail just for this pipeline and check
+          # the CLI's exit status directly via PIPESTATUS.
+          set +o pipefail
+          printf 'y\ny\ny\n' | supabase db push --linked --include-all --debug 2>&1 | tee /tmp/db-push.log
+          push_status=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$push_status" -ne 0 ]; then
+            echo "::error::supabase db push failed (exit $push_status). First failing statement and migration context follow."
             grep -nE "ERROR:|SQLSTATE|At statement|Applying migration|Finished" /tmp/db-push.log || true
             supabase migration list --linked || true
             exit 1
