@@ -19,21 +19,103 @@ function normalizeArabicText(value: string) {
     .trim();
 }
 
+const ARABIC_STOP_WORDS = new Set([
+  "من", "في", "على", "علي", "عن", "الى", "الي", "ان", "إن", "أن", "هو", "هي", "هما", "هم", "هن",
+  "هذا", "هذه", "ذلك", "تلك", "الذي", "التي", "الذين", "او", "أو", "و", "ثم", "كما", "كل", "اي", "أي",
+  "لا", "لم", "لن", "ما", "مع", "بين", "عند", "اذا", "إذا", "كان", "كانت", "يكون", "تكون", "قد", "لقد",
+  "الى", "حتى", "حتي", "فقط", "غير", "بعد", "قبل", "خلال", "حول", "له", "لها", "به", "بها", "فيها",
+]);
+
+function tokenizeMeaningful(value: string) {
+  return normalizeArabicText(value)
+    .split(" ")
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 3 && !ARABIC_STOP_WORDS.has(word));
+}
+
+function isNonAnswer(answer: string) {
+  const normalized = normalizeArabicText(answer);
+  if (!normalized) return true;
+  if (/^(\?|0|لا|لم|مش|معرفش|ماعرفش|مدري)$/.test(normalized)) return true;
+  return [
+    "لا اعرف",
+    "لا أعرف",
+    "لا ادري",
+    "لا أدري",
+    "لا اعلم",
+    "لا أعلم",
+    "مش عارف",
+    "مش عارفه",
+    "معرفش",
+    "ماعرفش",
+    "مش فاكر",
+    "لا اتذكر",
+    "لا أتذكر",
+    "لم اجب",
+    "لم أجب",
+    "بدون اجابه",
+    "بدون إجابة",
+  ].some((phrase) => normalized.includes(normalizeArabicText(phrase)));
+}
+
+function overlapStats(answer: string, modelAnswer: string) {
+  const answerWords = [...new Set(tokenizeMeaningful(answer))];
+  const modelWords = [...new Set(tokenizeMeaningful(modelAnswer))];
+  const common = answerWords.filter((word) => modelWords.includes(word));
+  return {
+    answerWords,
+    modelWords,
+    common,
+    answerCoverage: answerWords.length ? common.length / answerWords.length : 0,
+    modelCoverage: modelWords.length ? common.length / modelWords.length : 0,
+  };
+}
+
 function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
   const a = normalizeArabicText(answer);
   const m = normalizeArabicText(modelAnswer);
-  if (!a || !m || !maxPoints) return 0;
-  if (a === m || m.includes(a) || a.includes(m)) return maxPoints;
-  const answerWords = new Set(a.split(" ").filter((word) => word.length >= 3));
-  const modelWords = m.split(" ").filter((word) => word.length >= 3);
-  if (modelWords.length === 0) return 0;
-  const common = modelWords.filter((word) => answerWords.has(word)).length;
-  const ratio = common / modelWords.length;
-  if (ratio >= 0.75) return maxPoints;
-  if (ratio >= 0.55) return Math.round(maxPoints * 0.75 * 100) / 100;
-  if (ratio >= 0.35) return Math.round(maxPoints * 0.5 * 100) / 100;
-  if (ratio >= 0.2) return Math.round(maxPoints * 0.25 * 100) / 100;
+  if (!a || !m || !maxPoints || isNonAnswer(answer)) return 0;
+  const stats = overlapStats(answer, modelAnswer);
+  if (a === m || (stats.modelWords.length <= 4 && (m.includes(a) || a.includes(m)))) return maxPoints;
+  if (stats.common.length === 0) return 0;
+  const combined = Math.max(stats.modelCoverage, Math.min(stats.answerCoverage, stats.modelCoverage + 0.25));
+  if (combined >= 0.85) return maxPoints;
+  if (combined >= 0.65) return Math.round(maxPoints * 0.8 * 100) / 100;
+  if (combined >= 0.45) return Math.round(maxPoints * 0.6 * 100) / 100;
+  if (combined >= 0.28) return Math.round(maxPoints * 0.4 * 100) / 100;
+  if (combined >= 0.15) return Math.round(maxPoints * 0.2 * 100) / 100;
   return 0;
+}
+
+function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback: string) {
+  const maxPoints = Number(item.maxPoints || 0);
+  const studentAnswer = String(item.studentAnswer || "");
+  const modelAnswer = String(item.modelAnswer || "");
+  const safeScore = Math.max(0, Math.min(Number(proposedScore || 0), maxPoints));
+  if (maxPoints <= 0) return { score: 0, feedback: "لا توجد درجة مخصصة لهذا السؤال." };
+  if (isNonAnswer(studentAnswer)) {
+    return { score: 0, feedback: "لم يقدم الطالب إجابة قابلة للتصحيح لهذا السؤال." };
+  }
+  if (!normalizeArabicText(modelAnswer)) {
+    return { score: 0, feedback: "لا توجد إجابة نموذجية محفوظة لهذا السؤال؛ يحتاج مراجعة المعلم." };
+  }
+  const stats = overlapStats(studentAnswer, modelAnswer);
+  const exactShortMatch = stats.modelWords.length <= 4 && (
+    normalizeArabicText(studentAnswer) === normalizeArabicText(modelAnswer)
+    || normalizeArabicText(studentAnswer).includes(normalizeArabicText(modelAnswer))
+    || normalizeArabicText(modelAnswer).includes(normalizeArabicText(studentAnswer))
+  );
+  if (!exactShortMatch && stats.common.length === 0 && safeScore > 0) {
+    return { score: 0, feedback: "الإجابة لا تحتوي على عناصر يمكن ربطها بالإجابة النموذجية." };
+  }
+  if (!exactShortMatch && safeScore >= maxPoints && stats.modelCoverage < 0.35 && stats.answerCoverage < 0.75) {
+    const capped = Math.round(Math.max(fallbackScore(studentAnswer, modelAnswer, maxPoints), maxPoints * 0.4) * 100) / 100;
+    return {
+      score: Math.min(capped, maxPoints * 0.6),
+      feedback: proposedFeedback || "تم تخفيض الدرجة لأن الإجابة لا تغطي عناصر كافية من النموذج.",
+    };
+  }
+  return { score: safeScore, feedback: proposedFeedback || "تم التصحيح وفق نموذج الإجابة والمعنى الصحيح." };
 }
 
 serve(async (req) => {
@@ -114,7 +196,7 @@ serve(async (req) => {
           .from("exam_questions")
           .select("id, question_text, question_type, correct_answer, marks, order_index")
           .eq("exam_id", attempt.exam_id)
-          .in("question_type", ["short_answer", "essay"])
+          .in("question_type", ["short_answer", "essay", "fill_blank"])
           .order("order_index", { ascending: true })
           .order("id", { ascending: true }),
         sb.from("exam_answers").select("id, question_id, answer_text").eq("attempt_id", attemptId),
@@ -175,6 +257,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
 - صحح كل عنصر مستقلًا عن أي عنصر آخر.
 - لا تنقل الدرجة أو الملاحظة أو نص إجابة الطالب بين الأسئلة أبداً.
 - لا تعطِ درجات عشوائية أبداً.
+- إذا كانت إجابة الطالب فارغة أو تحتوي على "لا أعرف / مش عارف / معرفش / لا أدري" أو معنى عدم المعرفة، فالدرجة صفر دائماً مهما كان نص السؤال.
 - امنح الدرجة كاملة إذا كانت إجابة الطالب صحيحة بالمعنى حتى لو مختصرة أو بصياغة مختلفة.
 - اقبل طرق الحل المختلفة إذا وصلت لنفس النتيجة الصحيحة.
 - إذا الإجابة ناقصة امنح درجة جزئية دقيقة حسب العناصر الصحيحة فقط.
@@ -250,6 +333,22 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         correct_answer: trimForLog(item.modelAnswer),
         max_score: Number(item.maxPoints || 0),
       });
+      const earlyGuard = enforceGradingGuard(item, 0, "");
+      if (earlyGuard.score === 0 && (isNonAnswer(item.studentAnswer) || !normalizeArabicText(item.modelAnswer))) {
+        scores[key] = 0;
+        feedback[key] = earlyGuard.feedback;
+        await logExamTrace("grade_essay.item.guard_zero", {
+          question_id: item.questionId,
+          question_order: item.questionOrder ?? null,
+          answer_id: item.answerId,
+          reason: isNonAnswer(item.studentAnswer) ? "non_answer" : "missing_model_answer",
+          student_answer: trimForLog(item.studentAnswer),
+          correct_answer: trimForLog(item.modelAnswer),
+          score: 0,
+          max_score: Number(item.maxPoints || 0),
+        });
+        return;
+      }
       try {
         const result = await callGeminiWithFallback({
           apiKey: GEMINI_API_KEY,
@@ -285,8 +384,13 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
         }
         // Stored attempts are updated by the locally known answerId/questionId only.
         // The model never gets permission to remap a score/feedback to another row.
-        scores[key] = clampScore(r.score, Number(item.maxPoints || 0));
-        feedback[key] = String(r.feedback || "").trim() || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.";
+        const guarded = enforceGradingGuard(
+          item,
+          clampScore(r.score, Number(item.maxPoints || 0)),
+          String(r.feedback || "").trim(),
+        );
+        scores[key] = guarded.score;
+        feedback[key] = guarded.feedback || "تم التصحيح بالذكاء الاصطناعي وفق نموذج الإجابة والمعنى الصحيح.";
         await logExamTrace("grade_essay.item.graded", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
@@ -327,8 +431,13 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           const essayItem = resolveResultItem(r);
           if (!essayItem) return;
           const key = itemKey(essayItem);
-          scores[key] = clampScore(r.score, Number(essayItem.maxPoints || r.score || 0));
-          feedback[key] = r.feedback;
+          const guarded = enforceGradingGuard(
+            essayItem,
+            clampScore(r.score, Number(essayItem.maxPoints || r.score || 0)),
+            String(r.feedback || "").trim(),
+          );
+          scores[key] = guarded.score;
+          feedback[key] = guarded.feedback;
         });
       } else {
         console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
