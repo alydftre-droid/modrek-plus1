@@ -787,7 +787,7 @@ function TeachersTab() {
       <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="ابحث باسم المعلم أو الإيميل..."
+          placeholder="ابحث بالاسم، البريد، الهاتف، كود المعلم، أو المعرّف..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pr-10 h-11"
