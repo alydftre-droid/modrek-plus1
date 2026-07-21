@@ -1727,6 +1727,45 @@ export type Database = {
           },
         ]
       }
+      financial_audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          amount: number | null
+          created_at: string
+          id: string
+          metadata: Json
+          new_value: Json | null
+          old_value: Json | null
+          reason: string | null
+          target_teacher_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          amount?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          target_teacher_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          amount?: number | null
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_value?: Json | null
+          old_value?: Json | null
+          reason?: string | null
+          target_teacher_id?: string | null
+        }
+        Relationships: []
+      }
       knowledge_source_assets: {
         Row: {
           asset_id: string
@@ -5847,7 +5886,30 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_financial_overview: { Args: never; Returns: Json }
       admin_get_withdrawal_dashboard: { Args: never; Returns: Json }
+      admin_list_audit_logs: {
+        Args: {
+          _action?: string
+          _limit?: number
+          _offset?: number
+          _teacher_id?: string
+        }
+        Returns: Json
+      }
+      admin_list_teacher_wallets: {
+        Args: { _limit?: number; _offset?: number; _search?: string }
+        Returns: Json
+      }
+      admin_manual_wallet_action: {
+        Args: {
+          _action: string
+          _amount: number
+          _reason?: string
+          _teacher_id: string
+        }
+        Returns: Json
+      }
       admin_process_deposit_request: {
         Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
@@ -5859,6 +5921,10 @@ export type Database = {
           _note?: string
           _teacher_id: string
         }
+        Returns: Json
+      }
+      admin_teacher_monthly_statement: {
+        Args: { _period_label: string; _teacher_id: string }
         Returns: Json
       }
       apply_default_price_to_existing_groups: {
