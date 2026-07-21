@@ -43,7 +43,7 @@ export default function ExamReviewPage() {
 
   if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
 
-  const showCorrect = true;
+  const showCorrect = (exam as any)?.show_correct_answers !== false;
   const answerByQ = new Map(
     questions
       .map((q: any) => q?.answer)
