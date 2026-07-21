@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, CheckCircle2, XCircle, Sparkles, Save, UserRound, Trophy, FileText, Clock } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, Sparkles, Save, UserRound, Trophy, FileText, Clock, CircleDot } from "lucide-react";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -140,21 +140,25 @@ export default function TeacherAttemptDetailPage() {
               continue;
             }
             const a: any = answerByQ.get(q.id);
-            const isCorrect = a?.is_correct === true;
-            const isWrong = a?.is_correct === false;
+            const awarded = Number(a?.marks_awarded || 0);
+            const maxMark = Number(q.marks || 0);
+            const isCorrect = a?.is_correct === true || (maxMark > 0 && awarded >= maxMark);
+            const isPartial = !isCorrect && awarded > 0;
+            const isWrong = Boolean(a) && !isCorrect && !isPartial;
             const idx = qNum++;
             const isEssayLike = ["short_answer", "fill_blank", "essay"].includes(q.question_type);
 
             nodes.push(
-              <Card key={q.id} className={`border-2 ${isCorrect ? "border-green-500/50" : isWrong ? "border-red-500/50" : "border-border"}`}>
+              <Card key={q.id} className={`border-2 ${isCorrect ? "border-green-500/50" : isPartial ? "border-amber-500/50" : isWrong ? "border-red-500/50" : "border-border"}`}>
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <Badge>{idx + 1}</Badge>
                       {isCorrect && <Badge className="bg-green-500"><CheckCircle2 className="h-3 w-3 ml-1" />صحيح</Badge>}
+                      {isPartial && <Badge className="bg-amber-500 text-white"><CircleDot className="h-3 w-3 ml-1" />جزئي</Badge>}
                       {isWrong && <Badge variant="destructive"><XCircle className="h-3 w-3 ml-1" />خطأ</Badge>}
                     </div>
-                    <Badge variant="outline">{Number(a?.marks_awarded || 0)} / {q.marks}</Badge>
+                    <Badge variant="outline">{awarded} / {q.marks}</Badge>
                   </div>
                   <p className="font-black whitespace-pre-wrap leading-8">{q.question_text}</p>
 
