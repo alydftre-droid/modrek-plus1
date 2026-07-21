@@ -223,6 +223,34 @@ jobs:
       - name: Deploy functions to production project only
         run: |
           set -euo pipefail
+          deploy_fn_with_retry() {
+            local fn="$1"
+            local no_verify_jwt="$2"
+            local attempt=1
+            local max_attempts=5
+            local delay=20
+            local extra_args=()
+            if [ "$no_verify_jwt" = "true" ]; then
+              extra_args+=(--no-verify-jwt)
+            fi
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "Deploy attempt $attempt/$max_attempts for $fn"
+              if supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" "${extra_args[@]}" 2>&1 | tee /tmp/main-deploy-${fn}.log; then
+                return 0
+              fi
+              if grep -qiE 'toomanyrequests|Rate exceeded|failed to bundle function|failed to solve|i/o timeout|TLS handshake timeout|connection reset|EOF' /tmp/main-deploy-${fn}.log; then
+                echo "::warning::Transient bundle/pull failure deploying $fn (attempt $attempt). Retrying in ${delay}s."
+                sleep "$delay"
+                delay=$((delay * 2))
+                attempt=$((attempt + 1))
+                continue
+              fi
+              echo "::error::Non-transient failure deploying $fn."
+              return 1
+            done
+            echo "::error::Exhausted retries deploying $fn after $max_attempts attempts."
+            return 1
+          }
           for fn_dir in supabase/functions/*; do
             test -d "$fn_dir" || continue
             fn="$(basename "$fn_dir")"
@@ -238,10 +266,10 @@ jobs:
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
               library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
-                supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+                deploy_fn_with_retry "$fn" true
                 ;;
               *)
-                supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
+                deploy_fn_with_retry "$fn" false
                 ;;
             esac
           done
