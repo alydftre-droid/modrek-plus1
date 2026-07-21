@@ -9,6 +9,46 @@ function normalizeQuestionType(type: unknown): EditorQType {
   return "mcq";
 }
 
+function normalizeOptionValue(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function normalizeChoiceQuestion(q: EditorQuestion): EditorQuestion {
+  const type = normalizeQuestionType((q as any).type);
+  if (type !== "mcq" && type !== "true_false") return { ...q, type };
+
+  const fallbackOptions = type === "true_false" && q.options.length === 0
+    ? [
+        { id: crypto.randomUUID(), text: "صح", isCorrect: false },
+        { id: crypto.randomUUID(), text: "خطأ", isCorrect: false },
+      ]
+    : q.options;
+
+  const explicitAnswer = normalizeOptionValue(q.modelAnswer);
+  const options = fallbackOptions.map((option, index) => ({
+    ...option,
+    text: option.text || (type === "true_false" ? (index === 0 ? "صح" : "خطأ") : `الخيار ${index + 1}`),
+  }));
+  const answerMatchedOption = explicitAnswer
+    ? options.find((option) => normalizeOptionValue(option.text) === explicitAnswer)
+    : undefined;
+  const correctOption = answerMatchedOption || options.find((option) => option.isCorrect) || (type === "true_false" ? options[0] : undefined);
+
+  return {
+    ...q,
+    type,
+    modelAnswer: correctOption?.text || q.modelAnswer || "",
+    options: options.map((option) => ({ ...option, isCorrect: Boolean(correctOption && option.id === correctOption.id) })),
+  };
+}
+
 export interface ExamDraftPayload {
   title: string;
   description?: string | null;
@@ -192,7 +232,7 @@ export function useReplaceExamQuestions() {
       if (delErr) throw delErr;
       if (questions.length === 0) return { total_marks: 0 };
 
-      const normalizedQuestions = questions.map((q) => ({ ...q, type: normalizeQuestionType((q as any).type) }));
+      const normalizedQuestions = questions.map((q) => normalizeChoiceQuestion(q));
 
       const rows = normalizedQuestions.map((q, i) => ({
         exam_id: examId,
