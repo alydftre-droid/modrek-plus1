@@ -7,6 +7,34 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
 
+const normalizeReviewAnswer = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^(true|yes|correct|right|صحيح)$/, "صح")
+    .replace(/^(false|no|wrong|incorrect|خطا|خطأ|غير صحيح)$/, "خطأ")
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/\s+/g, " ");
+
+const booleanReviewKey = (value: unknown) => {
+  const normalized = normalizeReviewAnswer(value);
+  if (["صح", "صحيح", "true", "yes", "correct", "right", "1"].includes(normalized)) return "true";
+  if (["خطا", "غير صحيح", "false", "no", "wrong", "incorrect", "0"].includes(normalized)) return "false";
+  return null;
+};
+
+const isOptionCorrectForQuestion = (question: any, option: any) => {
+  if (question?.question_type === "true_false" || question?.question_type === "tf") {
+    const expected = booleanReviewKey(question?.correct_answer);
+    const actual = booleanReviewKey(option?.option_text);
+    if (expected && actual) return expected === actual;
+  }
+  return Boolean(option?.is_correct);
+};
+
 export default function ExamReviewPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
@@ -85,8 +113,9 @@ export default function ExamReviewPage() {
                     <div className="space-y-2">
                       {(q.options || []).map((opt: any) => {
                         const isSelected = a?.selected_option_ids?.includes(opt.id);
-                        const isRight = showCorrect && opt.is_correct;
-                        const isWrongPick = showCorrect && isSelected && !opt.is_correct;
+                        const optionIsCorrect = isOptionCorrectForQuestion(q, opt);
+                        const isRight = showCorrect && optionIsCorrect;
+                        const isWrongPick = showCorrect && isSelected && !optionIsCorrect;
                         return (
                           <div key={opt.id} className={`p-3 rounded-xl border-2 ${
                             isRight ? "border-green-500 bg-green-500/10" :

@@ -13,6 +13,8 @@ function normalizeOptionValue(value: unknown) {
   return String(value ?? "")
     .trim()
     .toLowerCase()
+    .replace(/^(true|yes|correct|right|صحيح)$/, "صح")
+    .replace(/^(false|no|wrong|incorrect|خطا|خطأ|غير صحيح)$/, "خطأ")
     .replace(/[أإآا]/g, "ا")
     .replace(/[ىي]/g, "ي")
     .replace(/ة/g, "ه")
@@ -245,13 +247,18 @@ export function useReplaceExamQuestions() {
             ? JSON.stringify({ section: true, total: Number(q.sectionTotal || 0), title: q.sectionTitle || "" })
             : (q.modelAnswer ?? null),
       }));
-      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows as any).select();
+      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows as any).select("id, order_index");
       if (error) throw error;
+
+      const insertedByOrder = new Map((inserted || []).map((row: any) => [Number(row.order_index), row]));
 
       // insert options
       const optRows: any[] = [];
       normalizedQuestions.forEach((q, qi) => {
-        const dbq = inserted![qi];
+        const dbq = insertedByOrder.get(qi);
+        if (!dbq?.id) {
+          throw new Error(`تعذر ربط خيارات السؤال رقم ${qi + 1} بشكل آمن. حاول حفظ الامتحان مرة أخرى.`);
+        }
         if (q.type === "mcq" || q.type === "true_false") {
           q.options.forEach((o, oi) => {
             optRows.push({

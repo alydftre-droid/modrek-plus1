@@ -5997,6 +5997,7 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      exam_boolean_answer_key: { Args: { _value: string }; Returns: string }
       exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }
       exam_target_matches_student: {
         Args: {

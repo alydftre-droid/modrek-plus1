@@ -11,6 +11,34 @@ import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+const normalizeReviewAnswer = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^(true|yes|correct|right|صحيح)$/, "صح")
+    .replace(/^(false|no|wrong|incorrect|خطا|خطأ|غير صحيح)$/, "خطأ")
+    .replace(/[أإآا]/g, "ا")
+    .replace(/[ىي]/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/\s+/g, " ");
+
+const booleanReviewKey = (value: unknown) => {
+  const normalized = normalizeReviewAnswer(value);
+  if (["صح", "صحيح", "true", "yes", "correct", "right", "1"].includes(normalized)) return "true";
+  if (["خطا", "غير صحيح", "false", "no", "wrong", "incorrect", "0"].includes(normalized)) return "false";
+  return null;
+};
+
+const isOptionCorrectForQuestion = (question: any, option: any) => {
+  if (question?.question_type === "true_false" || question?.question_type === "tf") {
+    const expected = booleanReviewKey(question?.correct_answer);
+    const actual = booleanReviewKey(option?.option_text);
+    if (expected && actual) return expected === actual;
+  }
+  return Boolean(option?.is_correct);
+};
+
 export default function TeacherAttemptDetailPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
@@ -166,13 +194,14 @@ export default function TeacherAttemptDetailPage() {
                     <div className="space-y-2">
                       {(q.options || []).map((opt: any) => {
                         const isSelected = a?.selected_option_ids?.includes(opt.id);
+                        const optionIsCorrect = isOptionCorrectForQuestion(q, opt);
                         return (
                           <div key={opt.id} className={`p-3 rounded-xl border-2 ${
-                            opt.is_correct ? "border-green-500 bg-green-500/10" :
+                            optionIsCorrect ? "border-green-500 bg-green-500/10" :
                             isSelected ? "border-red-500 bg-red-500/10" : "border-border bg-muted/20"
                           }`}>
                             <div className="flex items-center gap-2">
-                              {opt.is_correct ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
+                              {optionIsCorrect ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
                                isSelected ? <XCircle className="h-4 w-4 text-red-600" /> : <div className="w-4 h-4" />}
                               <span>{opt.option_text}</span>
                               {isSelected && <Badge variant="outline" className="ms-auto text-[10px]">إجابة الطالب</Badge>}
