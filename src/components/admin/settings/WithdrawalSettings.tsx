@@ -37,6 +37,11 @@ const fmt = (n: any) =>
   Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n: any) => Number(n || 0).toLocaleString("ar-EG");
 
+const isRecoverableRpcError = (message?: string | null) => {
+  const text = (message || "").toLowerCase();
+  return text.includes("schema cache") || text.includes("could not find the function") || text.includes("permission denied for function");
+};
+
 // ------------------------------------------------------------
 // Root component (kept name for existing SettingsPage import)
 // ------------------------------------------------------------
@@ -52,6 +57,12 @@ export default function WithdrawalSettings() {
     const { data, error } = await supabase.rpc("admin_financial_overview" as any);
     if (error) {
       console.error("[WithdrawalSettings] admin_financial_overview error:", error);
+      if (isRecoverableRpcError(error.message)) {
+        setLoadError("تم إصلاح دالة البيانات المالية، لكن واجهة الخادم ما زالت تحدّث الفهرس. تعرض الصفحة بيانات احتياطية مؤقتاً.");
+        const fallback = await loadOverviewFallback();
+        setOverview(fallback);
+        return;
+      }
       setLoadError(error.message || "خطأ في الاتصال بقاعدة البيانات");
       return;
     }
@@ -63,6 +74,59 @@ export default function WithdrawalSettings() {
       return;
     }
     setOverview(r);
+  };
+
+  const loadOverviewFallback = async () => {
+    const nowCairo = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+    const period = `${nowCairo.getFullYear()}-${String(nowCairo.getMonth() + 1).padStart(2, "0")}`;
+    const monthStart = new Date(nowCairo.getFullYear(), nowCairo.getMonth(), 1).toISOString();
+
+    const [walletsRes, earningsRes, withdrawalsRes, settingsRes, archivesRes] = await Promise.all([
+      supabase.from("teacher_wallets").select("teacher_id,balance,frozen_balance,total_earned"),
+      supabase.from("teacher_earning_records").select("teacher_id,student_id,group_id,gross_amount,net_amount,period_label").eq("period_label", period),
+      supabase.from("teacher_withdrawal_requests").select("amount,status,processed_at"),
+      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute"]),
+      supabase.from("teacher_monthly_archives").select("id,archived_at").gte("archived_at", monthStart),
+    ]);
+
+    const wallets = walletsRes.data || [];
+    const earnings = earningsRes.data || [];
+    const withdrawals = withdrawalsRes.data || [];
+    const settings = new Map((settingsRes.data || []).map((s: any) => [s.key, s.value]));
+    const teacherTotals = new Map<string, number>();
+    earnings.forEach((e: any) => teacherTotals.set(e.teacher_id, (teacherTotals.get(e.teacher_id) || 0) + Number(e.net_amount || 0)));
+    const teacherNetValues = Array.from(teacherTotals.values());
+    return {
+      success: true,
+      period,
+      total_available: wallets.reduce((s: number, w: any) => s + Number(w.balance || 0), 0),
+      total_frozen: wallets.reduce((s: number, w: any) => s + Number(w.frozen_balance || 0), 0),
+      total_teachers: wallets.length,
+      teachers_with_frozen: wallets.filter((w: any) => Number(w.frozen_balance || 0) > 0).length,
+      teachers_with_available: wallets.filter((w: any) => Number(w.balance || 0) > 0).length,
+      total_earned_all_time: wallets.reduce((s: number, w: any) => s + Number(w.total_earned || 0), 0),
+      month_gross: earnings.reduce((s: number, e: any) => s + Number(e.gross_amount || 0), 0),
+      month_teacher_net: earnings.reduce((s: number, e: any) => s + Number(e.net_amount || 0), 0),
+      month_platform_cut: earnings.reduce((s: number, e: any) => s + (Number(e.gross_amount || 0) - Number(e.net_amount || 0)), 0),
+      month_paying_students: new Set(earnings.map((e: any) => e.student_id).filter(Boolean)).size,
+      month_subscriptions: earnings.length,
+      active_groups: new Set(earnings.map((e: any) => e.group_id).filter(Boolean)).size,
+      pending_requests: withdrawals.filter((w: any) => w.status === "pending").length,
+      pending_amount: withdrawals.filter((w: any) => w.status === "pending").reduce((s: number, w: any) => s + Number(w.amount || 0), 0),
+      approved_total: withdrawals.filter((w: any) => w.status === "approved").reduce((s: number, w: any) => s + Number(w.amount || 0), 0),
+      approved_count: withdrawals.filter((w: any) => w.status === "approved").length,
+      rejected_count: withdrawals.filter((w: any) => w.status === "rejected").length,
+      approved_this_month: withdrawals.filter((w: any) => w.status === "approved" && w.processed_at >= monthStart).reduce((s: number, w: any) => s + Number(w.amount || 0), 0),
+      archives_this_month: archivesRes.data?.length || 0,
+      avg_teacher_earnings_month: teacherNetValues.length ? teacherNetValues.reduce((s, v) => s + v, 0) / teacherNetValues.length : 0,
+      top_teacher: {},
+      revenue_series: [],
+      last_release_at: settings.get("withdrawal_last_release_at"),
+      manual_state: settings.get("withdrawal_manual_state") || "auto",
+      open_day: settings.get("withdrawal_open_day") || "25",
+      open_hour: settings.get("withdrawal_open_hour") || "9",
+      open_minute: settings.get("withdrawal_open_minute") || "0",
+    };
   };
 
   useEffect(() => {
@@ -84,9 +148,7 @@ export default function WithdrawalSettings() {
   return (
     <div className="space-y-4 pb-8" dir="rtl">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-500 p-5 text-white shadow-xl">
-        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -left-10 -bottom-10 h-40 w-40 rounded-full bg-black/10 blur-2xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-slate-950 via-blue-800 to-emerald-600 p-5 text-white shadow-2xl">
         <div className="relative flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-[11px] font-medium opacity-90 mb-1">
@@ -111,20 +173,20 @@ export default function WithdrawalSettings() {
       </div>
 
       {loadError && (
-        <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-950/20">
+        <Card className="border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/20">
           <CardContent className="p-4">
             <div className="flex items-start gap-3">
-              <div className="h-9 w-9 rounded-xl bg-red-500 text-white flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
                 <AlertTriangle className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-bold text-sm text-red-900 dark:text-red-100">تعذّر تحميل البيانات المالية</p>
-                <p className="text-[11px] text-red-800 dark:text-red-200 mt-0.5 break-words">{loadError}</p>
+                <p className="font-bold text-sm text-amber-950 dark:text-amber-100">تنبيه تحميل البيانات المالية</p>
+                <p className="text-[11px] text-amber-900 dark:text-amber-200 mt-0.5 break-words">{loadError}</p>
               </div>
               <Button
                 size="sm"
                 onClick={async () => { setLoading(true); await loadOverview(); setLoading(false); }}
-                className="h-8 gap-1 bg-red-600 hover:bg-red-700 text-white border-0 shrink-0"
+                className="h-8 gap-1 bg-amber-600 hover:bg-amber-700 text-white border-0 shrink-0"
               >
                 <RefreshCw className="h-3.5 w-3.5" /> إعادة
               </Button>
@@ -135,7 +197,7 @@ export default function WithdrawalSettings() {
 
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
-        <TabsList className="w-full grid grid-cols-5 h-11 rounded-xl bg-muted/60 p-1">
+        <TabsList className="w-full grid grid-cols-5 h-12 rounded-xl bg-slate-100 p-1 shadow-inner border border-slate-200">
           <TabsTrigger value="overview" className="text-[11px] gap-1"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
           <TabsTrigger value="closing" className="text-[11px] gap-1"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
           <TabsTrigger value="withdrawals" className="text-[11px] gap-1"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
@@ -768,15 +830,39 @@ function TeachersTab() {
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<any>(null);
   const [action, setAction] = useState<any>(null);
 
   const load = async () => {
     setLoading(true);
+    setError(null);
     const { data, error } = await supabase.rpc("admin_list_teacher_wallets" as any, {
       _search: search || null, _limit: 100, _offset: 0,
     });
-    if (!error && (data as any)?.success) setRows((data as any).rows || []);
+    if (!error && (data as any)?.success) {
+      setRows((data as any).rows || []);
+      setLoading(false);
+      return;
+    }
+
+    if (error && !isRecoverableRpcError(error.message)) {
+      setError(error.message || "تعذر تحميل محافظ المعلمين");
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    if ((data as any)?.success === false && !isRecoverableRpcError((data as any)?.error)) {
+      setError((data as any)?.error || "تعذر تحميل محافظ المعلمين");
+      setRows([]);
+      setLoading(false);
+      return;
+    }
+
+    const fallback = await loadTeacherWalletsFallback(search);
+    setRows(fallback.rows);
+    if (error) setError("تم تحميل المحافظ بمسار احتياطي مؤقت لأن فهرس الدوال ما زال يتحدّث.");
     setLoading(false);
   };
 
@@ -785,33 +871,45 @@ function TeachersTab() {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-700" />
         <Input
           placeholder="ابحث بالاسم، البريد، الهاتف، كود المعلم، أو المعرّف..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pr-10 h-11"
+          className="pr-10 h-12 rounded-xl border-2 border-blue-200 bg-white text-slate-950 placeholder:text-slate-500 focus-visible:ring-blue-600"
         />
       </div>
 
+      {error && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-[11px] font-semibold text-amber-950 flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
+
       <ScrollArea className="max-h-[560px]">
         <div className="space-y-2">
-          {loading ? Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-lg" />)
+          {loading ? Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-24 rounded-xl bg-slate-100" />)
             : rows.length === 0 ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">لا يوجد معلمون</div>
+              <div className="text-center py-10 text-sm text-slate-600 bg-white rounded-xl border border-slate-200">لا يوجد معلمون مطابقون للبحث</div>
             ) : rows.map((r) => (
-              <Card key={r.teacher_id} className="border-0 shadow-sm">
-                <CardContent className="p-3">
+              <Card key={r.teacher_id} className="border border-slate-200 shadow-sm overflow-hidden bg-white">
+                <CardContent className="p-0">
+                  <div className="h-1.5 bg-gradient-to-l from-blue-700 via-emerald-500 to-amber-400" />
+                  <div className="p-3">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-primary to-primary/60 text-primary-foreground flex items-center justify-center shrink-0">
+                    <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-blue-700 to-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
                       <User className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold truncate">{r.name}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{r.email}</p>
+                      <p className="text-sm font-extrabold truncate text-slate-950">{r.name}</p>
+                      <p className="text-[10px] text-slate-600 truncate">{r.email || "بدون بريد"}</p>
+                      <p className="text-[10px] text-slate-500 truncate">
+                        {r.phone || "بدون هاتف"}{r.teacher_code ? ` • كود ${r.teacher_code}` : ""}
+                      </p>
                     </div>
                     {r.pending_requests > 0 && (
-                      <Badge className="bg-orange-500 text-white border-0 text-[9px]">
+                      <Badge className="bg-orange-600 text-white border-0 text-[9px] shadow-sm">
                         {r.pending_requests} معلق
                       </Badge>
                     )}
@@ -822,14 +920,15 @@ function TeachersTab() {
                     <MiniStat label="إجمالي" value={`${fmt(r.total_earned)} ج`} tone="violet" />
                   </div>
                   <div className="flex gap-1.5">
-                    <Button size="sm" variant="outline" className="flex-1 h-8 text-[11px] gap-1"
+                    <Button size="sm" variant="outline" className="flex-1 h-9 text-[11px] gap-1 border-blue-200 text-blue-800 hover:bg-blue-50"
                       onClick={() => setSelected(r)}>
                       <FileText className="h-3 w-3" /> السجل الشهري
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-8 text-[11px] gap-1"
+                    <Button size="sm" variant="outline" className="flex-1 h-9 text-[11px] gap-1 border-emerald-200 text-emerald-800 hover:bg-emerald-50"
                       onClick={() => setAction(r)}>
                       <Coins className="h-3 w-3" /> إجراء يدوي
                     </Button>
+                  </div>
                   </div>
                 </CardContent>
               </Card>
@@ -847,16 +946,56 @@ function TeachersTab() {
   );
 }
 
+async function loadTeacherWalletsFallback(search: string) {
+  const q = search.trim().toLowerCase();
+  const [rolesRes, profilesRes, walletsRes, requestsRes] = await Promise.all([
+    supabase.from("user_roles").select("user_id,role").eq("role", "teacher"),
+    supabase.from("profiles").select("id,full_name,email,phone,teacher_code,is_test_account"),
+    supabase.from("teacher_wallets").select("teacher_id,balance,frozen_balance,total_earned,current_period,updated_at"),
+    supabase.from("teacher_withdrawal_requests").select("teacher_id,status").eq("status", "pending"),
+  ]);
+
+  const profiles = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
+  const wallets = new Map((walletsRes.data || []).map((w: any) => [w.teacher_id, w]));
+  const pending = new Map<string, number>();
+  (requestsRes.data || []).forEach((r: any) => pending.set(r.teacher_id, (pending.get(r.teacher_id) || 0) + 1));
+
+  const rows = (rolesRes.data || [])
+    .map((role: any) => {
+      const p: any = profiles.get(role.user_id) || {};
+      const w: any = wallets.get(role.user_id) || {};
+      return {
+        teacher_id: role.user_id,
+        name: p.full_name || "معلم",
+        email: p.email || "",
+        phone: p.phone || "",
+        teacher_code: p.teacher_code || "",
+        is_test_account: Boolean(p.is_test_account),
+        balance: Number(w.balance || 0),
+        frozen_balance: Number(w.frozen_balance || 0),
+        total_earned: Number(w.total_earned || 0),
+        current_period: w.current_period || "",
+        updated_at: w.updated_at || null,
+        pending_requests: pending.get(role.user_id) || 0,
+      };
+    })
+    .filter((r: any) => !r.is_test_account)
+    .filter((r: any) => !q || `${r.name} ${r.email} ${r.phone} ${r.teacher_code} ${r.teacher_id}`.toLowerCase().includes(q))
+    .sort((a: any, b: any) => Number(b.total_earned || 0) - Number(a.total_earned || 0));
+
+  return { rows };
+}
+
 function MiniStat({ label, value, tone }: any) {
   const toneMap: any = {
-    emerald: "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300",
-    cyan: "bg-cyan-50 dark:bg-cyan-950/30 text-cyan-700 dark:text-cyan-300",
-    violet: "bg-violet-50 dark:bg-violet-950/30 text-violet-700 dark:text-violet-300",
+    emerald: "bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300",
+    cyan: "bg-cyan-50 border border-cyan-200 text-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-300",
+    violet: "bg-violet-50 border border-violet-200 text-violet-800 dark:bg-violet-950/30 dark:text-violet-300",
   };
   return (
-    <div className={`rounded-md p-1.5 ${toneMap[tone]}`}>
-      <p className="text-[9px] opacity-80">{label}</p>
-      <p className="font-bold truncate">{value}</p>
+    <div className={`rounded-lg p-2 ${toneMap[tone]}`}>
+      <p className="text-[9px] font-bold opacity-90">{label}</p>
+      <p className="font-extrabold truncate">{value}</p>
     </div>
   );
 }
