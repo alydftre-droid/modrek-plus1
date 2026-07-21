@@ -561,7 +561,7 @@ function WithdrawalsTab({ overview, onReload }: any) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
-  const navigate = useNavigate();
+  
 
   const load = async () => {
     setLoading(true);
