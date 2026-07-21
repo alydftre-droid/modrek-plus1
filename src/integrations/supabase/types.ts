@@ -6007,6 +6007,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      exam_text_feedback: {
+        Args: {
+          _answer: string
+          _max_score: number
+          _model: string
+          _score: number
+        }
+        Returns: string
+      }
       exam_text_similarity: {
         Args: { _answer: string; _model: string }
         Returns: number
