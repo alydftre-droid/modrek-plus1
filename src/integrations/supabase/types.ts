@@ -5997,6 +5997,16 @@ export type Database = {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      exam_best_aligned_model_answer: {
+        Args: {
+          _answer_text: string
+          _attempt_id: string
+          _current_model: string
+          _max_score: number
+          _question_id: string
+        }
+        Returns: Json
+      }
       exam_boolean_answer_key: { Args: { _value: string }; Returns: string }
       exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }
       exam_target_matches_student: {
@@ -6007,15 +6017,26 @@ export type Database = {
         }
         Returns: boolean
       }
-      exam_text_feedback: {
-        Args: {
-          _answer: string
-          _max_score: number
-          _model: string
-          _score: number
-        }
-        Returns: string
-      }
+      exam_text_feedback:
+        | {
+            Args: {
+              _answer: string
+              _max_score: number
+              _model: string
+              _score: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _alignment_source?: string
+              _answer: string
+              _max_score: number
+              _model: string
+              _score: number
+            }
+            Returns: string
+          }
       exam_text_similarity: {
         Args: { _answer: string; _model: string }
         Returns: number
