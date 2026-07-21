@@ -10,8 +10,8 @@ android {
         applicationId "com.modrek.plus"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 27
-        versionName "1.1.24"
+        versionCode 28
+        versionName "1.1.25"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
