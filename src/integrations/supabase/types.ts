@@ -6275,6 +6275,7 @@ export type Database = {
       }
       increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
+      is_exam_non_answer: { Args: { _answer: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
       is_modrek_ai_training_exam_for_student: {
         Args: {
