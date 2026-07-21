@@ -91,7 +91,7 @@ serve(async (req) => {
           .from("exam_questions")
           .select("id, question_text, question_type, correct_answer, marks, order_index")
           .eq("exam_id", attempt.exam_id)
-          .in("question_type", ["short_answer", "fill_blank", "essay"])
+          .in("question_type", ["short_answer", "essay"])
           .order("order_index"),
         sb.from("exam_answers").select("id, question_id, answer_text").eq("attempt_id", attemptId),
       ]);
