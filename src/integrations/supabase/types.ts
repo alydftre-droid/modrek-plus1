@@ -6585,6 +6585,10 @@ export type Database = {
         Args: { _tpl: string; _vars: Json }
         Returns: string
       }
+      replace_exam_questions_atomic: {
+        Args: { _exam_id: string; _questions?: Json }
+        Returns: Json
+      }
       report_test_student_query_result: {
         Args: { _context?: Json; _source_table: string; _student_ids: string[] }
         Returns: undefined
