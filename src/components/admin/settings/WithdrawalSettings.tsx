@@ -44,16 +44,25 @@ export default function WithdrawalSettings() {
   const [tab, setTab] = useState("overview");
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
 
   const loadOverview = async () => {
+    setLoadError(null);
     const { data, error } = await supabase.rpc("admin_financial_overview" as any);
     if (error) {
-      console.error(error);
-      toast.error("تعذر تحميل البيانات المالية");
-    } else if ((data as any)?.success) {
-      setOverview(data);
+      console.error("[WithdrawalSettings] admin_financial_overview error:", error);
+      setLoadError(error.message || "خطأ في الاتصال بقاعدة البيانات");
+      return;
     }
+    const r = data as any;
+    if (!r?.success) {
+      const msg = r?.error || "استجابة غير متوقعة من الخادم";
+      console.warn("[WithdrawalSettings] RPC returned failure:", r);
+      setLoadError(msg);
+      return;
+    }
+    setOverview(r);
   };
 
   useEffect(() => {
