@@ -538,6 +538,138 @@ function ClosingTab({ overview, loading, onReload }: any) {
 }
 
 // ============================================================
+// Native-style Date & Time Picker (single trigger + 2-step modal)
+// ============================================================
+const AR_MONTH_NOW = () => new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric", timeZone: "Africa/Cairo" });
+function DateTimePickerTrigger({
+  day, hour, minute, onSave,
+}: { day: number; hour: number; minute: number; onSave: (d: number, h: number, m: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"date" | "time">("date");
+  const [d, setD] = useState(day);
+  const [h, setH] = useState(hour);
+  const [m, setM] = useState(minute);
+
+  useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setStep("date"); } }, [open, day, hour, minute]);
+
+  const label = `يوم ${day} • ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const mins = Array.from({ length: 60 }, (_, i) => i);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full h-12 rounded-xl border-2 border-blue-200 hover:border-blue-400 bg-white dark:bg-slate-900 dark:border-slate-700 dark:hover:border-blue-500 transition-colors flex items-center justify-between px-4 group"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">تاريخ ووقت الإقفال</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100" dir="rtl">{label}</p>
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 rotate-180 group-hover:text-blue-500 transition-colors" />
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent dir="rtl" className="max-w-md p-0 overflow-hidden bg-white dark:bg-slate-900">
+          <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 text-white">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-[11px] opacity-90">
+                {step === "date" ? <CalendarDays className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                {step === "date" ? "الخطوة 1 من 2 — التاريخ" : "الخطوة 2 من 2 — الوقت"}
+              </div>
+              <div className="flex gap-1">
+                <div className={`h-1.5 w-6 rounded-full ${step === "date" ? "bg-white" : "bg-white/40"}`} />
+                <div className={`h-1.5 w-6 rounded-full ${step === "time" ? "bg-white" : "bg-white/40"}`} />
+              </div>
+            </div>
+            <p className="text-lg font-bold">
+              {step === "date" ? `اليوم ${d}` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`}
+            </p>
+            <p className="text-[10px] opacity-80">{AR_MONTH_NOW()}</p>
+          </div>
+
+          <div className="p-4">
+            {step === "date" ? (
+              <div className="grid grid-cols-7 gap-1.5">
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((n) => {
+                  const active = n === d;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setD(n)}
+                      className={`h-10 rounded-lg text-sm font-bold border transition-all ${
+                        active
+                          ? "bg-blue-600 text-white border-blue-700 shadow scale-105"
+                          : "bg-white text-slate-800 border-slate-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
+                      }`}
+                    >{n}</button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الساعة</Label>
+                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                    <div className="space-y-1">
+                      {hours.map((v) => (
+                        <button key={v} type="button" onClick={() => setH(v)}
+                          className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
+                            v === h ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                          }`}>{String(v).padStart(2, "0")}</button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+                <div>
+                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الدقيقة</Label>
+                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                    <div className="space-y-1">
+                      {mins.map((v) => (
+                        <button key={v} type="button" onClick={() => setM(v)}
+                          className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
+                            v === m ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                          }`}>{String(v).padStart(2, "0")}</button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 pt-0 flex gap-2">
+            {step === "time" && (
+              <Button variant="outline" onClick={() => setStep("date")} className="flex-1 h-11">
+                رجوع
+              </Button>
+            )}
+            {step === "date" ? (
+              <Button
+                onClick={() => setStep("time")}
+                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0"
+              >التالي</Button>
+            ) : (
+              <Button
+                onClick={() => { onSave(d, h, m); setOpen(false); }}
+                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2"
+              ><Save className="h-4 w-4" /> حفظ</Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ============================================================
 // WITHDRAWALS TAB
 // ============================================================
 function WithdrawalsTab({ overview, onReload }: any) {
