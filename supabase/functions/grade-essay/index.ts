@@ -25,7 +25,7 @@ function normalizeSemanticToken(word: string) {
     .replace(/^ال(?=\p{L}{3,})/u, "")
     .replace(/(ه|ها|هم|نا|ات|ين|ون)$/u, "");
   if (["صلاه", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
-  if (["وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر"].includes(w)) return "طهاره";
+  if (["وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر", "حدث", "الحدث", "نجاسه", "نجس", "نجاسة"].includes(w)) return "طهاره";
   if (["قبله", "كعبه"].includes(w)) return "قبله";
   if (["نيه", "نوي", "ينوي"].includes(w)) return "نيه";
   if (["فرض", "فريضه", "واجب", "واجبه"].includes(w)) return "فرض";
@@ -93,12 +93,12 @@ function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
   const stats = overlapStats(answer, modelAnswer);
   if (a === m || (stats.modelWords.length <= 4 && (m.includes(a) || a.includes(m)))) return maxPoints;
   if (stats.common.length === 0) return 0;
-  const combined = Math.max(stats.modelCoverage, Math.min(stats.answerCoverage, stats.modelCoverage + 0.25));
-  if (combined >= 0.85) return maxPoints;
+  const combined = Math.max(stats.modelCoverage, Math.min(stats.answerCoverage, stats.modelCoverage + 0.35));
+  if (combined >= 0.85 && stats.modelCoverage >= 0.55) return maxPoints;
   if (combined >= 0.65) return Math.round(maxPoints * 0.8 * 100) / 100;
   if (combined >= 0.45) return Math.round(maxPoints * 0.6 * 100) / 100;
   if (combined >= 0.28) return Math.round(maxPoints * 0.4 * 100) / 100;
-  if (combined >= 0.15) return Math.round(maxPoints * 0.2 * 100) / 100;
+  if (combined >= 0.12) return Math.round(maxPoints * 0.2 * 100) / 100;
   return 0;
 }
 
@@ -123,8 +123,17 @@ function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback:
   if (!exactShortMatch && stats.common.length === 0 && safeScore > 0) {
     return { score: 0, feedback: "الإجابة لا تحتوي على عناصر يمكن ربطها بالإجابة النموذجية." };
   }
+  const fallback = fallbackScore(studentAnswer, modelAnswer, maxPoints);
+  if (!exactShortMatch && safeScore > fallback) {
+    return {
+      score: fallback,
+      feedback: fallback > 0
+        ? "تم ضبط الدرجة حسب العناصر المطابقة فعليًا في الإجابة."
+        : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.",
+    };
+  }
   if (!exactShortMatch && safeScore >= maxPoints && stats.modelCoverage < 0.35 && stats.answerCoverage < 0.75) {
-    const capped = Math.round(Math.max(fallbackScore(studentAnswer, modelAnswer, maxPoints), maxPoints * 0.4) * 100) / 100;
+    const capped = Math.round(Math.max(fallback, maxPoints * 0.4) * 100) / 100;
     return {
       score: Math.min(capped, maxPoints * 0.6),
       feedback: proposedFeedback || "تم تخفيض الدرجة لأن الإجابة لا تغطي عناصر كافية من النموذج.",

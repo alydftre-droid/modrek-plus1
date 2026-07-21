@@ -437,6 +437,8 @@ async function runExamGenerator(args: {
 - المستوى: ${difficulty}.
 - رتب: MCQ ← True/False ← Essay.
 - لكل سؤال حدد points (1-5) و source_ref إن أمكن.
+- أسئلة صح/خطأ إلزاميًا: options يجب أن تكون بالضبط ["صح", "خطأ"]، و correct_answer يجب أن تكون بالضبط "صح" أو "خطأ" فقط، ولا تستخدم true/false أو boolean.
+- الأسئلة المقالية/أكمل/الإجابة القصيرة: model_answer يجب أن يكون إجابة نموذجية كاملة قابلة للتصحيح، ولا تتركه فارغًا أبدًا.
 ${e.distribution ? `- توزيع المنهج: ${e.distribution}` : ""}`;
 
   const userContent: any[] = [{
