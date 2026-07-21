@@ -1070,22 +1070,18 @@ function normalizeUnitKind(kind: string): string {
   return allowed.has(kind) ? kind : "paragraph";
 }
 
+async function loadPdfProxy(bytes: Uint8Array): Promise<any> {
+  const { getDocumentProxy }: any = await import("https://esm.sh/unpdf@0.11.0");
+  return await getDocumentProxy(bytes.slice());
+}
+
 async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
   try {
-    const pdfjs: any = await import("npm:pdfjs-dist@5.5.207/legacy/build/pdf.mjs");
-    const copy = bytes.slice();
-    const task = pdfjs.getDocument({
-      data: copy,
-      disableWorker: true,
-      disableFontFace: true,
-      useSystemFonts: true,
-      isEvalSupported: false,
-    });
-    const pdf = await withTimeout(task.promise, 30_000, "pdf.js document load timeout");
+    const pdf: any = await withTimeout(loadPdfProxy(bytes), 30_000, "pdf document load timeout");
     const pages: string[] = [];
     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
-      const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf.js page ${pageNo} load timeout`);
-      const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf.js page ${pageNo} text timeout`);
+      const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf page ${pageNo} load timeout`);
+      const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf page ${pageNo} text timeout`);
       const lines = (content.items ?? [])
         .map((item: any) => String(item?.str ?? "").trim())
         .filter(Boolean)
@@ -1099,7 +1095,7 @@ async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
     const parsed = pages.join("\n\n").trim();
     if (parsed.length >= 200) return parsed;
   } catch (e: any) {
-    console.warn("pdf.js extraction failed; trying literal PDF text", e?.message ?? e);
+    console.warn("pdf extraction failed; trying literal PDF text", e?.message ?? e);
   }
 
   const raw = new TextDecoder("latin1").decode(bytes);
@@ -1130,15 +1126,7 @@ async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
 }
 
 async function getPdfPageCount(bytes: Uint8Array): Promise<number> {
-  const pdfjs: any = await import("npm:pdfjs-dist@5.5.207/legacy/build/pdf.mjs");
-  const task = pdfjs.getDocument({
-    data: bytes.slice(),
-    disableWorker: true,
-    disableFontFace: true,
-    useSystemFonts: true,
-    isEvalSupported: false,
-  });
-  const pdf = await withTimeout(task.promise, 30_000, "pdf.js page-count timeout");
+  const pdf: any = await withTimeout(loadPdfProxy(bytes), 30_000, "pdf page-count timeout");
   const count = Number(pdf.numPages ?? 0);
   await pdf.destroy?.();
   return count;
@@ -1150,20 +1138,12 @@ async function extractPdfPagesFromBytes(
   pageTo: number,
   onPage?: (pageNo: number) => Promise<void>,
 ): Promise<{ pageNo: number; text: string }[]> {
-  const pdfjs: any = await import("npm:pdfjs-dist@5.5.207/legacy/build/pdf.mjs");
-  const task = pdfjs.getDocument({
-    data: bytes.slice(),
-    disableWorker: true,
-    disableFontFace: true,
-    useSystemFonts: true,
-    isEvalSupported: false,
-  });
-  const pdf = await withTimeout(task.promise, 30_000, "pdf.js page-range load timeout");
+  const pdf: any = await withTimeout(loadPdfProxy(bytes), 30_000, "pdf page-range load timeout");
   const pages: { pageNo: number; text: string }[] = [];
   const lastPage = Math.min(Number(pdf.numPages ?? pageTo), pageTo);
   for (let pageNo = pageFrom; pageNo <= lastPage; pageNo += 1) {
-    const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf.js page ${pageNo} load timeout`);
-    const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf.js page ${pageNo} text timeout`);
+    const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf page ${pageNo} load timeout`);
+    const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf page ${pageNo} text timeout`);
     const text = (content.items ?? [])
       .map((item: any) => String(item?.str ?? "").trim())
       .filter(Boolean)
