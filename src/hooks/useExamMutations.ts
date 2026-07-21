@@ -229,57 +229,28 @@ export function useReplaceExamQuestions() {
   return useMutation({
     mutationFn: async (params: { examId: string; questions: EditorQuestion[] }) => {
       const { examId, questions } = params;
-      // wipe existing questions (cascade removes options)
-      const { error: delErr } = await supabase.from("exam_questions").delete().eq("exam_id", examId);
-      if (delErr) throw delErr;
-      if (questions.length === 0) return { total_marks: 0 };
-
       const normalizedQuestions = questions.map((q) => normalizeChoiceQuestion(q));
 
-      const rows = normalizedQuestions.map((q, i) => ({
-        exam_id: examId,
-        order_index: i,
-        question_type: q.type,
-        question_text: q.text,
+      const payload = normalizedQuestions.map((q) => ({
+        type: q.type,
+        text: q.text,
         marks: q.type === "section" ? 0 : (q.marks || 1),
-        correct_answer:
-          q.type === "section"
-            ? JSON.stringify({ section: true, total: Number(q.sectionTotal || 0), title: q.sectionTitle || "" })
-            : (q.modelAnswer ?? null),
+        modelAnswer: q.modelAnswer ?? "",
+        sectionTitle: q.sectionTitle || "",
+        sectionTotal: Number(q.sectionTotal || 0),
+        options: (q.options || []).map((o) => ({
+          text: o.text,
+          isCorrect: Boolean(o.isCorrect),
+        })),
       }));
-      const { data: inserted, error } = await supabase.from("exam_questions").insert(rows as any).select("id, order_index");
-      if (error) throw error;
 
-      const insertedByOrder = new Map((inserted || []).map((row: any) => [Number(row.order_index), row]));
-
-      // insert options
-      const optRows: any[] = [];
-      normalizedQuestions.forEach((q, qi) => {
-        const dbq = insertedByOrder.get(qi);
-        if (!dbq?.id) {
-          throw new Error(`تعذر ربط خيارات السؤال رقم ${qi + 1} بشكل آمن. حاول حفظ الامتحان مرة أخرى.`);
-        }
-        if (q.type === "mcq" || q.type === "true_false") {
-          q.options.forEach((o, oi) => {
-            optRows.push({
-              question_id: dbq.id,
-              order_index: oi,
-              option_text: o.text || (q.type === "true_false" ? (oi === 0 ? "صح" : "خطأ") : `الخيار ${oi + 1}`),
-              is_correct: o.isCorrect,
-            });
-          });
-        }
+      const { data, error } = await (supabase as any).rpc("replace_exam_questions_atomic", {
+        _exam_id: examId,
+        _questions: payload,
       });
-      if (optRows.length) {
-        const { error: optErr } = await supabase.from("exam_question_options").insert(optRows);
-        if (optErr) throw optErr;
-      }
-
-      const total_marks = normalizedQuestions
-        .filter((q) => q.type !== "section")
-        .reduce((a, q) => a + (q.marks || 0), 0);
-      await supabase.from("exams").update({ total_marks }).eq("id", examId);
-      return { total_marks };
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error || "تعذر حفظ الأسئلة بشكل آمن");
+      return { total_marks: Number(data?.total_marks || 0) };
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ["exam-questions", v.examId] });
