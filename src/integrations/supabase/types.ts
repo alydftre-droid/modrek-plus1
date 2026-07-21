@@ -5847,6 +5847,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_get_withdrawal_dashboard: { Args: never; Returns: Json }
       admin_process_deposit_request: {
         Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
