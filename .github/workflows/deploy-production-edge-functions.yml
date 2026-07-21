@@ -59,9 +59,38 @@ jobs:
           # The live upload page calls these endpoints directly. If an older
           # database migration blocks the rest of the workflow, the browser must
           # still not receive HTTP 404 / preflight failure for Library V2.
+          #
+          # Supabase CLI bundles functions locally via a Docker image pulled from
+          # public.ecr.aws/supabase/edge-runtime. Docker Hub / ECR anonymous pulls
+          # frequently return "toomanyrequests: Rate exceeded" on GitHub-hosted
+          # runners. Retry with backoff so a transient pull failure doesn't fail
+          # the whole production deploy.
+          deploy_with_retry() {
+            local fn="$1"
+            local attempt=1
+            local max_attempts=5
+            local delay=20
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "Deploy attempt $attempt/$max_attempts for $fn"
+              if supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt 2>&1 | tee /tmp/deploy-${fn}.log; then
+                return 0
+              fi
+              if grep -qiE 'toomanyrequests|Rate exceeded|failed to bundle function|failed to solve|i/o timeout|TLS handshake timeout|connection reset|EOF' /tmp/deploy-${fn}.log; then
+                echo "::warning::Transient bundle/pull failure deploying $fn (attempt $attempt). Retrying in ${delay}s."
+                sleep "$delay"
+                delay=$((delay * 2))
+                attempt=$((attempt + 1))
+                continue
+              fi
+              echo "::error::Non-transient failure deploying $fn."
+              return 1
+            done
+            echo "::error::Exhausted retries deploying $fn after $max_attempts attempts."
+            return 1
+          }
           for fn in library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             echo "Pre-deploying critical Library V2 function: $fn"
-            supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF" --no-verify-jwt
+            deploy_with_retry "$fn"
           done
 
       - name: Harden historical Modrek AI migration for production replay
