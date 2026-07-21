@@ -22,21 +22,6 @@ function normalizeOptionValue(value: unknown) {
     .replace(/\s+/g, " ");
 }
 
-function questionClientKey(question: EditorQuestion, index: number) {
-  const seed = [
-    index,
-    normalizeQuestionType((question as any).type),
-    String(question.text ?? "").trim(),
-    String(question.modelAnswer ?? "").trim(),
-    Number(question.marks || 0),
-  ].join("::");
-  let hash = 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = Math.imul(31, hash) + seed.charCodeAt(i) | 0;
-  }
-  return `q_${index}_${Math.abs(hash)}`;
-}
-
 function normalizeChoiceQuestion(q: EditorQuestion): EditorQuestion {
   const type = normalizeQuestionType((q as any).type);
   if (type !== "mcq" && type !== "true_false") return { ...q, type };
@@ -251,7 +236,6 @@ export function useReplaceExamQuestions() {
 
       const normalizedQuestions = questions.map((q) => normalizeChoiceQuestion(q));
 
-      const questionKeys = normalizedQuestions.map((q, i) => questionClientKey(q, i));
       const rows = normalizedQuestions.map((q, i) => ({
         exam_id: examId,
         order_index: i,
