@@ -110,6 +110,30 @@ export default function WithdrawalSettings() {
         </div>
       </div>
 
+      {loadError && (
+        <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-red-500 text-white flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-red-900 dark:text-red-100">تعذّر تحميل البيانات المالية</p>
+                <p className="text-[11px] text-red-800 dark:text-red-200 mt-0.5 break-words">{loadError}</p>
+              </div>
+              <Button
+                size="sm"
+                onClick={async () => { setLoading(true); await loadOverview(); setLoading(false); }}
+                className="h-8 gap-1 bg-red-600 hover:bg-red-700 text-white border-0 shrink-0"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> إعادة
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
         <TabsList className="w-full grid grid-cols-5 h-11 rounded-xl bg-muted/60 p-1">
           <TabsTrigger value="overview" className="text-[11px] gap-1"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
