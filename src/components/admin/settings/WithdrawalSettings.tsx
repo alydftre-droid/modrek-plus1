@@ -44,16 +44,25 @@ export default function WithdrawalSettings() {
   const [tab, setTab] = useState("overview");
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
 
   const loadOverview = async () => {
+    setLoadError(null);
     const { data, error } = await supabase.rpc("admin_financial_overview" as any);
     if (error) {
-      console.error(error);
-      toast.error("تعذر تحميل البيانات المالية");
-    } else if ((data as any)?.success) {
-      setOverview(data);
+      console.error("[WithdrawalSettings] admin_financial_overview error:", error);
+      setLoadError(error.message || "خطأ في الاتصال بقاعدة البيانات");
+      return;
     }
+    const r = data as any;
+    if (!r?.success) {
+      const msg = r?.error || "استجابة غير متوقعة من الخادم";
+      console.warn("[WithdrawalSettings] RPC returned failure:", r);
+      setLoadError(msg);
+      return;
+    }
+    setOverview(r);
   };
 
   useEffect(() => {
@@ -100,6 +109,30 @@ export default function WithdrawalSettings() {
           </div>
         </div>
       </div>
+
+      {loadError && (
+        <Card className="border-2 border-red-300 bg-red-50 dark:bg-red-950/20">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-9 w-9 rounded-xl bg-red-500 text-white flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-sm text-red-900 dark:text-red-100">تعذّر تحميل البيانات المالية</p>
+                <p className="text-[11px] text-red-800 dark:text-red-200 mt-0.5 break-words">{loadError}</p>
+              </div>
+              <Button
+                size="sm"
+                onClick={async () => { setLoading(true); await loadOverview(); setLoading(false); }}
+                className="h-8 gap-1 bg-red-600 hover:bg-red-700 text-white border-0 shrink-0"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> إعادة
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
         <TabsList className="w-full grid grid-cols-5 h-11 rounded-xl bg-muted/60 p-1">
@@ -395,82 +428,32 @@ function ClosingTab({ overview, loading, onReload }: any) {
         </CardContent>
       </Card>
 
-      {/* Day picker */}
+      {/* Native-style Date & Time picker (single trigger) */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
-              <CalendarDays className="h-4 w-4 text-emerald-600" />
+            <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
+              <CalendarDays className="h-4 w-4 text-blue-600" />
             </div>
-            <div>
-              <p className="font-bold text-sm">يوم الإقفال</p>
-              <p className="text-[11px] text-muted-foreground">من كل شهر بتوقيت القاهرة</p>
+            <div className="min-w-0">
+              <p className="font-bold text-sm">موعد الإقفال الشهري</p>
+              <p className="text-[11px] text-muted-foreground">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {DAYS.map((d) => {
-              const active = d === openDay; const isToday = d === cairoDay;
-              return (
-                <button
-                  key={d}
-                  onClick={() => setOpenDay(d)}
-                  className={`h-10 rounded-lg border text-sm font-bold transition-all relative ${
-                    active ? "bg-emerald-500 text-white border-emerald-600 shadow-md scale-105"
-                           : "bg-card hover:bg-accent border-border"
-                  }`}
-                >
-                  {d}
-                  {isToday && !active && (
-                    <span className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-blue-500" />
-                  )}
-                </button>
-              );
-            })}
+
+          <DateTimePickerTrigger
+            day={openDay}
+            hour={openHour}
+            minute={openMinute}
+            onSave={(d, h, m) => { setOpenDay(d); setOpenHour(h); setOpenMinute(m); }}
+          />
+
+          <div className="rounded-lg p-3 text-xs border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 text-blue-900 dark:text-blue-100">
+            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong dir="ltr">{timeLabel}</strong>.
           </div>
         </CardContent>
       </Card>
 
-      {/* Time picker */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-indigo-100 dark:bg-indigo-950/40 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-indigo-600" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">وقت الإقفال</p>
-              <p className="text-[11px] text-muted-foreground">الساعة والدقيقة (توقيت القاهرة)</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[11px] mb-1.5 block text-muted-foreground">الساعة</Label>
-              <div className="grid grid-cols-6 gap-1 max-h-40 overflow-y-auto p-1 border rounded-lg">
-                {HOURS.map((h) => (
-                  <button key={h} onClick={() => setOpenHour(h)}
-                    className={`h-9 rounded-md text-xs font-bold transition-all ${
-                      h === openHour ? "bg-indigo-500 text-white shadow" : "bg-muted/50 hover:bg-accent"
-                    }`}>{String(h).padStart(2, "0")}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label className="text-[11px] mb-1.5 block text-muted-foreground">الدقيقة</Label>
-              <div className="grid grid-cols-3 gap-1 p-1 border rounded-lg">
-                {MINUTES.map((m) => (
-                  <button key={m} onClick={() => setOpenMinute(m)}
-                    className={`h-9 rounded-md text-xs font-bold transition-all ${
-                      m === openMinute ? "bg-indigo-500 text-white shadow" : "bg-muted/50 hover:bg-accent"
-                    }`}>{String(m).padStart(2, "0")}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg p-3 text-xs">
-            الإقفال يوم <strong>{openDay}</strong> من كل شهر الساعة <strong dir="ltr">{timeLabel}</strong>.
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Emergency Stop */}
       <Card className={`border-0 shadow-md overflow-hidden ${stopped ? "ring-2 ring-red-500" : ""}`}>
@@ -551,6 +534,138 @@ function ClosingTab({ overview, loading, onReload }: any) {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// ============================================================
+// Native-style Date & Time Picker (single trigger + 2-step modal)
+// ============================================================
+const AR_MONTH_NOW = () => new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric", timeZone: "Africa/Cairo" });
+function DateTimePickerTrigger({
+  day, hour, minute, onSave,
+}: { day: number; hour: number; minute: number; onSave: (d: number, h: number, m: number) => void }) {
+  const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"date" | "time">("date");
+  const [d, setD] = useState(day);
+  const [h, setH] = useState(hour);
+  const [m, setM] = useState(minute);
+
+  useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setStep("date"); } }, [open, day, hour, minute]);
+
+  const label = `يوم ${day} • ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const mins = Array.from({ length: 60 }, (_, i) => i);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full h-12 rounded-xl border-2 border-blue-200 hover:border-blue-400 bg-white dark:bg-slate-900 dark:border-slate-700 dark:hover:border-blue-500 transition-colors flex items-center justify-between px-4 group"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
+            <CalendarDays className="h-4 w-4" />
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">تاريخ ووقت الإقفال</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100" dir="rtl">{label}</p>
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 rotate-180 group-hover:text-blue-500 transition-colors" />
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent dir="rtl" className="max-w-md p-0 overflow-hidden bg-white dark:bg-slate-900">
+          <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 text-white">
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-2 text-[11px] opacity-90">
+                {step === "date" ? <CalendarDays className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
+                {step === "date" ? "الخطوة 1 من 2 — التاريخ" : "الخطوة 2 من 2 — الوقت"}
+              </div>
+              <div className="flex gap-1">
+                <div className={`h-1.5 w-6 rounded-full ${step === "date" ? "bg-white" : "bg-white/40"}`} />
+                <div className={`h-1.5 w-6 rounded-full ${step === "time" ? "bg-white" : "bg-white/40"}`} />
+              </div>
+            </div>
+            <p className="text-lg font-bold">
+              {step === "date" ? `اليوم ${d}` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`}
+            </p>
+            <p className="text-[10px] opacity-80">{AR_MONTH_NOW()}</p>
+          </div>
+
+          <div className="p-4">
+            {step === "date" ? (
+              <div className="grid grid-cols-7 gap-1.5">
+                {Array.from({ length: 28 }, (_, i) => i + 1).map((n) => {
+                  const active = n === d;
+                  return (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setD(n)}
+                      className={`h-10 rounded-lg text-sm font-bold border transition-all ${
+                        active
+                          ? "bg-blue-600 text-white border-blue-700 shadow scale-105"
+                          : "bg-white text-slate-800 border-slate-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
+                      }`}
+                    >{n}</button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الساعة</Label>
+                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                    <div className="space-y-1">
+                      {hours.map((v) => (
+                        <button key={v} type="button" onClick={() => setH(v)}
+                          className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
+                            v === h ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                          }`}>{String(v).padStart(2, "0")}</button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+                <div>
+                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الدقيقة</Label>
+                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                    <div className="space-y-1">
+                      {mins.map((v) => (
+                        <button key={v} type="button" onClick={() => setM(v)}
+                          className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
+                            v === m ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                          }`}>{String(v).padStart(2, "0")}</button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 pt-0 flex gap-2">
+            {step === "time" && (
+              <Button variant="outline" onClick={() => setStep("date")} className="flex-1 h-11">
+                رجوع
+              </Button>
+            )}
+            {step === "date" ? (
+              <Button
+                onClick={() => setStep("time")}
+                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0"
+              >التالي</Button>
+            ) : (
+              <Button
+                onClick={() => { onSave(d, h, m); setOpen(false); }}
+                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2"
+              ><Save className="h-4 w-4" /> حفظ</Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -672,7 +787,7 @@ function TeachersTab() {
       <div className="relative">
         <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="ابحث باسم المعلم أو الإيميل..."
+          placeholder="ابحث بالاسم، البريد، الهاتف، كود المعلم، أو المعرّف..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pr-10 h-11"
