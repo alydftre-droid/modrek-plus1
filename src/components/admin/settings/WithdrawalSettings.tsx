@@ -428,82 +428,32 @@ function ClosingTab({ overview, loading, onReload }: any) {
         </CardContent>
       </Card>
 
-      {/* Day picker */}
+      {/* Native-style Date & Time picker (single trigger) */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center">
-              <CalendarDays className="h-4 w-4 text-emerald-600" />
+            <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
+              <CalendarDays className="h-4 w-4 text-blue-600" />
             </div>
-            <div>
-              <p className="font-bold text-sm">يوم الإقفال</p>
-              <p className="text-[11px] text-muted-foreground">من كل شهر بتوقيت القاهرة</p>
+            <div className="min-w-0">
+              <p className="font-bold text-sm">موعد الإقفال الشهري</p>
+              <p className="text-[11px] text-muted-foreground">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
             </div>
           </div>
-          <div className="grid grid-cols-7 gap-1.5">
-            {DAYS.map((d) => {
-              const active = d === openDay; const isToday = d === cairoDay;
-              return (
-                <button
-                  key={d}
-                  onClick={() => setOpenDay(d)}
-                  className={`h-10 rounded-lg border text-sm font-bold transition-all relative ${
-                    active ? "bg-emerald-500 text-white border-emerald-600 shadow-md scale-105"
-                           : "bg-card hover:bg-accent border-border"
-                  }`}
-                >
-                  {d}
-                  {isToday && !active && (
-                    <span className="absolute -top-1 -left-1 h-2 w-2 rounded-full bg-blue-500" />
-                  )}
-                </button>
-              );
-            })}
+
+          <DateTimePickerTrigger
+            day={openDay}
+            hour={openHour}
+            minute={openMinute}
+            onSave={(d, h, m) => { setOpenDay(d); setOpenHour(h); setOpenMinute(m); }}
+          />
+
+          <div className="rounded-lg p-3 text-xs border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 text-blue-900 dark:text-blue-100">
+            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong dir="ltr">{timeLabel}</strong>.
           </div>
         </CardContent>
       </Card>
 
-      {/* Time picker */}
-      <Card className="border-0 shadow-sm">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="h-9 w-9 rounded-xl bg-indigo-100 dark:bg-indigo-950/40 flex items-center justify-center">
-              <Clock className="h-4 w-4 text-indigo-600" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">وقت الإقفال</p>
-              <p className="text-[11px] text-muted-foreground">الساعة والدقيقة (توقيت القاهرة)</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[11px] mb-1.5 block text-muted-foreground">الساعة</Label>
-              <div className="grid grid-cols-6 gap-1 max-h-40 overflow-y-auto p-1 border rounded-lg">
-                {HOURS.map((h) => (
-                  <button key={h} onClick={() => setOpenHour(h)}
-                    className={`h-9 rounded-md text-xs font-bold transition-all ${
-                      h === openHour ? "bg-indigo-500 text-white shadow" : "bg-muted/50 hover:bg-accent"
-                    }`}>{String(h).padStart(2, "0")}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <Label className="text-[11px] mb-1.5 block text-muted-foreground">الدقيقة</Label>
-              <div className="grid grid-cols-3 gap-1 p-1 border rounded-lg">
-                {MINUTES.map((m) => (
-                  <button key={m} onClick={() => setOpenMinute(m)}
-                    className={`h-9 rounded-md text-xs font-bold transition-all ${
-                      m === openMinute ? "bg-indigo-500 text-white shadow" : "bg-muted/50 hover:bg-accent"
-                    }`}>{String(m).padStart(2, "0")}</button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="bg-indigo-50 dark:bg-indigo-950/20 rounded-lg p-3 text-xs">
-            الإقفال يوم <strong>{openDay}</strong> من كل شهر الساعة <strong dir="ltr">{timeLabel}</strong>.
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Emergency Stop */}
       <Card className={`border-0 shadow-md overflow-hidden ${stopped ? "ring-2 ring-red-500" : ""}`}>
