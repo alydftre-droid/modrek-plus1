@@ -19,43 +19,58 @@ function normalizeArabicText(value: string) {
     .trim();
 }
 
+function normalizeSemanticToken(word: string) {
+  let w = normalizeArabicText(word)
+    .replace(/^(و|ف|ب|ك|ل)(?=\p{L}{3,})/u, "")
+    .replace(/^ال(?=\p{L}{3,})/u, "")
+    .replace(/(ه|ها|هم|نا|ات|ين|ون)$/u, "");
+  if (["صلاه", "صلوات", "مصلي", "يصلي"].includes(w)) return "صلاه";
+  if (["وضوء", "وضو", "توضا", "يتوضا", "طهاره", "طاهر"].includes(w)) return "طهاره";
+  if (["قبله", "كعبه"].includes(w)) return "قبله";
+  if (["نيه", "نوي", "ينوي"].includes(w)) return "نيه";
+  if (["فرض", "فريضه", "واجب", "واجبه"].includes(w)) return "فرض";
+  if (["الله", "رب", "ربه", "ربك", "الرب"].includes(w)) return "الله";
+  if (["صله", "صلة", "تقرب", "قرب", "تقويه", "تقوي", "علاقه"].includes(w)) return "صله_الله";
+  if (["خشوع", "خاشع", "تدبر", "طمأنينه", "طمأنينة", "سكينه"].includes(w)) return "خشوع";
+  if (["محبه", "الفه", "تعاون", "ترابط", "تكافل"].includes(w)) return "محبه";
+  if (["نظام", "انضباط", "انتظام"].includes(w)) return "انضباط";
+  return w;
+}
+
 const ARABIC_STOP_WORDS = new Set([
   "من", "في", "على", "علي", "عن", "الى", "الي", "ان", "إن", "أن", "هو", "هي", "هما", "هم", "هن",
   "هذا", "هذه", "ذلك", "تلك", "الذي", "التي", "الذين", "او", "أو", "و", "ثم", "كما", "كل", "اي", "أي",
   "لا", "لم", "لن", "ما", "مع", "بين", "عند", "اذا", "إذا", "كان", "كانت", "يكون", "تكون", "قد", "لقد",
   "الى", "حتى", "حتي", "فقط", "غير", "بعد", "قبل", "خلال", "حول", "له", "لها", "به", "بها", "فيها",
+  "سؤال", "السؤال", "سوال", "السوال", "اجابه", "اجابة", "اعرف", "ادري", "اعلم", "اجب", "اجيب",
 ]);
 
 function tokenizeMeaningful(value: string) {
   return normalizeArabicText(value)
     .split(" ")
-    .map((word) => word.trim())
-    .filter((word) => word.length >= 3 && !ARABIC_STOP_WORDS.has(word));
+    .map((word) => normalizeSemanticToken(word.trim()))
+    .filter((word, index, arr) => word.length >= 3 && !ARABIC_STOP_WORDS.has(word) && arr.indexOf(word) === index);
 }
+
+const NON_ANSWER_PHRASES = [
+  "لا اعرف", "لا ادري", "لا اعلم", "مش عارف", "مش عارفه", "معرفش", "ماعرفش", "مش فاكر",
+  "لا اتذكر", "لم اجب", "لم اجيب", "لم احل", "بدون اجابه", "بدون إجابة", "لا توجد اجابه",
+  "لا يوجد اجابه", "ليس لدي اجابه", "لم اجب علي هذا السؤال", "لم اجيب علي هذا السؤال",
+].map(normalizeArabicText);
 
 function isNonAnswer(answer: string) {
   const normalized = normalizeArabicText(answer);
   if (!normalized) return true;
   if (/^(\?|0|لا|لم|مش|معرفش|ماعرفش|مدري)$/.test(normalized)) return true;
-  return [
-    "لا اعرف",
-    "لا أعرف",
-    "لا ادري",
-    "لا أدري",
-    "لا اعلم",
-    "لا أعلم",
-    "مش عارف",
-    "مش عارفه",
-    "معرفش",
-    "ماعرفش",
-    "مش فاكر",
-    "لا اتذكر",
-    "لا أتذكر",
-    "لم اجب",
-    "لم أجب",
-    "بدون اجابه",
-    "بدون إجابة",
-  ].some((phrase) => normalized.includes(normalizeArabicText(phrase)));
+  const exactShort = NON_ANSWER_PHRASES.some((phrase) => normalized === phrase || normalized === `${phrase} علي هذا السؤال` || normalized === `${phrase} على هذا السؤال`);
+  if (exactShort) return true;
+  const matchedPhrase = NON_ANSWER_PHRASES.find((phrase) => normalized.includes(phrase));
+  if (!matchedPhrase) return false;
+  let remainder = normalized;
+  for (const phrase of NON_ANSWER_PHRASES) remainder = remainder.replaceAll(phrase, " ");
+  // Do not erase partially correct answers such as “الوضوء والطهارة، لا أعرف الشرط الثالث”.
+  // Treat it as a full non-answer only when almost no meaningful content remains.
+  return tokenizeMeaningful(remainder).length <= 1;
 }
 
 function overlapStats(answer: string, modelAnswer: string) {
