@@ -113,7 +113,8 @@ export default function QuestionEditorCard({ question, onChange, onDelete, onDup
     if (patch.isCorrect) {
       next.forEach((o, i) => { if (i !== idx) o.isCorrect = false; });
     }
-    set({ options: next });
+    const selectedCorrect = next.find((option) => option.isCorrect);
+    set({ options: next, modelAnswer: selectedCorrect?.text || question.modelAnswer || "" });
   };
 
   const correctOpt = question.options.find((o) => o.isCorrect);
