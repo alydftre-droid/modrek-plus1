@@ -1,0 +1,70 @@
+
+SET session_replication_role = 'replica';
+
+TRUNCATE TABLE
+  public.notification_delivery_logs,
+  public.ad_views,
+  public.library_processing_events,
+  public.automation_runs,
+  public.student_activity_logs,
+  public.teacher_activity_logs,
+  public.exam_attempt_debug_logs,
+  public.test_student_security_events,
+  public.teacher_visibility_diagnostics,
+  public.modrek_search_logs,
+  public.modrek_search_cache,
+  public.usage_logs,
+  public.ai_daily_usage,
+  public.processing_events,
+  public.processing_jobs,
+  public.exam_answers,
+  public.voice_answers,
+  public.exam_statistics,
+  public.exam_drafts,
+  public.exam_attempts,
+  public.notifications,
+  public.support_internal_notes,
+  public.support_messages,
+  public.support_contact_logs,
+  public.subscription_messages,
+  public.teacher_messages,
+  public.automated_messages,
+  public.financial_audit_logs,
+  public.wallet_adjustments,
+  public.teacher_wallet_transactions,
+  public.teacher_commission_history,
+  public.teacher_earning_records,
+  public.teacher_monthly_archives,
+  public.teacher_withdrawal_requests,
+  public.deposit_requests,
+  public.price_change_requests,
+  public.student_group_purchases,
+  public.subscriptions,
+  public.subscription_requests,
+  public.bundled_package_subscriptions,
+  public.recharge_code_uses,
+  public.video_progress,
+  public.ai_messages,
+  public.ai_conversations,
+  public.modrek_ai_messages,
+  public.modrek_ai_conversations,
+  public.library_conversation_messages,
+  public.library_book_conversations,
+  public.library_generated_quizzes,
+  public.library_recommendations,
+  public.library_student_memory,
+  public.library_student_book_progress,
+  public.library_student_weaknesses,
+  public.ad_targets,
+  public.live_session_messages,
+  public.live_session_recordings,
+  public.live_session_actions,
+  public.live_sessions
+RESTART IDENTITY CASCADE;
+
+UPDATE public.wallets SET balance = 0, updated_at = now();
+UPDATE public.teacher_wallets SET balance = 0, frozen_balance = 0, total_earned = 0, updated_at = now();
+
+SET session_replication_role = 'origin';
+
+NOTIFY pgrst, 'reload schema';
