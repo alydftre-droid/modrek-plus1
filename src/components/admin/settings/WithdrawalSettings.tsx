@@ -953,11 +953,11 @@ function TeachersTab() {
                     <MiniStat label="إجمالي" value={`${fmt(r.total_earned)} ج`} tone="violet" />
                   </div>
                   <div className="flex gap-1.5">
-                    <Button size="sm" variant="outline" className="flex-1 h-9 text-[11px] gap-1 border-blue-200 text-blue-800 hover:bg-blue-50"
+                    <Button size="sm" className="flex-1 h-9 text-[11px] gap-1 bg-blue-700 text-white hover:bg-blue-800 border-0 shadow-md font-black"
                       onClick={() => setSelected(r)}>
                       <FileText className="h-3 w-3" /> السجل الشهري
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-9 text-[11px] gap-1 border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                    <Button size="sm" className="flex-1 h-9 text-[11px] gap-1 bg-emerald-700 text-white hover:bg-emerald-800 border-0 shadow-md font-black"
                       onClick={() => setAction(r)}>
                       <Coins className="h-3 w-3" /> إجراء يدوي
                     </Button>
