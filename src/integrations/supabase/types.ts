@@ -5910,6 +5910,11 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_monthly_history_summary: { Args: never; Returns: Json }
+      admin_monthly_period_teachers: {
+        Args: { _period_label: string }
+        Returns: Json
+      }
       admin_process_deposit_request: {
         Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
