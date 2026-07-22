@@ -13,6 +13,16 @@ export function exportToExcel<T extends Record<string, unknown>>(
 }
 
 // Uses browser print for reliable Arabic/RTL PDF output.
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function exportToPdfViaPrint(
   title: string,
   headers: string[],
@@ -31,20 +41,21 @@ export function exportToPdfViaPrint(
       th { background: #F3F4F6; font-weight: 700; }
       tr:nth-child(even) td { background: #FAFAFA; }
     </style>`;
+  const safeTitle = escapeHtml(title);
   const body = `
-    <h1>${title}</h1>
-    <div class="meta">تاريخ التصدير: ${new Date().toLocaleString("ar-EG")}</div>
+    <h1>${safeTitle}</h1>
+    <div class="meta">تاريخ التصدير: ${escapeHtml(new Date().toLocaleString("ar-EG"))}</div>
     <table>
-      <thead><tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+      <thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
       <tbody>${rows
         .map(
           (r) =>
-            `<tr>${r.map((c) => `<td>${c === null || c === undefined ? "" : String(c)}</td>`).join("")}</tr>`,
+            `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join("")}</tr>`,
         )
         .join("")}</tbody>
     </table>`;
   w.document.write(
-    `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${title}</title>${style}</head><body>${body}<script>setTimeout(()=>window.print(),300);</script></body></html>`,
+    `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${safeTitle}</title>${style}</head><body>${body}<script>setTimeout(()=>window.print(),300);</script></body></html>`,
   );
   w.document.close();
 }

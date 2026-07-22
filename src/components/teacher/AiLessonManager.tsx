@@ -154,7 +154,7 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     if (file.type !== "application/pdf") return toast.error("ارفع ملف PDF فقط");
 
     try {
-      const path = `ai-lessons/${subjectId}/${Date.now()}_${file.name}`;
+      const path = `${userId}/ai-lessons/${subjectId}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage.from("books").upload(path, file, { upsert: false });
       if (uploadError) throw uploadError;
 

@@ -178,7 +178,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       let imageUrl: string | undefined;
       if (editImageFile) {
         const ext = editImageFile.name.split(".").pop();
-        const path = `group-images/${effectiveUserId}/${Date.now()}.${ext}`;
+        const path = `${effectiveUserId}/group-images/${Date.now()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from("books").upload(path, editImageFile);
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
@@ -375,7 +375,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       let imageUrl: string | null = null;
       if (newImageFile) {
         const ext = newImageFile.name.split(".").pop();
-        const path = `group-images/${effectiveUserId}/${Date.now()}.${ext}`;
+        const path = `${effectiveUserId}/group-images/${Date.now()}.${ext}`;
         const { error: uploadErr } = await supabase.storage.from("books").upload(path, newImageFile);
         if (!uploadErr) {
           const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
