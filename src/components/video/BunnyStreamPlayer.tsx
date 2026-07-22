@@ -455,12 +455,18 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
               onTouchEnd={onTouchEnd}
               onTouchCancel={onTouchEnd}
               onDoubleClick={(e) => {
+                // Desktop only — touch double-tap is handled in onTouchEnd
+                if ((e as any).pointerType === "touch") return;
                 const rect = rootRef.current?.getBoundingClientRect();
                 if (!rect) return;
                 const side = e.clientX < rect.left + rect.width / 2 ? "left" : "right";
                 seekBy(side === "left" ? -10 : 10);
               }}
-              onClick={() => setShowControls((s) => !s)}
+              onClick={(e) => {
+                // Ignore synthetic click after touchend to avoid double-seek / double toggle
+                if ((e.nativeEvent as any).sourceCapabilities?.firesTouchEvents) return;
+                setShowControls((s) => !s);
+              }}
             />
 
             {/* Center play/pause tap indicator (only shows briefly) */}
