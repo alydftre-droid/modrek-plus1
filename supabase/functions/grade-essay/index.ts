@@ -583,7 +583,8 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
             "",
           );
           scores[key] = guarded.score;
-          feedback[key] = safeLocalFeedback(essayItem, guarded.score);
+          const aiFeedback = String(r.feedback || "").trim();
+          feedback[key] = aiFeedback.length >= 20 ? aiFeedback : safeLocalFeedback(essayItem, guarded.score);
         });
       } else {
         console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
