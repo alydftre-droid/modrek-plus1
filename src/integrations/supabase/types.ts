@@ -5936,7 +5936,16 @@ export type Database = {
         Args: { _notes?: string }
         Returns: Json
       }
-      admin_close_financial_month: { Args: { _notes?: string }; Returns: Json }
+      admin_close_financial_month:
+        | { Args: { _notes?: string }; Returns: Json }
+        | {
+            Args: {
+              _notes?: string
+              _period_month?: number
+              _period_year?: number
+            }
+            Returns: Json
+          }
       admin_delete_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_financial_close_preview: { Args: never; Returns: Json }
       admin_financial_overview: { Args: never; Returns: Json }
