@@ -117,12 +117,12 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
       const sp = await getSignedPlayback(videoId);
       if (cancelled) return;
       if (!sp) { setError("تعذر تشغيل الفيديو. يرجى إعادة المحاولة."); return; }
-      // Append startTime if resuming
+      // Hide Bunny's native controls so only our custom bar is visible,
+      // and append startTime if resuming from last watched position.
       const sep = sp.embedUrl.includes("?") ? "&" : "?";
-      const withStart = startTime > 0
-        ? `${sp.embedUrl}${sep}startTime=${Math.floor(startTime)}`
-        : sp.embedUrl;
-      setEmbedUrl(withStart);
+      const params = [`controls=false`];
+      if (startTime > 0) params.push(`startTime=${Math.floor(startTime)}`);
+      setEmbedUrl(`${sp.embedUrl}${sep}${params.join("&")}`);
     })();
     return () => { cancelled = true; };
   }, [videoId, startTimeReady, startTime]);
