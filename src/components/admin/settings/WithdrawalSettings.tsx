@@ -621,34 +621,40 @@ function DateTimePickerTrigger({
   const [d, setD] = useState(day);
   const [h, setH] = useState(hour);
   const [m, setM] = useState(minute);
+  const [period, setPeriod] = useState<"AM" | "PM">(hour >= 12 ? "PM" : "AM");
 
-  useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setStep("date"); } }, [open, day, hour, minute]);
+  useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setPeriod(hour >= 12 ? "PM" : "AM"); setStep("date"); } }, [open, day, hour, minute]);
 
-  const label = `يوم ${day} • ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const label = `يوم ${day} • ${formatArabicClock(hour, minute)}`;
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const mins = Array.from({ length: 60 }, (_, i) => i);
+  const displayHour = h % 12 || 12;
+  const to24Hour = (hour12: number, meridiem: "AM" | "PM") => {
+    if (meridiem === "AM") return hour12 === 12 ? 0 : hour12;
+    return hour12 === 12 ? 12 : hour12 + 12;
+  };
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full h-12 rounded-xl border-2 border-blue-200 hover:border-blue-400 bg-white dark:bg-slate-900 dark:border-slate-700 dark:hover:border-blue-500 transition-colors flex items-center justify-between px-4 group"
+        className="w-full h-12 rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 transition-colors flex items-center justify-between px-4 group shadow-sm"
       >
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
             <CalendarDays className="h-4 w-4" />
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">تاريخ ووقت الإقفال</p>
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100" dir="rtl">{label}</p>
+            <p className="text-[10px] text-blue-800 font-bold leading-none">تاريخ ووقت الإقفال</p>
+            <p className="text-sm font-black text-slate-950" dir="rtl">{label}</p>
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 rotate-180 group-hover:text-blue-500 transition-colors" />
+        <ChevronRight className="h-4 w-4 text-blue-700 rotate-180 group-hover:text-blue-900 transition-colors" />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" className="max-w-md p-0 overflow-hidden bg-white dark:bg-slate-900">
+        <DialogContent dir="rtl" className="max-w-md p-0 overflow-hidden bg-white text-slate-950">
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 text-white">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2 text-[11px] opacity-90">
@@ -661,7 +667,7 @@ function DateTimePickerTrigger({
               </div>
             </div>
             <p className="text-lg font-bold">
-              {step === "date" ? `اليوم ${d}` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`}
+              {step === "date" ? `اليوم ${d}` : formatArabicClock(h, m)}
             </p>
             <p className="text-[10px] opacity-80">{AR_MONTH_NOW()}</p>
           </div>
@@ -679,59 +685,76 @@ function DateTimePickerTrigger({
                       className={`h-10 rounded-lg text-sm font-bold border transition-all ${
                         active
                           ? "bg-blue-600 text-white border-blue-700 shadow scale-105"
-                          : "bg-white text-slate-800 border-slate-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
+                          : "bg-white text-slate-900 border-slate-300 hover:bg-blue-50 hover:border-blue-500"
                       }`}
                     >{n}</button>
                   );
                 })}
               </div>
             ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-[11px] mb-1.5 block text-slate-700 font-bold">الفترة</Label>
+                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 border border-slate-200 p-1">
+                    {(["AM", "PM"] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => { setPeriod(p); setH(to24Hour(displayHour, p)); }}
+                        className={`h-10 rounded-lg text-sm font-black transition-all ${
+                          period === p ? "bg-emerald-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-emerald-50"
+                        }`}
+                      >{p === "AM" ? "صباحاً" : "مساءً"}</button>
+                    ))}
+                  </div>
+                </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الساعة</Label>
-                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                  <Label className="text-[11px] mb-1.5 block text-slate-700 font-bold">الساعة</Label>
+                  <ScrollArea className="h-48 rounded-lg border border-slate-300 p-1 bg-slate-50">
                     <div className="space-y-1">
                       {hours.map((v) => (
-                        <button key={v} type="button" onClick={() => setH(v)}
+                        <button key={v} type="button" onClick={() => setH(to24Hour(v, period))}
                           className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
-                            v === h ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                            v === displayHour ? "bg-blue-700 text-white shadow-sm" : "text-slate-900 bg-white hover:bg-blue-50"
                           }`}>{String(v).padStart(2, "0")}</button>
                       ))}
                     </div>
                   </ScrollArea>
                 </div>
                 <div>
-                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الدقيقة</Label>
-                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                  <Label className="text-[11px] mb-1.5 block text-slate-700 font-bold">الدقيقة</Label>
+                  <ScrollArea className="h-48 rounded-lg border border-slate-300 p-1 bg-slate-50">
                     <div className="space-y-1">
                       {mins.map((v) => (
                         <button key={v} type="button" onClick={() => setM(v)}
                           className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
-                            v === m ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                            v === m ? "bg-blue-700 text-white shadow-sm" : "text-slate-900 bg-white hover:bg-blue-50"
                           }`}>{String(v).padStart(2, "0")}</button>
                       ))}
                     </div>
                   </ScrollArea>
                 </div>
               </div>
+              </div>
             )}
           </div>
 
           <div className="p-4 pt-0 flex gap-2">
             {step === "time" && (
-              <Button variant="outline" onClick={() => setStep("date")} className="flex-1 h-11">
+              <Button variant="outline" onClick={() => setStep("date")} className="flex-1 h-11 border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">
                 رجوع
               </Button>
             )}
             {step === "date" ? (
               <Button
                 onClick={() => setStep("time")}
-                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0"
+                className="flex-1 h-11 bg-blue-700 hover:bg-blue-800 text-white border-0 shadow-md"
               >التالي</Button>
             ) : (
               <Button
                 onClick={() => { onSave(d, h, m); setOpen(false); }}
-                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2"
+                className="flex-1 h-11 bg-emerald-700 hover:bg-emerald-800 text-white border-0 gap-2 shadow-md"
               ><Save className="h-4 w-4" /> حفظ</Button>
             )}
           </div>
