@@ -38,6 +38,10 @@ const MINUTES = [0, 5, 10, 15, 20, 30, 40, 45, 50];
 const fmt = (n: any) =>
   Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n: any) => Number(n || 0).toLocaleString("ar-EG");
+const MONTH_NAMES_AR = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
 const formatArabicClock = (hour: number, minute: number) => {
   const period = hour >= 12 ? "مساءً" : "صباحاً";
   const hour12 = hour % 12 || 12;
@@ -101,6 +105,10 @@ export default function WithdrawalSettings() {
         "withdrawal_open_minute",
         "withdrawal_next_release_at_cairo",
         "withdrawal_next_release_key",
+        "withdrawal_schedule_day",
+        "withdrawal_schedule_month",
+        "withdrawal_schedule_year",
+        "withdrawal_schedule_kind",
         "withdrawal_notification_month",
         "withdrawal_notification_year",
         "withdrawal_scheduler_last_check_at",
@@ -150,6 +158,10 @@ export default function WithdrawalSettings() {
       open_minute: settings.get("withdrawal_open_minute") || "0",
       next_release_cairo: settings.get("withdrawal_next_release_at_cairo"),
       next_release_key: settings.get("withdrawal_next_release_key"),
+      schedule_day: settings.get("withdrawal_schedule_day"),
+      schedule_month: settings.get("withdrawal_schedule_month"),
+      schedule_year: settings.get("withdrawal_schedule_year"),
+      schedule_kind: settings.get("withdrawal_schedule_kind"),
       notification_month: settings.get("withdrawal_notification_month"),
       notification_year: settings.get("withdrawal_notification_year"),
       scheduler_last_check_at: settings.get("withdrawal_scheduler_last_check_at"),
@@ -397,6 +409,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const [openHour, setOpenHour] = useState(9);
   const [openMinute, setOpenMinute] = useState(0);
   const nowCairoInit = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+  const [scheduleMonth, setScheduleMonth] = useState<number>(nowCairoInit.getMonth() + 1);
+  const [scheduleYear, setScheduleYear] = useState<number>(nowCairoInit.getFullYear());
   const [notifMonth, setNotifMonth] = useState<number>(nowCairoInit.getMonth() + 1);
   const [notifYear, setNotifYear] = useState<number>(nowCairoInit.getFullYear());
   const [stopped, setStopped] = useState(false);
@@ -420,13 +434,26 @@ function ClosingTab({ overview, loading, onReload }: any) {
     setOpenHour(Math.min(23, Math.max(0, parseInt(overview.open_hour || "9"))));
     setOpenMinute(Math.min(59, Math.max(0, parseInt(overview.open_minute || "0"))));
     setStopped(overview.manual_state === "closed");
+    const sm = parseInt(overview.schedule_month || "");
+    const sy = parseInt(overview.schedule_year || "");
+    if (sm >= 1 && sm <= 12) setScheduleMonth(sm);
+    if (sy >= 2020 && sy <= 2100) setScheduleYear(sy);
     const nm = parseInt(overview.notification_month || "");
     const ny = parseInt(overview.notification_year || "");
     if (nm >= 1 && nm <= 12) setNotifMonth(nm);
     if (ny >= 2020 && ny <= 2100) setNotifYear(ny);
   }, [overview]);
 
-  const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean, month?: number, year?: number) => {
+  const persistClosingSettings = async (
+    day: number,
+    hour: number,
+    minute: number,
+    isStopped: boolean,
+    month?: number,
+    year?: number,
+    executionMonth?: number,
+    executionYear?: number,
+  ) => {
     const payload: Record<string, any> = {
       _day: day,
       _hour: hour,
@@ -434,10 +461,14 @@ function ClosingTab({ overview, loading, onReload }: any) {
       _manual_state: isStopped ? "closed" : "auto",
     };
     if (typeof month === "number" && typeof year === "number") {
-      payload._month = month;
-      payload._year = year;
+      payload._profit_month = month;
+      payload._profit_year = year;
     }
-    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, payload);
+    if (typeof executionMonth === "number" && typeof executionYear === "number") {
+      payload._execution_month = executionMonth;
+      payload._execution_year = executionYear;
+    }
+    const { data, error } = await supabase.rpc("admin_save_withdrawal_closing_schedule" as any, payload);
     if (error) throw error;
     const result = data as any;
     if (!result?.success) throw new Error(result?.error || "فشل حفظ موعد الإقفال");
@@ -447,7 +478,11 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await persistClosingSettings(openDay, openHour, openMinute, stopped);
+      const safeScheduleMonth = Math.min(12, Math.max(1, Number(scheduleMonth) || nowCairoInit.getMonth() + 1));
+      const safeScheduleYear = Math.min(2100, Math.max(2020, Number(scheduleYear) || nowCairoInit.getFullYear()));
+      setScheduleMonth(safeScheduleMonth);
+      setScheduleYear(safeScheduleYear);
+      const result = await persistClosingSettings(openDay, openHour, openMinute, stopped, notifMonth, notifYear, safeScheduleMonth, safeScheduleYear);
       toast.success(result?.next_release_cairo ? `تم حفظ موعد الإقفال القادم: ${result.next_release_cairo}` : "تم حفظ إعدادات الإقفال");
       onReload();
     } catch (e: any) {
@@ -650,7 +685,37 @@ function ClosingTab({ overview, loading, onReload }: any) {
             </div>
             <div className="min-w-0">
               <p className="font-black text-sm text-slate-950">موعد الإقفال الشهري</p>
-              <p className="text-[11px] text-slate-600 font-semibold">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
+              <p className="text-[11px] text-slate-600 font-semibold">اختر تاريخ التنفيذ الكامل: اليوم + الشهر + السنة + الوقت بتوقيت القاهرة</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[11px] mb-1 block text-slate-700 font-bold">شهر التنفيذ</Label>
+              <select
+                value={scheduleMonth}
+                onChange={(e) => setScheduleMonth(parseInt(e.target.value))}
+                className="w-full h-11 rounded-xl border-2 border-blue-300 bg-blue-50 px-3 text-sm font-black text-slate-950 focus:border-blue-600 focus:outline-none"
+              >
+                {MONTH_NAMES_AR.map((name, i) => (
+                  <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, "0")} — {name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block text-slate-700 font-bold">سنة التنفيذ</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={2020}
+                max={2100}
+                value={scheduleYear}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value || "0");
+                  if (!isNaN(v)) setScheduleYear(v);
+                }}
+                className="h-11 rounded-xl border-2 border-blue-300 bg-blue-50 text-sm font-black text-slate-950 focus-visible:ring-blue-400"
+              />
             </div>
           </div>
 
@@ -658,6 +723,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
             day={openDay}
             hour={openHour}
             minute={openMinute}
+            month={scheduleMonth}
+            year={scheduleYear}
             saving={scheduleSaving}
             onSave={async (d, h, m) => {
               setScheduleSaving(true);
@@ -665,9 +732,13 @@ function ClosingTab({ overview, loading, onReload }: any) {
                 setOpenDay(d);
                 setOpenHour(h);
                 setOpenMinute(m);
-                await persistClosingSettings(d, h, m, false);
+                const safeScheduleMonth = Math.min(12, Math.max(1, Number(scheduleMonth) || nowCairoInit.getMonth() + 1));
+                const safeScheduleYear = Math.min(2100, Math.max(2020, Number(scheduleYear) || nowCairoInit.getFullYear()));
+                setScheduleMonth(safeScheduleMonth);
+                setScheduleYear(safeScheduleYear);
+                await persistClosingSettings(d, h, m, false, notifMonth, notifYear, safeScheduleMonth, safeScheduleYear);
                 setStopped(false);
-                toast.success("تم حفظ موعد الإقفال وتفعيل التحويل التلقائي");
+                toast.success(`تم حفظ موعد الإقفال: ${d}-${String(safeScheduleMonth).padStart(2, "0")}-${safeScheduleYear} ${formatArabicClock(h, m)}`);
                 await onReload();
               } catch (e: any) {
                 toast.error(e?.message || "تعذّر حفظ الموعد");
@@ -679,7 +750,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
           />
 
           <div className="rounded-lg p-3 text-xs border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 text-blue-900 dark:text-blue-100">
-            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong>{timeLabel}</strong>.
+            الإقفال سيتم في <strong>{openDay} {MONTH_NAMES_AR[scheduleMonth - 1]} {scheduleYear}</strong> الساعة <strong>{timeLabel}</strong>.
           </div>
         </CardContent>
       </Card>
@@ -835,10 +906,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
 // ============================================================
 // Native-style Date & Time Picker (single trigger + 2-step modal)
 // ============================================================
-const AR_MONTH_NOW = () => new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric", timeZone: "Africa/Cairo" });
 function DateTimePickerTrigger({
-  day, hour, minute, onSave, saving = false,
-}: { day: number; hour: number; minute: number; saving?: boolean; onSave: (d: number, h: number, m: number) => void | Promise<void> }) {
+  day, hour, minute, month, year, onSave, saving = false,
+}: { day: number; hour: number; minute: number; month: number; year: number; saving?: boolean; onSave: (d: number, h: number, m: number) => void | Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"date" | "time">("date");
   const [d, setD] = useState(day);
@@ -848,7 +918,7 @@ function DateTimePickerTrigger({
 
   useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setPeriod(hour >= 12 ? "PM" : "AM"); setStep("date"); } }, [open, day, hour, minute]);
 
-  const label = `يوم ${day} • ${formatArabicClock(hour, minute)}`;
+  const label = `${day} ${MONTH_NAMES_AR[month - 1]} ${year} • ${formatArabicClock(hour, minute)}`;
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const mins = Array.from({ length: 60 }, (_, i) => i);
   const displayHour = h % 12 || 12;
@@ -892,7 +962,7 @@ function DateTimePickerTrigger({
             <p className="text-lg font-bold">
               {step === "date" ? `اليوم ${d}` : formatArabicClock(h, m)}
             </p>
-            <p className="text-[10px] opacity-80">{AR_MONTH_NOW()}</p>
+            <p className="text-[10px] opacity-80">{MONTH_NAMES_AR[month - 1]} {year}</p>
           </div>
 
           <div className="p-4">

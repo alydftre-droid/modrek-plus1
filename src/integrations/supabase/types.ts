@@ -5984,6 +5984,19 @@ export type Database = {
         Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
       }
+      admin_save_withdrawal_closing_schedule: {
+        Args: {
+          _day: number
+          _execution_month?: number
+          _execution_year?: number
+          _hour: number
+          _manual_state?: string
+          _minute: number
+          _profit_month?: number
+          _profit_year?: number
+        }
+        Returns: Json
+      }
       admin_set_teacher_commission: {
         Args: {
           _effective_date?: string
@@ -5997,21 +6010,36 @@ export type Database = {
         Args: { _month: number; _year: number }
         Returns: Json
       }
-      admin_set_withdrawal_schedule: {
-        Args: {
-          _day: number
-          _hour: number
-          _manual_state?: string
-          _minute: number
-          _month?: number
-          _year?: number
-        }
-        Returns: Json
-      }
+      admin_set_withdrawal_schedule:
+        | {
+            Args: {
+              _day: number
+              _hour: number
+              _manual_state?: string
+              _minute: number
+              _month?: number
+              _year?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _day: number
+              _hour: number
+              _manual_state?: string
+              _minute: number
+              _month?: number
+              _schedule_month?: number
+              _schedule_year?: number
+              _year?: number
+            }
+            Returns: Json
+          }
       admin_teacher_monthly_statement: {
         Args: { _period_label: string; _teacher_id: string }
         Returns: Json
       }
+      admin_withdrawal_scheduler_diagnostics: { Args: never; Returns: Json }
       apply_default_price_to_existing_groups: {
         Args: {
           p_category: string
