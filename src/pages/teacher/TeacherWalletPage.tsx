@@ -1039,7 +1039,7 @@ export default function TeacherWalletPage() {
               </CardContent>
             </Card>
           ) : (
-            {gradeNodes.length <= 3 ? (
+            gradeNodes.length <= 3 ? (
               <div className={`grid gap-2 ${gradeNodes.length === 1 ? "grid-cols-1" : gradeNodes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
                 {gradeNodes.map((ge, i) => {
                   const hist = gradeHistory.get(ge.key) || [];
