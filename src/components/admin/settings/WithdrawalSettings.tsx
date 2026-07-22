@@ -21,7 +21,8 @@ import {
   Wallet, Snowflake, Users, ArrowUpRight, CheckCircle2, XCircle, History,
   AlertTriangle, PlayCircle, RefreshCw, TrendingUp, Search, User, Crown,
   Sparkles, Activity, FileText, ChevronRight, Coins, Landmark, Gift,
-  MinusCircle, PlusCircle, ShieldCheck, Bell,
+  MinusCircle, PlusCircle, ShieldCheck, Bell, Settings as SettingsIcon,
+  Archive, HandCoins,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
