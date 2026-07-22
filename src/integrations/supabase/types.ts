@@ -6209,7 +6209,7 @@ export type Database = {
           }
         | {
             Args: {
-              _alignment_source?: string
+              _alignment_source: string
               _answer: string
               _max_score: number
               _model: string

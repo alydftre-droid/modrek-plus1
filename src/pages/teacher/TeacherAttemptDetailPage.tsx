@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useExam, useExamQuestions, useAttemptAnswers, useAttempt } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,18 @@ const isOptionCorrectForQuestion = (question: any, option: any) => {
   return Boolean(option?.is_correct);
 };
 
+const isLegacyAiFeedback = (value: unknown) => {
+  const text = normalizeReviewAnswer(value);
+  if (!text) return true;
+  return [
+    "اجابه صحيحه",
+    "اجابه غير صحيحه",
+    "تم احتساب درجه جزئيه حسب قرب الاجابه من النموذج",
+    "بانتظار التصحيح الذكي العادل",
+    "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه",
+  ].some((legacy) => text.includes(legacy));
+};
+
 export default function TeacherAttemptDetailPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
@@ -49,6 +61,7 @@ export default function TeacherAttemptDetailPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [aiRunning, setAiRunning] = useState(false);
   const [studentProfile, setStudentProfile] = useState<any>(null);
+  const autoSmartGradeFiredRef = useRef(false);
 
   const answerByQ = new Map(answers.map((a: any) => [a.question_id, a]));
   const questionCount = questions.filter((q: any) => q.question_type !== "section").length;
@@ -78,6 +91,20 @@ export default function TeacherAttemptDetailPage() {
       setAiRunning(false);
     }
   };
+
+  useEffect(() => {
+    if (!attemptId || aiRunning || autoSmartGradeFiredRef.current || qLoading || aLoading) return;
+    const essayQuestions = questions.filter((q: any) => ["short_answer", "fill_blank", "essay"].includes(q.question_type));
+    if (!essayQuestions.length) return;
+    const needsSmartGrade = essayQuestions.some((q: any) => {
+      const answer: any = answerByQ.get(q.id);
+      return !answer?.ai_feedback || isLegacyAiFeedback(answer.ai_feedback) || attempt?.status === "submitted" || attempt?.is_graded === false;
+    });
+    if (!needsSmartGrade) return;
+    autoSmartGradeFiredRef.current = true;
+    void runAiGrade();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attemptId, attempt?.status, attempt?.is_graded, questions.length, answers.length, qLoading, aLoading]);
 
   const saveMark = async (a: any, mark: number, maxMark: number) => {
     setSavingId(a.id);
@@ -232,7 +259,9 @@ export default function TeacherAttemptDetailPage() {
                       )}
                       {a?.ai_feedback && (
                         <div className="p-3 rounded-xl bg-primary/10 border border-primary/30">
-                          <div className="text-xs text-primary mb-1">ملاحظات التصحيح الذكي:</div>
+                          <div className="text-xs text-primary mb-1">
+                            {isLegacyAiFeedback(a.ai_feedback) ? "ملاحظات مؤقتة — جاري تحديثها بالتصحيح الذكي:" : "ملاحظات التصحيح الذكي:"}
+                          </div>
                           <div className="text-sm">{a.ai_feedback}</div>
                         </div>
                       )}

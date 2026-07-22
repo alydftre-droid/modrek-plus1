@@ -19,8 +19,7 @@ export default function ExamResultPage() {
   const [attemptsCount, setAttemptsCount] = useState<number>(1);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    (async () => {
+  const loadResult = async () => {
       const [{ data: a }, { data: e }] = await Promise.all([
         supabase.from("exam_attempts").select("*").eq("id", attemptId!).maybeSingle(),
         supabase.from("exams").select("*").eq("id", examId!).maybeSingle(),
@@ -36,8 +35,24 @@ export default function ExamResultPage() {
         if (typeof count === "number") setAttemptsCount(count);
       }
       setLoading(false);
-    })();
+  };
+
+  useEffect(() => {
+    loadResult();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attemptId, examId]);
+
+  useEffect(() => {
+    if (!attempt || attempt.is_graded) return;
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      loadResult();
+      if (ticks >= 40) window.clearInterval(timer);
+    }, 3000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt?.id, attempt?.is_graded]);
 
   const passed = attempt?.passed;
   const pct = Number(attempt?.percentage || 0);
@@ -74,7 +89,7 @@ export default function ExamResultPage() {
               <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200">
                 <CardContent className="p-3 text-sm">
                   <CheckCircle2 className="h-4 w-4 inline ml-1 text-blue-600" />
-                  بعض الأسئلة تحتاج تصحيح من المعلم — ستظهر الدرجة النهائية لاحقاً
+                  التصحيح الذكي للأسئلة المقالية يعمل الآن — يتم تحديث الدرجة تلقائياً بعد اكتماله
                 </CardContent>
               </Card>
             )}

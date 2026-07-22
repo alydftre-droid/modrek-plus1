@@ -260,10 +260,12 @@ export default function ExamSubmitPage() {
           return;
         }
         if (res.needs_ai_grading) {
-          const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } });
-          if (error) {
-            toast.info("تم التسليم، وسيظهر التصحيح المتقدم بعد مراجعة المعلم إذا احتاج السؤال لذلك");
-          }
+          void supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } }).then(({ error }) => {
+            if (error) {
+              console.warn("[exam-debug] background smart grading failed", error);
+              toast.info("تم التسليم، وسيكتمل التصحيح الذكي تلقائياً بعد قليل");
+            }
+          });
         }
         try { localStorage.removeItem(draftKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         try { localStorage.removeItem(antiCheatKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
