@@ -375,6 +375,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const [openMinute, setOpenMinute] = useState(0);
   const [stopped, setStopped] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [scheduleSaving, setScheduleSaving] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [confirmRelease, setConfirmRelease] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -406,15 +407,20 @@ function ClosingTab({ overview, loading, onReload }: any) {
     }
   };
 
+  const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean) => {
+    await Promise.all([
+      upsert("withdrawal_open_day", String(day)),
+      upsert("withdrawal_open_hour", String(hour)),
+      upsert("withdrawal_open_minute", String(minute)),
+      upsert("withdrawal_manual_state", isStopped ? "closed" : "auto"),
+      upsert("withdrawal_release_mode", "scheduled"),
+    ]);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        upsert("withdrawal_open_day", String(openDay)),
-        upsert("withdrawal_open_hour", String(openHour)),
-        upsert("withdrawal_open_minute", String(openMinute)),
-        upsert("withdrawal_manual_state", stopped ? "closed" : "auto"),
-      ]);
+      await persistClosingSettings(openDay, openHour, openMinute, stopped);
       toast.success("تم حفظ إعدادات الإقفال");
       onReload();
     } catch (e) {
@@ -537,7 +543,24 @@ function ClosingTab({ overview, loading, onReload }: any) {
             day={openDay}
             hour={openHour}
             minute={openMinute}
-            onSave={(d, h, m) => { setOpenDay(d); setOpenHour(h); setOpenMinute(m); }}
+            saving={scheduleSaving}
+            onSave={async (d, h, m) => {
+              setScheduleSaving(true);
+              try {
+                setOpenDay(d);
+                setOpenHour(h);
+                setOpenMinute(m);
+                await persistClosingSettings(d, h, m, false);
+                setStopped(false);
+                toast.success("تم حفظ موعد الإقفال وتفعيل التحويل التلقائي");
+                await onReload();
+              } catch (e: any) {
+                toast.error(e?.message || "تعذّر حفظ الموعد");
+                throw e;
+              } finally {
+                setScheduleSaving(false);
+              }
+            }}
           />
 
           <div className="rounded-lg p-3 text-xs border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 text-blue-900 dark:text-blue-100">
@@ -635,8 +658,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
 // ============================================================
 const AR_MONTH_NOW = () => new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric", timeZone: "Africa/Cairo" });
 function DateTimePickerTrigger({
-  day, hour, minute, onSave,
-}: { day: number; hour: number; minute: number; onSave: (d: number, h: number, m: number) => void }) {
+  day, hour, minute, onSave, saving = false,
+}: { day: number; hour: number; minute: number; saving?: boolean; onSave: (d: number, h: number, m: number) => void | Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"date" | "time">("date");
   const [d, setD] = useState(day);
@@ -774,9 +797,10 @@ function DateTimePickerTrigger({
               >التالي</Button>
             ) : (
               <Button
-                onClick={() => { onSave(d, h, m); setOpen(false); }}
+                disabled={saving}
+                onClick={async () => { await onSave(d, h, m); setOpen(false); }}
                 className="flex-1 h-11 bg-emerald-700 hover:bg-emerald-800 text-white border-0 gap-2 shadow-md"
-              ><Save className="h-4 w-4" /> حفظ</Button>
+              >{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} حفظ وتفعيل التلقائي</Button>
             )}
           </div>
         </DialogContent>
