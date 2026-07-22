@@ -156,7 +156,36 @@ export function FinancialCloseSection({ onDone }: { onDone: () => void }) {
             )}
           </ScrollArea>
 
-          <div className="p-4 border-t bg-slate-50 space-y-2">
+          <div className="p-4 border-t bg-slate-50 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black text-slate-900">الشهر المالي</Label>
+                <select
+                  value={periodMonth}
+                  onChange={(e) => setPeriodMonth(Number(e.target.value))}
+                  className="w-full h-10 rounded-md border border-slate-300 bg-white text-slate-950 px-2 text-sm font-semibold"
+                >
+                  {AR_MONTHS.map((m, i) => (
+                    <option key={m} value={i + 1}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-black text-slate-900">السنة</Label>
+                <select
+                  value={periodYear}
+                  onChange={(e) => setPeriodYear(Number(e.target.value))}
+                  className="w-full h-10 rounded-md border border-slate-300 bg-white text-slate-950 px-2 text-sm font-semibold"
+                >
+                  {yearOptions.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="rounded-lg bg-fuchsia-100 border border-fuchsia-300 p-2 text-[11px] text-fuchsia-900 font-bold text-center">
+              سيتم حفظ هذا الإقفال باسم: <span className="font-black">{manualLabel}</span>
+            </div>
             <Label className="text-[11px] font-black text-slate-900">ملاحظة (اختياري)</Label>
             <Input
               value={notes}
