@@ -136,6 +136,8 @@ export default function WithdrawalSettings() {
       open_minute: settings.get("withdrawal_open_minute") || "0",
       next_release_cairo: settings.get("withdrawal_next_release_at_cairo"),
       next_release_key: settings.get("withdrawal_next_release_key"),
+      notification_month: settings.get("withdrawal_notification_month"),
+      notification_year: settings.get("withdrawal_notification_year"),
     };
   };
 
