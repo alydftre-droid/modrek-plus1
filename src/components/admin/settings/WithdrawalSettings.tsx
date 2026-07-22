@@ -1318,9 +1318,15 @@ function AuditTab() {
 }
 
 // ============================================================
-// SETTINGS + HISTORY DIALOG (gear button at top-right)
-// - Tab "السجل": aggregated monthly history for ALL past months
-// - Tab "الإجراءات": manual "archive current month" (no auto)
+// SETTINGS + OVERVIEW SNAPSHOTS DIALOG (gear button at top-right)
+// This is the DEVELOPER'S OFFICIAL LOG of the whole Withdrawal
+// Settings overview page — totals, frozen/available balances,
+// month revenue, commissions, subscriptions, groups, withdrawals,
+// archives, etc. — captured as an immutable snapshot.
+//
+// COMPLETELY SEPARATE from teacher archive / frozen-release system.
+// - Tab "سجل النظرة العامة": lists all snapshots + drill-down view
+// - Tab "التقاط سجل الشهر": manual capture button (no auto)
 // ============================================================
 function SettingsHistoryDialog({
   open, onOpenChange, onReload,
@@ -1329,15 +1335,17 @@ function SettingsHistoryDialog({
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
-  const [detailRows, setDetailRows] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detail, setDetail] = useState<any | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [confirmArchive, setConfirmArchive] = useState(false);
-  const [archiving, setArchiving] = useState(false);
+  const [confirmCapture, setConfirmCapture] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  const [notes, setNotes] = useState("");
 
   const loadHistory = async () => {
     setLoading(true); setError(null);
-    const { data, error } = await supabase.rpc("admin_monthly_history_summary" as any);
+    const { data, error } = await supabase.rpc("admin_list_overview_snapshots" as any);
     if (error) { setError(error.message); setRows([]); setLoading(false); return; }
     const r = data as any;
     if (!r?.success) { setError(r?.error || "فشل التحميل"); setRows([]); }
@@ -1346,61 +1354,76 @@ function SettingsHistoryDialog({
   };
 
   useEffect(() => {
-    if (open && innerTab === "history" && rows.length === 0) loadHistory();
+    if (open && innerTab === "history") loadHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, innerTab]);
 
   useEffect(() => {
-    if (!selectedPeriod) { setDetailRows([]); return; }
+    if (!selectedId) { setDetail(null); return; }
     (async () => {
       setDetailLoading(true);
-      const { data } = await supabase.rpc("admin_monthly_period_teachers" as any, {
-        _period_label: selectedPeriod,
-      });
-      if ((data as any)?.success) setDetailRows((data as any).rows || []);
+      const { data } = await supabase.rpc("admin_get_overview_snapshot" as any, { _id: selectedId });
+      if ((data as any)?.success) setDetail((data as any));
       setDetailLoading(false);
     })();
-  }, [selectedPeriod]);
+  }, [selectedId]);
 
-  const handleManualArchive = async () => {
-    setArchiving(true);
+  const handleCapture = async () => {
+    setCapturing(true);
     try {
-      const { data, error } = await supabase.rpc("archive_all_teachers_period" as any);
+      const { data, error } = await supabase.rpc("admin_capture_overview_snapshot" as any, {
+        _notes: notes || null,
+      });
       if (error) throw error;
       const r = data as any;
-      if (!r?.success) { toast.error(r?.error || "فشل التنفيذ"); return; }
-      toast.success(`تم أرشفة ${r.archived_count || 0} معلم — نُقل ${fmt(r.total_moved)} ج`);
-      setConfirmArchive(false);
+      if (!r?.success) { toast.error(r?.error || "فشل الالتقاط"); return; }
+      toast.success(`تم التقاط سجل شهر ${r.period} بنجاح`);
+      setConfirmCapture(false);
+      setNotes("");
+      setInnerTab("history");
       await loadHistory();
       onReload();
     } catch (e: any) {
       toast.error(e?.message || "خطأ");
-    } finally { setArchiving(false); }
+    } finally { setCapturing(false); }
   };
+
+  const handleDelete = async (id: string) => {
+    const { data, error } = await supabase.rpc("admin_delete_overview_snapshot" as any, { _id: id });
+    if (error || !(data as any)?.success) { toast.error("فشل الحذف"); return; }
+    toast.success("تم الحذف");
+    setConfirmDelete(null);
+    setSelectedId(null);
+    await loadHistory();
+  };
+
+  const snap = detail?.snapshot || {};
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         dir="rtl"
-        className="max-w-2xl max-h-[88vh] overflow-hidden flex flex-col bg-white text-slate-950 p-0"
+        className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col bg-white text-slate-950 p-0"
       >
         <DialogHeader className="p-4 pb-3 bg-gradient-to-br from-slate-950 via-blue-800 to-emerald-600 text-white">
           <DialogTitle className="flex items-center gap-2 text-white text-base">
-            <SettingsIcon className="h-4 w-4" /> إعدادات السحب — السجل والإجراءات
+            <SettingsIcon className="h-4 w-4" /> سجل النظرة العامة للمطور
           </DialogTitle>
-          <DialogDescription className="text-white/85 text-[11px]">
-            يتضمن سجل جميع الأشهر السابقة وزر النقل اليدوي — النقل التلقائي معطّل.
+          <DialogDescription className="text-white/90 text-[11px] leading-relaxed">
+            لقطة رسمية دائمة لكل بيانات صفحة إعدادات السحب (أرصدة، مجمّد، إيرادات، عمولة، طلاب، مجموعات، طلبات).
+            يدوي فقط — منفصل تماماً عن أرشيف المعلمين وتحويل الرصيد المجمّد.
           </DialogDescription>
         </DialogHeader>
 
         <div className="px-4 pt-3">
           <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200 rounded-xl border border-slate-300 shadow-inner">
             <button
-              onClick={() => { setInnerTab("history"); setSelectedPeriod(null); }}
+              onClick={() => { setInnerTab("history"); setSelectedId(null); }}
               className={`h-10 rounded-lg text-[12px] font-black transition-all flex items-center justify-center gap-1.5 ${
                 innerTab === "history" ? "bg-blue-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-blue-50"
               }`}
             >
-              <History className="h-4 w-4" /> سجل الأشهر السابقة
+              <History className="h-4 w-4" /> السجلات السابقة
             </button>
             <button
               onClick={() => setInnerTab("actions")}
@@ -1408,128 +1431,177 @@ function SettingsHistoryDialog({
                 innerTab === "actions" ? "bg-emerald-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-emerald-50"
               }`}
             >
-              <HandCoins className="h-4 w-4" /> إجراءات النقل
+              <HandCoins className="h-4 w-4" /> التقاط سجل الشهر
             </button>
           </div>
         </div>
 
         <ScrollArea className="flex-1 px-4 py-3">
           {innerTab === "history" ? (
-            <div className="space-y-2">
-              {error && (
-                <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-[11px] font-semibold text-red-900 flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
-                  <span>{error}</span>
-                </div>
-              )}
+            selectedId ? (
+              // ---------- DETAIL VIEW ----------
+              <div className="space-y-3">
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="text-[12px] font-bold text-blue-700 hover:underline flex items-center gap-1"
+                >
+                  <ChevronRight className="h-4 w-4 rotate-180" /> رجوع للسجلات
+                </button>
+                {detailLoading || !detail ? (
+                  <div className="space-y-2">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+                ) : (
+                  <>
+                    <div className="rounded-xl bg-gradient-to-br from-slate-900 to-blue-900 text-white p-3">
+                      <p className="text-[10px] opacity-80">شهر السجل</p>
+                      <p className="font-black text-lg" dir="ltr">{detail.period_label}</p>
+                      <p className="text-[10px] opacity-90 mt-0.5">
+                        التقط في: {new Date(detail.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}
+                      </p>
+                      {detail.notes && <p className="text-[11px] mt-2 bg-white/10 rounded-lg p-2">📝 {detail.notes}</p>}
+                    </div>
 
-              {loading ? (
-                Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
-              ) : rows.length === 0 ? (
-                <div className="text-center py-10 text-sm text-slate-600 bg-slate-50 rounded-xl border border-slate-200">
-                  <Archive className="h-8 w-8 mx-auto mb-2 text-slate-400" />
-                  لا توجد أشهر مؤرشفة بعد.
-                  <p className="text-[10px] mt-1">
-                    استخدم زر "نقل الشهر الحالي" لأرشفة أول شهر.
-                  </p>
-                </div>
-              ) : (
-                rows.map((r) => (
-                  <div key={r.period_label}>
+                    <div className="grid grid-cols-2 gap-2">
+                      <SnapField label="إجمالي المتاح" value={`${fmt(snap.total_available)} ج`} tone="emerald" />
+                      <SnapField label="إجمالي المجمّد" value={`${fmt(snap.total_frozen)} ج`} tone="cyan" />
+                      <SnapField label="إيراد الشهر (الإجمالي)" value={`${fmt(snap.month_gross)} ج`} tone="violet" />
+                      <SnapField label="نصيب المعلمين" value={`${fmt(snap.month_teacher_net)} ج`} tone="emerald" />
+                      <SnapField label="عمولة المنصة" value={`${fmt(snap.month_platform_cut)} ج`} tone="amber" />
+                      <SnapField label="إجمالي الأرباح (كل الوقت)" value={`${fmt(snap.total_earned_all_time)} ج`} tone="violet" />
+                      <SnapField label="عدد المعلمين" value={fmtInt(snap.total_teachers)} tone="cyan" />
+                      <SnapField label="معلمين بأرصدة مجمّدة" value={fmtInt(snap.teachers_with_frozen)} tone="cyan" />
+                      <SnapField label="معلمين بأرصدة متاحة" value={fmtInt(snap.teachers_with_available)} tone="emerald" />
+                      <SnapField label="اشتراكات الشهر" value={fmtInt(snap.month_subscriptions)} tone="violet" />
+                      <SnapField label="طلاب دافعون" value={fmtInt(snap.month_paying_students)} tone="violet" />
+                      <SnapField label="مجموعات نشطة" value={fmtInt(snap.active_groups)} tone="cyan" />
+                      {snap.month_withdrawals_count != null && (
+                        <SnapField label="طلبات سحب هذا الشهر" value={fmtInt(snap.month_withdrawals_count)} tone="amber" />
+                      )}
+                      {snap.month_withdrawals_amount != null && (
+                        <SnapField label="مبلغ المسحوبات" value={`${fmt(snap.month_withdrawals_amount)} ج`} tone="amber" />
+                      )}
+                      {snap.month_archives_count != null && (
+                        <SnapField label="أرشيفات الشهر" value={fmtInt(snap.month_archives_count)} tone="violet" />
+                      )}
+                    </div>
+
+                    <Button
+                      onClick={() => setConfirmDelete(detail.id)}
+                      variant="outline"
+                      className="w-full h-10 gap-2 border-red-300 text-red-700 hover:bg-red-50 font-bold"
+                    >
+                      <XCircle className="h-4 w-4" /> حذف هذا السجل
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : (
+              // ---------- LIST VIEW ----------
+              <div className="space-y-2">
+                {error && (
+                  <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-[11px] font-semibold text-red-900 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {loading ? (
+                  Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
+                ) : rows.length === 0 ? (
+                  <div className="text-center py-10 text-sm text-slate-700 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                    <Archive className="h-10 w-10 mx-auto mb-2 text-slate-400" />
+                    <p className="font-bold text-slate-800">لا توجد سجلات محفوظة بعد</p>
+                    <p className="text-[11px] mt-1 text-slate-600">
+                      اذهب إلى تبويب "التقاط سجل الشهر" وأنشئ أول سجل رسمي.
+                    </p>
+                  </div>
+                ) : (
+                  rows.map((r) => (
                     <button
-                      onClick={() => setSelectedPeriod(selectedPeriod === r.period_label ? null : r.period_label)}
-                      className={`w-full text-right border-2 rounded-xl p-3 transition-all ${
-                        selectedPeriod === r.period_label
-                          ? "bg-blue-50 border-blue-600 shadow-md"
-                          : "bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-400"
-                      }`}
+                      key={r.id}
+                      onClick={() => setSelectedId(r.id)}
+                      className="w-full text-right border-2 rounded-xl p-3 transition-all bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-500"
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                            <CalendarDays className="h-4 w-4" />
+                          <div className="h-9 w-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shadow-sm">
+                            <FileText className="h-4 w-4" />
                           </div>
                           <div>
                             <p className="font-black text-sm text-slate-950" dir="ltr">{r.period_label}</p>
-                            <p className="text-[9px] text-slate-500">
-                              آخر أرشفة: {r.last_archived_at ? new Date(r.last_archived_at).toLocaleDateString("ar-EG") : "—"}
+                            <p className="text-[9px] text-slate-600">
+                              {new Date(r.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}
                             </p>
                           </div>
                         </div>
-                        <ChevronRight
-                          className={`h-4 w-4 text-blue-700 transition-transform ${
-                            selectedPeriod === r.period_label ? "-rotate-90" : "rotate-180"
-                          }`}
-                        />
+                        <ChevronRight className="h-4 w-4 text-blue-700 rotate-180" />
                       </div>
+                      {r.notes && (
+                        <p className="text-[10px] text-slate-700 bg-slate-50 rounded p-1.5 mb-1.5 truncate">📝 {r.notes}</p>
+                      )}
                       <div className="grid grid-cols-4 gap-1.5 text-[10px]">
-                        <MiniStat label="معلمين" value={fmtInt(r.teachers)} tone="violet" />
-                        <MiniStat label="الأرباح" value={`${fmt(r.total_earned)} ج`} tone="emerald" />
-                        <MiniStat label="طلاب" value={fmtInt(r.total_subscribers)} tone="cyan" />
-                        <MiniStat label="مجموعات" value={fmtInt(r.total_groups)} tone="violet" />
+                        <MiniStat label="متاح" value={`${fmt(r.total_available)} ج`} tone="emerald" />
+                        <MiniStat label="مجمّد" value={`${fmt(r.total_frozen)} ج`} tone="cyan" />
+                        <MiniStat label="إيراد" value={`${fmt(r.month_gross)} ج`} tone="violet" />
+                        <MiniStat label="اشتراكات" value={fmtInt(r.month_subscriptions)} tone="amber" />
                       </div>
                     </button>
-
-                    {selectedPeriod === r.period_label && (
-                      <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1.5">
-                        <p className="text-[11px] font-black text-slate-800 px-1">تفاصيل المعلمين لهذا الشهر</p>
-                        {detailLoading ? (
-                          Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
-                        ) : detailRows.length === 0 ? (
-                          <p className="text-center text-[11px] text-slate-500 py-3">لا يوجد سجلات</p>
-                        ) : (
-                          detailRows.map((t) => (
-                            <div key={t.teacher_id} className="bg-white border border-slate-200 rounded-lg p-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="min-w-0">
-                                  <p className="text-[12px] font-black text-slate-950 truncate">{t.teacher_name}</p>
-                                  <p className="text-[9px] text-slate-500 truncate">{t.teacher_email || ""}</p>
-                                </div>
-                                <p className="text-emerald-700 font-black text-[12px] shrink-0">{fmt(t.total_earned)} ج</p>
-                              </div>
-                              <div className="grid grid-cols-3 gap-1 text-[9px]">
-                                <span className="text-slate-600">طلاب: <strong className="text-slate-900">{t.total_subscribers}</strong></span>
-                                <span className="text-slate-600">مجموعات: <strong className="text-slate-900">{t.total_groups}</strong></span>
-                                <span className="text-slate-600">عمولة: <strong className="text-slate-900">{Number(t.commission_rate || 0)}%</strong></span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
+            )
           ) : (
+            // ---------- ACTIONS TAB ----------
             <div className="space-y-3">
-              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-950 flex gap-2 font-semibold">
-                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-amber-700" />
+              <div className="rounded-xl border-2 border-blue-300 bg-blue-50 p-3 text-[11px] leading-relaxed text-blue-950 flex gap-2 font-semibold">
+                <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5 text-blue-700" />
                 <div>
-                  النقل الشهري التلقائي <strong>معطّل بالكامل</strong>. الأرشفة تتم يدوياً من هذه الصفحة فقط
-                  عندما ترى أن الشهر انتهى فعلاً. البيانات المؤرشفة تبقى محفوظة للأبد كمرجع رسمي.
+                  زر "التقاط" يحفظ لقطة كاملة لكل أرقام صفحة إعدادات السحب (الأرصدة، المجمّد، الإيرادات، العمولة، الطلاب، المجموعات، الطلبات).
+                  <br />
+                  <strong>يدوي فقط، لا يوجد نقل تلقائي.</strong> تُحفظ للأبد كسجل رسمي للرجوع في أي وقت.
                 </div>
+              </div>
+
+              <div className="rounded-xl border-2 border-slate-300 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-800">
+                <div className="flex gap-2 items-start">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                  <div>
+                    <strong className="text-slate-950">مهم:</strong> هذا السجل منفصل تماماً عن
+                    <strong className="text-slate-950"> نظام تحويل رصيد المعلمين المجمّد للسحب</strong>.
+                    نظام المعلمين يعمل من الصفحة الرئيسية (يدوي أو موعد تلقائي) — لا علاقة له بالتقاط اللقطة هنا.
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-[11px] font-black text-slate-900 mb-1 block">
+                  ملاحظة (اختياري)
+                </Label>
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="مثال: قبل تحويل الرصيد المجمّد ليوم 1"
+                  className="bg-white border-slate-300 text-slate-950 placeholder:text-slate-400"
+                />
               </div>
 
               <Card className="border-0 shadow-md overflow-hidden">
                 <div className="p-4 text-white bg-gradient-to-r from-emerald-600 to-teal-700">
                   <div className="flex items-center gap-2 mb-1">
                     <HandCoins className="h-4 w-4" />
-                    <p className="font-black text-sm">نقل بيانات الشهر الحالي إلى السجل</p>
+                    <p className="font-black text-sm">التقاط لقطة الشهر الحالي</p>
                   </div>
                   <p className="text-[11px] opacity-95 leading-relaxed">
-                    يقوم بأرشفة أرباح كل معلم لهذا الشهر (مجموعات، طلاب، عمولة) وينقل الرصيد المجمّد إلى المتاح للسحب.
-                    يتم تسجيل العملية في سجل التدقيق ولا يمكن التراجع.
+                    يقرأ كل أرقام النظرة العامة الآن ويحفظها كسجل دائم يمكنك الرجوع له في أي وقت.
                   </p>
                 </div>
                 <CardContent className="p-3 bg-emerald-50">
                   <Button
-                    onClick={() => setConfirmArchive(true)}
-                    disabled={archiving}
+                    onClick={() => setConfirmCapture(true)}
+                    disabled={capturing}
                     className="w-full h-11 gap-2 text-white border-0 shadow-md bg-emerald-700 hover:bg-emerald-800 font-black"
                   >
-                    {archiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
-                    نقل الشهر الحالي إلى السجل الآن
+                    {capturing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                    التقاط اللقطة الآن
                   </Button>
                 </CardContent>
               </Card>
@@ -1537,30 +1609,62 @@ function SettingsHistoryDialog({
           )}
         </ScrollArea>
 
-        <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+        <AlertDialog open={confirmCapture} onOpenChange={setConfirmCapture}>
           <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2 text-slate-950">
-                <Archive className="h-5 w-5 text-emerald-700" /> تأكيد نقل الشهر الحالي
+                <Archive className="h-5 w-5 text-emerald-700" /> تأكيد التقاط اللقطة
               </AlertDialogTitle>
               <AlertDialogDescription className="text-slate-700">
-                سيتم أرشفة كل بيانات المعلمين لهذا الشهر (الأرباح، الاشتراكات، المجموعات، العمولة)
-                ونقل الرصيد المجمّد إلى المتاح للسحب لكل معلم.
-                <br />
-                يمكنك الرجوع لهذه البيانات لاحقاً من "سجل الأشهر السابقة".
-                هل تريد المتابعة؟
+                سيتم حفظ لقطة رسمية بكل الأرقام الحالية في صفحة إعدادات السحب.
+                هذه اللقطة تُحفظ للأبد ويمكن الرجوع لها من "السجلات السابقة".
+                <br /><br />
+                <strong className="text-slate-950">ملاحظة:</strong> هذا لا يحوّل رصيد أي معلم — إنه سجل رسمي فقط.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel className="bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200">إلغاء</AlertDialogCancel>
               <AlertDialogAction
-                onClick={handleManualArchive}
+                onClick={handleCapture}
                 className="bg-emerald-700 hover:bg-emerald-800 text-white"
-              >نعم، نفّذ النقل</AlertDialogAction>
+              >نعم، التقط الآن</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!confirmDelete} onOpenChange={(v) => !v && setConfirmDelete(null)}>
+          <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-red-700">حذف السجل نهائياً؟</AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-700">
+                سيتم حذف هذه اللقطة نهائياً ولا يمكن استرجاعها.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-slate-100 text-slate-900 border-slate-300">إلغاء</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => confirmDelete && handleDelete(confirmDelete)}
+                className="bg-red-700 hover:bg-red-800 text-white"
+              >نعم، احذف</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SnapField({ label, value, tone }: { label: string; value: string; tone: "emerald" | "cyan" | "violet" | "amber" }) {
+  const tones: Record<string, string> = {
+    emerald: "bg-emerald-50 border-emerald-300 text-emerald-900",
+    cyan:    "bg-cyan-50 border-cyan-300 text-cyan-900",
+    violet:  "bg-violet-50 border-violet-300 text-violet-900",
+    amber:   "bg-amber-50 border-amber-300 text-amber-900",
+  };
+  return (
+    <div className={`rounded-lg border-2 p-2 ${tones[tone]}`}>
+      <p className="text-[9px] font-semibold opacity-80">{label}</p>
+      <p className="text-[13px] font-black mt-0.5">{value}</p>
+    </div>
   );
 }
