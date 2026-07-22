@@ -35,6 +35,23 @@ const isOptionCorrectForQuestion = (question: any, option: any) => {
   return Boolean(option?.is_correct);
 };
 
+const compactReviewText = (value: unknown, max = 90) => {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+};
+
+const isLegacyReviewFeedback = (value: unknown) => {
+  const text = normalizeReviewAnswer(value);
+  return [
+    "اجابه صحيحه",
+    "اجابه غير صحيحه راجع الاجابه الصحيحه",
+    "اجابه غير صحيحه",
+    "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
+    "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
+    "لم يجب الطالب علي هذا السؤال",
+  ].includes(text);
+};
+
 export default function ExamReviewPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
@@ -129,20 +146,26 @@ export default function ExamReviewPage() {
                       if (!a || (!studentPicked && !(a?.selected_option_ids?.length))) {
                         objectiveNote = "لم تقدم إجابة للسؤال.";
                       } else if (isCorrect) {
-                        const praises = ["إجابة صحيحة. أحسنت.", "أحسنت، إجابة موفقة.", "ممتاز، اختيار صحيح.", "رائع، لقد أجبت بشكل سليم."];
-                        objectiveNote = praises[(idx + q.question_text.length) % praises.length];
+                        const praises = ["أحسنت", "ممتاز", "رائع", "إجابة موفقة"];
+                        const praise = praises[(idx + q.question_text.length) % praises.length];
+                        objectiveNote = `✅ إجابتك صحيحة. ${praise}؛ اختيارك «${studentPicked || correctText}» يطابق المطلوب في السؤال: «${compactReviewText(q.question_text)}». تذكّر أن الفكرة الأساسية هنا هي «${correctText}».`;
                       } else if (showCorrect && correctText) {
                         objectiveNote = studentPicked
-                          ? `إجابة خاطئة. اخترت «${studentPicked}»، والصحيح هو «${correctText}». راجع هذه النقطة مرة أخرى.`
-                          : `إجابة غير صحيحة. الصواب هو «${correctText}».`;
+                          ? `❌ إجابتك غير صحيحة. اخترت «${studentPicked}»، بينما الإجابة الصحيحة هي «${correctText}». سبب الخطأ أن اختيارك لا يطابق المطلوب في السؤال: «${compactReviewText(q.question_text)}». راجع هذه النقطة وركّز على الفرق بين الاختيارين.`
+                          : `❌ إجابة غير صحيحة. الصواب هو «${correctText}». السؤال كان يطلب: «${compactReviewText(q.question_text)}»، لذلك راجع القاعدة المرتبطة به قبل المحاولة التالية.`;
                       } else {
-                        objectiveNote = "إجابة غير صحيحة. راجع هذه النقطة في الدرس.";
+                        objectiveNote = `❌ إجابة غير صحيحة. راجع السؤال «${compactReviewText(q.question_text)}» في الدرس وحاول تحديد الفكرة المطلوبة قبل اختيار الإجابة.`;
                       }
                     }
 
                     const autoExplain = !q.explanation && isObjective && showCorrect && correctText
                       ? `الإجابة الصحيحة: «${correctText}».`
                       : "";
+
+                    const storedFeedback = String(a?.ai_feedback || "").trim();
+                    const visibleFeedback = isObjective && objectiveNote && isLegacyReviewFeedback(storedFeedback)
+                      ? objectiveNote
+                      : (storedFeedback || objectiveNote);
 
                     return (
                       <>
@@ -188,10 +211,10 @@ export default function ExamReviewPage() {
                           </div>
                         )}
 
-                        {(a?.ai_feedback || objectiveNote) && (
+                        {visibleFeedback && (
                           <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
                             <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
-                            <div className="text-sm whitespace-pre-wrap">{a?.ai_feedback || objectiveNote}</div>
+                            <div className="text-sm whitespace-pre-wrap">{visibleFeedback}</div>
                           </div>
                         )}
 

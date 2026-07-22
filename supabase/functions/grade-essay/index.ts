@@ -50,8 +50,9 @@ const ARABIC_STOP_WORDS = new Set([
   "هذا", "هذه", "ذلك", "تلك", "الذي", "التي", "الذين", "او", "أو", "و", "ثم", "كما", "كل", "اي", "أي",
   "لا", "لم", "لن", "ما", "مع", "بين", "عند", "اذا", "إذا", "كان", "كانت", "يكون", "تكون", "قد", "لقد",
   "الى", "حتى", "حتي", "فقط", "غير", "بعد", "قبل", "خلال", "حول", "له", "لها", "به", "بها", "فيها",
-  "سؤال", "السؤال", "سوال", "السوال", "اجابه", "اجابة", "اعرف", "ادري", "اعلم", "اجب", "اجيب",
-  "صلاه", "صلا",
+  "سؤال", "السؤال", "سوال", "السوال", "اجابه", "اجابة", "الإجابة", "الاجابه", "صحيح", "صحيحه", "الصحيحه", "الصحيح", "نموذج", "النموذج", "النموذجيه",
+  "اعرف", "ادري", "اعلم", "اجب", "اجيب",
+  "شرط", "شروط", "وجوب", "واجب", "واجبات", "صوم", "الصوم", "الصيام", "صيام", "صلاه", "صلا", "الصلاه", "الصلاة",
 ]);
 
 function tokenizeMeaningful(value: string) {
@@ -102,17 +103,19 @@ function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
   const stats = overlapStats(answer, modelAnswer);
   if (a === m || (stats.modelWords.length <= 4 && (m.includes(a) || a.includes(m)))) return maxPoints;
   if (stats.common.length === 0) return 0;
-  // Smooth linear scoring based on how much of the model answer the student covered,
-  // with a small credit boost when the answer is coherent (not padded with irrelevant words).
-  const modelCov = stats.modelCoverage; // 0..1
-  const answerCov = stats.answerCoverage; // 0..1
-  const coherence = Math.min(1, answerCov + 0.15); // reward focused answers
-  const combined = Math.min(1, modelCov * 0.85 + coherence * 0.15);
-  if (combined <= 0.1) return 0;
-  if (combined >= 0.9 && modelCov >= 0.6) return maxPoints;
-  // Linear scale mapped to [0.1 -> 0, 0.9 -> max] for smooth partial credit.
-  const ratio = Math.max(0, Math.min(1, (combined - 0.1) / 0.8));
-  return Math.round(maxPoints * ratio * 100) / 100;
+  if (stats.common.length <= 1 && stats.modelCoverage < 0.35) return 0;
+  if (stats.modelCoverage < 0.18 && stats.answerCoverage < 0.75) return 0;
+  const combined = Math.min(1, Math.max(
+    stats.modelCoverage,
+    (stats.modelCoverage * 0.75) + (Math.min(stats.answerCoverage, 1) * 0.25),
+  ));
+  const score = combined >= 0.88 && stats.modelCoverage >= 0.75 ? maxPoints
+    : combined >= 0.72 ? maxPoints * 0.8
+    : combined >= 0.52 ? maxPoints * 0.6
+    : combined >= 0.32 ? maxPoints * 0.4
+    : combined >= 0.20 ? maxPoints * 0.2
+    : 0;
+  return Math.round(score * 100) / 100;
 }
 
 function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback: string) {
@@ -135,6 +138,9 @@ function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback:
   );
   if (!exactShortMatch && stats.common.length === 0 && safeScore > 0) {
     return { score: 0, feedback: "الإجابة لا تحتوي على عناصر يمكن ربطها بالإجابة النموذجية." };
+  }
+  if (!exactShortMatch && stats.common.length <= 1 && stats.modelCoverage < 0.35 && safeScore > 0) {
+    return { score: 0, feedback: "الإجابة بعيدة عن المطلوب ولا تكفي كلمة مشتركة عامة لمنح درجة." };
   }
   // Trust the AI teacher's judgment more: allow up to +35% of maxPoints above the
   // deterministic floor so a fair essay marker can award nuanced partial credit
@@ -348,6 +354,8 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
 - امنح الدرجة كاملة إذا كانت إجابة الطالب صحيحة بالمعنى ولو بصياغة مختلفة أو أسلوب مختصر.
 - اقبل طرق الحل المختلفة إذا وصلت لنفس النتيجة الصحيحة، ولا تعاقب الطالب على اختلاف الأسلوب.
 - امنح درجة جزئية دقيقة عند الإجابة الناقصة حسب العناصر الصحيحة فعلياً.
+- إذا كان السؤال يطلب عدداً من الشروط/الأسباب/العناصر، قيّم كل عنصر مستقلًا: من يذكر 4 عناصر صحيحة من 5 يستحق تقريبًا 80% من درجة السؤال، ولا تُنقصه بشدة لمجرد نقص عنصر واحد.
+- إذا كانت إجابة الطالب في موضوع آخر أو تذكر كلمات من الدرس دون علاقة مباشرة بالمطلوب، فالدرجة صفر أو قريبة جداً من الصفر حتى لو تشابهت بعض الألفاظ.
 - الدرجة بين 0 والدرجة القصوى، ويجوز استخدام كسور عشرية عادلة.
 - إذا كانت إجابة الطالب فارغة أو "لا أعرف / مش عارف / معرفش / لا أدري" أو ما يماثلها، فالدرجة صفر دائماً.
 - أعد نفس questionId و answerId حرفياً، ولا تعتمد أبداً على ترتيب أو موضع السؤال.
@@ -442,95 +450,13 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
     const scores: Record<string, number> = {};
     const feedback: Record<string, string> = {};
 
-    const gradeOneStoredItem = async (item: any) => {
-      const key = itemKey(item);
-      const gradingItem = withAlignedModelAnswer(item);
-      await logExamTrace("grade_essay.item.started", {
-        question_id: item.questionId,
-        question_order: item.questionOrder ?? null,
-        answer_id: item.answerId,
-        student_answer: trimForLog(item.studentAnswer),
-        correct_answer: trimForLog(gradingItem.modelAnswer),
-        original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
-        alignment_source: gradingItem.alignmentSource,
-        alignment_scores: gradingItem.alignmentScores || null,
-        max_score: Number(item.maxPoints || 0),
-      });
-      const earlyGuard = enforceGradingGuard(gradingItem, 0, "");
-      if (earlyGuard.score === 0 && (isNonAnswer(gradingItem.studentAnswer) || !normalizeArabicText(gradingItem.modelAnswer))) {
-        scores[key] = 0;
-        feedback[key] = earlyGuard.feedback;
-        await logExamTrace("grade_essay.item.guard_zero", {
-          question_id: item.questionId,
-          question_order: item.questionOrder ?? null,
-          answer_id: item.answerId,
-          reason: isNonAnswer(gradingItem.studentAnswer) ? "non_answer" : "missing_model_answer",
-          student_answer: trimForLog(item.studentAnswer),
-          correct_answer: trimForLog(gradingItem.modelAnswer),
-          score: 0,
-          max_score: Number(item.maxPoints || 0),
-        });
-        return;
-      }
-      try {
-        const result = await callGeminiWithFallback({
-          apiKey: GEMINI_API_KEY,
-          models: settings.models_to_try,
-          body: {
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: buildPrompt([gradingItem]) },
-            ],
-            tools,
-            tool_choice: { type: "function", function: { name: "grade_essays" } },
-          },
-          fallbackDelayMs: settings.fallback_delay_ms,
-        });
-        if (!result.ok) return;
-        const [r] = await parseAiResults(result.response);
-        if (!r) return;
-        const returnedQuestionId = String(r.questionId || r.question_id || "");
-        const returnedAnswerId = String(r.answerId || r.answer_id || "");
-        const returnedStudentAnswer = String(r.studentAnswer || r.student_answer || "");
-        const returnedCorrectAnswer = String(r.correctAnswer || r.correct_answer || "");
-        const questionMatches = returnedQuestionId === String(item.questionId);
-        const answerMatches = !item.answerId || !returnedAnswerId || returnedAnswerId === String(item.answerId);
-        const studentAnswerMatches = sameNormalizedText(returnedStudentAnswer, gradingItem.studentAnswer);
-        const correctAnswerMatches = sameNormalizedText(returnedCorrectAnswer, gradingItem.modelAnswer);
-        if (!questionMatches || !answerMatches || !studentAnswerMatches || !correctAnswerMatches) {
-          await logExamTrace("grade_essay.item.rejected_mismatch", {
-            expected_question_id: item.questionId,
-            returned_question_id: returnedQuestionId || null,
-            expected_answer_id: item.answerId,
-            returned_answer_id: returnedAnswerId || null,
-            question_order: item.questionOrder ?? null,
-            expected_student_answer: trimForLog(gradingItem.studentAnswer),
-            returned_student_answer: trimForLog(returnedStudentAnswer),
-            expected_correct_answer: trimForLog(gradingItem.modelAnswer),
-            original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
-            alignment_source: gradingItem.alignmentSource,
-            alignment_scores: gradingItem.alignmentScores || null,
-            returned_correct_answer: trimForLog(returnedCorrectAnswer),
-            student_answer_matches: studentAnswerMatches,
-            correct_answer_matches: correctAnswerMatches,
-            rejected_feedback: trimForLog(r.feedback),
-            rejected_score: r.score ?? null,
-          });
-          return;
-        }
-        // Stored attempts are updated by the locally known answerId/questionId only.
-        // The model never gets permission to remap a score/feedback to another row.
-        const guarded = enforceGradingGuard(
-          gradingItem,
-          clampScore(r.score, Number(item.maxPoints || 0)),
-          "",
-        );
-        scores[key] = guarded.score;
-        const aiFeedback = String(r.feedback || "").trim();
-        // Preserve the AI's rich, teacher-style feedback. Only fall back to the
-        // deterministic local message when the model returned nothing usable.
-        feedback[key] = aiFeedback.length >= 20 ? aiFeedback : safeLocalFeedback(gradingItem, guarded.score);
-        await logExamTrace("grade_essay.item.graded", {
+    const gradeStoredItemsInOneBatch = async (items: any[]) => {
+      const aiItems: any[] = [];
+
+      for (const item of items) {
+        const key = itemKey(item);
+        const gradingItem = withAlignedModelAnswer(item);
+        await logExamTrace("grade_essay.item.started", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
           answer_id: item.answerId,
@@ -539,19 +465,122 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
           alignment_source: gradingItem.alignmentSource,
           alignment_scores: gradingItem.alignmentScores || null,
-          ai_feedback: trimForLog(feedback[key]),
-          score: scores[key],
           max_score: Number(item.maxPoints || 0),
         });
+
+        const earlyGuard = enforceGradingGuard(gradingItem, 0, "");
+        if (earlyGuard.score === 0 && (isNonAnswer(gradingItem.studentAnswer) || !normalizeArabicText(gradingItem.modelAnswer))) {
+          scores[key] = 0;
+          feedback[key] = earlyGuard.feedback;
+          await logExamTrace("grade_essay.item.guard_zero", {
+            question_id: item.questionId,
+            question_order: item.questionOrder ?? null,
+            answer_id: item.answerId,
+            reason: isNonAnswer(gradingItem.studentAnswer) ? "non_answer" : "missing_model_answer",
+            student_answer: trimForLog(item.studentAnswer),
+            correct_answer: trimForLog(gradingItem.modelAnswer),
+            score: 0,
+            max_score: Number(item.maxPoints || 0),
+          });
+          continue;
+        }
+
+        aiItems.push(gradingItem);
+      }
+
+      if (aiItems.length === 0) return;
+
+      const aiItemsByQuestionId = new Map(aiItems.map((item: any) => [String(item.questionId), item]));
+      const aiItemsByAnswerId = new Map(aiItems.filter((item: any) => item.answerId).map((item: any) => [String(item.answerId), item]));
+
+      try {
+        const result = await callGeminiWithFallback({
+          apiKey: GEMINI_API_KEY,
+          models: settings.models_to_try,
+          body: {
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: buildPrompt(aiItems) },
+            ],
+            tools,
+            tool_choice: { type: "function", function: { name: "grade_essays" } },
+          },
+          fallbackDelayMs: settings.fallback_delay_ms,
+          timeoutMs: 30_000,
+        });
+
+        if (!result.ok) {
+          console.warn("batched essay grading failed; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
+          return;
+        }
+
+        const results = await parseAiResults(result.response);
+        for (const r of results) {
+          const returnedQuestionId = String(r.questionId || r.question_id || "");
+          const returnedAnswerId = String(r.answerId || r.answer_id || "");
+          const gradingItem = (returnedQuestionId && aiItemsByQuestionId.get(returnedQuestionId))
+            || (returnedAnswerId && aiItemsByAnswerId.get(returnedAnswerId))
+            || null;
+          if (!gradingItem) continue;
+
+          const returnedStudentAnswer = String(r.studentAnswer || r.student_answer || "");
+          const returnedCorrectAnswer = String(r.correctAnswer || r.correct_answer || "");
+          const questionMatches = returnedQuestionId === String(gradingItem.questionId);
+          const answerMatches = !gradingItem.answerId || !returnedAnswerId || returnedAnswerId === String(gradingItem.answerId);
+          const studentAnswerMatches = sameNormalizedText(returnedStudentAnswer, gradingItem.studentAnswer);
+          const correctAnswerMatches = sameNormalizedText(returnedCorrectAnswer, gradingItem.modelAnswer);
+          if (!questionMatches || !answerMatches || !studentAnswerMatches || !correctAnswerMatches) {
+            await logExamTrace("grade_essay.item.rejected_mismatch", {
+              expected_question_id: gradingItem.questionId,
+              returned_question_id: returnedQuestionId || null,
+              expected_answer_id: gradingItem.answerId,
+              returned_answer_id: returnedAnswerId || null,
+              question_order: gradingItem.questionOrder ?? null,
+              expected_student_answer: trimForLog(gradingItem.studentAnswer),
+              returned_student_answer: trimForLog(returnedStudentAnswer),
+              expected_correct_answer: trimForLog(gradingItem.modelAnswer),
+              original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+              alignment_source: gradingItem.alignmentSource,
+              alignment_scores: gradingItem.alignmentScores || null,
+              returned_correct_answer: trimForLog(returnedCorrectAnswer),
+              student_answer_matches: studentAnswerMatches,
+              correct_answer_matches: correctAnswerMatches,
+              rejected_feedback: trimForLog(r.feedback),
+              rejected_score: r.score ?? null,
+            });
+            continue;
+          }
+
+          const key = itemKey(gradingItem);
+          const guarded = enforceGradingGuard(
+            gradingItem,
+            clampScore(r.score, Number(gradingItem.maxPoints || 0)),
+            "",
+          );
+          scores[key] = guarded.score;
+          const aiFeedback = String(r.feedback || "").trim();
+          feedback[key] = aiFeedback.length >= 20 ? aiFeedback : safeLocalFeedback(gradingItem, guarded.score);
+          await logExamTrace("grade_essay.item.graded", {
+            question_id: gradingItem.questionId,
+            question_order: gradingItem.questionOrder ?? null,
+            answer_id: gradingItem.answerId,
+            student_answer: trimForLog(gradingItem.studentAnswer),
+            correct_answer: trimForLog(gradingItem.modelAnswer),
+            original_correct_answer: gradingItem.originalModelAnswer ? trimForLog(gradingItem.originalModelAnswer) : null,
+            alignment_source: gradingItem.alignmentSource,
+            alignment_scores: gradingItem.alignmentScores || null,
+            ai_feedback: trimForLog(feedback[key]),
+            score: scores[key],
+            max_score: Number(gradingItem.maxPoints || 0),
+          });
+        }
       } catch (error) {
-        console.warn("single essay grading failed; using deterministic fallback", JSON.stringify({ questionId: item.questionId || null, answerId: item.answerId || null, error: error instanceof Error ? error.message : String(error) }));
+        console.warn("batched essay grading crashed; using deterministic fallback", JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
       }
     };
 
     if (attemptId) {
-      for (const item of effectiveEssays) {
-        await gradeOneStoredItem(item);
-      }
+      await gradeStoredItemsInOneBatch(effectiveEssays);
     } else {
       const result = await callGeminiWithFallback({
         apiKey: GEMINI_API_KEY,
@@ -570,7 +599,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
       if (result.ok) {
         const results = await parseAiResults(result.response);
         results.forEach((r: any) => {
-          const essayItem = resolveResultItem(r);
+          const essayItem: any = resolveResultItem(r);
           if (!essayItem) return;
           const returnedStudentAnswer = String(r.studentAnswer || r.student_answer || "");
           const returnedCorrectAnswer = String(r.correctAnswer || r.correct_answer || "");
