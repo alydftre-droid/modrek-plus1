@@ -906,7 +906,6 @@ function ClosingTab({ overview, loading, onReload }: any) {
 // ============================================================
 // Native-style Date & Time Picker (single trigger + 2-step modal)
 // ============================================================
-const AR_MONTH_NOW = () => new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric", timeZone: "Africa/Cairo" });
 function DateTimePickerTrigger({
   day, hour, minute, month, year, onSave, saving = false,
 }: { day: number; hour: number; minute: number; month: number; year: number; saving?: boolean; onSave: (d: number, h: number, m: number) => void | Promise<void> }) {
