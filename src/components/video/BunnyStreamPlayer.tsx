@@ -117,12 +117,12 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
       const sp = await getSignedPlayback(videoId);
       if (cancelled) return;
       if (!sp) { setError("تعذر تشغيل الفيديو. يرجى إعادة المحاولة."); return; }
-      // Append startTime if resuming
+      // Hide Bunny's native controls so only our custom bar is visible,
+      // and append startTime if resuming from last watched position.
       const sep = sp.embedUrl.includes("?") ? "&" : "?";
-      const withStart = startTime > 0
-        ? `${sp.embedUrl}${sep}startTime=${Math.floor(startTime)}`
-        : sp.embedUrl;
-      setEmbedUrl(withStart);
+      const params = [`controls=false`];
+      if (startTime > 0) params.push(`startTime=${Math.floor(startTime)}`);
+      setEmbedUrl(`${sp.embedUrl}${sep}${params.join("&")}`);
     })();
     return () => { cancelled = true; };
   }, [videoId, startTimeReady, startTime]);
@@ -455,12 +455,18 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
               onTouchEnd={onTouchEnd}
               onTouchCancel={onTouchEnd}
               onDoubleClick={(e) => {
+                // Desktop only — touch double-tap is handled in onTouchEnd
+                if ((e as any).pointerType === "touch") return;
                 const rect = rootRef.current?.getBoundingClientRect();
                 if (!rect) return;
                 const side = e.clientX < rect.left + rect.width / 2 ? "left" : "right";
                 seekBy(side === "left" ? -10 : 10);
               }}
-              onClick={() => setShowControls((s) => !s)}
+              onClick={(e) => {
+                // Ignore synthetic click after touchend to avoid double-seek / double toggle
+                if ((e.nativeEvent as any).sourceCapabilities?.firesTouchEvents) return;
+                setShowControls((s) => !s);
+              }}
             />
 
             {/* Center play/pause tap indicator (only shows briefly) */}
