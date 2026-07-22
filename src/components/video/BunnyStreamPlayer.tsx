@@ -238,9 +238,19 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
   const zoomOut = () => { const z = clampZoom(zoom - 0.5); setZoom(z); if (z === 1) setPan({ x: 0, y: 0 }); else setPan((p) => clampPan(p, z)); kickOverlay(); };
   const resetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }); kickOverlay(); };
 
-  // Touch — ONLY for pinch-to-zoom + pan while zoomed. No tap/double-tap logic
-  // (Bunny's native bar owns play/pause/seek).
+  // Touch — pinch-to-zoom + pan (while zoomed), and double-tap-to-seek on side zones.
   const dist = (a: React.Touch, b: React.Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+  const seekBy = (delta: number) => {
+    const target = Math.max(0, (currentRef.current || 0) + delta);
+    try {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ context: "player.js", version: "0.0.7", method: "setCurrentTime", value: target }),
+        "*",
+      );
+      currentRef.current = target;
+    } catch { /* ignore */ }
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
     kickOverlay();
@@ -275,6 +285,29 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
   const onTouchEnd = (e: React.TouchEvent) => {
     if (e.touches.length < 2) pinchRef.current = null;
     if (e.touches.length === 0) panRef.current = null;
+  };
+
+  // Double-tap seek zones (left = -10s, right = +10s). Only active at zoom=1.
+  // Middle 40% of the screen is NOT covered, so play/pause taps still reach Bunny's iframe.
+  const lastTapRef = useRef<{ side: "L" | "R"; t: number } | null>(null);
+  const [seekFlash, setSeekFlash] = useState<null | { side: "L" | "R"; amount: number }>(null);
+  const flashTimer = useRef<number | null>(null);
+
+  const handleZoneTap = (side: "L" | "R") => {
+    const now = Date.now();
+    const last = lastTapRef.current;
+    if (last && last.side === side && now - last.t < 350) {
+      // double-tap
+      const delta = side === "R" ? 10 : -10;
+      seekBy(delta);
+      setSeekFlash({ side, amount: 10 });
+      if (flashTimer.current) window.clearTimeout(flashTimer.current);
+      flashTimer.current = window.setTimeout(() => setSeekFlash(null), 550);
+      lastTapRef.current = null;
+    } else {
+      lastTapRef.current = { side, t: now };
+    }
+    kickOverlay();
   };
 
   if (!videoId) return null;
@@ -355,14 +388,31 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
                 onTouchCancel={onTouchEnd}
               />
             )}
-            {/* Invisible pinch detector at zoom=1: only activates when 2 fingers touch,
-                so single-finger taps still reach Bunny's native controls. */}
+            {/* At zoom=1: two side zones for double-tap seek (-10s / +10s).
+                The middle 40% is left untouched so single taps reach Bunny for play/pause. */}
             {!gestureActive && (
+              <>
+                <div
+                  className="absolute inset-y-0 left-0 z-10"
+                  style={{ width: "30%", touchAction: "manipulation" }}
+                  onTouchStart={(e) => { if (e.touches.length === 2) onTouchStart(e); }}
+                  onClick={() => handleZoneTap("L")}
+                />
+                <div
+                  className="absolute inset-y-0 right-0 z-10"
+                  style={{ width: "30%", touchAction: "manipulation" }}
+                  onTouchStart={(e) => { if (e.touches.length === 2) onTouchStart(e); }}
+                  onClick={() => handleZoneTap("R")}
+                />
+              </>
+            )}
+            {/* Seek flash feedback */}
+            {seekFlash && (
               <div
-                className="absolute inset-0 z-10"
-                style={{ touchAction: "none", pointerEvents: "none" }}
-                onTouchStart={(e) => { if (e.touches.length === 2) { onTouchStart(e); } }}
-              />
+                className={`absolute top-1/2 -translate-y-1/2 z-30 px-4 py-3 rounded-full bg-black/70 text-white text-sm font-bold pointer-events-none ${seekFlash.side === "L" ? "left-8" : "right-8"}`}
+              >
+                {seekFlash.side === "L" ? "«" : "»"} {seekFlash.amount} ثواني
+              </div>
             )}
           </>
         ) : (
