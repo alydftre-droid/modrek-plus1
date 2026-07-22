@@ -198,11 +198,11 @@ export default function WithdrawalSettings() {
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
         <TabsList className="w-full grid grid-cols-5 h-12 rounded-xl bg-slate-100 p-1 shadow-inner border border-slate-200">
-          <TabsTrigger value="overview" className="text-[11px] gap-1"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
-          <TabsTrigger value="closing" className="text-[11px] gap-1"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
-          <TabsTrigger value="withdrawals" className="text-[11px] gap-1"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
-          <TabsTrigger value="teachers" className="text-[11px] gap-1"><Users className="h-3.5 w-3.5" />المحافظ</TabsTrigger>
-          <TabsTrigger value="audit" className="text-[11px] gap-1"><FileText className="h-3.5 w-3.5" />السجل</TabsTrigger>
+          <TabsTrigger value="overview" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
+          <TabsTrigger value="closing" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
+          <TabsTrigger value="withdrawals" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
+          <TabsTrigger value="teachers" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><Users className="h-3.5 w-3.5" />المحافظ</TabsTrigger>
+          <TabsTrigger value="audit" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><FileText className="h-3.5 w-3.5" />السجل</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
