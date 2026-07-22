@@ -527,7 +527,10 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           "",
         );
         scores[key] = guarded.score;
-        feedback[key] = safeLocalFeedback(gradingItem, guarded.score);
+        const aiFeedback = String(r.feedback || "").trim();
+        // Preserve the AI's rich, teacher-style feedback. Only fall back to the
+        // deterministic local message when the model returned nothing usable.
+        feedback[key] = aiFeedback.length >= 20 ? aiFeedback : safeLocalFeedback(gradingItem, guarded.score);
         await logExamTrace("grade_essay.item.graded", {
           question_id: item.questionId,
           question_order: item.questionOrder ?? null,
