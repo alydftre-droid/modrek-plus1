@@ -409,14 +409,17 @@ function ClosingTab({ overview, loading, onReload }: any) {
   }, [overview]);
 
   const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean, month?: number, year?: number) => {
-    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, {
+    const payload: Record<string, any> = {
       _day: day,
       _hour: hour,
       _minute: minute,
       _manual_state: isStopped ? "closed" : "auto",
-      _month: month ?? notifMonth,
-      _year: year ?? notifYear,
-    });
+    };
+    if (typeof month === "number" && typeof year === "number") {
+      payload._month = month;
+      payload._year = year;
+    }
+    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, payload);
     if (error) throw error;
     const result = data as any;
     if (!result?.success) throw new Error(result?.error || "فشل حفظ موعد الإقفال");
