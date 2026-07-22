@@ -32,14 +32,26 @@ const fmtDate = (v: any) =>
 // =============================================================
 // SECTION: Close-Month button (lives inside ClosingTab)
 // =============================================================
+const AR_MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
 export function FinancialCloseSection({ onDone }: { onDone: () => void }) {
+  const nowD = new Date();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [preview, setPreview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
+  const [periodMonth, setPeriodMonth] = useState<number>(nowD.getMonth() + 1);
+  const [periodYear, setPeriodYear] = useState<number>(nowD.getFullYear());
   const [closing, setClosing] = useState(false);
   const [lastCloseAt, setLastCloseAt] = useState<string | null>(null);
+
+  const manualLabel = `${AR_MONTHS[periodMonth - 1]} ${periodYear}`;
+  const yearOptions = useMemo(() => {
+    const y = nowD.getFullYear();
+    return [y - 1, y, y + 1, y + 2];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +86,8 @@ export function FinancialCloseSection({ onDone }: { onDone: () => void }) {
     try {
       const { data, error } = await supabase.rpc("admin_close_financial_month" as any, {
         _notes: notes || null,
+        _period_month: periodMonth,
+        _period_year: periodYear,
       });
       if (error) throw error;
       const r = data as any;
