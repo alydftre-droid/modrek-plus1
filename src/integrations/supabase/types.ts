@@ -120,6 +120,33 @@ export type Database = {
           },
         ]
       }
+      admin_overview_snapshots: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          period_label: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_label: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          period_label?: string
+          snapshot?: Json
+        }
+        Relationships: []
+      }
       ads: {
         Row: {
           ad_type: Database["public"]["Enums"]["ad_type"]
@@ -5886,7 +5913,13 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_capture_overview_snapshot: {
+        Args: { _notes?: string }
+        Returns: Json
+      }
+      admin_delete_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_financial_overview: { Args: never; Returns: Json }
+      admin_get_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_get_withdrawal_dashboard: { Args: never; Returns: Json }
       admin_list_audit_logs: {
         Args: {
@@ -5897,6 +5930,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_overview_snapshots: { Args: never; Returns: Json }
       admin_list_teacher_wallets: {
         Args: { _limit?: number; _offset?: number; _search?: string }
         Returns: Json
