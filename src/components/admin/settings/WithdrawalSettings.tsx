@@ -378,6 +378,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const [openDay, setOpenDay] = useState(25);
   const [openHour, setOpenHour] = useState(9);
   const [openMinute, setOpenMinute] = useState(0);
+  const nowCairoInit = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+  const [notifMonth, setNotifMonth] = useState<number>(nowCairoInit.getMonth() + 1);
+  const [notifYear, setNotifYear] = useState<number>(nowCairoInit.getFullYear());
   const [stopped, setStopped] = useState(false);
   const [saving, setSaving] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
@@ -398,14 +401,20 @@ function ClosingTab({ overview, loading, onReload }: any) {
     setOpenHour(Math.min(23, Math.max(0, parseInt(overview.open_hour || "9"))));
     setOpenMinute(Math.min(59, Math.max(0, parseInt(overview.open_minute || "0"))));
     setStopped(overview.manual_state === "closed");
+    const nm = parseInt(overview.notification_month || "");
+    const ny = parseInt(overview.notification_year || "");
+    if (nm >= 1 && nm <= 12) setNotifMonth(nm);
+    if (ny >= 2020 && ny <= 2100) setNotifYear(ny);
   }, [overview]);
 
-  const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean) => {
+  const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean, month?: number, year?: number) => {
     const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, {
       _day: day,
       _hour: hour,
       _minute: minute,
       _manual_state: isStopped ? "closed" : "auto",
+      _month: month ?? notifMonth,
+      _year: year ?? notifYear,
     });
     if (error) throw error;
     const result = data as any;
