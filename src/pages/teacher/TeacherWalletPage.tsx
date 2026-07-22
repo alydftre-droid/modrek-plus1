@@ -397,6 +397,34 @@ export default function TeacherWalletPage() {
                     </div>
                     <p className="text-[11px] text-muted-foreground">{g.subject_name} - {formatGrade(g.grade)} {formatStage(g.stage)}</p>
                     <CalcRow students={g.students} price={Number(g.price)} pct={Math.round(Number(archive.commission_rate) * 100)} net={Number(g.net)} />
+                    {Array.isArray(g.student_details) && g.student_details.length > 0 && (
+                      <div className="mt-3 rounded-xl border border-border/50 bg-background/70 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+                          <p className="text-[11px] font-black flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-primary" /> تفاصيل الطلاب
+                          </p>
+                          <span className="text-[10px] text-muted-foreground">{g.student_details.length} طالب</span>
+                        </div>
+                        <div className="divide-y divide-border/40">
+                          {g.student_details.map((student: any, idx: number) => (
+                            <div key={`${student.student_id || idx}`} className="px-3 py-2 flex items-start justify-between gap-3">
+                              <div className="min-w-0 text-right">
+                                <p className="text-[11px] font-bold truncate">{student.student_name || "طالب"}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {student.student_code ? `كود: ${student.student_code}` : "بدون كود"}
+                                  {student.student_grade ? ` • ${formatGrade(student.student_grade)}` : ""}
+                                  {student.student_stage ? ` ${formatStage(student.student_stage)}` : ""}
+                                </p>
+                              </div>
+                              <div className="text-left shrink-0">
+                                <p className="text-[11px] font-black text-emerald-600">{fmtMoney(Number(student.net))} ج</p>
+                                <p className="text-[10px] text-muted-foreground">{student.subscriptions || 1} اشتراك</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

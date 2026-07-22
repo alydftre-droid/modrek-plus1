@@ -92,7 +92,7 @@ export default function WithdrawalSettings() {
       supabase.from("teacher_wallets").select("teacher_id,balance,frozen_balance,total_earned"),
       supabase.from("teacher_earning_records").select("teacher_id,student_id,group_id,gross_amount,net_amount,period_label").eq("period_label", period),
       supabase.from("teacher_withdrawal_requests").select("amount,status,processed_at"),
-      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute"]),
+      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute", "withdrawal_next_release_at_cairo", "withdrawal_next_release_key"]),
       supabase.from("teacher_monthly_archives").select("id,archived_at").gte("archived_at", monthStart),
     ]);
 
@@ -133,6 +133,8 @@ export default function WithdrawalSettings() {
       open_day: settings.get("withdrawal_open_day") || "25",
       open_hour: settings.get("withdrawal_open_hour") || "9",
       open_minute: settings.get("withdrawal_open_minute") || "0",
+      next_release_cairo: settings.get("withdrawal_next_release_at_cairo"),
+      next_release_key: settings.get("withdrawal_next_release_key"),
     };
   };
 
@@ -395,37 +397,24 @@ function ClosingTab({ overview, loading, onReload }: any) {
     setStopped(overview.manual_state === "closed");
   }, [overview]);
 
-  const upsert = async (key: string, value: string) => {
-    const { data: existing, error: readError } = await supabase
-      .from("platform_settings").select("id").eq("key", key).maybeSingle();
-    if (readError) throw readError;
-
-    if (existing) {
-      const { error } = await supabase.from("platform_settings")
-        .update({ value, updated_at: new Date().toISOString() })
-        .eq("id", (existing as any).id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase.from("platform_settings").insert({ key, value });
-      if (error) throw error;
-    }
-  };
-
   const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean) => {
-    await Promise.all([
-      upsert("withdrawal_open_day", String(day)),
-      upsert("withdrawal_open_hour", String(hour)),
-      upsert("withdrawal_open_minute", String(minute)),
-      upsert("withdrawal_manual_state", isStopped ? "closed" : "auto"),
-      upsert("withdrawal_release_mode", "scheduled"),
-    ]);
+    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, {
+      _day: day,
+      _hour: hour,
+      _minute: minute,
+      _manual_state: isStopped ? "closed" : "auto",
+    });
+    if (error) throw error;
+    const result = data as any;
+    if (!result?.success) throw new Error(result?.error || "فشل حفظ موعد الإقفال");
+    return result;
   };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await persistClosingSettings(openDay, openHour, openMinute, stopped);
-      toast.success("تم حفظ إعدادات الإقفال");
+      const result = await persistClosingSettings(openDay, openHour, openMinute, stopped);
+      toast.success(result?.next_release_cairo ? `تم حفظ موعد الإقفال القادم: ${result.next_release_cairo}` : "تم حفظ إعدادات الإقفال");
       onReload();
     } catch (e: any) {
       toast.error(e?.message || "خطأ في الحفظ");
@@ -452,6 +441,13 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const cairoDay = cairoNow.getDate();
   const nextRelease = useMemo(() => {
     const y = cairoNow.getFullYear(); const m = cairoNow.getMonth();
+    const savedNext = overview?.next_release_cairo || overview?.next_release_at_cairo;
+    if (savedNext) {
+      const [datePart, timePart = "00:00:00"] = String(savedNext).split(" ");
+      const [yy, mm, dd] = datePart.split("-").map(Number);
+      const [hh, mi, ss = 0] = timePart.split(":").map(Number);
+      if (yy && mm && dd) return new Date(yy, mm - 1, dd, hh || 0, mi || 0, Number(ss) || 0);
+    }
     let t = new Date(y, m, openDay, openHour, openMinute, 0);
     if (t.getTime() <= cairoNow.getTime()) t = new Date(y, m + 1, openDay, openHour, openMinute, 0);
     return t;
