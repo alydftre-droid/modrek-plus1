@@ -1316,3 +1316,251 @@ function AuditTab() {
     </div>
   );
 }
+
+// ============================================================
+// SETTINGS + HISTORY DIALOG (gear button at top-right)
+// - Tab "السجل": aggregated monthly history for ALL past months
+// - Tab "الإجراءات": manual "archive current month" (no auto)
+// ============================================================
+function SettingsHistoryDialog({
+  open, onOpenChange, onReload,
+}: { open: boolean; onOpenChange: (v: boolean) => void; onReload: () => void }) {
+  const [innerTab, setInnerTab] = useState<"history" | "actions">("history");
+  const [loading, setLoading] = useState(false);
+  const [rows, setRows] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  const [detailRows, setDetailRows] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+
+  const loadHistory = async () => {
+    setLoading(true); setError(null);
+    const { data, error } = await supabase.rpc("admin_monthly_history_summary" as any);
+    if (error) { setError(error.message); setRows([]); setLoading(false); return; }
+    const r = data as any;
+    if (!r?.success) { setError(r?.error || "فشل التحميل"); setRows([]); }
+    else setRows(r.rows || []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (open && innerTab === "history" && rows.length === 0) loadHistory();
+  }, [open, innerTab]);
+
+  useEffect(() => {
+    if (!selectedPeriod) { setDetailRows([]); return; }
+    (async () => {
+      setDetailLoading(true);
+      const { data } = await supabase.rpc("admin_monthly_period_teachers" as any, {
+        _period_label: selectedPeriod,
+      });
+      if ((data as any)?.success) setDetailRows((data as any).rows || []);
+      setDetailLoading(false);
+    })();
+  }, [selectedPeriod]);
+
+  const handleManualArchive = async () => {
+    setArchiving(true);
+    try {
+      const { data, error } = await supabase.rpc("archive_all_teachers_period" as any);
+      if (error) throw error;
+      const r = data as any;
+      if (!r?.success) { toast.error(r?.error || "فشل التنفيذ"); return; }
+      toast.success(`تم أرشفة ${r.archived_count || 0} معلم — نُقل ${fmt(r.total_moved)} ج`);
+      setConfirmArchive(false);
+      await loadHistory();
+      onReload();
+    } catch (e: any) {
+      toast.error(e?.message || "خطأ");
+    } finally { setArchiving(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        dir="rtl"
+        className="max-w-2xl max-h-[88vh] overflow-hidden flex flex-col bg-white text-slate-950 p-0"
+      >
+        <DialogHeader className="p-4 pb-3 bg-gradient-to-br from-slate-950 via-blue-800 to-emerald-600 text-white">
+          <DialogTitle className="flex items-center gap-2 text-white text-base">
+            <SettingsIcon className="h-4 w-4" /> إعدادات السحب — السجل والإجراءات
+          </DialogTitle>
+          <DialogDescription className="text-white/85 text-[11px]">
+            يتضمن سجل جميع الأشهر السابقة وزر النقل اليدوي — النقل التلقائي معطّل.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="px-4 pt-3">
+          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-200 rounded-xl border border-slate-300 shadow-inner">
+            <button
+              onClick={() => { setInnerTab("history"); setSelectedPeriod(null); }}
+              className={`h-10 rounded-lg text-[12px] font-black transition-all flex items-center justify-center gap-1.5 ${
+                innerTab === "history" ? "bg-blue-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-blue-50"
+              }`}
+            >
+              <History className="h-4 w-4" /> سجل الأشهر السابقة
+            </button>
+            <button
+              onClick={() => setInnerTab("actions")}
+              className={`h-10 rounded-lg text-[12px] font-black transition-all flex items-center justify-center gap-1.5 ${
+                innerTab === "actions" ? "bg-emerald-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-emerald-50"
+              }`}
+            >
+              <HandCoins className="h-4 w-4" /> إجراءات النقل
+            </button>
+          </div>
+        </div>
+
+        <ScrollArea className="flex-1 px-4 py-3">
+          {innerTab === "history" ? (
+            <div className="space-y-2">
+              {error && (
+                <div className="rounded-xl border border-red-300 bg-red-50 p-3 text-[11px] font-semibold text-red-900 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {loading ? (
+                Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)
+              ) : rows.length === 0 ? (
+                <div className="text-center py-10 text-sm text-slate-600 bg-slate-50 rounded-xl border border-slate-200">
+                  <Archive className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+                  لا توجد أشهر مؤرشفة بعد.
+                  <p className="text-[10px] mt-1">
+                    استخدم زر "نقل الشهر الحالي" لأرشفة أول شهر.
+                  </p>
+                </div>
+              ) : (
+                rows.map((r) => (
+                  <div key={r.period_label}>
+                    <button
+                      onClick={() => setSelectedPeriod(selectedPeriod === r.period_label ? null : r.period_label)}
+                      className={`w-full text-right border-2 rounded-xl p-3 transition-all ${
+                        selectedPeriod === r.period_label
+                          ? "bg-blue-50 border-blue-600 shadow-md"
+                          : "bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-400"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-sm">
+                            <CalendarDays className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="font-black text-sm text-slate-950" dir="ltr">{r.period_label}</p>
+                            <p className="text-[9px] text-slate-500">
+                              آخر أرشفة: {r.last_archived_at ? new Date(r.last_archived_at).toLocaleDateString("ar-EG") : "—"}
+                            </p>
+                          </div>
+                        </div>
+                        <ChevronRight
+                          className={`h-4 w-4 text-blue-700 transition-transform ${
+                            selectedPeriod === r.period_label ? "-rotate-90" : "rotate-180"
+                          }`}
+                        />
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5 text-[10px]">
+                        <MiniStat label="معلمين" value={fmtInt(r.teachers)} tone="violet" />
+                        <MiniStat label="الأرباح" value={`${fmt(r.total_earned)} ج`} tone="emerald" />
+                        <MiniStat label="طلاب" value={fmtInt(r.total_subscribers)} tone="cyan" />
+                        <MiniStat label="مجموعات" value={fmtInt(r.total_groups)} tone="violet" />
+                      </div>
+                    </button>
+
+                    {selectedPeriod === r.period_label && (
+                      <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1.5">
+                        <p className="text-[11px] font-black text-slate-800 px-1">تفاصيل المعلمين لهذا الشهر</p>
+                        {detailLoading ? (
+                          Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
+                        ) : detailRows.length === 0 ? (
+                          <p className="text-center text-[11px] text-slate-500 py-3">لا يوجد سجلات</p>
+                        ) : (
+                          detailRows.map((t) => (
+                            <div key={t.teacher_id} className="bg-white border border-slate-200 rounded-lg p-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="min-w-0">
+                                  <p className="text-[12px] font-black text-slate-950 truncate">{t.teacher_name}</p>
+                                  <p className="text-[9px] text-slate-500 truncate">{t.teacher_email || ""}</p>
+                                </div>
+                                <p className="text-emerald-700 font-black text-[12px] shrink-0">{fmt(t.total_earned)} ج</p>
+                              </div>
+                              <div className="grid grid-cols-3 gap-1 text-[9px]">
+                                <span className="text-slate-600">طلاب: <strong className="text-slate-900">{t.total_subscribers}</strong></span>
+                                <span className="text-slate-600">مجموعات: <strong className="text-slate-900">{t.total_groups}</strong></span>
+                                <span className="text-slate-600">عمولة: <strong className="text-slate-900">{Number(t.commission_rate || 0)}%</strong></span>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-950 flex gap-2 font-semibold">
+                <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5 text-amber-700" />
+                <div>
+                  النقل الشهري التلقائي <strong>معطّل بالكامل</strong>. الأرشفة تتم يدوياً من هذه الصفحة فقط
+                  عندما ترى أن الشهر انتهى فعلاً. البيانات المؤرشفة تبقى محفوظة للأبد كمرجع رسمي.
+                </div>
+              </div>
+
+              <Card className="border-0 shadow-md overflow-hidden">
+                <div className="p-4 text-white bg-gradient-to-r from-emerald-600 to-teal-700">
+                  <div className="flex items-center gap-2 mb-1">
+                    <HandCoins className="h-4 w-4" />
+                    <p className="font-black text-sm">نقل بيانات الشهر الحالي إلى السجل</p>
+                  </div>
+                  <p className="text-[11px] opacity-95 leading-relaxed">
+                    يقوم بأرشفة أرباح كل معلم لهذا الشهر (مجموعات، طلاب، عمولة) وينقل الرصيد المجمّد إلى المتاح للسحب.
+                    يتم تسجيل العملية في سجل التدقيق ولا يمكن التراجع.
+                  </p>
+                </div>
+                <CardContent className="p-3 bg-emerald-50">
+                  <Button
+                    onClick={() => setConfirmArchive(true)}
+                    disabled={archiving}
+                    className="w-full h-11 gap-2 text-white border-0 shadow-md bg-emerald-700 hover:bg-emerald-800 font-black"
+                  >
+                    {archiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
+                    نقل الشهر الحالي إلى السجل الآن
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </ScrollArea>
+
+        <AlertDialog open={confirmArchive} onOpenChange={setConfirmArchive}>
+          <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-slate-950">
+                <Archive className="h-5 w-5 text-emerald-700" /> تأكيد نقل الشهر الحالي
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-700">
+                سيتم أرشفة كل بيانات المعلمين لهذا الشهر (الأرباح، الاشتراكات، المجموعات، العمولة)
+                ونقل الرصيد المجمّد إلى المتاح للسحب لكل معلم.
+                <br />
+                يمكنك الرجوع لهذه البيانات لاحقاً من "سجل الأشهر السابقة".
+                هل تريد المتابعة؟
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="bg-slate-100 text-slate-900 border-slate-300 hover:bg-slate-200">إلغاء</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleManualArchive}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white"
+              >نعم، نفّذ النقل</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DialogContent>
+    </Dialog>
+  );
+}
