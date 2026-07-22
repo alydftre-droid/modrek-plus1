@@ -71,12 +71,13 @@ export default function TeacherGradeDashboard() {
       .eq("stage", stageKey);
     const subjectIds = subjects?.map(s => s.id) || [];
 
+    // Match TeacherStudentManagement "all" tab: filter by teacher + grade only
+    // (stage/category are not reliably populated on student_teacher_choices rows,
+    // so tightening the filter here previously hid choosers from the badge).
     const { data: choices } = await supabase
       .from("student_teacher_choices").select("student_id")
       .eq("teacher_id", user.id)
-      .eq("grade", gradeKey)
-      .eq("stage", stageKey)
-      .eq("category", subjectFilter.categoryKey);
+      .eq("grade", gradeKey);
     reportTeacherScopedStudentIds("student_teacher_choices", (choices || []).map(c => c.student_id), {
       page: "TeacherGradeDashboard",
       grade: gradeKey,
