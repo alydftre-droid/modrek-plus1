@@ -5074,6 +5074,7 @@ export type Database = {
           period_end: string
           period_label: string
           period_start: string
+          snapshot: Json
           teacher_id: string
           total_earned: number
           total_groups: number
@@ -5087,6 +5088,7 @@ export type Database = {
           period_end: string
           period_label: string
           period_start: string
+          snapshot?: Json
           teacher_id: string
           total_earned?: number
           total_groups?: number
@@ -5100,6 +5102,7 @@ export type Database = {
           period_end?: string
           period_label?: string
           period_start?: string
+          snapshot?: Json
           teacher_id?: string
           total_earned?: number
           total_groups?: number
