@@ -908,8 +908,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
 // ============================================================
 const AR_MONTH_NOW = () => new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric", timeZone: "Africa/Cairo" });
 function DateTimePickerTrigger({
-  day, hour, minute, onSave, saving = false,
-}: { day: number; hour: number; minute: number; saving?: boolean; onSave: (d: number, h: number, m: number) => void | Promise<void> }) {
+  day, hour, minute, month, year, onSave, saving = false,
+}: { day: number; hour: number; minute: number; month: number; year: number; saving?: boolean; onSave: (d: number, h: number, m: number) => void | Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<"date" | "time">("date");
   const [d, setD] = useState(day);
@@ -919,7 +919,7 @@ function DateTimePickerTrigger({
 
   useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setPeriod(hour >= 12 ? "PM" : "AM"); setStep("date"); } }, [open, day, hour, minute]);
 
-  const label = `يوم ${day} • ${formatArabicClock(hour, minute)}`;
+  const label = `${day} ${MONTH_NAMES_AR[month - 1]} ${year} • ${formatArabicClock(hour, minute)}`;
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const mins = Array.from({ length: 60 }, (_, i) => i);
   const displayHour = h % 12 || 12;
@@ -963,7 +963,7 @@ function DateTimePickerTrigger({
             <p className="text-lg font-bold">
               {step === "date" ? `اليوم ${d}` : formatArabicClock(h, m)}
             </p>
-            <p className="text-[10px] opacity-80">{AR_MONTH_NOW()}</p>
+            <p className="text-[10px] opacity-80">{MONTH_NAMES_AR[month - 1]} {year}</p>
           </div>
 
           <div className="p-4">
