@@ -5993,6 +5993,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_set_withdrawal_profit_label: {
+        Args: { _month: number; _year: number }
+        Returns: Json
+      }
       admin_set_withdrawal_schedule: {
         Args: {
           _day: number

@@ -409,14 +409,17 @@ function ClosingTab({ overview, loading, onReload }: any) {
   }, [overview]);
 
   const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean, month?: number, year?: number) => {
-    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, {
+    const payload: Record<string, any> = {
       _day: day,
       _hour: hour,
       _minute: minute,
       _manual_state: isStopped ? "closed" : "auto",
-      _month: month ?? notifMonth,
-      _year: year ?? notifYear,
-    });
+    };
+    if (typeof month === "number" && typeof year === "number") {
+      payload._month = month;
+      payload._year = year;
+    }
+    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, payload);
     if (error) throw error;
     const result = data as any;
     if (!result?.success) throw new Error(result?.error || "فشل حفظ موعد الإقفال");
@@ -441,12 +444,17 @@ function ClosingTab({ overview, loading, onReload }: any) {
       const safeYear = Math.min(2100, Math.max(2020, Number(notifYear) || nowCairoInit.getFullYear()));
       setNotifMonth(safeMonth);
       setNotifYear(safeYear);
-      const result = await persistClosingSettings(openDay, openHour, openMinute, false, safeMonth, safeYear);
-      setStopped(false);
-      toast.success(result?.next_release_cairo ? `تم حفظ موعد الإقفال: ${result.next_release_cairo}` : "تم حفظ الشهر والسنة");
+      const { data, error } = await supabase.rpc("admin_set_withdrawal_profit_label" as any, {
+        _month: safeMonth,
+        _year: safeYear,
+      });
+      if (error) throw error;
+      const result = data as any;
+      if (!result?.success) throw new Error(result?.error || "فشل حفظ شهر وسنة الأرباح");
+      toast.success(`تم حفظ تسمية أرباح المعلمين: ${String(safeMonth).padStart(2, "0")}-${safeYear}`);
       await onReload();
     } catch (e: any) {
-      toast.error(e?.message || "تعذّر حفظ الشهر والسنة");
+      toast.error(e?.message || "تعذّر حفظ شهر وسنة الأرباح");
     } finally {
       setPeriodSaving(false);
     }
@@ -604,7 +612,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
         </CardContent>
       </Card>
 
-      {/* Manual Month/Year for scheduled closing */}
+      {/* Manual Month/Year label for teacher profit archive + notifications */}
       <Card className="border border-purple-200 shadow-md bg-white">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -612,9 +620,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
               <Bell className="h-4 w-4 text-purple-600" />
             </div>
             <div className="min-w-0">
-              <p className="font-black text-sm text-slate-950">شهر وسنة الإقفال للمعلمين</p>
+              <p className="font-black text-sm text-slate-950">شهر وسنة أرباح المعلمين</p>
               <p className="text-[11px] text-slate-600 font-semibold">
-                حدّد الشهر والسنة التي سيتم فيها تنفيذ الإقفال التلقائي فعلياً، وليس نص الإشعار فقط.
+                هذه تسمية تظهر في إشعار فتح السحب وسجل المحفظة فقط، ولا تغيّر موعد تنفيذ الإقفال التلقائي.
               </p>
             </div>
           </div>
@@ -653,7 +661,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
           </div>
 
           <div className="rounded-lg p-3 text-xs border border-purple-200 bg-purple-50 text-purple-900 font-semibold">
-            الموعد الكامل المحفوظ سيكون: يوم <strong>{openDay}</strong> / شهر <strong>{String(notifMonth).padStart(2, "0")}</strong> / سنة <strong>{notifYear}</strong> الساعة <strong>{timeLabel}</strong>.
+            عند تنفيذ الإقفال في موعده الشهري، سيتم حفظ الأرشيف وإرسال الإشعار باسم أرباح شهر <strong>{String(notifMonth).padStart(2, "0")}-{notifYear}</strong>.
           </div>
 
           <Button
@@ -662,7 +670,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
             className="w-full h-11 gap-2 bg-purple-700 hover:bg-purple-800 text-white border-0 shadow-md font-black"
           >
             {periodSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            حفظ الشهر والسنة وتفعيل الموعد
+            حفظ شهر وسنة الأرباح فقط
           </Button>
         </CardContent>
       </Card>
