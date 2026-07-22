@@ -954,18 +954,33 @@ const StudentSubjectView = () => {
     () => subjects.find((subject) => subject.id === activeGroupSubjectId),
     [subjects, activeGroupSubjectId],
   );
-  const activeGroupExamCount = useMemo(() => availableExamRows.filter((exam: any) => {
-    if (activeGroupId && exam.group_id !== activeGroupId) return false;
-    if (selectedSubSubject?.id && exam.sub_subject_id !== selectedSubSubject.id) return false;
-    if (currentTerm && exam.term && exam.term !== currentTerm) return false;
-    if (activeGroupSubjectId && exam.subject_id !== activeGroupSubjectId && activeGroupSubjectMeta && exam.subjects) {
-      const sameSubjectScope =
-        exam.subjects.name === activeGroupSubjectMeta.name &&
-        normalizeSectionForSubjects(exam.subjects.section) === normalizeSectionForSubjects(activeGroupSubjectMeta.section);
-      if (!sameSubjectScope) return false;
-    }
-    return true;
-  }).length, [availableExamRows, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, activeGroupSubjectMeta, currentTerm]);
+  const { data: activeGroupExamCatalog } = useStudentExamCatalog(
+    activeGroupId
+      ? {
+          subjectId: activeGroupSubjectId,
+          groupId: activeGroupId,
+          term: currentTerm,
+          subSubjectId: selectedSubSubject?.id,
+        }
+      : undefined,
+  );
+  const activeGroupExamCount = useMemo(() => {
+    const exams = activeGroupExamCatalog?.exams || [];
+    const activeSubject = exams.find((exam: any) => exam.subject_id === activeGroupSubjectId)?.subjects;
+    return exams.filter((e: any) => {
+      if (activeGroupId && e.group_id !== activeGroupId) return false;
+      if (selectedSubSubject?.id && e.sub_subject_id !== selectedSubSubject.id) return false;
+      if (e.subject_id !== activeGroupSubjectId && activeSubject && e.subjects) {
+        const sameSubjectScope =
+          e.subjects.name === activeSubject.name &&
+          e.subjects.stage === activeSubject.stage &&
+          e.subjects.grade === activeSubject.grade &&
+          normalizeSectionForSubjects(e.subjects.section) === normalizeSectionForSubjects(activeSubject.section);
+        if (!sameSubjectScope) return false;
+      }
+      return true;
+    }).length;
+  }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId]);
 
   // ========== Header ==========
   const renderHeader = () => (
