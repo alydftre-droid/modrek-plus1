@@ -796,11 +796,11 @@ function WithdrawalsTab({ overview, onReload }: any) {
         <KpiCard label="مرفوضة" value={`${fmtInt(overview?.rejected_count)}`} icon={XCircle} tint="from-slate-500 to-gray-600" />
       </div>
 
-      <div className="flex gap-1 p-1 bg-muted/60 rounded-lg">
+      <div className="flex gap-1 p-1 bg-slate-200 rounded-xl border border-slate-300 shadow-inner">
         {[["pending", "معلقة"], ["approved", "مقبولة"], ["rejected", "مرفوضة"], ["all", "الكل"]].map(([k, l]) => (
           <button key={k as string} onClick={() => setStatusFilter(k as any)}
-            className={`flex-1 h-9 rounded-md text-xs font-bold transition-all ${
-              statusFilter === k ? "bg-card shadow" : "hover:bg-card/50"
+            className={`flex-1 h-9 rounded-lg text-xs font-black transition-all ${
+              statusFilter === k ? "bg-blue-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-blue-50"
             }`}>{l}</button>
         ))}
       </div>
@@ -812,27 +812,27 @@ function WithdrawalsTab({ overview, onReload }: any) {
             : rows.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">لا توجد طلبات</div>
             ) : rows.map((r) => (
-              <Card key={r.id} className="border-0 shadow-sm">
+              <Card key={r.id} className="border border-slate-200 bg-white shadow-md">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold truncate">{r.profiles?.full_name || "معلم"}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{r.profiles?.email}</p>
+                      <p className="text-sm font-black text-slate-950 truncate">{r.profiles?.full_name || "معلم"}</p>
+                      <p className="text-[10px] text-slate-600 font-semibold truncate">{r.profiles?.email}</p>
                     </div>
                     <StatusBadge status={r.status} />
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-[11px]">
                     <div>
-                      <p className="text-muted-foreground">المبلغ</p>
-                      <p className="font-bold">{fmt(r.amount)} ج</p>
+                      <p className="text-slate-600 font-semibold">المبلغ</p>
+                      <p className="font-black text-slate-950">{fmt(r.amount)} ج</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">الطريقة</p>
-                      <p className="font-bold truncate">{r.payment_method}</p>
+                      <p className="text-slate-600 font-semibold">الطريقة</p>
+                      <p className="font-black text-slate-950 truncate">{r.payment_method}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">التاريخ</p>
-                      <p className="font-bold truncate" dir="ltr">
+                      <p className="text-slate-600 font-semibold">التاريخ</p>
+                      <p className="font-black text-slate-950 truncate" dir="ltr">
                         {new Date(r.created_at).toLocaleDateString("ar-EG")}
                       </p>
                     </div>
@@ -853,7 +853,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: { label: "مرفوض", cls: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300" },
   };
   const m = map[status] || { label: status, cls: "bg-muted text-muted-foreground" };
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>;
+  return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>;
 }
 
 // ============================================================
@@ -1063,7 +1063,7 @@ function TeacherStatementDialog({ teacher, onClose }: any) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col" dir="rtl">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col bg-white text-slate-950" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-4 w-4" /> سجل محفظة {teacher.name}
@@ -1082,32 +1082,32 @@ function TeacherStatementDialog({ teacher, onClose }: any) {
                 <button
                   key={a.period_label}
                   onClick={() => setSelectedPeriod(a.period_label)}
-                  className={`w-full text-right border rounded-lg p-3 transition-all ${
-                    selectedPeriod === a.period_label ? "bg-primary/5 border-primary" : "hover:bg-accent"
+                  className={`w-full text-right border rounded-xl p-3 transition-all ${
+                    selectedPeriod === a.period_label ? "bg-blue-50 border-blue-600 shadow-sm" : "bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-300"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <p className="font-bold text-sm" dir="ltr">{a.period_label}</p>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground rotate-180" />
+                    <p className="font-black text-sm text-slate-950" dir="ltr">{a.period_label}</p>
+                    <ChevronRight className="h-4 w-4 text-blue-700 rotate-180" />
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-[10px]">
-                    <div><span className="text-muted-foreground">إيراد: </span><strong>{fmt(a.total_earned)} ج</strong></div>
-                    <div><span className="text-muted-foreground">طلاب: </span><strong>{a.total_subscribers}</strong></div>
-                    <div><span className="text-muted-foreground">مجموعات: </span><strong>{a.total_groups}</strong></div>
+                    <div><span className="text-slate-600 font-semibold">إيراد: </span><strong>{fmt(a.total_earned)} ج</strong></div>
+                    <div><span className="text-slate-600 font-semibold">طلاب: </span><strong>{a.total_subscribers}</strong></div>
+                    <div><span className="text-slate-600 font-semibold">مجموعات: </span><strong>{a.total_groups}</strong></div>
                   </div>
                 </button>
               ))}
 
               {detail?.archive && Object.keys(detail.archive).length > 0 && (
-                <Card className="border-0 bg-muted/40 mt-2">
+                <Card className="border border-slate-200 bg-slate-50 mt-2">
                   <CardContent className="p-3 space-y-2">
                     <p className="text-[11px] font-bold">تفاصيل {detail.archive.period_label}</p>
                     <div className="space-y-1.5">
                       {(detail.archive.breakdown || []).map((g: any, i: number) => (
-                        <div key={i} className="bg-card rounded-md p-2 text-[10px]">
+                          <div key={i} className="bg-white border border-slate-200 rounded-lg p-2 text-[10px]">
                           <div className="flex justify-between mb-0.5">
                             <p className="font-bold truncate">{g.group_title || "مجموعة"}</p>
-                            <p className="text-emerald-600 font-bold">{fmt(g.net)} ج</p>
+                            <p className="text-emerald-700 font-black">{fmt(g.net)} ج</p>
                           </div>
                           <div className="text-muted-foreground flex gap-3">
                             <span>{g.subject_name}</span>
@@ -1121,12 +1121,12 @@ function TeacherStatementDialog({ teacher, onClose }: any) {
                       <>
                         <p className="text-[11px] font-bold mt-2">حركات المحفظة في الشهر</p>
                         {detail.transactions.map((t: any) => (
-                          <div key={t.id} className="bg-card rounded-md p-2 text-[10px] flex justify-between">
+                          <div key={t.id} className="bg-white border border-slate-200 rounded-lg p-2 text-[10px] flex justify-between">
                             <div>
                               <p className="font-bold">{t.transaction_type}</p>
                               <p className="text-muted-foreground truncate">{t.description}</p>
                             </div>
-                            <p className={t.amount > 0 ? "text-emerald-600 font-bold" : "text-red-600 font-bold"}>
+                            <p className={t.amount > 0 ? "text-emerald-700 font-black" : "text-red-700 font-black"}>
                               {t.amount > 0 ? "+" : ""}{fmt(t.amount)}
                             </p>
                           </div>
@@ -1179,7 +1179,7 @@ function ManualActionDialog({ teacher, onClose, onDone }: any) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-md bg-white text-slate-950" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Coins className="h-4 w-4" /> إجراء يدوي — {teacher.name}
@@ -1193,13 +1193,13 @@ function ManualActionDialog({ teacher, onClose, onDone }: any) {
           <div className="grid grid-cols-3 gap-1.5">
             {actions.map((a) => (
               <button key={a.k} onClick={() => setAction(a.k)}
-                className={`p-2.5 rounded-lg border transition-all text-center ${
-                  action === a.k ? "border-primary bg-primary/5 shadow-sm" : "hover:bg-accent"
+                className={`p-2.5 rounded-xl border transition-all text-center ${
+                  action === a.k ? "border-blue-600 bg-blue-50 shadow-sm" : "bg-white border-slate-200 hover:bg-blue-50"
                 }`}>
                 <div className={`${a.tint} h-7 w-7 rounded-md text-white flex items-center justify-center mx-auto mb-1`}>
                   <a.icon className="h-3.5 w-3.5" />
                 </div>
-                <p className="text-[10px] font-bold">{a.l}</p>
+                <p className="text-[10px] font-black text-slate-900">{a.l}</p>
               </button>
             ))}
           </div>
@@ -1217,8 +1217,8 @@ function ManualActionDialog({ teacher, onClose, onDone }: any) {
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button onClick={submit} disabled={submitting}>
+          <Button variant="outline" onClick={onClose} className="border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">إلغاء</Button>
+          <Button onClick={submit} disabled={submitting} className="bg-blue-700 text-white hover:bg-blue-800">
             {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             تنفيذ
           </Button>
@@ -1251,8 +1251,8 @@ function AuditTab() {
     <div className="space-y-3">
       <div className="flex gap-2">
         <Input placeholder="فلترة بنوع الإجراء (مثال: wallet_bonus, monthly_closing_run)"
-          value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 text-[11px]" />
-        <Button variant="outline" size="icon" onClick={load} className="h-10 w-10">
+          value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 text-[11px] border-2 border-blue-200 bg-white text-slate-950 placeholder:text-slate-500" />
+        <Button variant="outline" size="icon" onClick={load} className="h-10 w-10 border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
@@ -1266,12 +1266,12 @@ function AuditTab() {
                 لا توجد سجلات
               </div>
             ) : rows.map((r) => (
-              <Card key={r.id} className="border-0 shadow-sm">
+              <Card key={r.id} className="border border-slate-200 bg-white shadow-md">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold flex items-center gap-1.5">
-                        <Activity className="h-3 w-3 text-primary" />
+                        <Activity className="h-3 w-3 text-blue-700" />
                         {r.action}
                       </p>
                       <p className="text-[10px] text-muted-foreground truncate">
