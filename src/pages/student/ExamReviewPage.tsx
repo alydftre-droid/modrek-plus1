@@ -110,19 +110,38 @@ export default function ExamReviewPage() {
                   <p className="font-bold">{q.question_text}</p>
 
                   {(() => {
-                    // Compute short auto-explanation for objective questions when teacher didn't provide one
                     const isObjective = q.question_type === "mcq" || q.question_type === "true_false" || q.question_type === "fill_blank";
                     let correctText = "";
+                    let studentPicked = "";
                     if (q.question_type === "mcq" || q.question_type === "true_false") {
                       const correctOpt = (q.options || []).find((o: any) => isOptionCorrectForQuestion(q, o));
                       correctText = correctOpt?.option_text || q.correct_answer || "";
+                      const pickedOpt = (q.options || []).find((o: any) => a?.selected_option_ids?.includes(o.id));
+                      studentPicked = pickedOpt?.option_text || "";
                     } else if (q.question_type === "fill_blank") {
                       correctText = q.correct_answer || "";
+                      studentPicked = a?.answer_text || "";
                     }
-                    const autoNote = !q.explanation && isObjective && showCorrect && correctText
-                      ? (isCorrect
-                          ? `أحسنت! الإجابة الصحيحة هي «${correctText}».`
-                          : `الإجابة الصحيحة هي «${correctText}». راجع هذه النقطة في الدرس.`)
+
+                    // Dynamic teacher-style "ملاحظات" for objective questions
+                    let objectiveNote = "";
+                    if (isObjective) {
+                      if (!a || (!studentPicked && !(a?.selected_option_ids?.length))) {
+                        objectiveNote = "لم تقدم إجابة للسؤال.";
+                      } else if (isCorrect) {
+                        const praises = ["إجابة صحيحة. أحسنت.", "أحسنت، إجابة موفقة.", "ممتاز، اختيار صحيح.", "رائع، لقد أجبت بشكل سليم."];
+                        objectiveNote = praises[(idx + q.question_text.length) % praises.length];
+                      } else if (showCorrect && correctText) {
+                        objectiveNote = studentPicked
+                          ? `إجابة خاطئة. اخترت «${studentPicked}»، والصحيح هو «${correctText}». راجع هذه النقطة مرة أخرى.`
+                          : `إجابة غير صحيحة. الصواب هو «${correctText}».`;
+                      } else {
+                        objectiveNote = "إجابة غير صحيحة. راجع هذه النقطة في الدرس.";
+                      }
+                    }
+
+                    const autoExplain = !q.explanation && isObjective && showCorrect && correctText
+                      ? `الإجابة الصحيحة: «${correctText}».`
                       : "";
 
                     return (
@@ -166,22 +185,23 @@ export default function ExamReviewPage() {
                                 <div className="whitespace-pre-wrap">{q.correct_answer}</div>
                               </div>
                             )}
-                            {a?.ai_feedback && (
-                              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                                <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
-                                <div className="text-sm whitespace-pre-wrap">{a.ai_feedback}</div>
-                              </div>
-                            )}
                           </div>
                         )}
 
-                        {(q.explanation || autoNote) && (
+                        {(a?.ai_feedback || objectiveNote) && (
+                          <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                            <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
+                            <div className="text-sm whitespace-pre-wrap">{a?.ai_feedback || objectiveNote}</div>
+                          </div>
+                        )}
+
+                        {(q.explanation || autoExplain) && (
                           <Card className="bg-amber-500/5 border-amber-500/30">
                             <CardContent className="p-3 text-sm">
                               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
                                 <Info className="h-4 w-4" />الشرح
                               </div>
-                              <div className="whitespace-pre-wrap">{q.explanation || autoNote}</div>
+                              <div className="whitespace-pre-wrap">{q.explanation || autoExplain}</div>
                             </CardContent>
                           </Card>
                         )}
