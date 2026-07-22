@@ -408,7 +408,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
                       correctAnswer: { type: "string" },
                     score: { type: "number" },
                       maxScore: { type: "number" },
-                    feedback: { type: "string" },
+                    feedback: { type: "string", description: "ملاحظة تصحيح غنية بأسلوب معلم عربي خبير: تشرح لماذا الإجابة صحيحة أو خاطئة، تذكر الإجابة الصحيحة عند الخطأ، تربط بالدرس، تعطي مثالاً أو نصيحة، وتشجّع الطالب. مختلفة في كل سؤال، وليست عبارة عامة قصيرة." },
                   },
                   required: ["questionId", "studentAnswer", "correctAnswer", "score", "feedback"],
                   additionalProperties: false,
