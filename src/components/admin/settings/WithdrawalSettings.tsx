@@ -57,6 +57,7 @@ export default function WithdrawalSettings() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const loadOverview = async () => {
     setLoadError(null);
