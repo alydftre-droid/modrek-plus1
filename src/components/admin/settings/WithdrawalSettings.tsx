@@ -38,6 +38,10 @@ const MINUTES = [0, 5, 10, 15, 20, 30, 40, 45, 50];
 const fmt = (n: any) =>
   Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n: any) => Number(n || 0).toLocaleString("ar-EG");
+const MONTH_NAMES_AR = [
+  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
+  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
 const formatArabicClock = (hour: number, minute: number) => {
   const period = hour >= 12 ? "مساءً" : "صباحاً";
   const hour12 = hour % 12 || 12;
@@ -101,6 +105,10 @@ export default function WithdrawalSettings() {
         "withdrawal_open_minute",
         "withdrawal_next_release_at_cairo",
         "withdrawal_next_release_key",
+        "withdrawal_schedule_day",
+        "withdrawal_schedule_month",
+        "withdrawal_schedule_year",
+        "withdrawal_schedule_kind",
         "withdrawal_notification_month",
         "withdrawal_notification_year",
         "withdrawal_scheduler_last_check_at",
@@ -150,6 +158,10 @@ export default function WithdrawalSettings() {
       open_minute: settings.get("withdrawal_open_minute") || "0",
       next_release_cairo: settings.get("withdrawal_next_release_at_cairo"),
       next_release_key: settings.get("withdrawal_next_release_key"),
+      schedule_day: settings.get("withdrawal_schedule_day"),
+      schedule_month: settings.get("withdrawal_schedule_month"),
+      schedule_year: settings.get("withdrawal_schedule_year"),
+      schedule_kind: settings.get("withdrawal_schedule_kind"),
       notification_month: settings.get("withdrawal_notification_month"),
       notification_year: settings.get("withdrawal_notification_year"),
       scheduler_last_check_at: settings.get("withdrawal_scheduler_last_check_at"),
