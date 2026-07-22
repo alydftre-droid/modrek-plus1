@@ -585,6 +585,61 @@ function ClosingTab({ overview, loading, onReload }: any) {
         </CardContent>
       </Card>
 
+      {/* Manual Month/Year for teacher notification */}
+      <Card className="border border-purple-200 shadow-md bg-white">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center">
+              <Bell className="h-4 w-4 text-purple-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-black text-sm text-slate-950">شهر وسنة الإشعار للمعلمين</p>
+              <p className="text-[11px] text-slate-600 font-semibold">
+                يُستخدم في نص إشعار «تم فتح السحب لشهر …» الذي يصل للمعلم — حدّده يدوياً حتى لو فتحت الشهر مبكراً.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[11px] mb-1 block text-slate-700 font-bold">الشهر</Label>
+              <select
+                value={notifMonth}
+                onChange={(e) => setNotifMonth(parseInt(e.target.value))}
+                className="w-full h-11 rounded-xl border-2 border-purple-300 bg-purple-50 px-3 text-sm font-black text-slate-950 focus:border-purple-600 focus:outline-none"
+              >
+                {[
+                  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
+                  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
+                ].map((name, i) => (
+                  <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, "0")} — {name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block text-slate-700 font-bold">السنة</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={2020}
+                max={2100}
+                value={notifYear}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value || "0");
+                  if (!isNaN(v)) setNotifYear(v);
+                }}
+                className="h-11 rounded-xl border-2 border-purple-300 bg-purple-50 text-sm font-black text-slate-950 focus-visible:ring-purple-400"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg p-3 text-xs border border-purple-200 bg-purple-50 text-purple-900 font-semibold">
+            سيصل للمعلم إشعار بعنوان: <strong>✅ تم فتح السحب لشهر {String(notifMonth).padStart(2, "0")}-{notifYear}</strong>
+          </div>
+        </CardContent>
+      </Card>
+
+
 
       {/* Emergency Stop */}
       <Card className={`border-0 shadow-md overflow-hidden ${stopped ? "ring-2 ring-red-500" : ""}`}>
