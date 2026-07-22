@@ -1479,3 +1479,365 @@ function MethodDialog({ open, onOpenChange, editing, methodType, setMethodType, 
     </Dialog>
   );
 }
+
+// ============================================================
+// ArchiveWalletReplica — pixel-perfect frozen copy of the
+// teacher's wallet exactly as it appeared at closing time.
+// Reads only from archive.snapshot (immutable). Never touches
+// live data so the archive is truly a time-travel view.
+// ============================================================
+function ArchiveWalletReplica({ archive }: { archive: any }) {
+  const snap = (archive.snapshot && typeof archive.snapshot === "object" && Object.keys(archive.snapshot).length > 0)
+    ? archive.snapshot as any
+    : null;
+
+  // ---- Derive replica fields (with graceful fallback for v2 snapshots) ----
+  const stats = snap?.stats || {
+    total_earned: Number(archive.total_earned) || 0,
+    total_gross: 0,
+    commission_rate: Number(archive.commission_rate) || 0.7,
+    subscribers: Number(archive.total_subscribers) || 0,
+    groups: Number(archive.total_groups) || 0,
+    subjects: 0,
+  };
+  const walletBefore = snap?.wallet_before || {
+    balance: Number(archive.total_earned) || 0,
+    frozen_balance: 0,
+    total_earned: Number(archive.total_earned) || 0,
+  };
+  const ratePct = Number(snap?.hero?.ratePct ?? Math.round(Number(stats.commission_rate || 0.7) * 100));
+  const balance = Number(snap?.hero?.balance ?? walletBefore.balance ?? 0);
+  const frozen = Number(snap?.hero?.frozen ?? walletBefore.frozen_balance ?? 0);
+  const totalAll = Number(snap?.hero?.totalAll ?? (balance + frozen));
+  const monthDeltaPct = Number(snap?.hero?.monthDeltaPct ?? 0);
+  const openDateLabel = String(snap?.hero?.openDateLabel ?? "");
+  const teacherName = String(snap?.teacher?.name ?? snap?.hero?.teacherName ?? "");
+
+  const grades: any[] = Array.isArray(snap?.grades) ? snap.grades : [];
+  const gradeHistory: Record<string, number[]> = (snap?.grade_history && typeof snap.grade_history === "object") ? snap.grade_history : {};
+  const gradeDetails: Record<string, any[]> = (snap?.grade_details && typeof snap.grade_details === "object") ? snap.grade_details : {};
+  const growthSeries: any[] = Array.isArray(snap?.growth_series) ? snap.growth_series : [];
+  const summary = snap?.summary || {
+    subsCount: Number(stats.subscribers || 0),
+    newStudentsCount: Number(stats.new_students || 0),
+    totalRevenue: Number(stats.total_gross || 0),
+    currentMonthProfit: Number(stats.total_earned || 0),
+  };
+
+  const groupsList: any[] = Array.isArray(snap?.groups) ? snap.groups : (archive.breakdown || []);
+  const snapTxns: any[] = Array.isArray(snap?.transactions) ? snap.transactions : [];
+  const snapWithdrawals: any[] = Array.isArray(snap?.withdrawals) ? snap.withdrawals : [];
+  const paymentMethodsSnap: any[] = Array.isArray(snap?.payment_methods) ? snap.payment_methods : [];
+
+  // Focused grade for the details table (default: top grade)
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const gradeNodes: GradeNode[] = grades.map((g) => ({
+    key: g.key,
+    stage: g.stage || "",
+    grade: g.grade || "",
+    category: g.category || "",
+    totalEarned: Number(g.totalEarned || 0),
+    subscriberCount: Number(g.subscriberCount || 0),
+    groupCount: Number(g.groupCount || 0),
+  }));
+  const activeKey = focusedKey || gradeNodes[0]?.key || null;
+  const focusedNode = gradeNodes.find((g) => g.key === activeKey) || null;
+  const focusedGroups = activeKey ? (gradeDetails[activeKey] || []) : [];
+  const focusedTotal = focusedGroups.reduce((s, g) => s + Number(g.net || 0), 0);
+  const focusedStudents = focusedGroups.reduce((s, g) => s + Number(g.count || 0), 0);
+
+  const withdrawalStatusLabel = (s: string) => ({
+    pending: "قيد المراجعة", approved: "قيد التنفيذ", paid: "تمت", rejected: "مرفوضة", cancelled: "ملغاة",
+  } as Record<string, string>)[s] || s;
+
+  return (
+    <div className="space-y-4">
+      {/* Frozen archive banner */}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 font-bold flex items-center gap-2">
+        <Archive className="h-3.5 w-3.5 shrink-0" />
+        <span className="truncate">
+          نسخة أرشيفية مثبتة لشهر {monthLabel(archive.period_label)}
+          {snap?.captured_at && ` — ${new Date(snap.captured_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}`}
+        </span>
+      </div>
+
+      {/* ============== HERO (identical to live wallet) ============== */}
+      <div
+        dir="rtl"
+        className="relative w-full mx-auto overflow-hidden text-white"
+        style={{
+          maxWidth: 390, height: 200, borderRadius: 22, padding: 14,
+          background: "linear-gradient(135deg, #162B75 0%, #4F2DFF 55%, #7B61FF 100%)",
+          boxShadow: "0 16px 34px rgba(22,43,117,0.32)",
+        }}
+      >
+        <img src={wallet3D} alt="محفظة" width={78} height={78}
+          className="absolute object-contain pointer-events-none"
+          style={{ top: 8, right: 10, width: 78, height: 78, filter: "drop-shadow(0 10px 25px rgba(0,0,0,0.25))" }} />
+
+        <div className="relative flex items-start justify-between" style={{ height: 110 }}>
+          <div className="flex flex-col items-start text-left order-2" style={{ width: "40%" }} dir="ltr">
+            <p className="flex items-center gap-1 font-semibold" style={{ fontSize: 12, color: "#FBBF24" }}>
+              <span>🔒</span><span dir="rtl">شهر مغلق</span>
+            </p>
+            <p className="text-white" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, marginTop: 4 }} dir="rtl">
+              {monthLabel(archive.period_label)}
+            </p>
+            <p style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 2 }} dir="rtl">
+              {openDateLabel ? `سُحبت لحظة ${openDateLabel}` : "أرشيف دائم"}
+            </p>
+          </div>
+          <div className="flex flex-col items-end text-right order-1 self-start" style={{ width: "60%", paddingRight: 84, paddingTop: 2 }} dir="rtl">
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1 }}>الرصيد الإجمالي</p>
+            <div dir="ltr" className="flex items-end gap-1.5 whitespace-nowrap" style={{ marginTop: 14 }}>
+              <h1 className="text-white" style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.3px" }}>{fmtMoney(totalAll)}</h1>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", fontWeight: 700, marginBottom: 3 }}>جنيه</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute inline-flex items-center gap-1 whitespace-nowrap"
+          style={{ top: 101, right: 20, height: 24, padding: "0 10px", borderRadius: 12,
+            background: "rgba(16,185,129,0.2)", color: "#34D399", fontSize: 11, fontWeight: 700, maxWidth: "calc(60% - 24px)" }} dir="rtl">
+          <TrendingUp className="h-3 w-3 shrink-0" />
+          <span className="truncate">{monthDeltaPct >= 0 ? "+" : ""}{monthDeltaPct}% عن الشهر الماضي</span>
+        </div>
+
+        <div className="absolute grid grid-cols-3"
+          style={{ left: 10, right: 10, bottom: 10, height: 52, padding: "6px 8px", borderRadius: 16,
+            background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }} dir="rtl">
+          <HeroStripCell label="نسبة أرباحك" value={`${ratePct}%`} highlight />
+          <HeroStripCell label="الرصيد المتاح" value={fmtMoney(balance)} divider />
+          <HeroStripCell label="الرصيد المجمد" value={fmtMoney(frozen)} divider />
+        </div>
+      </div>
+
+      {teacherName && (
+        <div className="rounded-2xl border border-border/60 bg-card px-3 py-2 text-[12px] font-bold text-foreground text-right">
+          المعلم: <span className="text-primary">{teacherName}</span>
+        </div>
+      )}
+
+      {/* ============== EARNINGS BY GRADE (replica) ============== */}
+      {gradeNodes.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <h2 className="font-black text-sm">الأرباح حسب الصفوف</h2>
+            <span className="text-[11px] text-muted-foreground">{gradeNodes.length} صفوف</span>
+          </div>
+          {gradeNodes.length <= 3 ? (
+            <div className={`grid gap-2 ${gradeNodes.length === 1 ? "grid-cols-1" : gradeNodes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+              {gradeNodes.map((ge, i) => {
+                const hist = gradeHistory[ge.key] || [];
+                const series = hist.length ? hist : [0, ge.totalEarned];
+                const prev = hist.length > 1 ? hist[hist.length - 2] : 0;
+                const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+                return (
+                  <GradeMiniCard key={ge.key} node={ge} active={ge.key === activeKey}
+                    delta={delta} series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                    color={["sky", "violet", "emerald"][i] || "sky"}
+                    onClick={() => setFocusedKey(ge.key)}
+                    onOpen={() => setFocusedKey(ge.key)} />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="-mx-1 overflow-x-auto scrollbar-none snap-x snap-mandatory">
+              <div className="flex gap-2 px-1 pb-1">
+                {gradeNodes.map((ge, i) => {
+                  const hist = gradeHistory[ge.key] || [];
+                  const series = hist.length ? hist : [0, ge.totalEarned];
+                  const prev = hist.length > 1 ? hist[hist.length - 2] : 0;
+                  const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+                  const palette = ["sky", "violet", "emerald", "amber", "rose", "indigo"];
+                  return (
+                    <div key={ge.key} className="shrink-0 snap-start" style={{ width: "calc((100% - 1rem) / 3)", minWidth: "112px" }}>
+                      <GradeMiniCard node={ge} active={ge.key === activeKey}
+                        delta={delta} series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                        color={palette[i % palette.length]}
+                        onClick={() => setFocusedKey(ge.key)}
+                        onOpen={() => setFocusedKey(ge.key)} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============== FOCUSED GRADE TABLE ============== */}
+      {focusedNode && focusedGroups.length > 0 && (
+        <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2 px-3 pt-3">
+            <CardTitle className="text-[13px] font-black truncate">
+              تفاصيل - الصف {formatGrade(focusedNode.grade)} {formatStage(focusedNode.stage)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <GradeEarningsTable groups={focusedGroups as any} pct={ratePct} />
+            <div className="border-t border-border/50 px-3 py-2.5 flex items-center justify-between bg-emerald-50/50">
+              <span className="text-xs font-bold">إجمالي الصف</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">{focusedStudents} طالب</span>
+                <span className="text-sm font-black text-emerald-600">{fmtMoney(focusedTotal)} ج</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============== GROWTH CHART ============== */}
+      {growthSeries.length > 0 && (
+        <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 px-3 pt-3">
+            <CardTitle className="text-sm font-black">نمو الأرباح</CardTitle>
+            <span className="text-[10px] text-muted-foreground bg-muted px-2 py-1 rounded-full">{growthSeries.length} أشهر</span>
+          </CardHeader>
+          <CardContent className="pb-3 px-2">
+            <div className="h-36">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={growthSeries} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={32} />
+                  <Tooltip
+                    formatter={(v: number) => [`${v.toLocaleString()} جنيه`, ""]}
+                    contentStyle={{ background: "hsl(222 47% 11%)", border: "none", borderRadius: 8, fontSize: 11, color: "#fff", padding: "6px 10px" }}
+                    labelStyle={{ display: "none" }} itemStyle={{ color: "#fff", fontWeight: 700 }} />
+                  <Line type="monotone" dataKey="v" stroke="hsl(262 83% 58%)" strokeWidth={2.5}
+                    dot={{ r: 3.5, fill: "hsl(262 83% 58%)", stroke: "#fff", strokeWidth: 2 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============== MONTHLY SUMMARY ============== */}
+      <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+        <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 px-3 pt-3">
+          <CardTitle className="text-sm font-black flex items-center gap-2">
+            <span className="h-7 w-7 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center"><BarChart3 className="h-4 w-4" /></span>
+            ملخص هذا الشهر
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid grid-cols-2 gap-2 px-3 pb-3 pt-0">
+          <SummaryStat label="الاشتراكات" value={fmtInt(Number(summary.subsCount || 0))} sub="اشتراك" icon={<BookOpen className="h-4 w-4" />} iconTone="violet" />
+          <SummaryStat label="الطلاب الجدد" value={fmtInt(Number(summary.newStudentsCount || 0))} sub="طالب" icon={<Users className="h-4 w-4" />} iconTone="emerald" />
+          <SummaryStat label="إجمالي الإيرادات" value={fmtInt(Number(summary.totalRevenue || 0))} sub="جنيه" icon={<FileText className="h-4 w-4" />} iconTone="indigo" />
+          <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(Number(summary.currentMonthProfit || 0))} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} iconTone="profit" highlight />
+        </CardContent>
+      </Card>
+
+      {/* ============== GROUPS + STUDENT DETAILS ============== */}
+      {groupsList.length > 0 && (
+        <SectionCard icon={<BookOpen className="h-4 w-4" />} title="تفاصيل المجموعات والطلاب">
+          <div className="space-y-2">
+            {groupsList.map((g: any, j: number) => (
+              <div key={j} className="p-3 rounded-2xl bg-muted/40 border border-border/50">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="font-bold text-sm">{g.group_title || "مجموعة"}</p>
+                  <span className="font-bold text-emerald-600 text-sm">{fmtMoney(Number(g.net))} ج</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">{g.subject_name} - {formatGrade(g.grade)} {formatStage(g.stage)}</p>
+                <CalcRow students={g.students} price={Number(g.price)}
+                  pct={Math.round(Number(g.commission_rate ?? archive.commission_rate ?? 0.7) * 100)} net={Number(g.net)} />
+                {Array.isArray(g.student_details) && g.student_details.length > 0 && (
+                  <div className="mt-3 rounded-xl border border-border/50 bg-background/70 overflow-hidden">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+                      <p className="text-[11px] font-black flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-primary" /> تفاصيل الطلاب
+                      </p>
+                      <span className="text-[10px] text-muted-foreground">{g.student_details.length} طالب</span>
+                    </div>
+                    <div className="divide-y divide-border/40">
+                      {g.student_details.map((student: any, idx: number) => (
+                        <div key={`${student.student_id || idx}`} className="px-3 py-2 flex items-start justify-between gap-3">
+                          <div className="min-w-0 text-right">
+                            <p className="text-[11px] font-bold truncate">{student.student_name || "طالب"}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">
+                              {student.student_code ? `كود: ${student.student_code}` : "بدون كود"}
+                              {student.student_grade ? ` • ${formatGrade(student.student_grade)}` : ""}
+                              {student.student_stage ? ` ${formatStage(student.student_stage)}` : ""}
+                            </p>
+                          </div>
+                          <div className="text-left shrink-0">
+                            <p className="text-[11px] font-black text-emerald-600">{fmtMoney(Number(student.net))} ج</p>
+                            <p className="text-[10px] text-muted-foreground">{student.subscriptions || 1} اشتراك</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ============== WITHDRAWALS ============== */}
+      <SectionCard icon={<ArrowDownCircle className="h-4 w-4" />} title="طلبات السحب خلال الشهر">
+        {snapWithdrawals.length === 0 ? (
+          <EmptyState icon={<ArrowDownCircle className="h-10 w-10" />} title="لا توجد طلبات سحب لهذا الشهر" subtitle="لم يتقدم المعلم بأي طلب سحب في هذا الشهر" />
+        ) : (
+          <div className="space-y-2">
+            {snapWithdrawals.map((w: any) => (
+              <div key={w.id} className="p-3 rounded-2xl bg-background border border-border/60 flex items-start justify-between gap-3">
+                <div className="min-w-0 text-right">
+                  <p className="text-sm font-black">{fmtMoney(Number(w.amount))} ج</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{w.payment_method} • <span dir="ltr">{w.phone_number}</span></p>
+                  {w.admin_message && <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">{w.admin_message}</p>}
+                  <p className="text-[10px] text-slate-500 mt-1" dir="ltr">{new Date(w.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}</p>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-1 rounded-full border bg-muted/60 shrink-0">{withdrawalStatusLabel(w.status)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ============== PAYMENT METHODS ============== */}
+      {paymentMethodsSnap.length > 0 && (
+        <SectionCard icon={<CreditCard className="h-4 w-4" />} title="طرق الدفع المسجّلة وقت الإقفال">
+          <div className="grid grid-cols-1 gap-2">
+            {paymentMethodsSnap.map((pm: any) => (
+              <div key={pm.id} className="p-3 rounded-2xl bg-muted/40 border border-border/50 flex items-center justify-between">
+                <p className="text-sm font-bold">{methodLabels[pm.method_type] || pm.method_type}</p>
+                <p className="text-xs text-muted-foreground" dir="ltr">{pm.phone_number}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
+
+      {/* ============== TRANSACTIONS ============== */}
+      <SectionCard icon={<History className="h-4 w-4" />} title="حركات المحفظة لهذا الشهر">
+        {snapTxns.length === 0 ? (
+          <EmptyState icon={<History className="h-10 w-10" />} title="لا توجد حركات مرتبطة بهذا الشهر" subtitle="ستظهر حركة نقل الرصيد بعد كل إقفال شهري" />
+        ) : (
+          <div className="space-y-2">
+            {snapTxns.map((tx: any) => {
+              const amt = Number(tx.amount);
+              const positive = amt >= 0;
+              return (
+                <div key={tx.id} className={`p-3 rounded-2xl border flex items-start justify-between gap-3 ${positive ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200"}`}>
+                  <div className="text-right min-w-0">
+                    <p className={`font-black text-sm ${positive ? "text-emerald-800" : "text-rose-800"}`}>{walletTransactionLabel(tx.transaction_type)}</p>
+                    <p className={`text-[11px] mt-0.5 line-clamp-2 ${positive ? "text-emerald-700" : "text-rose-700"}`}>{tx.description || "حركة مالية"}</p>
+                    <p className="text-[10px] text-slate-500 mt-1" dir="ltr">{new Date(tx.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}</p>
+                  </div>
+                  <div className="text-left shrink-0">
+                    <p className={`font-black ${positive ? "text-emerald-700" : "text-rose-700"}`}>{positive ? "+" : ""}{fmtMoney(amt)} ج</p>
+                    {tx.balance_after != null && <p className="text-[10px] text-slate-500">الرصيد: {fmtMoney(Number(tx.balance_after))}</p>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
