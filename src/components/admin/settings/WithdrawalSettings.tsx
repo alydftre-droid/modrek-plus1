@@ -396,14 +396,18 @@ function ClosingTab({ overview, loading, onReload }: any) {
   }, [overview]);
 
   const upsert = async (key: string, value: string) => {
-    const { data: existing } = await supabase
+    const { data: existing, error: readError } = await supabase
       .from("platform_settings").select("id").eq("key", key).maybeSingle();
+    if (readError) throw readError;
+
     if (existing) {
-      await supabase.from("platform_settings")
+      const { error } = await supabase.from("platform_settings")
         .update({ value, updated_at: new Date().toISOString() })
         .eq("id", (existing as any).id);
+      if (error) throw error;
     } else {
-      await supabase.from("platform_settings").insert({ key, value });
+      const { error } = await supabase.from("platform_settings").insert({ key, value });
+      if (error) throw error;
     }
   };
 
@@ -423,8 +427,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
       await persistClosingSettings(openDay, openHour, openMinute, stopped);
       toast.success("تم حفظ إعدادات الإقفال");
       onReload();
-    } catch (e) {
-      toast.error("خطأ في الحفظ");
+    } catch (e: any) {
+      toast.error(e?.message || "خطأ في الحفظ");
     } finally { setSaving(false); }
   };
 
