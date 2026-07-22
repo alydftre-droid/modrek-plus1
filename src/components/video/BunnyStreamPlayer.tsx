@@ -388,14 +388,31 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: BunnyStreamPlayer
                 onTouchCancel={onTouchEnd}
               />
             )}
-            {/* Invisible pinch detector at zoom=1: only activates when 2 fingers touch,
-                so single-finger taps still reach Bunny's native controls. */}
+            {/* At zoom=1: two side zones for double-tap seek (-10s / +10s).
+                The middle 40% is left untouched so single taps reach Bunny for play/pause. */}
             {!gestureActive && (
+              <>
+                <div
+                  className="absolute inset-y-0 left-0 z-10"
+                  style={{ width: "30%", touchAction: "manipulation" }}
+                  onTouchStart={(e) => { if (e.touches.length === 2) onTouchStart(e); }}
+                  onClick={() => handleZoneTap("L")}
+                />
+                <div
+                  className="absolute inset-y-0 right-0 z-10"
+                  style={{ width: "30%", touchAction: "manipulation" }}
+                  onTouchStart={(e) => { if (e.touches.length === 2) onTouchStart(e); }}
+                  onClick={() => handleZoneTap("R")}
+                />
+              </>
+            )}
+            {/* Seek flash feedback */}
+            {seekFlash && (
               <div
-                className="absolute inset-0 z-10"
-                style={{ touchAction: "none", pointerEvents: "none" }}
-                onTouchStart={(e) => { if (e.touches.length === 2) { onTouchStart(e); } }}
-              />
+                className={`absolute top-1/2 -translate-y-1/2 z-30 px-4 py-3 rounded-full bg-black/70 text-white text-sm font-bold pointer-events-none ${seekFlash.side === "L" ? "left-8" : "right-8"}`}
+              >
+                {seekFlash.side === "L" ? "«" : "»"} {seekFlash.amount} ثواني
+              </div>
             )}
           </>
         ) : (
