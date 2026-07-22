@@ -93,7 +93,21 @@ export default function WithdrawalSettings() {
       supabase.from("teacher_wallets").select("teacher_id,balance,frozen_balance,total_earned"),
       supabase.from("teacher_earning_records").select("teacher_id,student_id,group_id,gross_amount,net_amount,period_label").eq("period_label", period),
       supabase.from("teacher_withdrawal_requests").select("amount,status,processed_at"),
-      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute", "withdrawal_next_release_at_cairo", "withdrawal_next_release_key", "withdrawal_notification_month", "withdrawal_notification_year"]),
+      supabase.from("platform_settings").select("key,value").in("key", [
+        "withdrawal_last_release_at",
+        "withdrawal_manual_state",
+        "withdrawal_open_day",
+        "withdrawal_open_hour",
+        "withdrawal_open_minute",
+        "withdrawal_next_release_at_cairo",
+        "withdrawal_next_release_key",
+        "withdrawal_notification_month",
+        "withdrawal_notification_year",
+        "withdrawal_scheduler_last_check_at",
+        "withdrawal_scheduler_last_status",
+        "withdrawal_scheduler_last_payload",
+        "withdrawal_last_auto_release_schedule_key",
+      ]),
       supabase.from("teacher_monthly_archives").select("id,archived_at").gte("archived_at", monthStart),
     ]);
 
@@ -138,6 +152,10 @@ export default function WithdrawalSettings() {
       next_release_key: settings.get("withdrawal_next_release_key"),
       notification_month: settings.get("withdrawal_notification_month"),
       notification_year: settings.get("withdrawal_notification_year"),
+      scheduler_last_check_at: settings.get("withdrawal_scheduler_last_check_at"),
+      scheduler_last_status: settings.get("withdrawal_scheduler_last_status"),
+      scheduler_last_payload: settings.get("withdrawal_scheduler_last_payload"),
+      last_auto_release_key: settings.get("withdrawal_last_auto_release_schedule_key"),
     };
   };
 
@@ -498,6 +516,26 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const dMins = Math.floor((diffMs % 3600000) / 60000);
   const dSecs = Math.floor((diffMs % 60000) / 1000);
   const timeLabel = formatArabicClock(openHour, openMinute);
+  const schedulerPayload = useMemo(() => {
+    try {
+      return overview?.scheduler_last_payload ? JSON.parse(overview.scheduler_last_payload) : null;
+    } catch {
+      return null;
+    }
+  }, [overview?.scheduler_last_payload]);
+  const schedulerStatus = String(overview?.scheduler_last_status || "غير معروف");
+  const schedulerStatusLabel = schedulerStatus === "executed"
+    ? "تم التنفيذ"
+    : schedulerStatus === "not_due_yet"
+      ? "ينتظر الموعد"
+      : schedulerStatus === "schedule_saved_waiting"
+        ? "تم حفظ الموعد"
+        : schedulerStatus === "manual_closed"
+          ? "متوقف يدويًا"
+          : schedulerStatus === "execution_failed"
+            ? "فشل وسيعاد تلقائيًا"
+            : schedulerStatus;
+  const schedulerHealthy = ["executed", "not_due_yet", "schedule_saved_waiting", "already_ran_this_exact_schedule"].includes(schedulerStatus);
 
   return (
     <div className="space-y-4">
@@ -566,6 +604,40 @@ function ClosingTab({ overview, loading, onReload }: any) {
               آخر تنفيذ: {new Date(overview.last_release_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className={`border shadow-md bg-white ${schedulerHealthy ? "border-emerald-200" : "border-amber-300"}`}>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${schedulerHealthy ? "bg-emerald-100" : "bg-amber-100"}`}>
+                {schedulerHealthy ? <ShieldCheck className="h-4 w-4 text-emerald-700" /> : <AlertTriangle className="h-4 w-4 text-amber-700" />}
+              </div>
+              <div className="min-w-0">
+                <p className="font-black text-sm text-slate-950">حالة مشغل الإقفال التلقائي</p>
+                <p className="text-[11px] text-slate-600 font-semibold">يفحص النظام الموعد كل دقيقة بتوقيت القاهرة</p>
+              </div>
+            </div>
+            <Badge className={`${schedulerHealthy ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-900"} border-0 font-black`}>{schedulerStatusLabel}</Badge>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+            <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
+              <p className="font-bold text-slate-500">آخر فحص</p>
+              <p className="font-black text-slate-950 truncate">
+                {overview?.scheduler_last_check_at ? new Date(overview.scheduler_last_check_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" }) : "لم يسجل بعد"}
+              </p>
+            </div>
+            <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
+              <p className="font-bold text-slate-500">الموعد المحفوظ</p>
+              <p className="font-black text-slate-950 truncate">{schedulerPayload?.scheduled_cairo || overview?.next_release_cairo || "غير محدد"}</p>
+            </div>
+            <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
+              <p className="font-bold text-slate-500">سبب آخر نتيجة</p>
+              <p className="font-black text-slate-950 truncate">{schedulerPayload?.due_source || schedulerPayload?.skipped || schedulerPayload?.executed_cairo || "—"}</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
