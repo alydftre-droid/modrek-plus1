@@ -5997,17 +5997,31 @@ export type Database = {
         Args: { _month: number; _year: number }
         Returns: Json
       }
-      admin_set_withdrawal_schedule: {
-        Args: {
-          _day: number
-          _hour: number
-          _manual_state?: string
-          _minute: number
-          _month?: number
-          _year?: number
-        }
-        Returns: Json
-      }
+      admin_set_withdrawal_schedule:
+        | {
+            Args: {
+              _day: number
+              _hour: number
+              _manual_state?: string
+              _minute: number
+              _month?: number
+              _year?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _day: number
+              _hour: number
+              _manual_state?: string
+              _minute: number
+              _month?: number
+              _schedule_month?: number
+              _schedule_year?: number
+              _year?: number
+            }
+            Returns: Json
+          }
       admin_teacher_monthly_statement: {
         Args: { _period_label: string; _teacher_id: string }
         Returns: Json
