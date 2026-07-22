@@ -36,6 +36,11 @@ const MINUTES = [0, 5, 10, 15, 20, 30, 40, 45, 50];
 const fmt = (n: any) =>
   Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n: any) => Number(n || 0).toLocaleString("ar-EG");
+const formatArabicClock = (hour: number, minute: number) => {
+  const period = hour >= 12 ? "مساءً" : "صباحاً";
+  const hour12 = hour % 12 || 12;
+  return `${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}`;
+};
 
 const isRecoverableRpcError = (message?: string | null) => {
   const text = (message || "").toLowerCase();
@@ -146,7 +151,7 @@ export default function WithdrawalSettings() {
   });
 
   return (
-    <div className="space-y-4 pb-8" dir="rtl">
+    <div className="space-y-4 pb-8 text-slate-950" dir="rtl">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-slate-950 via-blue-800 to-emerald-600 p-5 text-white shadow-2xl">
         <div className="relative flex items-start justify-between gap-3">
@@ -197,12 +202,12 @@ export default function WithdrawalSettings() {
 
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
-        <TabsList className="w-full grid grid-cols-5 h-12 rounded-xl bg-slate-100 p-1 shadow-inner border border-slate-200">
-          <TabsTrigger value="overview" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
-          <TabsTrigger value="closing" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
-          <TabsTrigger value="withdrawals" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
-          <TabsTrigger value="teachers" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><Users className="h-3.5 w-3.5" />المحافظ</TabsTrigger>
-          <TabsTrigger value="audit" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><FileText className="h-3.5 w-3.5" />السجل</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-5 h-12 rounded-xl bg-slate-200 p-1 shadow-inner border border-slate-300">
+          <TabsTrigger value="overview" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=active]:shadow-lg"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
+          <TabsTrigger value="closing" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-emerald-700 data-[state=active]:text-white data-[state=active]:shadow-lg"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
+          <TabsTrigger value="withdrawals" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
+          <TabsTrigger value="teachers" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=active]:shadow-lg"><Users className="h-3.5 w-3.5" />المحافظ</TabsTrigger>
+          <TabsTrigger value="audit" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:shadow-lg"><FileText className="h-3.5 w-3.5" />السجل</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -269,14 +274,14 @@ function OverviewTab({ overview, loading, onReload }: any) {
       )}
 
       {/* Revenue chart */}
-      <Card className="border-0 shadow-sm">
+        <Card className="border border-slate-200 shadow-md bg-white">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="font-bold text-sm">إيرادات آخر 6 أشهر</p>
-              <p className="text-[10px] text-muted-foreground">إجمالي vs نصيب المعلمين</p>
+              <p className="font-black text-sm text-slate-950">إيرادات آخر 6 أشهر</p>
+              <p className="text-[10px] text-slate-600 font-semibold">إجمالي vs نصيب المعلمين</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={onReload} className="h-8 gap-1 text-[11px]">
+            <Button variant="outline" size="sm" onClick={onReload} className="h-8 gap-1 text-[11px] border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100">
               <RefreshCw className="h-3.5 w-3.5" /> تحديث
             </Button>
           </div>
@@ -321,18 +326,18 @@ function OverviewTab({ overview, loading, onReload }: any) {
 
 function KpiCard({ label, value, sub, icon: Icon, tint, loading }: any) {
   return (
-    <Card className="border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+    <Card className="border border-slate-200 bg-white shadow-md overflow-hidden group hover:shadow-lg transition-all">
       <CardContent className="p-3">
         <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${tint} text-white flex items-center justify-center mb-2 shadow-sm`}>
           <Icon className="h-4 w-4" />
         </div>
-        <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+        <p className="text-[10px] text-slate-600 font-bold leading-tight">{label}</p>
         {loading ? (
           <Skeleton className="h-4 w-16 mt-1" />
         ) : (
           <>
-            <p className="text-sm font-extrabold mt-0.5 truncate">{value}</p>
-            {sub && <p className="text-[9px] text-muted-foreground truncate">{sub}</p>}
+            <p className="text-sm font-extrabold mt-0.5 truncate text-slate-950">{value}</p>
+            {sub && <p className="text-[9px] text-slate-500 font-semibold truncate">{sub}</p>}
           </>
         )}
       </CardContent>
@@ -426,7 +431,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const dHours = Math.floor((diffMs % 86400000) / 3600000);
   const dMins = Math.floor((diffMs % 3600000) / 60000);
   const dSecs = Math.floor((diffMs % 60000) / 1000);
-  const timeLabel = `${String(openHour).padStart(2, "0")}:${String(openMinute).padStart(2, "0")}`;
+  const timeLabel = formatArabicClock(openHour, openMinute);
 
   return (
     <div className="space-y-4">
@@ -451,9 +456,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </Card>
 
       {/* Info banner */}
-      <Card className="border-0 bg-blue-50 dark:bg-blue-950/20">
-        <CardContent className="p-3 text-[11px] leading-relaxed text-blue-900 dark:text-blue-100 flex gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+      <Card className="border-2 border-blue-200 bg-blue-50 shadow-sm">
+        <CardContent className="p-3 text-[11px] leading-relaxed text-blue-950 flex gap-2 font-semibold">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-blue-700" />
           <div>
             في الموعد المحدد يتم تلقائياً: <strong>نقل الرصيد المجمّد → المتاح للسحب</strong> +
             <strong> أرشفة السجل الشهري كامل </strong>
@@ -476,7 +481,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
             نفّذ الإقفال الآن لجميع المعلمين ذوي الرصيد المجمّد. يُنشئ أرشيفاً محفوظاً للأبد.
           </p>
         </div>
-        <CardContent className="p-3 bg-white">
+        <CardContent className="p-3 bg-emerald-50">
           <Button
             onClick={() => setConfirmRelease(true)}
             disabled={releasing}
@@ -495,15 +500,15 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </Card>
 
       {/* Native-style Date & Time picker (single trigger) */}
-      <Card className="border-0 shadow-sm">
+        <Card className="border border-blue-200 shadow-md bg-white">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
               <CalendarDays className="h-4 w-4 text-blue-600" />
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-sm">موعد الإقفال الشهري</p>
-              <p className="text-[11px] text-muted-foreground">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
+              <p className="font-black text-sm text-slate-950">موعد الإقفال الشهري</p>
+              <p className="text-[11px] text-slate-600 font-semibold">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
             </div>
           </div>
 
@@ -515,7 +520,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
           />
 
           <div className="rounded-lg p-3 text-xs border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 text-blue-900 dark:text-blue-100">
-            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong dir="ltr">{timeLabel}</strong>.
+            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong>{timeLabel}</strong>.
           </div>
         </CardContent>
       </Card>
@@ -554,7 +559,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
 
       {/* Dialogs */}
       <AlertDialog open={confirmRelease} onOpenChange={setConfirmRelease}>
-        <AlertDialogContent dir="rtl">
+          <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-emerald-600" /> تأكيد الإقفال الفوري
@@ -567,8 +572,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleInstantRelease} className="bg-emerald-600 hover:bg-emerald-700">
+            <AlertDialogCancel className="border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleInstantRelease} className="bg-emerald-700 text-white hover:bg-emerald-800">
               نعم، نفّذ الآن
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -576,7 +581,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </AlertDialog>
 
       <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
-        <AlertDialogContent dir="rtl">
+          <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {pendingStopped ? <Lock className="h-5 w-5 text-red-600" /> : <Unlock className="h-5 w-5 text-emerald-600" />}
@@ -589,13 +594,13 @@ function ClosingTab({ overview, loading, onReload }: any) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingStopped(null)}>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPendingStopped(null)} className="border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">إلغاء</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (pendingStopped !== null) setStopped(pendingStopped);
                 setPendingStopped(null); setConfirmStop(false);
               }}
-              className={pendingStopped ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
+              className={pendingStopped ? "bg-red-700 text-white hover:bg-red-800" : "bg-emerald-700 text-white hover:bg-emerald-800"}
             >تأكيد ثم احفظ من الأسفل</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
