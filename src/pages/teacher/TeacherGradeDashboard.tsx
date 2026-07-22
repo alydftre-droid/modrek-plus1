@@ -95,6 +95,7 @@ export default function TeacherGradeDashboard() {
     }
 
     let subscribedCount = 0;
+    let purchaserIds: string[] = [];
     if (subjectIds.length > 0) {
       const { data: groups } = await supabase
         .from("content_groups").select("id")
@@ -111,16 +112,20 @@ export default function TeacherGradeDashboard() {
           stage: stageKey,
           category: subjectFilter.categoryKey,
         });
-        const purchaserIds = [...new Set(purchases?.map(p => p.student_id) || [])];
+        purchaserIds = [...new Set(purchases?.map(p => p.student_id) || [])];
         if (purchaserIds.length > 0) {
           const { data: realBuyers } = await supabase
             .from("profiles").select("id")
             .in("id", purchaserIds)
             .eq("is_test_account", false);
-          subscribedCount = (realBuyers || []).length;
+          const realBuyerIds = (realBuyers || []).map(p => p.id);
+          subscribedCount = realBuyerIds.length;
+          // Merge purchasers into total-students set so the card matches reality
+          realBuyerIds.forEach(id => uniqueStudents.add(id));
         }
       }
     }
+
 
     let videoCount = 0, bookCount = 0, examCount = 0, summaryCount = 0;
     if (subjectIds.length > 0) {
