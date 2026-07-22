@@ -546,7 +546,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </Card>
 
       <Button onClick={handleSave} disabled={saving}
-        className="w-full h-12 gap-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white border-0 shadow-md">
+        className="w-full h-12 gap-2 text-white border-0 shadow-md"
+        style={{ background: "linear-gradient(90deg, #10b981 0%, #059669 100%)" }}>
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         حفظ إعدادات الإقفال
       </Button>
