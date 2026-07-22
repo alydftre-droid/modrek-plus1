@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StudentExamPanel from "@/components/exams/StudentExamPanel";
-import { useStudentExams } from "@/hooks/useExams";
+import { useStudentExams, useStudentExamCatalog } from "@/hooks/useExams";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import {
   Dialog,
