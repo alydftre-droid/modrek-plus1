@@ -109,64 +109,85 @@ export default function ExamReviewPage() {
                   </div>
                   <p className="font-bold">{q.question_text}</p>
 
-                  {(q.question_type === "mcq" || q.question_type === "true_false") && (
-                    <div className="space-y-2">
-                      {(q.options || []).map((opt: any) => {
-                        const isSelected = a?.selected_option_ids?.includes(opt.id);
-                        const optionIsCorrect = isOptionCorrectForQuestion(q, opt);
-                        const isRight = showCorrect && optionIsCorrect;
-                        const isWrongPick = showCorrect && isSelected && !optionIsCorrect;
-                        return (
-                          <div key={opt.id} className={`p-3 rounded-xl border-2 ${
-                            isRight ? "border-green-500 bg-green-500/10" :
-                            isWrongPick ? "border-red-500 bg-red-500/10" :
-                            isSelected ? "border-primary bg-primary/5" : "border-border bg-muted/20"
-                          }`}>
-                            <div className="flex items-center gap-2">
-                              {isRight ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
-                               isWrongPick ? <XCircle className="h-4 w-4 text-red-600" /> :
-                               isSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> :
-                               <div className="w-4 h-4" />}
-                              <span>{opt.option_text}</span>
-                              {isSelected && <Badge variant="outline" className="ms-auto text-[10px]">إجابتك</Badge>}
-                            </div>
+                  {(() => {
+                    // Compute short auto-explanation for objective questions when teacher didn't provide one
+                    const isObjective = q.question_type === "mcq" || q.question_type === "true_false" || q.question_type === "fill_blank";
+                    let correctText = "";
+                    if (q.question_type === "mcq" || q.question_type === "true_false") {
+                      const correctOpt = (q.options || []).find((o: any) => isOptionCorrectForQuestion(q, o));
+                      correctText = correctOpt?.option_text || q.correct_answer || "";
+                    } else if (q.question_type === "fill_blank") {
+                      correctText = q.correct_answer || "";
+                    }
+                    const autoNote = !q.explanation && isObjective && showCorrect && correctText
+                      ? (isCorrect
+                          ? `أحسنت! الإجابة الصحيحة هي «${correctText}».`
+                          : `الإجابة الصحيحة هي «${correctText}». راجع هذه النقطة في الدرس.`)
+                      : "";
+
+                    return (
+                      <>
+                        {(q.question_type === "mcq" || q.question_type === "true_false") && (
+                          <div className="space-y-2">
+                            {(q.options || []).map((opt: any) => {
+                              const isSelected = a?.selected_option_ids?.includes(opt.id);
+                              const optionIsCorrect = isOptionCorrectForQuestion(q, opt);
+                              const isRight = showCorrect && optionIsCorrect;
+                              const isWrongPick = showCorrect && isSelected && !optionIsCorrect;
+                              return (
+                                <div key={opt.id} className={`p-3 rounded-xl border-2 ${
+                                  isRight ? "border-green-500 bg-green-500/10" :
+                                  isWrongPick ? "border-red-500 bg-red-500/10" :
+                                  isSelected ? "border-primary bg-primary/5" : "border-border bg-muted/20"
+                                }`}>
+                                  <div className="flex items-center gap-2">
+                                    {isRight ? <CheckCircle2 className="h-4 w-4 text-green-600" /> :
+                                     isWrongPick ? <XCircle className="h-4 w-4 text-red-600" /> :
+                                     isSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> :
+                                     <div className="w-4 h-4" />}
+                                    <span>{opt.option_text}</span>
+                                    {isSelected && <Badge variant="outline" className="ms-auto text-[10px]">إجابتك</Badge>}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        )}
 
-                  {(q.question_type === "short_answer" || q.question_type === "fill_blank" || q.question_type === "essay") && (
-                    <div className="space-y-2">
-                      <div className="p-3 rounded-xl bg-muted/40">
-                        <div className="text-xs text-muted-foreground mb-1">إجابتك:</div>
-                        <div className="whitespace-pre-wrap">{a?.answer_text || <span className="text-muted-foreground italic">لم تجب على هذا السؤال</span>}</div>
-                      </div>
-                      {showCorrect && q.correct_answer && (
-                        <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
-                          <div className="text-xs text-green-700 dark:text-green-300 mb-1">الإجابة الصحيحة / النموذجية:</div>
-                          <div className="whitespace-pre-wrap">{q.correct_answer}</div>
-                        </div>
-                      )}
-                      {a?.ai_feedback && (
-                        <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                          <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
-                          <div className="text-sm">{a.ai_feedback}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        {(q.question_type === "short_answer" || q.question_type === "fill_blank" || q.question_type === "essay") && (
+                          <div className="space-y-2">
+                            <div className="p-3 rounded-xl bg-muted/40">
+                              <div className="text-xs text-muted-foreground mb-1">إجابتك:</div>
+                              <div className="whitespace-pre-wrap">{a?.answer_text || <span className="text-muted-foreground italic">لم تجب على هذا السؤال</span>}</div>
+                            </div>
+                            {showCorrect && q.correct_answer && (
+                              <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/30">
+                                <div className="text-xs text-green-700 dark:text-green-300 mb-1">الإجابة الصحيحة / النموذجية:</div>
+                                <div className="whitespace-pre-wrap">{q.correct_answer}</div>
+                              </div>
+                            )}
+                            {a?.ai_feedback && (
+                              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                                <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
+                                <div className="text-sm whitespace-pre-wrap">{a.ai_feedback}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
-                  {q.explanation && (
-                    <Card className="bg-amber-500/5 border-amber-500/30">
-                      <CardContent className="p-3 text-sm">
-                        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
-                          <Info className="h-4 w-4" />الشرح
-                        </div>
-                        <div>{q.explanation}</div>
-                      </CardContent>
-                    </Card>
-                  )}
+                        {(q.explanation || autoNote) && (
+                          <Card className="bg-amber-500/5 border-amber-500/30">
+                            <CardContent className="p-3 text-sm">
+                              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
+                                <Info className="h-4 w-4" />الشرح
+                              </div>
+                              <div className="whitespace-pre-wrap">{q.explanation || autoNote}</div>
+                            </CardContent>
+                          </Card>
+                        )}
+                      </>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             );
