@@ -1082,7 +1082,7 @@ export default function TeacherWalletPage() {
                   })}
                 </div>
               </div>
-            )}
+            )
           )}
         </div>
 
