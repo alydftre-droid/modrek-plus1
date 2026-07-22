@@ -655,7 +655,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           status: "graded",
           total_score: totalScore,
           percentage,
-          passed: totalScore >= Number(exam.pass_marks || 0),
+          passed: maxScore > 0 ? percentage >= 50 : false,
           is_graded: true,
           graded_at: new Date().toISOString(),
           graded_by: exam.teacher_id,
