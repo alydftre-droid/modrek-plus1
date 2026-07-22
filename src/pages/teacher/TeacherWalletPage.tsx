@@ -1256,6 +1256,25 @@ function BackButton({ onClick, label }: { onClick: () => void; label: string }) 
   );
 }
 
+function StatTile({ label, value, tone }: { label: string; value: string; tone: string }) {
+  const tones: Record<string, string> = {
+    sky: "bg-sky-50 border-sky-200 text-sky-800",
+    emerald: "bg-emerald-50 border-emerald-200 text-emerald-800",
+    rose: "bg-rose-50 border-rose-200 text-rose-800",
+    violet: "bg-violet-50 border-violet-200 text-violet-800",
+    amber: "bg-amber-50 border-amber-200 text-amber-800",
+    indigo: "bg-indigo-50 border-indigo-200 text-indigo-800",
+    teal: "bg-teal-50 border-teal-200 text-teal-800",
+    fuchsia: "bg-fuchsia-50 border-fuchsia-200 text-fuchsia-800",
+  };
+  return (
+    <div className={`rounded-2xl border p-3 ${tones[tone] || tones.sky}`}>
+      <p className="text-[10px] font-bold opacity-80">{label}</p>
+      <p className="text-sm font-black mt-1 tabular-nums">{value}</p>
+    </div>
+  );
+}
+
 function walletTransactionLabel(type: string) {
   const labels: Record<string, string> = {
     frozen_release: "تحويل الرصيد المجمّد للمتاح",
