@@ -125,24 +125,36 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_closing: boolean
+          kind: string
           notes: string | null
+          period_end: string | null
           period_label: string
+          period_start: string | null
           snapshot: Json
         }
         Insert: {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_closing?: boolean
+          kind?: string
           notes?: string | null
+          period_end?: string | null
           period_label: string
+          period_start?: string | null
           snapshot: Json
         }
         Update: {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_closing?: boolean
+          kind?: string
           notes?: string | null
+          period_end?: string | null
           period_label?: string
+          period_start?: string | null
           snapshot?: Json
         }
         Relationships: []
@@ -5902,6 +5914,10 @@ export type Database = {
       }
     }
     Functions: {
+      _admin_build_financial_snapshot: {
+        Args: { _period_end: string; _period_start: string }
+        Returns: Json
+      }
       admin_add_student_wallet_credit: {
         Args: { _amount: number; _reason?: string; _student_id: string }
         Returns: Json
@@ -5920,8 +5936,11 @@ export type Database = {
         Args: { _notes?: string }
         Returns: Json
       }
+      admin_close_financial_month: { Args: { _notes?: string }; Returns: Json }
       admin_delete_overview_snapshot: { Args: { _id: string }; Returns: Json }
+      admin_financial_close_preview: { Args: never; Returns: Json }
       admin_financial_overview: { Args: never; Returns: Json }
+      admin_get_financial_close: { Args: { _id: string }; Returns: Json }
       admin_get_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_get_withdrawal_dashboard: { Args: never; Returns: Json }
       admin_list_audit_logs: {

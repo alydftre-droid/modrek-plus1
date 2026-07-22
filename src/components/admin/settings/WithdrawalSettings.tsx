@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from "recharts";
+import { FinancialCloseSection, FinancialCloseReplicaDialog, ClosingBadge } from "./FinancialCloseSystem";
 
 
 const DAYS = Array.from({ length: 28 }, (_, i) => i + 1);
@@ -462,6 +463,10 @@ function ClosingTab({ overview, loading, onReload }: any) {
 
   return (
     <div className="space-y-4">
+      {/* Monthly Closing System (developer-only fiscal-period close) */}
+      <FinancialCloseSection onDone={onReload} />
+
+
       {/* Countdown */}
       <Card className="border-0 shadow-md overflow-hidden">
         <div className="bg-gradient-to-br from-slate-900 via-indigo-900 to-blue-900 p-5 text-white">
@@ -1366,6 +1371,7 @@ function SettingsHistoryDialog({
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [notes, setNotes] = useState("");
+  const [replicaId, setReplicaId] = useState<string | null>(null);
 
   const loadHistory = async () => {
     setLoading(true); setError(null);
@@ -1540,35 +1546,52 @@ function SettingsHistoryDialog({
                   </div>
                 ) : (
                   rows.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => setSelectedId(r.id)}
-                      className="w-full text-right border-2 rounded-xl p-3 transition-all bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-500"
-                    >
+                    <div key={r.id} className={`border-2 rounded-xl p-3 bg-white ${r.is_closing ? "border-fuchsia-300" : "border-slate-200"}`}>
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <div className="h-9 w-9 rounded-lg bg-blue-700 text-white flex items-center justify-center shadow-sm">
-                            <FileText className="h-4 w-4" />
+                          <div className={`h-9 w-9 rounded-lg text-white flex items-center justify-center shadow-sm ${r.is_closing ? "bg-gradient-to-br from-fuchsia-700 to-indigo-700" : "bg-blue-700"}`}>
+                            {r.is_closing ? <Archive className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                           </div>
                           <div>
-                            <p className="font-black text-sm text-slate-950" dir="ltr">{r.period_label}</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-black text-sm text-slate-950" dir="ltr">{r.period_label}</p>
+                              <ClosingBadge isClosing={r.is_closing} />
+                            </div>
                             <p className="text-[9px] text-slate-600">
                               {new Date(r.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}
                             </p>
                           </div>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-blue-700 rotate-180" />
                       </div>
                       {r.notes && (
                         <p className="text-[10px] text-slate-700 bg-slate-50 rounded p-1.5 mb-1.5 truncate">📝 {r.notes}</p>
                       )}
-                      <div className="grid grid-cols-4 gap-1.5 text-[10px]">
+                      <div className="grid grid-cols-4 gap-1.5 text-[10px] mb-2">
                         <MiniStat label="متاح" value={`${fmt(r.total_available)} ج`} tone="emerald" />
                         <MiniStat label="مجمّد" value={`${fmt(r.total_frozen)} ج`} tone="cyan" />
                         <MiniStat label="إيراد" value={`${fmt(r.month_gross)} ج`} tone="violet" />
                         <MiniStat label="اشتراكات" value={fmtInt(r.month_subscriptions)} tone="amber" />
                       </div>
-                    </button>
+                      <div className="flex gap-1.5">
+                        {r.is_closing && (
+                          <Button
+                            size="sm"
+                            onClick={() => setReplicaId(r.id)}
+                            className="flex-1 h-8 gap-1 text-[10px] bg-gradient-to-r from-fuchsia-700 to-indigo-700 text-white font-black"
+                          >
+                            <Archive className="h-3.5 w-3.5" /> نسخة طبق الأصل
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setSelectedId(r.id)}
+                          className="flex-1 h-8 gap-1 text-[10px] border-slate-300 text-slate-800 font-bold"
+                        >
+                          <FileText className="h-3.5 w-3.5" /> ملخص
+                        </Button>
+                      </div>
+                    </div>
                   ))
                 )}
               </div>
@@ -1673,6 +1696,12 @@ function SettingsHistoryDialog({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <FinancialCloseReplicaDialog
+          id={replicaId}
+          open={!!replicaId}
+          onOpenChange={(v) => !v && setReplicaId(null)}
+        />
       </DialogContent>
     </Dialog>
   );
