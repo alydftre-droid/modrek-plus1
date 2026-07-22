@@ -444,7 +444,7 @@ export default function TeacherWalletPage() {
           )}
 
           {/* Detailed stats grid */}
-          <SectionCard icon={<BarChart className="h-4 w-4" />} title="إحصائيات الشهر">
+          <SectionCard icon={<BarChart3 className="h-4 w-4" />} title="إحصائيات الشهر">
             <div className="grid grid-cols-2 gap-2">
               <StatTile label="إجمالي المبيعات" value={`${fmtMoney(Number(stats.total_gross || 0))} ج`} tone="sky" />
               <StatTile label="نصيب المعلم" value={`${fmtMoney(Number(stats.total_earned || 0))} ج`} tone="emerald" />
