@@ -93,7 +93,7 @@ export default function WithdrawalSettings() {
       supabase.from("teacher_wallets").select("teacher_id,balance,frozen_balance,total_earned"),
       supabase.from("teacher_earning_records").select("teacher_id,student_id,group_id,gross_amount,net_amount,period_label").eq("period_label", period),
       supabase.from("teacher_withdrawal_requests").select("amount,status,processed_at"),
-      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute", "withdrawal_next_release_at_cairo", "withdrawal_next_release_key"]),
+      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute", "withdrawal_next_release_at_cairo", "withdrawal_next_release_key", "withdrawal_notification_month", "withdrawal_notification_year"]),
       supabase.from("teacher_monthly_archives").select("id,archived_at").gte("archived_at", monthStart),
     ]);
 
@@ -136,6 +136,8 @@ export default function WithdrawalSettings() {
       open_minute: settings.get("withdrawal_open_minute") || "0",
       next_release_cairo: settings.get("withdrawal_next_release_at_cairo"),
       next_release_key: settings.get("withdrawal_next_release_key"),
+      notification_month: settings.get("withdrawal_notification_month"),
+      notification_year: settings.get("withdrawal_notification_year"),
     };
   };
 
@@ -376,6 +378,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const [openDay, setOpenDay] = useState(25);
   const [openHour, setOpenHour] = useState(9);
   const [openMinute, setOpenMinute] = useState(0);
+  const nowCairoInit = new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" }));
+  const [notifMonth, setNotifMonth] = useState<number>(nowCairoInit.getMonth() + 1);
+  const [notifYear, setNotifYear] = useState<number>(nowCairoInit.getFullYear());
   const [stopped, setStopped] = useState(false);
   const [saving, setSaving] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
@@ -396,14 +401,20 @@ function ClosingTab({ overview, loading, onReload }: any) {
     setOpenHour(Math.min(23, Math.max(0, parseInt(overview.open_hour || "9"))));
     setOpenMinute(Math.min(59, Math.max(0, parseInt(overview.open_minute || "0"))));
     setStopped(overview.manual_state === "closed");
+    const nm = parseInt(overview.notification_month || "");
+    const ny = parseInt(overview.notification_year || "");
+    if (nm >= 1 && nm <= 12) setNotifMonth(nm);
+    if (ny >= 2020 && ny <= 2100) setNotifYear(ny);
   }, [overview]);
 
-  const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean) => {
+  const persistClosingSettings = async (day: number, hour: number, minute: number, isStopped: boolean, month?: number, year?: number) => {
     const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, {
       _day: day,
       _hour: hour,
       _minute: minute,
       _manual_state: isStopped ? "closed" : "auto",
+      _month: month ?? notifMonth,
+      _year: year ?? notifYear,
     });
     if (error) throw error;
     const result = data as any;
@@ -573,6 +584,61 @@ function ClosingTab({ overview, loading, onReload }: any) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Manual Month/Year for teacher notification */}
+      <Card className="border border-purple-200 shadow-md bg-white">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-9 rounded-xl bg-purple-100 flex items-center justify-center">
+              <Bell className="h-4 w-4 text-purple-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-black text-sm text-slate-950">شهر وسنة الإشعار للمعلمين</p>
+              <p className="text-[11px] text-slate-600 font-semibold">
+                يُستخدم في نص إشعار «تم فتح السحب لشهر …» الذي يصل للمعلم — حدّده يدوياً حتى لو فتحت الشهر مبكراً.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[11px] mb-1 block text-slate-700 font-bold">الشهر</Label>
+              <select
+                value={notifMonth}
+                onChange={(e) => setNotifMonth(parseInt(e.target.value))}
+                className="w-full h-11 rounded-xl border-2 border-purple-300 bg-purple-50 px-3 text-sm font-black text-slate-950 focus:border-purple-600 focus:outline-none"
+              >
+                {[
+                  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
+                  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
+                ].map((name, i) => (
+                  <option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, "0")} — {name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[11px] mb-1 block text-slate-700 font-bold">السنة</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={2020}
+                max={2100}
+                value={notifYear}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value || "0");
+                  if (!isNaN(v)) setNotifYear(v);
+                }}
+                className="h-11 rounded-xl border-2 border-purple-300 bg-purple-50 text-sm font-black text-slate-950 focus-visible:ring-purple-400"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-lg p-3 text-xs border border-purple-200 bg-purple-50 text-purple-900 font-semibold">
+            سيصل للمعلم إشعار بعنوان: <strong>✅ تم فتح السحب لشهر {String(notifMonth).padStart(2, "0")}-{notifYear}</strong>
+          </div>
+        </CardContent>
+      </Card>
+
 
 
       {/* Emergency Stop */}
