@@ -97,7 +97,7 @@ export default function TeacherAttemptDetailPage() {
       await supabase.from("exam_attempts").update({
         total_score: total,
         percentage: pct,
-        passed: total >= Number(exam?.pass_marks || 0),
+        passed: max > 0 ? pct >= 50 : false,
         is_graded: true,
         status: "graded",
         graded_at: new Date().toISOString(),
