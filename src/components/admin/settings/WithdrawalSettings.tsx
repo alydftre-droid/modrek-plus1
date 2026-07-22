@@ -245,6 +245,8 @@ export default function WithdrawalSettings() {
           <AuditTab />
         </TabsContent>
       </Tabs>
+
+      <SettingsHistoryDialog open={settingsOpen} onOpenChange={setSettingsOpen} onReload={loadOverview} />
     </div>
   );
 }
