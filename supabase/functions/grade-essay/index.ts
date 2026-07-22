@@ -102,13 +102,17 @@ function fallbackScore(answer: string, modelAnswer: string, maxPoints: number) {
   const stats = overlapStats(answer, modelAnswer);
   if (a === m || (stats.modelWords.length <= 4 && (m.includes(a) || a.includes(m)))) return maxPoints;
   if (stats.common.length === 0) return 0;
-  const combined = Math.max(stats.modelCoverage, Math.min(stats.answerCoverage, stats.modelCoverage + 0.35));
-  if (combined >= 0.85 && stats.modelCoverage >= 0.55) return maxPoints;
-  if (combined >= 0.65) return Math.round(maxPoints * 0.8 * 100) / 100;
-  if (combined >= 0.45) return Math.round(maxPoints * 0.6 * 100) / 100;
-  if (combined >= 0.28) return Math.round(maxPoints * 0.4 * 100) / 100;
-  if (combined >= 0.12) return Math.round(maxPoints * 0.2 * 100) / 100;
-  return 0;
+  // Smooth linear scoring based on how much of the model answer the student covered,
+  // with a small credit boost when the answer is coherent (not padded with irrelevant words).
+  const modelCov = stats.modelCoverage; // 0..1
+  const answerCov = stats.answerCoverage; // 0..1
+  const coherence = Math.min(1, answerCov + 0.15); // reward focused answers
+  const combined = Math.min(1, modelCov * 0.85 + coherence * 0.15);
+  if (combined <= 0.1) return 0;
+  if (combined >= 0.9 && modelCov >= 0.6) return maxPoints;
+  // Linear scale mapped to [0.1 -> 0, 0.9 -> max] for smooth partial credit.
+  const ratio = Math.max(0, Math.min(1, (combined - 0.1) / 0.8));
+  return Math.round(maxPoints * ratio * 100) / 100;
 }
 
 function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback: string) {
@@ -132,20 +136,15 @@ function enforceGradingGuard(item: any, proposedScore: number, proposedFeedback:
   if (!exactShortMatch && stats.common.length === 0 && safeScore > 0) {
     return { score: 0, feedback: "الإجابة لا تحتوي على عناصر يمكن ربطها بالإجابة النموذجية." };
   }
+  // Trust the AI teacher's judgment more: allow up to +35% of maxPoints above the
+  // deterministic floor so a fair essay marker can award nuanced partial credit
+  // (e.g. half-answer -> half-marks, not quarter-marks).
   const fallback = fallbackScore(studentAnswer, modelAnswer, maxPoints);
-  if (!exactShortMatch && safeScore > fallback) {
+  const upperTrust = Math.min(maxPoints, fallback + maxPoints * 0.35);
+  if (!exactShortMatch && safeScore > upperTrust) {
     return {
-      score: fallback,
-      feedback: fallback > 0
-        ? "تم ضبط الدرجة حسب العناصر المطابقة فعليًا في الإجابة."
-        : "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية.",
-    };
-  }
-  if (!exactShortMatch && safeScore >= maxPoints && stats.modelCoverage < 0.35 && stats.answerCoverage < 0.75) {
-    const capped = Math.round(Math.max(fallback, maxPoints * 0.4) * 100) / 100;
-    return {
-      score: Math.min(capped, maxPoints * 0.6),
-      feedback: proposedFeedback || "تم تخفيض الدرجة لأن الإجابة لا تغطي عناصر كافية من النموذج.",
+      score: Math.round(upperTrust * 100) / 100,
+      feedback: proposedFeedback || "تم ضبط الدرجة لتعكس عناصر الإجابة الفعلية.",
     };
   }
   return { score: safeScore, feedback: proposedFeedback || "تم التصحيح وفق نموذج الإجابة والمعنى الصحيح." };
