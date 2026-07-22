@@ -6646,6 +6646,7 @@ export type Database = {
             Args: { p_category: string; p_subject_name?: string }
             Returns: boolean
           }
+      process_scheduled_withdrawal_release: { Args: never; Returns: Json }
       purchase_bundle_by_categories: {
         Args: { _package_id: string; _selections: Json }
         Returns: Json
