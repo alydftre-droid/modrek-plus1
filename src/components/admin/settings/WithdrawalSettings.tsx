@@ -154,6 +154,23 @@ export default function WithdrawalSettings() {
 
   return (
     <div className="space-y-4 pb-8 text-slate-950" dir="rtl">
+      {/* Page title + gear */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-700 to-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+            <Wallet className="h-4 w-4" />
+          </div>
+          <p className="font-black text-lg text-slate-950 truncate">إعدادات السحب</p>
+        </div>
+        <Button
+          onClick={() => setSettingsOpen(true)}
+          className="h-10 gap-1.5 bg-slate-900 hover:bg-slate-800 text-white border-0 shadow-md font-black text-[12px] px-3"
+        >
+          <SettingsIcon className="h-4 w-4" />
+          الإعدادات والسجل
+        </Button>
+      </div>
+
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-slate-950 via-blue-800 to-emerald-600 p-5 text-white shadow-2xl">
         <div className="relative flex items-start justify-between gap-3">
