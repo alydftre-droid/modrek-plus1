@@ -5999,6 +5999,8 @@ export type Database = {
           _hour: number
           _manual_state?: string
           _minute: number
+          _month?: number
+          _year?: number
         }
         Returns: Json
       }
