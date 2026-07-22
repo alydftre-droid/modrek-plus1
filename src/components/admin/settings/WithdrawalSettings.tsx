@@ -451,7 +451,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
     let t = new Date(y, m, openDay, openHour, openMinute, 0);
     if (t.getTime() <= cairoNow.getTime()) t = new Date(y, m + 1, openDay, openHour, openMinute, 0);
     return t;
-  }, [cairoNow, openDay, openHour, openMinute]);
+  }, [cairoNow, openDay, openHour, openMinute, overview?.next_release_cairo, overview?.next_release_at_cairo]);
 
   const diffMs = Math.max(0, nextRelease.getTime() - cairoNow.getTime());
   const dDays = Math.floor(diffMs / 86400000);
