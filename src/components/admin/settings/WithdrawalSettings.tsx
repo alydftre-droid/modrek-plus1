@@ -464,26 +464,30 @@ function ClosingTab({ overview, loading, onReload }: any) {
 
       {/* Instant Release */}
       <Card className="border-0 shadow-md overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-4 text-white">
+        <div
+          className="p-4 text-white"
+          style={{ background: "linear-gradient(90deg, #10b981 0%, #0d9488 100%)" }}
+        >
           <div className="flex items-center gap-2 mb-1">
             <Zap className="h-4 w-4" />
             <p className="font-bold text-sm">تنفيذ الإقفال الشهري فوراً</p>
           </div>
-          <p className="text-[11px] opacity-90 leading-relaxed">
+          <p className="text-[11px] opacity-95 leading-relaxed">
             نفّذ الإقفال الآن لجميع المعلمين ذوي الرصيد المجمّد. يُنشئ أرشيفاً محفوظاً للأبد.
           </p>
         </div>
-        <CardContent className="p-3">
+        <CardContent className="p-3 bg-white">
           <Button
             onClick={() => setConfirmRelease(true)}
             disabled={releasing}
-            className="w-full h-11 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white border-0"
+            className="w-full h-11 gap-2 text-white border-0 shadow-md"
+            style={{ background: "#059669" }}
           >
             {releasing ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
             نفّذ الإقفال الآن
           </Button>
           {overview?.last_release_at && (
-            <p className="text-[10px] text-muted-foreground text-center mt-2">
+            <p className="text-[10px] text-slate-500 text-center mt-2">
               آخر تنفيذ: {new Date(overview.last_release_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}
             </p>
           )}
