@@ -93,7 +93,7 @@ export default function WithdrawalSettings() {
       supabase.from("teacher_wallets").select("teacher_id,balance,frozen_balance,total_earned"),
       supabase.from("teacher_earning_records").select("teacher_id,student_id,group_id,gross_amount,net_amount,period_label").eq("period_label", period),
       supabase.from("teacher_withdrawal_requests").select("amount,status,processed_at"),
-      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute", "withdrawal_next_release_at_cairo", "withdrawal_next_release_key"]),
+      supabase.from("platform_settings").select("key,value").in("key", ["withdrawal_last_release_at", "withdrawal_manual_state", "withdrawal_open_day", "withdrawal_open_hour", "withdrawal_open_minute", "withdrawal_next_release_at_cairo", "withdrawal_next_release_key", "withdrawal_notification_month", "withdrawal_notification_year"]),
       supabase.from("teacher_monthly_archives").select("id,archived_at").gte("archived_at", monthStart),
     ]);
 
