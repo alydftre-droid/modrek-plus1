@@ -36,6 +36,11 @@ const MINUTES = [0, 5, 10, 15, 20, 30, 40, 45, 50];
 const fmt = (n: any) =>
   Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtInt = (n: any) => Number(n || 0).toLocaleString("ar-EG");
+const formatArabicClock = (hour: number, minute: number) => {
+  const period = hour >= 12 ? "مساءً" : "صباحاً";
+  const hour12 = hour % 12 || 12;
+  return `${String(hour12).padStart(2, "0")}:${String(minute).padStart(2, "0")} ${period}`;
+};
 
 const isRecoverableRpcError = (message?: string | null) => {
   const text = (message || "").toLowerCase();
@@ -146,7 +151,7 @@ export default function WithdrawalSettings() {
   });
 
   return (
-    <div className="space-y-4 pb-8" dir="rtl">
+    <div className="space-y-4 pb-8 text-slate-950" dir="rtl">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-slate-950 via-blue-800 to-emerald-600 p-5 text-white shadow-2xl">
         <div className="relative flex items-start justify-between gap-3">
@@ -197,12 +202,12 @@ export default function WithdrawalSettings() {
 
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
-        <TabsList className="w-full grid grid-cols-5 h-12 rounded-xl bg-slate-100 p-1 shadow-inner border border-slate-200">
-          <TabsTrigger value="overview" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
-          <TabsTrigger value="closing" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
-          <TabsTrigger value="withdrawals" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
-          <TabsTrigger value="teachers" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><Users className="h-3.5 w-3.5" />المحافظ</TabsTrigger>
-          <TabsTrigger value="audit" className="text-[11px] gap-1 text-slate-700 data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md"><FileText className="h-3.5 w-3.5" />السجل</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-5 h-12 rounded-xl bg-slate-200 p-1 shadow-inner border border-slate-300">
+          <TabsTrigger value="overview" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-blue-700 data-[state=active]:text-white data-[state=active]:shadow-lg"><Activity className="h-3.5 w-3.5" />نظرة</TabsTrigger>
+          <TabsTrigger value="closing" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-emerald-700 data-[state=active]:text-white data-[state=active]:shadow-lg"><CalendarDays className="h-3.5 w-3.5" />الإقفال</TabsTrigger>
+          <TabsTrigger value="withdrawals" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-orange-600 data-[state=active]:text-white data-[state=active]:shadow-lg"><ArrowUpRight className="h-3.5 w-3.5" />السحب</TabsTrigger>
+          <TabsTrigger value="teachers" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-violet-700 data-[state=active]:text-white data-[state=active]:shadow-lg"><Users className="h-3.5 w-3.5" />المحافظ</TabsTrigger>
+          <TabsTrigger value="audit" className="text-[11px] gap-1 text-slate-800 font-black data-[state=active]:bg-slate-900 data-[state=active]:text-white data-[state=active]:shadow-lg"><FileText className="h-3.5 w-3.5" />السجل</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -269,14 +274,14 @@ function OverviewTab({ overview, loading, onReload }: any) {
       )}
 
       {/* Revenue chart */}
-      <Card className="border-0 shadow-sm">
+        <Card className="border border-slate-200 shadow-md bg-white">
         <CardContent className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="font-bold text-sm">إيرادات آخر 6 أشهر</p>
-              <p className="text-[10px] text-muted-foreground">إجمالي vs نصيب المعلمين</p>
+              <p className="font-black text-sm text-slate-950">إيرادات آخر 6 أشهر</p>
+              <p className="text-[10px] text-slate-600 font-semibold">إجمالي vs نصيب المعلمين</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={onReload} className="h-8 gap-1 text-[11px]">
+            <Button variant="outline" size="sm" onClick={onReload} className="h-8 gap-1 text-[11px] border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100">
               <RefreshCw className="h-3.5 w-3.5" /> تحديث
             </Button>
           </div>
@@ -321,18 +326,18 @@ function OverviewTab({ overview, loading, onReload }: any) {
 
 function KpiCard({ label, value, sub, icon: Icon, tint, loading }: any) {
   return (
-    <Card className="border-0 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+    <Card className="border border-slate-200 bg-white shadow-md overflow-hidden group hover:shadow-lg transition-all">
       <CardContent className="p-3">
         <div className={`h-8 w-8 rounded-lg bg-gradient-to-br ${tint} text-white flex items-center justify-center mb-2 shadow-sm`}>
           <Icon className="h-4 w-4" />
         </div>
-        <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+        <p className="text-[10px] text-slate-600 font-bold leading-tight">{label}</p>
         {loading ? (
           <Skeleton className="h-4 w-16 mt-1" />
         ) : (
           <>
-            <p className="text-sm font-extrabold mt-0.5 truncate">{value}</p>
-            {sub && <p className="text-[9px] text-muted-foreground truncate">{sub}</p>}
+            <p className="text-sm font-extrabold mt-0.5 truncate text-slate-950">{value}</p>
+            {sub && <p className="text-[9px] text-slate-500 font-semibold truncate">{sub}</p>}
           </>
         )}
       </CardContent>
@@ -426,7 +431,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const dHours = Math.floor((diffMs % 86400000) / 3600000);
   const dMins = Math.floor((diffMs % 3600000) / 60000);
   const dSecs = Math.floor((diffMs % 60000) / 1000);
-  const timeLabel = `${String(openHour).padStart(2, "0")}:${String(openMinute).padStart(2, "0")}`;
+  const timeLabel = formatArabicClock(openHour, openMinute);
 
   return (
     <div className="space-y-4">
@@ -451,9 +456,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </Card>
 
       {/* Info banner */}
-      <Card className="border-0 bg-blue-50 dark:bg-blue-950/20">
-        <CardContent className="p-3 text-[11px] leading-relaxed text-blue-900 dark:text-blue-100 flex gap-2">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+      <Card className="border-2 border-blue-200 bg-blue-50 shadow-sm">
+        <CardContent className="p-3 text-[11px] leading-relaxed text-blue-950 flex gap-2 font-semibold">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-blue-700" />
           <div>
             في الموعد المحدد يتم تلقائياً: <strong>نقل الرصيد المجمّد → المتاح للسحب</strong> +
             <strong> أرشفة السجل الشهري كامل </strong>
@@ -476,7 +481,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
             نفّذ الإقفال الآن لجميع المعلمين ذوي الرصيد المجمّد. يُنشئ أرشيفاً محفوظاً للأبد.
           </p>
         </div>
-        <CardContent className="p-3 bg-white">
+        <CardContent className="p-3 bg-emerald-50">
           <Button
             onClick={() => setConfirmRelease(true)}
             disabled={releasing}
@@ -495,15 +500,15 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </Card>
 
       {/* Native-style Date & Time picker (single trigger) */}
-      <Card className="border-0 shadow-sm">
+        <Card className="border border-blue-200 shadow-md bg-white">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-blue-100 dark:bg-blue-950/40 flex items-center justify-center">
               <CalendarDays className="h-4 w-4 text-blue-600" />
             </div>
             <div className="min-w-0">
-              <p className="font-bold text-sm">موعد الإقفال الشهري</p>
-              <p className="text-[11px] text-muted-foreground">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
+              <p className="font-black text-sm text-slate-950">موعد الإقفال الشهري</p>
+              <p className="text-[11px] text-slate-600 font-semibold">يُنفَّذ في نفس اليوم والوقت من كل شهر (توقيت القاهرة)</p>
             </div>
           </div>
 
@@ -515,7 +520,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
           />
 
           <div className="rounded-lg p-3 text-xs border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 text-blue-900 dark:text-blue-100">
-            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong dir="ltr">{timeLabel}</strong>.
+            الإقفال سيتم يوم <strong>{openDay}</strong> من كل شهر الساعة <strong>{timeLabel}</strong>.
           </div>
         </CardContent>
       </Card>
@@ -554,7 +559,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
 
       {/* Dialogs */}
       <AlertDialog open={confirmRelease} onOpenChange={setConfirmRelease}>
-        <AlertDialogContent dir="rtl">
+          <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-emerald-600" /> تأكيد الإقفال الفوري
@@ -567,8 +572,8 @@ function ClosingTab({ overview, loading, onReload }: any) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-            <AlertDialogAction onClick={handleInstantRelease} className="bg-emerald-600 hover:bg-emerald-700">
+            <AlertDialogCancel className="border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleInstantRelease} className="bg-emerald-700 text-white hover:bg-emerald-800">
               نعم، نفّذ الآن
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -576,7 +581,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
       </AlertDialog>
 
       <AlertDialog open={confirmStop} onOpenChange={setConfirmStop}>
-        <AlertDialogContent dir="rtl">
+          <AlertDialogContent dir="rtl" className="bg-white text-slate-950">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               {pendingStopped ? <Lock className="h-5 w-5 text-red-600" /> : <Unlock className="h-5 w-5 text-emerald-600" />}
@@ -589,13 +594,13 @@ function ClosingTab({ overview, loading, onReload }: any) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPendingStopped(null)}>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPendingStopped(null)} className="border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">إلغاء</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (pendingStopped !== null) setStopped(pendingStopped);
                 setPendingStopped(null); setConfirmStop(false);
               }}
-              className={pendingStopped ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"}
+              className={pendingStopped ? "bg-red-700 text-white hover:bg-red-800" : "bg-emerald-700 text-white hover:bg-emerald-800"}
             >تأكيد ثم احفظ من الأسفل</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -616,34 +621,40 @@ function DateTimePickerTrigger({
   const [d, setD] = useState(day);
   const [h, setH] = useState(hour);
   const [m, setM] = useState(minute);
+  const [period, setPeriod] = useState<"AM" | "PM">(hour >= 12 ? "PM" : "AM");
 
-  useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setStep("date"); } }, [open, day, hour, minute]);
+  useEffect(() => { if (open) { setD(day); setH(hour); setM(minute); setPeriod(hour >= 12 ? "PM" : "AM"); setStep("date"); } }, [open, day, hour, minute]);
 
-  const label = `يوم ${day} • ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const label = `يوم ${day} • ${formatArabicClock(hour, minute)}`;
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
   const mins = Array.from({ length: 60 }, (_, i) => i);
+  const displayHour = h % 12 || 12;
+  const to24Hour = (hour12: number, meridiem: "AM" | "PM") => {
+    if (meridiem === "AM") return hour12 === 12 ? 0 : hour12;
+    return hour12 === 12 ? 12 : hour12 + 12;
+  };
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full h-12 rounded-xl border-2 border-blue-200 hover:border-blue-400 bg-white dark:bg-slate-900 dark:border-slate-700 dark:hover:border-blue-500 transition-colors flex items-center justify-between px-4 group"
+        className="w-full h-12 rounded-xl border-2 border-blue-300 hover:border-blue-600 bg-blue-50 transition-colors flex items-center justify-between px-4 group shadow-sm"
       >
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 rounded-lg bg-blue-500 text-white flex items-center justify-center">
             <CalendarDays className="h-4 w-4" />
           </div>
           <div className="text-right">
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">تاريخ ووقت الإقفال</p>
-            <p className="text-sm font-bold text-slate-900 dark:text-slate-100" dir="rtl">{label}</p>
+            <p className="text-[10px] text-blue-800 font-bold leading-none">تاريخ ووقت الإقفال</p>
+            <p className="text-sm font-black text-slate-950" dir="rtl">{label}</p>
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-400 rotate-180 group-hover:text-blue-500 transition-colors" />
+        <ChevronRight className="h-4 w-4 text-blue-700 rotate-180 group-hover:text-blue-900 transition-colors" />
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent dir="rtl" className="max-w-md p-0 overflow-hidden bg-white dark:bg-slate-900">
+        <DialogContent dir="rtl" className="max-w-md p-0 overflow-hidden bg-white text-slate-950">
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 text-white">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2 text-[11px] opacity-90">
@@ -656,7 +667,7 @@ function DateTimePickerTrigger({
               </div>
             </div>
             <p className="text-lg font-bold">
-              {step === "date" ? `اليوم ${d}` : `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`}
+              {step === "date" ? `اليوم ${d}` : formatArabicClock(h, m)}
             </p>
             <p className="text-[10px] opacity-80">{AR_MONTH_NOW()}</p>
           </div>
@@ -674,59 +685,76 @@ function DateTimePickerTrigger({
                       className={`h-10 rounded-lg text-sm font-bold border transition-all ${
                         active
                           ? "bg-blue-600 text-white border-blue-700 shadow scale-105"
-                          : "bg-white text-slate-800 border-slate-200 hover:bg-blue-50 hover:border-blue-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
+                          : "bg-white text-slate-900 border-slate-300 hover:bg-blue-50 hover:border-blue-500"
                       }`}
                     >{n}</button>
                   );
                 })}
               </div>
             ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-[11px] mb-1.5 block text-slate-700 font-bold">الفترة</Label>
+                  <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 border border-slate-200 p-1">
+                    {(["AM", "PM"] as const).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => { setPeriod(p); setH(to24Hour(displayHour, p)); }}
+                        className={`h-10 rounded-lg text-sm font-black transition-all ${
+                          period === p ? "bg-emerald-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-emerald-50"
+                        }`}
+                      >{p === "AM" ? "صباحاً" : "مساءً"}</button>
+                    ))}
+                  </div>
+                </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الساعة</Label>
-                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                  <Label className="text-[11px] mb-1.5 block text-slate-700 font-bold">الساعة</Label>
+                  <ScrollArea className="h-48 rounded-lg border border-slate-300 p-1 bg-slate-50">
                     <div className="space-y-1">
                       {hours.map((v) => (
-                        <button key={v} type="button" onClick={() => setH(v)}
+                        <button key={v} type="button" onClick={() => setH(to24Hour(v, period))}
                           className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
-                            v === h ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                            v === displayHour ? "bg-blue-700 text-white shadow-sm" : "text-slate-900 bg-white hover:bg-blue-50"
                           }`}>{String(v).padStart(2, "0")}</button>
                       ))}
                     </div>
                   </ScrollArea>
                 </div>
                 <div>
-                  <Label className="text-[11px] mb-1.5 block text-slate-600 dark:text-slate-300">الدقيقة</Label>
-                  <ScrollArea className="h-56 rounded-lg border border-slate-200 dark:border-slate-700 p-1">
+                  <Label className="text-[11px] mb-1.5 block text-slate-700 font-bold">الدقيقة</Label>
+                  <ScrollArea className="h-48 rounded-lg border border-slate-300 p-1 bg-slate-50">
                     <div className="space-y-1">
                       {mins.map((v) => (
                         <button key={v} type="button" onClick={() => setM(v)}
                           className={`w-full h-9 rounded-md text-sm font-bold tabular-nums transition-colors ${
-                            v === m ? "bg-blue-600 text-white" : "text-slate-800 dark:text-slate-100 hover:bg-blue-50 dark:hover:bg-slate-800"
+                            v === m ? "bg-blue-700 text-white shadow-sm" : "text-slate-900 bg-white hover:bg-blue-50"
                           }`}>{String(v).padStart(2, "0")}</button>
                       ))}
                     </div>
                   </ScrollArea>
                 </div>
               </div>
+              </div>
             )}
           </div>
 
           <div className="p-4 pt-0 flex gap-2">
             {step === "time" && (
-              <Button variant="outline" onClick={() => setStep("date")} className="flex-1 h-11">
+              <Button variant="outline" onClick={() => setStep("date")} className="flex-1 h-11 border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">
                 رجوع
               </Button>
             )}
             {step === "date" ? (
               <Button
                 onClick={() => setStep("time")}
-                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0"
+                className="flex-1 h-11 bg-blue-700 hover:bg-blue-800 text-white border-0 shadow-md"
               >التالي</Button>
             ) : (
               <Button
                 onClick={() => { onSave(d, h, m); setOpen(false); }}
-                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 text-white border-0 gap-2"
+                className="flex-1 h-11 bg-emerald-700 hover:bg-emerald-800 text-white border-0 gap-2 shadow-md"
               ><Save className="h-4 w-4" /> حفظ</Button>
             )}
           </div>
@@ -768,11 +796,11 @@ function WithdrawalsTab({ overview, onReload }: any) {
         <KpiCard label="مرفوضة" value={`${fmtInt(overview?.rejected_count)}`} icon={XCircle} tint="from-slate-500 to-gray-600" />
       </div>
 
-      <div className="flex gap-1 p-1 bg-muted/60 rounded-lg">
+      <div className="flex gap-1 p-1 bg-slate-200 rounded-xl border border-slate-300 shadow-inner">
         {[["pending", "معلقة"], ["approved", "مقبولة"], ["rejected", "مرفوضة"], ["all", "الكل"]].map(([k, l]) => (
           <button key={k as string} onClick={() => setStatusFilter(k as any)}
-            className={`flex-1 h-9 rounded-md text-xs font-bold transition-all ${
-              statusFilter === k ? "bg-card shadow" : "hover:bg-card/50"
+            className={`flex-1 h-9 rounded-lg text-xs font-black transition-all ${
+              statusFilter === k ? "bg-blue-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-blue-50"
             }`}>{l}</button>
         ))}
       </div>
@@ -784,27 +812,27 @@ function WithdrawalsTab({ overview, onReload }: any) {
             : rows.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">لا توجد طلبات</div>
             ) : rows.map((r) => (
-              <Card key={r.id} className="border-0 shadow-sm">
+              <Card key={r.id} className="border border-slate-200 bg-white shadow-md">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <div className="min-w-0">
-                      <p className="text-sm font-bold truncate">{r.profiles?.full_name || "معلم"}</p>
-                      <p className="text-[10px] text-muted-foreground truncate">{r.profiles?.email}</p>
+                      <p className="text-sm font-black text-slate-950 truncate">{r.profiles?.full_name || "معلم"}</p>
+                      <p className="text-[10px] text-slate-600 font-semibold truncate">{r.profiles?.email}</p>
                     </div>
                     <StatusBadge status={r.status} />
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-[11px]">
                     <div>
-                      <p className="text-muted-foreground">المبلغ</p>
-                      <p className="font-bold">{fmt(r.amount)} ج</p>
+                      <p className="text-slate-600 font-semibold">المبلغ</p>
+                      <p className="font-black text-slate-950">{fmt(r.amount)} ج</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">الطريقة</p>
-                      <p className="font-bold truncate">{r.payment_method}</p>
+                      <p className="text-slate-600 font-semibold">الطريقة</p>
+                      <p className="font-black text-slate-950 truncate">{r.payment_method}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">التاريخ</p>
-                      <p className="font-bold truncate" dir="ltr">
+                      <p className="text-slate-600 font-semibold">التاريخ</p>
+                      <p className="font-black text-slate-950 truncate" dir="ltr">
                         {new Date(r.created_at).toLocaleDateString("ar-EG")}
                       </p>
                     </div>
@@ -825,7 +853,7 @@ function StatusBadge({ status }: { status: string }) {
     rejected: { label: "مرفوض", cls: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300" },
   };
   const m = map[status] || { label: status, cls: "bg-muted text-muted-foreground" };
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>;
+  return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>;
 }
 
 // ============================================================
@@ -925,11 +953,11 @@ function TeachersTab() {
                     <MiniStat label="إجمالي" value={`${fmt(r.total_earned)} ج`} tone="violet" />
                   </div>
                   <div className="flex gap-1.5">
-                    <Button size="sm" variant="outline" className="flex-1 h-9 text-[11px] gap-1 border-blue-200 text-blue-800 hover:bg-blue-50"
+                    <Button size="sm" className="flex-1 h-9 text-[11px] gap-1 bg-blue-700 text-white hover:bg-blue-800 border-0 shadow-md font-black"
                       onClick={() => setSelected(r)}>
                       <FileText className="h-3 w-3" /> السجل الشهري
                     </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-9 text-[11px] gap-1 border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+                    <Button size="sm" className="flex-1 h-9 text-[11px] gap-1 bg-emerald-700 text-white hover:bg-emerald-800 border-0 shadow-md font-black"
                       onClick={() => setAction(r)}>
                       <Coins className="h-3 w-3" /> إجراء يدوي
                     </Button>
@@ -1035,7 +1063,7 @@ function TeacherStatementDialog({ teacher, onClose }: any) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col" dir="rtl">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-hidden flex flex-col bg-white text-slate-950" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-4 w-4" /> سجل محفظة {teacher.name}
@@ -1054,32 +1082,32 @@ function TeacherStatementDialog({ teacher, onClose }: any) {
                 <button
                   key={a.period_label}
                   onClick={() => setSelectedPeriod(a.period_label)}
-                  className={`w-full text-right border rounded-lg p-3 transition-all ${
-                    selectedPeriod === a.period_label ? "bg-primary/5 border-primary" : "hover:bg-accent"
+                  className={`w-full text-right border rounded-xl p-3 transition-all ${
+                    selectedPeriod === a.period_label ? "bg-blue-50 border-blue-600 shadow-sm" : "bg-white border-slate-200 hover:bg-blue-50 hover:border-blue-300"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <p className="font-bold text-sm" dir="ltr">{a.period_label}</p>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground rotate-180" />
+                    <p className="font-black text-sm text-slate-950" dir="ltr">{a.period_label}</p>
+                    <ChevronRight className="h-4 w-4 text-blue-700 rotate-180" />
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-[10px]">
-                    <div><span className="text-muted-foreground">إيراد: </span><strong>{fmt(a.total_earned)} ج</strong></div>
-                    <div><span className="text-muted-foreground">طلاب: </span><strong>{a.total_subscribers}</strong></div>
-                    <div><span className="text-muted-foreground">مجموعات: </span><strong>{a.total_groups}</strong></div>
+                    <div><span className="text-slate-600 font-semibold">إيراد: </span><strong>{fmt(a.total_earned)} ج</strong></div>
+                    <div><span className="text-slate-600 font-semibold">طلاب: </span><strong>{a.total_subscribers}</strong></div>
+                    <div><span className="text-slate-600 font-semibold">مجموعات: </span><strong>{a.total_groups}</strong></div>
                   </div>
                 </button>
               ))}
 
               {detail?.archive && Object.keys(detail.archive).length > 0 && (
-                <Card className="border-0 bg-muted/40 mt-2">
+                <Card className="border border-slate-200 bg-slate-50 mt-2">
                   <CardContent className="p-3 space-y-2">
                     <p className="text-[11px] font-bold">تفاصيل {detail.archive.period_label}</p>
                     <div className="space-y-1.5">
                       {(detail.archive.breakdown || []).map((g: any, i: number) => (
-                        <div key={i} className="bg-card rounded-md p-2 text-[10px]">
+                          <div key={i} className="bg-white border border-slate-200 rounded-lg p-2 text-[10px]">
                           <div className="flex justify-between mb-0.5">
                             <p className="font-bold truncate">{g.group_title || "مجموعة"}</p>
-                            <p className="text-emerald-600 font-bold">{fmt(g.net)} ج</p>
+                            <p className="text-emerald-700 font-black">{fmt(g.net)} ج</p>
                           </div>
                           <div className="text-muted-foreground flex gap-3">
                             <span>{g.subject_name}</span>
@@ -1093,12 +1121,12 @@ function TeacherStatementDialog({ teacher, onClose }: any) {
                       <>
                         <p className="text-[11px] font-bold mt-2">حركات المحفظة في الشهر</p>
                         {detail.transactions.map((t: any) => (
-                          <div key={t.id} className="bg-card rounded-md p-2 text-[10px] flex justify-between">
+                          <div key={t.id} className="bg-white border border-slate-200 rounded-lg p-2 text-[10px] flex justify-between">
                             <div>
                               <p className="font-bold">{t.transaction_type}</p>
                               <p className="text-muted-foreground truncate">{t.description}</p>
                             </div>
-                            <p className={t.amount > 0 ? "text-emerald-600 font-bold" : "text-red-600 font-bold"}>
+                            <p className={t.amount > 0 ? "text-emerald-700 font-black" : "text-red-700 font-black"}>
                               {t.amount > 0 ? "+" : ""}{fmt(t.amount)}
                             </p>
                           </div>
@@ -1151,7 +1179,7 @@ function ManualActionDialog({ teacher, onClose, onDone }: any) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-md bg-white text-slate-950" dir="rtl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Coins className="h-4 w-4" /> إجراء يدوي — {teacher.name}
@@ -1165,13 +1193,13 @@ function ManualActionDialog({ teacher, onClose, onDone }: any) {
           <div className="grid grid-cols-3 gap-1.5">
             {actions.map((a) => (
               <button key={a.k} onClick={() => setAction(a.k)}
-                className={`p-2.5 rounded-lg border transition-all text-center ${
-                  action === a.k ? "border-primary bg-primary/5 shadow-sm" : "hover:bg-accent"
+                className={`p-2.5 rounded-xl border transition-all text-center ${
+                  action === a.k ? "border-blue-600 bg-blue-50 shadow-sm" : "bg-white border-slate-200 hover:bg-blue-50"
                 }`}>
                 <div className={`${a.tint} h-7 w-7 rounded-md text-white flex items-center justify-center mx-auto mb-1`}>
                   <a.icon className="h-3.5 w-3.5" />
                 </div>
-                <p className="text-[10px] font-bold">{a.l}</p>
+                <p className="text-[10px] font-black text-slate-900">{a.l}</p>
               </button>
             ))}
           </div>
@@ -1189,8 +1217,8 @@ function ManualActionDialog({ teacher, onClose, onDone }: any) {
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={onClose}>إلغاء</Button>
-          <Button onClick={submit} disabled={submitting}>
+          <Button variant="outline" onClick={onClose} className="border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200">إلغاء</Button>
+          <Button onClick={submit} disabled={submitting} className="bg-blue-700 text-white hover:bg-blue-800">
             {submitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             تنفيذ
           </Button>
@@ -1223,8 +1251,8 @@ function AuditTab() {
     <div className="space-y-3">
       <div className="flex gap-2">
         <Input placeholder="فلترة بنوع الإجراء (مثال: wallet_bonus, monthly_closing_run)"
-          value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 text-[11px]" />
-        <Button variant="outline" size="icon" onClick={load} className="h-10 w-10">
+          value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 text-[11px] border-2 border-blue-200 bg-white text-slate-950 placeholder:text-slate-500" />
+        <Button variant="outline" size="icon" onClick={load} className="h-10 w-10 border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100">
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
@@ -1238,12 +1266,12 @@ function AuditTab() {
                 لا توجد سجلات
               </div>
             ) : rows.map((r) => (
-              <Card key={r.id} className="border-0 shadow-sm">
+              <Card key={r.id} className="border border-slate-200 bg-white shadow-md">
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold flex items-center gap-1.5">
-                        <Activity className="h-3 w-3 text-primary" />
+                        <Activity className="h-3 w-3 text-blue-700" />
                         {r.action}
                       </p>
                       <p className="text-[10px] text-muted-foreground truncate">

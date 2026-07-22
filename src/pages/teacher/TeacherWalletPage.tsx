@@ -199,6 +199,22 @@ export default function TeacherWalletPage() {
     enabled: !!user, staleTime: 60 * 1000,
   });
 
+  const { data: walletTransactions = [] } = useQuery({
+    queryKey: ["teacher-wallet-transactions", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data } = await supabase
+        .from("teacher_wallet_transactions" as any)
+        .select("id, amount, transaction_type, description, balance_after, metadata, created_at")
+        .eq("teacher_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(120);
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 30 * 1000,
+  });
+
   const balance = Number(wallet?.balance || 0);
   const frozen = Number(wallet?.frozen_balance || 0);
   const totalEarned = Number(wallet?.total_earned || 0);
@@ -289,6 +305,7 @@ export default function TeacherWalletPage() {
     qc.invalidateQueries({ queryKey: ["teacher-withdrawals"] });
     qc.invalidateQueries({ queryKey: ["teacher-earnings-current"] });
     qc.invalidateQueries({ queryKey: ["teacher-archives"] });
+    qc.invalidateQueries({ queryKey: ["teacher-wallet-transactions"] });
     qc.invalidateQueries({ queryKey: ["withdrawal-settings"] });
     qc.invalidateQueries({ queryKey: ["teacher-profile"] });
   };
@@ -359,6 +376,11 @@ export default function TeacherWalletPage() {
     const archive = archives.find((a: any) => a.id === selectedArchiveId) as any;
     if (!archive) { setView("archives"); return null; }
     const breakdown = (archive.breakdown || []) as any[];
+    const archiveTransactions = walletTransactions.filter((tx: any) => {
+      const metadata = tx.metadata || {};
+      if (metadata.archive_id === archive.id || metadata.period_label === archive.period_label) return true;
+      return String(tx.description || "").includes(archive.period_label);
+    });
     return (
       <TeacherSidebarLayout title="سجل شهر" teacherName={teacherName}>
         <div className="p-4 max-w-3xl mx-auto space-y-4">
@@ -380,6 +402,27 @@ export default function TeacherWalletPage() {
               </div>
             </SectionCard>
           )}
+          <SectionCard icon={<History className="h-4 w-4" />} title="حركات المحفظة لهذا الشهر">
+            {archiveTransactions.length === 0 ? (
+              <EmptyState icon={<History className="h-10 w-10" />} title="لا توجد حركات مرتبطة بهذا الشهر" subtitle="ستظهر حركة نقل الرصيد بعد كل إقفال شهري" />
+            ) : (
+              <div className="space-y-2">
+                {archiveTransactions.map((tx: any) => (
+                  <div key={tx.id} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start justify-between gap-3">
+                    <div className="text-right min-w-0">
+                      <p className="font-black text-sm text-emerald-800">{walletTransactionLabel(tx.transaction_type)}</p>
+                      <p className="text-[11px] text-emerald-700 mt-0.5 line-clamp-2">{tx.description || "حركة مالية"}</p>
+                      <p className="text-[10px] text-slate-500 mt-1" dir="ltr">{new Date(tx.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}</p>
+                    </div>
+                    <div className="text-left shrink-0">
+                      <p className="font-black text-emerald-700">+{fmtMoney(Number(tx.amount))} ج</p>
+                      {tx.balance_after != null && <p className="text-[10px] text-slate-500">الرصيد: {fmtMoney(Number(tx.balance_after))}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
         </div>
       </TeacherSidebarLayout>
     );
@@ -418,6 +461,29 @@ export default function TeacherWalletPage() {
                       <ChevronLeft className="h-4 w-4 text-muted-foreground" />
                     </div>
                   </motion.button>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+          <SectionCard icon={<History className="h-5 w-5" />} title="آخر حركات المحفظة">
+            {walletTransactions.length === 0 ? (
+              <EmptyState icon={<History className="h-10 w-10" />} title="لا توجد حركات بعد" subtitle="عند الإقفال الشهري ستظهر حركة نقل الرصيد هنا" />
+            ) : (
+              <div className="space-y-2">
+                {walletTransactions.slice(0, 12).map((tx: any) => (
+                  <div key={tx.id} className="p-3 rounded-2xl bg-card border border-border/60 flex items-start justify-between gap-3">
+                    <div className="min-w-0 text-right">
+                      <p className="text-sm font-black text-foreground">{walletTransactionLabel(tx.transaction_type)}</p>
+                      <p className="text-[11px] text-muted-foreground line-clamp-2">{tx.description || "حركة مالية"}</p>
+                      <p className="text-[10px] text-muted-foreground mt-1" dir="ltr">{new Date(tx.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}</p>
+                    </div>
+                    <div className="text-left shrink-0">
+                      <p className={Number(tx.amount) >= 0 ? "font-black text-emerald-600" : "font-black text-rose-600"}>
+                        {Number(tx.amount) >= 0 ? "+" : ""}{fmtMoney(Number(tx.amount))} ج
+                      </p>
+                      {tx.balance_after != null && <p className="text-[10px] text-muted-foreground">بعدها {fmtMoney(Number(tx.balance_after))}</p>}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1030,6 +1096,22 @@ function BackButton({ onClick, label }: { onClick: () => void; label: string }) 
       <ChevronLeft className="h-4 w-4 rotate-180" /> {label}
     </Button>
   );
+}
+
+function walletTransactionLabel(type: string) {
+  const labels: Record<string, string> = {
+    frozen_release: "تحويل الرصيد المجمّد للمتاح",
+    monthly_release: "إقفال شهري",
+    admin_credit: "إضافة رصيد إدارية",
+    admin_debit: "خصم إداري",
+    admin_bonus: "مكافأة إدارية",
+    admin_penalty: "غرامة إدارية",
+    admin_freeze: "تجميد رصيد",
+    admin_unfreeze: "إفراج عن رصيد",
+    withdrawal: "طلب سحب",
+    commission: "عمولة اشتراك",
+  };
+  return labels[type] || type || "حركة محفظة";
 }
 
 function SectionCard({ icon, title, subtitle, action, children }: { icon: React.ReactNode; title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
