@@ -1039,24 +1039,50 @@ export default function TeacherWalletPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className={`grid gap-2 ${gradeNodes.length === 1 ? "grid-cols-1" : gradeNodes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-              {gradeNodes.slice(0, 3).map((ge, i) => {
-                const hist = gradeHistory.get(ge.key) || [];
-                const series = [...hist, ge.totalEarned].filter(v => v > 0);
-                const prev = hist.length ? hist[hist.length - 1] : 0;
-                const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
-                return (
-                  <GradeMiniCard
-                    key={ge.key} node={ge} active={ge.key === focusedGradeKey}
-                    delta={delta}
-                    series={series.length >= 2 ? series : [0, ge.totalEarned]}
-                    color={["sky", "violet", "emerald"][i] || "sky"}
-                    onClick={() => setFocusedGradeKey(ge.key)}
-                    onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
-                  />
-                );
-              })}
-            </div>
+            {gradeNodes.length <= 3 ? (
+              <div className={`grid gap-2 ${gradeNodes.length === 1 ? "grid-cols-1" : gradeNodes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                {gradeNodes.map((ge, i) => {
+                  const hist = gradeHistory.get(ge.key) || [];
+                  const series = [...hist, ge.totalEarned].filter(v => v > 0);
+                  const prev = hist.length ? hist[hist.length - 1] : 0;
+                  const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+                  return (
+                    <GradeMiniCard
+                      key={ge.key} node={ge} active={ge.key === focusedGradeKey}
+                      delta={delta}
+                      series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                      color={["sky", "violet", "emerald"][i] || "sky"}
+                      onClick={() => setFocusedGradeKey(ge.key)}
+                      onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="-mx-1 overflow-x-auto scrollbar-none snap-x snap-mandatory" style={{ WebkitOverflowScrolling: "touch" }}>
+                <div className="flex gap-2 px-1 pb-1">
+                  {gradeNodes.map((ge, i) => {
+                    const hist = gradeHistory.get(ge.key) || [];
+                    const series = [...hist, ge.totalEarned].filter(v => v > 0);
+                    const prev = hist.length ? hist[hist.length - 1] : 0;
+                    const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+                    const palette = ["sky", "violet", "emerald", "amber", "rose", "indigo"];
+                    return (
+                      <div key={ge.key} className="shrink-0 snap-start" style={{ width: "calc((100% - 1rem) / 3)", minWidth: "112px" }}>
+                        <GradeMiniCard
+                          node={ge} active={ge.key === focusedGradeKey}
+                          delta={delta}
+                          series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                          color={palette[i % palette.length]}
+                          onClick={() => setFocusedGradeKey(ge.key)}
+                          onOpen={() => { setSelectedGradeKey(ge.key); setView("grade-detail"); }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           )}
         </div>
 
