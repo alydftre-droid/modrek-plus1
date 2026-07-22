@@ -384,6 +384,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
   const [stopped, setStopped] = useState(false);
   const [saving, setSaving] = useState(false);
   const [scheduleSaving, setScheduleSaving] = useState(false);
+  const [periodSaving, setPeriodSaving] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [confirmRelease, setConfirmRelease] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -431,6 +432,24 @@ function ClosingTab({ overview, loading, onReload }: any) {
     } catch (e: any) {
       toast.error(e?.message || "خطأ في الحفظ");
     } finally { setSaving(false); }
+  };
+
+  const handleSavePeriod = async () => {
+    setPeriodSaving(true);
+    try {
+      const safeMonth = Math.min(12, Math.max(1, Number(notifMonth) || nowCairoInit.getMonth() + 1));
+      const safeYear = Math.min(2100, Math.max(2020, Number(notifYear) || nowCairoInit.getFullYear()));
+      setNotifMonth(safeMonth);
+      setNotifYear(safeYear);
+      const result = await persistClosingSettings(openDay, openHour, openMinute, false, safeMonth, safeYear);
+      setStopped(false);
+      toast.success(result?.next_release_cairo ? `تم حفظ موعد الإقفال: ${result.next_release_cairo}` : "تم حفظ الشهر والسنة");
+      await onReload();
+    } catch (e: any) {
+      toast.error(e?.message || "تعذّر حفظ الشهر والسنة");
+    } finally {
+      setPeriodSaving(false);
+    }
   };
 
   const handleInstantRelease = async () => {
@@ -585,7 +604,7 @@ function ClosingTab({ overview, loading, onReload }: any) {
         </CardContent>
       </Card>
 
-      {/* Manual Month/Year for teacher notification */}
+      {/* Manual Month/Year for scheduled closing */}
       <Card className="border border-purple-200 shadow-md bg-white">
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2">
@@ -593,9 +612,9 @@ function ClosingTab({ overview, loading, onReload }: any) {
               <Bell className="h-4 w-4 text-purple-600" />
             </div>
             <div className="min-w-0">
-              <p className="font-black text-sm text-slate-950">شهر وسنة الإشعار للمعلمين</p>
+              <p className="font-black text-sm text-slate-950">شهر وسنة الإقفال للمعلمين</p>
               <p className="text-[11px] text-slate-600 font-semibold">
-                يُستخدم في نص إشعار «تم فتح السحب لشهر …» الذي يصل للمعلم — حدّده يدوياً حتى لو فتحت الشهر مبكراً.
+                حدّد الشهر والسنة التي سيتم فيها تنفيذ الإقفال التلقائي فعلياً، وليس نص الإشعار فقط.
               </p>
             </div>
           </div>
@@ -634,8 +653,17 @@ function ClosingTab({ overview, loading, onReload }: any) {
           </div>
 
           <div className="rounded-lg p-3 text-xs border border-purple-200 bg-purple-50 text-purple-900 font-semibold">
-            سيصل للمعلم إشعار بعنوان: <strong>✅ تم فتح السحب لشهر {String(notifMonth).padStart(2, "0")}-{notifYear}</strong>
+            الموعد الكامل المحفوظ سيكون: يوم <strong>{openDay}</strong> / شهر <strong>{String(notifMonth).padStart(2, "0")}</strong> / سنة <strong>{notifYear}</strong> الساعة <strong>{timeLabel}</strong>.
           </div>
+
+          <Button
+            onClick={handleSavePeriod}
+            disabled={periodSaving || scheduleSaving || saving}
+            className="w-full h-11 gap-2 bg-purple-700 hover:bg-purple-800 text-white border-0 shadow-md font-black"
+          >
+            {periodSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            حفظ الشهر والسنة وتفعيل الموعد
+          </Button>
         </CardContent>
       </Card>
 
