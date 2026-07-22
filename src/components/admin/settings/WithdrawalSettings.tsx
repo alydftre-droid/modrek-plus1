@@ -461,14 +461,14 @@ function ClosingTab({ overview, loading, onReload }: any) {
       _manual_state: isStopped ? "closed" : "auto",
     };
     if (typeof month === "number" && typeof year === "number") {
-      payload._month = month;
-      payload._year = year;
+      payload._profit_month = month;
+      payload._profit_year = year;
     }
     if (typeof executionMonth === "number" && typeof executionYear === "number") {
-      payload._schedule_month = executionMonth;
-      payload._schedule_year = executionYear;
+      payload._execution_month = executionMonth;
+      payload._execution_year = executionYear;
     }
-    const { data, error } = await supabase.rpc("admin_set_withdrawal_schedule" as any, payload);
+    const { data, error } = await supabase.rpc("admin_save_withdrawal_closing_schedule" as any, payload);
     if (error) throw error;
     const result = data as any;
     if (!result?.success) throw new Error(result?.error || "فشل حفظ موعد الإقفال");
