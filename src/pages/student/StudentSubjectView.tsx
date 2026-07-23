@@ -541,8 +541,10 @@ const StudentSubjectView = () => {
       return true;
     });
 
-    const termMatchedGroups = eligibleGroups.filter((group) => !group.term || group.term === activeTerm);
-    const groupsSource = termMatchedGroups.length > 0 ? termMatchedGroups : eligibleGroups;
+    // Strict term isolation: only show groups that explicitly belong to the active term.
+    // No fallback to other terms and no allowance for null-term groups — each term is a
+    // fully separate workspace as required by the term-switching system.
+    const groupsSource = eligibleGroups.filter((group) => group.term === activeTerm);
 
     const groups = groupsSource.filter((group) => {
       const subject = subjectMap.get(group.subject_id);
