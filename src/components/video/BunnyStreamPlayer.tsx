@@ -92,6 +92,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
   const [readyToLoad, setReadyToLoad] = useState(false);
   const [resumeAt, setResumeAt] = useState(0);
   const [showCenterIcon, setShowCenterIcon] = useState<"play" | "pause" | null>(null);
+  const [iframeFallbackUrl, setIframeFallbackUrl] = useState<string | null>(null);
 
   useSecureVideoScreen();
 
@@ -121,8 +122,10 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
   useEffect(() => {
     if (!videoId || !readyToLoad) return;
     let cancelled = false;
+    let startupTimer: number | null = null;
     setLoading(true);
     setError(null);
+    setIframeFallbackUrl(null);
 
     (async () => {
       const sp = await getSignedPlayback(videoId);
@@ -132,8 +135,20 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       if (!video) return;
 
       const src = sp.playbackUrl;
+      const fallbackToEmbed = () => {
+        if (cancelled) return;
+        if (sp.embedUrl) {
+          setIframeFallbackUrl(sp.embedUrl);
+          setLoading(false);
+          setError(null);
+        } else {
+          setError("تعذر تحميل الفيديو");
+          setLoading(false);
+        }
+      };
       const attachEvents = () => {
         video.addEventListener("loadedmetadata", () => {
+          if (startupTimer) window.clearTimeout(startupTimer);
           setDuration(video.duration || 0);
           if (resumeAt > 0 && resumeAt < (video.duration || Infinity) - 3) {
             try { video.currentTime = resumeAt; } catch { /* ignore */ }
@@ -142,9 +157,14 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
           // autoplay attempt
           video.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
         }, { once: true });
+        video.addEventListener("error", fallbackToEmbed, { once: true });
+        startupTimer = window.setTimeout(() => {
+          if (!video.duration && video.readyState < 1) fallbackToEmbed();
+        }, 12000);
       };
 
       if (Hls.isSupported() && !video.canPlayType("application/vnd.apple.mpegurl")) {
+        let networkRetries = 0;
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: false,
@@ -171,9 +191,12 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
         hls.on(Hls.Events.ERROR, (_e, data) => {
           if (data.fatal) {
             switch (data.type) {
-              case Hls.ErrorTypes.NETWORK_ERROR: hls.startLoad(); break;
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                if (networkRetries++ < 2) hls.startLoad();
+                else fallbackToEmbed();
+                break;
               case Hls.ErrorTypes.MEDIA_ERROR: hls.recoverMediaError(); break;
-              default: setError("خطأ في تشغيل الفيديو");
+              default: fallbackToEmbed();
             }
           }
         });
@@ -187,6 +210,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
 
     return () => {
       cancelled = true;
+      if (startupTimer) window.clearTimeout(startupTimer);
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
@@ -481,23 +505,36 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
         onTouchEnd={onTouchEnd}
         onMouseMove={kickControls}
       >
-        <video
-          ref={videoRef}
-          className="w-full h-full bg-black"
-          style={{
-            transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
-            transformOrigin: "center center",
-            transition: pinchRef.current || panStartRef.current ? "none" : "transform 180ms ease-out",
-          }}
-          playsInline
-          webkit-playsinline="true"
-          x-webkit-airplay="allow"
-          controlsList="nodownload noremoteplayback"
-          disablePictureInPicture
-          preload="metadata"
-        />
+        {iframeFallbackUrl ? (
+          <iframe
+            src={iframeFallbackUrl}
+            className="h-full w-full bg-black"
+            title={title}
+            allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              className="w-full h-full bg-black"
+              style={{
+                transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
+                transformOrigin: "center center",
+                transition: pinchRef.current || panStartRef.current ? "none" : "transform 180ms ease-out",
+              }}
+              playsInline
+              webkit-playsinline="true"
+              x-webkit-airplay="allow"
+              controlsList="nodownload noremoteplayback"
+              disablePictureInPicture
+              preload="metadata"
+            />
 
-        <WatermarkOverlay />
+            <WatermarkOverlay />
+          </>
+        )}
 
         {/* Loading */}
         {loading && !error && (
