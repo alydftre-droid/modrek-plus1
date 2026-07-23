@@ -108,11 +108,34 @@ export default function ExamResultPage() {
               <Tile icon={<Clock className="h-5 w-5" />} label="الوقت" value={`${timeMin} د`} />
             </div>
 
-            {!attempt.is_graded && (
+            {!attempt.is_graded && !gradingTimedOut && (
               <Card className="bg-blue-50 dark:bg-blue-950/30 border-blue-200">
                 <CardContent className="p-3 text-sm">
                   <CheckCircle2 className="h-4 w-4 inline ml-1 text-blue-600" />
                   التصحيح الذكي للأسئلة المقالية يعمل الآن — يتم تحديث الدرجة تلقائياً بعد اكتماله
+                </CardContent>
+              </Card>
+            )}
+
+            {!attempt.is_graded && gradingTimedOut && (
+              <Card className="bg-amber-50 dark:bg-amber-950/30 border-amber-200">
+                <CardContent className="p-3 text-sm space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600 shrink-0" />
+                    <div>
+                      استغرق التصحيح الذكي وقتاً أطول من المتوقع. لا تقلق — تم حفظ إجابتك وسيتم تحديث الدرجة تلقائياً بمجرد اكتمال التصحيح، أو سيقوم المعلم بمراجعتها.
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full gap-1"
+                    onClick={retryGrading}
+                    disabled={retryingGrade}
+                  >
+                    <RefreshCw className={`h-3 w-3 ${retryingGrade ? "animate-spin" : ""}`} />
+                    {retryingGrade ? "جاري إعادة المحاولة..." : "إعادة محاولة التصحيح الذكي"}
+                  </Button>
                 </CardContent>
               </Card>
             )}
