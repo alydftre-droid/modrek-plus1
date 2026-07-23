@@ -17,6 +17,7 @@ import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, gradeKeyFromArabicLabel, normalizeSubjectSelectionName, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
+import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -323,14 +324,7 @@ const StudentSubjectView = () => {
     setLoading(true);
     try {
       // Fetch current term for this stage/grade
-      const gradeNum = grade === "first" ? "1" : grade === "second" ? "2" : grade === "third" ? "3" : grade;
-      const { data: termData } = await supabase
-        .from("system_terms")
-        .select("current_term")
-        .eq("stage", stage)
-        .eq("grade", gradeNum)
-        .maybeSingle();
-      const term = (termData?.current_term as string) || "term1";
+      const term = await getCurrentTermForStageGrade(stage, grade);
       setCurrentTerm(term);
 
       // Fetch student's education type

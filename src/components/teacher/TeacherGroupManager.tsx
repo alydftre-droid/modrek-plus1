@@ -12,6 +12,7 @@ import { queueExternalSync } from "@/lib/externalSync";
 import { SignedImage } from "@/components/common/SignedImage";
 import { normalizeEducationType } from "@/lib/educationSection";
 import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
+import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import {
   Dialog,
   DialogContent,
@@ -351,12 +352,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
     setLoading(true);
     // Get current term for this subject
     const { data: subjectInfo } = await supabase.from("subjects").select("stage, grade").eq("id", subjectId).maybeSingle();
-    let termFilter = "term1";
-    if (subjectInfo) {
-      const gradeNum = subjectInfo.grade === "first" ? "1" : subjectInfo.grade === "second" ? "2" : subjectInfo.grade === "third" ? "3" : subjectInfo.grade;
-      const { data: termData } = await supabase.from("system_terms").select("current_term").eq("stage", subjectInfo.stage).eq("grade", gradeNum).maybeSingle();
-      termFilter = (termData?.current_term as string) || "term1";
-    }
+    const termFilter = subjectInfo ? await getCurrentTermForStageGrade(subjectInfo.stage, subjectInfo.grade) : "term1";
     const { data } = await supabase
       .from("content_groups")
       .select("*")
@@ -385,12 +381,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
       // Get current term for this subject
       const { data: subjectInfo } = await supabase.from("subjects").select("stage, grade").eq("id", subjectId).maybeSingle();
-      let termValue = "term1";
-      if (subjectInfo) {
-        const gradeNum = subjectInfo.grade === "first" ? "1" : subjectInfo.grade === "second" ? "2" : subjectInfo.grade === "third" ? "3" : subjectInfo.grade;
-        const { data: termData } = await supabase.from("system_terms").select("current_term").eq("stage", subjectInfo.stage).eq("grade", gradeNum).maybeSingle();
-        termValue = (termData?.current_term as string) || "term1";
-      }
+      const termValue = subjectInfo ? await getCurrentTermForStageGrade(subjectInfo.stage, subjectInfo.grade) : "term1";
 
       const { error } = await supabase.from("content_groups").insert({
         title: newTitle.trim(),
