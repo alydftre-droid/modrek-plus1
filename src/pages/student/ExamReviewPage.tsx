@@ -4,8 +4,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot, Lightbulb, Sparkles, BookOpen } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
+
+type SmartFeedback = { notes: string; explanation: string; extra: string };
+
+function parseSmartFeedback(raw: unknown): SmartFeedback | null {
+  const text = String(raw ?? "").trim();
+  if (!text || text[0] !== "{") return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && parsed.v === 1 && (parsed.notes || parsed.explanation || parsed.extra)) {
+      return {
+        notes: String(parsed.notes || "").trim(),
+        explanation: String(parsed.explanation || "").trim(),
+        extra: String(parsed.extra || "").trim(),
+      };
+    }
+  } catch { /* legacy plain text */ }
+  return null;
+}
+
 
 const normalizeReviewAnswer = (value: unknown) =>
   String(value ?? "")
