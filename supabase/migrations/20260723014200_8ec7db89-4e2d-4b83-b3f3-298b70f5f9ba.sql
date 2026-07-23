@@ -1,0 +1,1 @@
+select key, value from public.platform_settings where key in ('withdrawal_scheduler_last_status','withdrawal_scheduler_last_payload','withdrawal_cron_repair_error') order by key;
