@@ -6439,6 +6439,25 @@ export type Database = {
         Args: { _attempt_id: string }
         Returns: Json
       }
+      get_student_group_content_catalog: {
+        Args: { _group_id: string; _sub_subject_id?: string }
+        Returns: {
+          created_at: string
+          description: string
+          file_url: string
+          group_id: string
+          id: string
+          is_accessible: boolean
+          is_free_preview: boolean
+          is_paid: boolean
+          sub_subject: string
+          sub_subject_id: string
+          subject_id: string
+          thumbnail_url: string
+          title: string
+          type: string
+        }[]
+      }
       get_student_purchased_group_teacher_details: {
         Args: { _group_ids: string[]; _student_id: string }
         Returns: {
