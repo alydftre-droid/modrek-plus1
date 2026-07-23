@@ -160,18 +160,36 @@ function sameNormalizedText(a: unknown, b: unknown) {
   return normalizeArabicText(String(a ?? "")) === normalizeArabicText(String(b ?? ""));
 }
 
+function trimForFeedback(value: unknown, max = 220) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
 function safeLocalFeedback(item: any, score: number) {
   const maxPoints = Number(item.maxPoints || 0);
-  if (maxPoints <= 0) return "لا توجد درجة مخصصة لهذا السؤال.";
-  if (isNonAnswer(item.studentAnswer)) return "لم يقدم الطالب إجابة قابلة للتصحيح لهذا السؤال.";
-  if (!normalizeArabicText(item.modelAnswer)) return "لا توجد إجابة نموذجية محفوظة لهذا السؤال؛ يحتاج مراجعة المعلم.";
-  if (item.alignmentSource === "previous_model_answer" || item.alignmentSource === "next_model_answer") {
-    if (score >= maxPoints) return "إجابة صحيحة بالمعنى بعد إصلاح محاذاة الإجابة النموذجية لهذا السؤال.";
-    if (score > 0) return "إجابة جزئية بعد إصلاح محاذاة الإجابة النموذجية لهذا السؤال.";
+  const question = trimForFeedback(item.question, 180);
+  const student = trimForFeedback(item.studentAnswer, 180);
+  const model = trimForFeedback(item.modelAnswer, 260);
+
+  if (maxPoints <= 0) return "لا توجد درجة مخصصة لهذا السؤال، لذلك لم يتم احتساب أي درجة عليه.";
+  if (isNonAnswer(item.studentAnswer)) {
+    return `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${question}»\n\nالإجابة النموذجية: ${model}\n\nحاول في المرة القادمة أن تكتب ما تعرفه ولو جزءاً منه، فالمحاولة أفضل من ترك السؤال فارغاً، وقد تحصل على درجة جزئية.`;
   }
-  if (score >= maxPoints) return "إجابة صحيحة بالمعنى لهذا السؤال.";
-  if (score > 0) return "إجابة جزئية لهذا السؤال وتم احتساب الدرجة حسب عناصر الإجابة الصحيحة.";
-  return "الإجابة لا تحتوي على عناصر كافية من الإجابة النموذجية لهذا السؤال.";
+  if (!normalizeArabicText(item.modelAnswer)) {
+    return "لا توجد إجابة نموذجية محفوظة لهذا السؤال حالياً، وسيقوم المعلم بمراجعة إجابتك يدوياً.";
+  }
+
+  const alignmentNote = (item.alignmentSource === "previous_model_answer" || item.alignmentSource === "next_model_answer")
+    ? "\n\nملاحظة فنية: تمت مطابقة إجابتك مع النموذج الصحيح المجاور بعد اكتشاف انحراف في محاذاة الإجابات."
+    : "";
+
+  if (score >= maxPoints) {
+    return `✅ إجابتك صحيحة، أحسنت!\n\nإجابتك «${student}» تطابق المطلوب في السؤال: «${question}».\n\nالفكرة الأساسية هنا هي: ${model}\n\nاستمر بهذا المستوى وراجع القاعدة لتثبيتها في ذهنك.${alignmentNote}`;
+  }
+  if (score > 0) {
+    return `🟡 إجابتك جزئية وتستحق ${score} من ${maxPoints}.\n\nما كتبته: «${student}»\n\nالإجابة النموذجية الكاملة: ${model}\n\nذكرت بعض العناصر الصحيحة لكن نقصت عناصر أخرى مهمة. راجع النموذج أعلاه وحدّد ما فاتك حتى تحصل على الدرجة الكاملة في المرة القادمة.${alignmentNote}`;
+  }
+  return `❌ إجابتك غير صحيحة في هذا السؤال.\n\nما كتبته: «${student}»\n\nالإجابة الصحيحة: ${model}\n\nالسؤال كان يطلب: «${question}». يبدو أن إجابتك ابتعدت عن المطلوب أو خلطت بين مفهومين. راجع هذه النقطة في الدرس وركّز على الكلمات المفتاحية في السؤال قبل الإجابة في المرة القادمة.${alignmentNote}`;
 }
 
 function withAlignedModelAnswer(item: any) {
