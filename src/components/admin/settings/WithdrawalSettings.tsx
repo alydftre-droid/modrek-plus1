@@ -563,14 +563,41 @@ function ClosingTab({ overview, loading, onReload }: any) {
     ? "تم التنفيذ"
     : schedulerStatus === "not_due_yet"
       ? "ينتظر الموعد"
-      : schedulerStatus === "schedule_saved_waiting"
+      : ["schedule_saved_waiting", "explicit_schedule_saved_waiting"].includes(schedulerStatus)
         ? "تم حفظ الموعد"
         : schedulerStatus === "manual_closed"
           ? "متوقف يدويًا"
           : schedulerStatus === "execution_failed"
             ? "فشل وسيعاد تلقائيًا"
+            : schedulerStatus === "already_ran_explicit_schedule"
+              ? "تم تنفيذ هذا الموعد"
+              : schedulerStatus === "already_ran_this_exact_schedule"
+                ? "تم التنفيذ والموعد القادم محفوظ"
             : schedulerStatus;
-  const schedulerHealthy = ["executed", "not_due_yet", "schedule_saved_waiting", "already_ran_this_exact_schedule"].includes(schedulerStatus);
+  const schedulerReasonLabel = (() => {
+    const reason = schedulerPayload?.due_source || schedulerPayload?.skipped || schedulerPayload?.executed_cairo || "—";
+    const labels: Record<string, string> = {
+      explicit_execution_date: "موعد محدد محفوظ من المطور",
+      saved_next_release: "الموعد القادم محفوظ",
+      not_due_yet: "لم يأتِ وقت التنفيذ بعد",
+      manual_closed: "متوقف من مفتاح الطوارئ",
+      worker_already_running: "المشغل يعمل بالفعل",
+      already_ran_explicit_schedule: "تم تنفيذ نفس الموعد سابقًا",
+      already_ran_this_exact_schedule: "تم تنفيذ هذا الموعد وتم تجهيز القادم",
+      current_month_due_grace_rescue_over_stale_saved_next: "نافذة إنقاذ الموعد الحالي",
+      computed_from_settings: "محسوب من إعدادات اليوم والوقت",
+      computed_next_month: "تم ترحيله للشهر القادم",
+    };
+    return labels[String(reason)] || reason;
+  })();
+  const schedulerHealthy = [
+    "executed",
+    "not_due_yet",
+    "schedule_saved_waiting",
+    "explicit_schedule_saved_waiting",
+    "already_ran_this_exact_schedule",
+    "already_ran_explicit_schedule",
+  ].includes(schedulerStatus);
 
   return (
     <div className="space-y-4">
@@ -670,9 +697,14 @@ function ClosingTab({ overview, loading, onReload }: any) {
             </div>
             <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
               <p className="font-bold text-slate-500">سبب آخر نتيجة</p>
-              <p className="font-black text-slate-950 truncate">{schedulerPayload?.due_source || schedulerPayload?.skipped || schedulerPayload?.executed_cairo || "—"}</p>
+              <p className="font-black text-slate-950 truncate">{schedulerReasonLabel}</p>
             </div>
           </div>
+          {schedulerStatus === "execution_failed" && schedulerPayload?.error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-[11px] font-bold text-red-900">
+              آخر خطأ: {schedulerPayload.error}
+            </div>
+          )}
         </CardContent>
       </Card>
 
