@@ -140,6 +140,9 @@ export function useCreateExam() {
       if (!subject_id) {
         throw new Error("تعذر تحديد مادة المجموعة. افتح الامتحانات من داخل المجموعة مرة أخرى.");
       }
+      if (!term) {
+        throw new Error("تعذر تحديد ترم المجموعة. افتح الامتحان من داخل المجموعة الصحيحة مرة أخرى.");
+      }
       const { data, error } = await supabase
         .from("exams")
         .insert({
@@ -169,7 +172,7 @@ export function useCreateExam() {
           is_ai_generated: payload.is_ai_generated ?? false,
           status: payload.status ?? "draft",
           is_published: payload.is_published ?? false,
-          term: term || "term1",
+          term,
           target_education_type: payload.target_education_type ?? null,
           target_section: payload.target_section ?? null,
         } as any)
