@@ -8,6 +8,23 @@ async function sha256Hex(input: string) {
     .join("");
 }
 
+function decodeHtmlUrl(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&#x2F;/gi, "/")
+    .replace(/&#47;/g, "/")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function extractFirstUrl(html: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return decodeHtmlUrl(match[1]);
+  }
+  return null;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -62,6 +79,43 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function getEmbedToken(tokenKey: string, videoId: string, expires: number) {
+  if (!tokenKey) return null;
+  return await sha256Hex(`${tokenKey}${videoId}${expires}`);
+}
+
+async function fetchPlaybackFromBunnyEmbed(embedUrl: string) {
+  try {
+    const res = await fetch(embedUrl, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent": "ModrekPlus-PlaybackResolver/1.0",
+      },
+    });
+    if (!res.ok) {
+      const upstream = await res.text().catch(() => "");
+      console.warn("Bunny embed resolver failed", { status: res.status, upstream: upstream.slice(0, 240) });
+      return null;
+    }
+    const html = await res.text();
+    const playbackUrl = extractFirstUrl(html, [
+      /<source[^>]+type=["']application\/vnd\.apple\.mpegURL["'][^>]+src=["']([^"']+playlist\.m3u8[^"']*)["']/i,
+      /urlPlaylistUrl\s*=\s*["']([^"']+playlist\.m3u8[^"']*)["']/i,
+      /(https:\/\/[^"'\s<>]+playlist\.m3u8[^"'\s<>]*)/i,
+    ]);
+    const thumbnailUrl = extractFirstUrl(html, [
+      /data-poster=["']([^"']+thumbnail\.jpg[^"']*)["']/i,
+      /property=["']og:image["'][^>]+content=["']([^"']+thumbnail\.jpg[^"']*)["']/i,
+      /content=["']([^"']+thumbnail\.jpg[^"']*)["'][^>]+property=["']og:image["']/i,
+      /(https:\/\/[^"'\s<>]+thumbnail\.jpg[^"'\s<>]*)/i,
+    ]);
+    return playbackUrl ? { playbackUrl, thumbnailUrl } : null;
+  } catch (error) {
+    console.warn("Bunny embed resolver exception", error);
+    return null;
+  }
 }
 
 function createUserClient(authHeader: string) {
@@ -198,14 +252,23 @@ Deno.serve(async (req) => {
 
       let playbackUrl = baseHls;
       let embedUrl = `${baseEmbed}?autoplay=true&preload=true&responsive=true`;
+      let thumbnailUrl = baseThumb;
       let signed = false;
 
       if (tokenKey) {
-        // Bunny Stream token auth: SHA256_hex(token_key + video_id + expires)
-        const token = await sha256Hex(`${tokenKey}${videoId}${expires}`);
+        // Bunny Stream embed-view token auth. This signs the iframe/player, not
+        // the direct CDN HLS URL. Direct CDN token auth uses a different bcdn
+        // token format, so we resolve the real HLS URL from Bunny's embed page.
+        const token = await getEmbedToken(tokenKey, videoId, expires);
         const q = `token=${token}&expires=${expires}`;
-        playbackUrl = `${baseHls}?${q}`;
         embedUrl = `${baseEmbed}?autoplay=true&preload=true&responsive=true&${q}`;
+        signed = true;
+      }
+
+      const embedPlayback = await fetchPlaybackFromBunnyEmbed(embedUrl);
+      if (embedPlayback?.playbackUrl) {
+        playbackUrl = embedPlayback.playbackUrl;
+        thumbnailUrl = embedPlayback.thumbnailUrl || thumbnailUrl;
         signed = true;
       }
 
@@ -213,7 +276,7 @@ Deno.serve(async (req) => {
         videoId,
         playbackUrl,
         embedUrl,
-        thumbnailUrl: baseThumb,
+        thumbnailUrl,
         expiresAt: expires,
         signed,
       });
