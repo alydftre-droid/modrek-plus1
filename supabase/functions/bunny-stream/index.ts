@@ -259,7 +259,11 @@ Deno.serve(async (req) => {
         signed = true;
       }
 
-      const embedPlayback = await fetchPlaybackFromBunnyEmbed(embedUrl);
+      // Prefer the signed embed page. If the configured embed token key is
+      // stale/wrong while the library allows normal embeds, retry without the
+      // token instead of returning a direct CDN URL that Bunny rejects with 403.
+      const embedPlayback = await fetchPlaybackFromBunnyEmbed(embedUrl)
+        || await fetchPlaybackFromBunnyEmbed(`${baseEmbed}?autoplay=true&preload=true&responsive=true`);
       if (embedPlayback?.playbackUrl) {
         playbackUrl = embedPlayback.playbackUrl;
         thumbnailUrl = embedPlayback.thumbnailUrl || thumbnailUrl;
