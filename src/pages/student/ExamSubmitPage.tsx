@@ -264,8 +264,16 @@ export default function ExamSubmitPage() {
         // the review page — not only attempts that contain essays.
         void supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } }).then(({ error }) => {
           if (error) {
-            console.warn("[exam-debug] background smart grading failed", error);
-            toast.info("تم التسليم، وسيكتمل التصحيح الذكي تلقائياً بعد قليل");
+            console.warn("[exam-debug] background smart grading failed, retrying once", error);
+            // Retry once after a short delay to recover from transient gateway/timeout errors.
+            window.setTimeout(() => {
+              void supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } }).then(({ error: err2 }) => {
+                if (err2) {
+                  console.warn("[exam-debug] background smart grading retry failed", err2);
+                  toast.info("تم التسليم — سيتم تصحيح الأسئلة تلقائياً، أو يمكنك إعادة المحاولة من صفحة النتيجة");
+                }
+              });
+            }, 2500);
           }
         });
         try { localStorage.removeItem(draftKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
