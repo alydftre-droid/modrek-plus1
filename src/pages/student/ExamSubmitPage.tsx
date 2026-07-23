@@ -259,14 +259,15 @@ export default function ExamSubmitPage() {
           navigate(`/student/exams/${examId}`, { replace: true });
           return;
         }
-        if (res.needs_ai_grading) {
-          void supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } }).then(({ error }) => {
-            if (error) {
-              console.warn("[exam-debug] background smart grading failed", error);
-              toast.info("تم التسليم، وسيكتمل التصحيح الذكي تلقائياً بعد قليل");
-            }
-          });
-        }
+        // Always invoke smart grading so every question type (mcq / tf / fill_blank /
+        // short_answer / essay) receives the rich 3-part teacher feedback shown in
+        // the review page — not only attempts that contain essays.
+        void supabase.functions.invoke("grade-essay", { body: { attemptId: finalAttemptId } }).then(({ error }) => {
+          if (error) {
+            console.warn("[exam-debug] background smart grading failed", error);
+            toast.info("تم التسليم، وسيكتمل التصحيح الذكي تلقائياً بعد قليل");
+          }
+        });
         try { localStorage.removeItem(draftKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         try { localStorage.removeItem(antiCheatKey); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
         clearStaleAttemptContext();
