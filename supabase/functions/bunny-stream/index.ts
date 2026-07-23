@@ -18,10 +18,18 @@ const corsHeaders = {
 const BUNNY_API_URL = "https://video.bunnycdn.com";
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
+// Defaults match src/lib/bunnyStream.ts so student playback keeps working even if
+// only a subset of the BUNNY_STREAM_* secrets are configured. Signing only needs
+// the token key + library/cdn; the API key is used by create/get/delete-video.
+const DEFAULT_BUNNY_STREAM_LIBRARY_ID = "686928";
+const DEFAULT_BUNNY_STREAM_CDN_HOSTNAME = "vz-9fc4b938-1b7.b-cdn.net";
+
 function getBunnyStreamConfig() {
-  const apiKey = Deno.env.get("BUNNY_STREAM_API_KEY") || "";
-  const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || "";
-  const cdnHostname = Deno.env.get("BUNNY_STREAM_CDN_HOSTNAME") || "";
+  const apiKey = Deno.env.get("BUNNY_STREAM_API_KEY")
+    || Deno.env.get("BUNNY_API_KEY")
+    || "";
+  const libraryId = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || DEFAULT_BUNNY_STREAM_LIBRARY_ID;
+  const cdnHostname = Deno.env.get("BUNNY_STREAM_CDN_HOSTNAME") || DEFAULT_BUNNY_STREAM_CDN_HOSTNAME;
 
   return {
     apiKey,
