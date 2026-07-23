@@ -40,16 +40,26 @@ const compactReviewText = (value: unknown, max = 90) => {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 };
 
+const LEGACY_FEEDBACK_PATTERNS = [
+  "اجابه صحيحه",
+  "اجابه غير صحيحه راجع الاجابه الصحيحه",
+  "اجابه غير صحيحه",
+  "اجابه خطا",
+  "اجابه ناقصه",
+  "اجابه جزئيه",
+  "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
+  "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
+  "لم يجب الطالب علي هذا السؤال",
+  "لم يقدم الطالب اجابه قابله للتصحيح لهذا السؤال",
+  "تم التصحيح وفق نموذج الاجابه والمعني الصحيح",
+];
+
 const isLegacyReviewFeedback = (value: unknown) => {
-  const text = normalizeReviewAnswer(value);
-  return [
-    "اجابه صحيحه",
-    "اجابه غير صحيحه راجع الاجابه الصحيحه",
-    "اجابه غير صحيحه",
-    "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
-    "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
-    "لم يجب الطالب علي هذا السؤال",
-  ].includes(text);
+  const text = normalizeReviewAnswer(value).replace(/[.!؟?]+$/g, "").trim();
+  if (!text) return true;
+  // Any very short stored feedback is treated as legacy so the rich client note wins.
+  if (text.length < 45) return true;
+  return LEGACY_FEEDBACK_PATTERNS.includes(text);
 };
 
 export default function ExamReviewPage() {
