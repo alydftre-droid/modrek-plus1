@@ -6473,6 +6473,10 @@ export type Database = {
         }
         Returns: Json
       }
+      group_matches_current_system_term: {
+        Args: { _subject_id: string; _term: string }
+        Returns: boolean
+      }
       has_ai_lesson_page_access: { Args: { _name: string }; Returns: boolean }
       has_content_storage_access: {
         Args: { _bucket: string; _name: string }
@@ -6932,6 +6936,7 @@ export type Database = {
         Args: { _metadata: Json }
         Returns: boolean
       }
+      term_grade_key: { Args: { _grade: string }; Returns: string }
       validate_financial_closing_functions: { Args: never; Returns: Json }
       validate_recharge_code: {
         Args: { code_text: string }
