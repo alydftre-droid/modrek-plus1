@@ -131,8 +131,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  const url = new URL(req.url);
-  const action = url.searchParams.get("action");
   const serviceRoleHealthCheck = action === "health" && isServiceRoleHealthCheck(authHeader);
 
   const claims = serviceRoleHealthCheck ? { sub: "service-role-health-check", email: null } : await getVerifiedClaims(authHeader);
