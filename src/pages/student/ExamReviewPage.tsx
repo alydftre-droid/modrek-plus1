@@ -40,16 +40,26 @@ const compactReviewText = (value: unknown, max = 90) => {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 };
 
+const LEGACY_FEEDBACK_PATTERNS = [
+  "اجابه صحيحه",
+  "اجابه غير صحيحه راجع الاجابه الصحيحه",
+  "اجابه غير صحيحه",
+  "اجابه خطا",
+  "اجابه ناقصه",
+  "اجابه جزئيه",
+  "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
+  "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
+  "لم يجب الطالب علي هذا السؤال",
+  "لم يقدم الطالب اجابه قابله للتصحيح لهذا السؤال",
+  "تم التصحيح وفق نموذج الاجابه والمعني الصحيح",
+];
+
 const isLegacyReviewFeedback = (value: unknown) => {
-  const text = normalizeReviewAnswer(value);
-  return [
-    "اجابه صحيحه",
-    "اجابه غير صحيحه راجع الاجابه الصحيحه",
-    "اجابه غير صحيحه",
-    "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
-    "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
-    "لم يجب الطالب علي هذا السؤال",
-  ].includes(text);
+  const text = normalizeReviewAnswer(value).replace(/[.!؟?]+$/g, "").trim();
+  if (!text) return true;
+  // Any very short stored feedback is treated as legacy so the rich client note wins.
+  if (text.length < 45) return true;
+  return LEGACY_FEEDBACK_PATTERNS.includes(text);
 };
 
 export default function ExamReviewPage() {
@@ -128,6 +138,7 @@ export default function ExamReviewPage() {
 
                   {(() => {
                     const isObjective = q.question_type === "mcq" || q.question_type === "true_false" || q.question_type === "fill_blank";
+                    const isWrittenText = q.question_type === "short_answer" || q.question_type === "essay" || q.question_type === "fill_blank";
                     let correctText = "";
                     let studentPicked = "";
                     if (q.question_type === "mcq" || q.question_type === "true_false") {
@@ -140,21 +151,39 @@ export default function ExamReviewPage() {
                       studentPicked = a?.answer_text || "";
                     }
 
-                    // Dynamic teacher-style "ملاحظات" for objective questions
-                    let objectiveNote = "";
+                    const explanationLine = q.explanation
+                      ? `\n\n📘 من الدرس: ${String(q.explanation).trim()}`
+                      : "";
+
+                    // Build a rich, teacher-style note used when stored feedback is missing/legacy.
+                    let localNote = "";
                     if (isObjective) {
                       if (!a || (!studentPicked && !(a?.selected_option_ids?.length))) {
-                        objectiveNote = "لم تقدم إجابة للسؤال.";
+                        localNote = `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}».\n\nالإجابة الصحيحة هي «${correctText}». حاول في المرة القادمة أن تجيب ولو بتخمين مدروس بدلاً من ترك السؤال فارغاً.${explanationLine}`;
                       } else if (isCorrect) {
-                        const praises = ["أحسنت", "ممتاز", "رائع", "إجابة موفقة"];
-                        const praise = praises[(idx + q.question_text.length) % praises.length];
-                        objectiveNote = `✅ إجابتك صحيحة. ${praise}؛ اختيارك «${studentPicked || correctText}» يطابق المطلوب في السؤال: «${compactReviewText(q.question_text)}». تذكّر أن الفكرة الأساسية هنا هي «${correctText}».`;
+                        const praises = ["أحسنت", "ممتاز", "رائع", "إجابة موفقة", "أداء ممتاز"];
+                        const praise = praises[(idx + (q.question_text || "").length) % praises.length];
+                        localNote = `✅ إجابتك صحيحة. ${praise}!\n\nاخترت «${studentPicked || correctText}»، وهو المطلوب بالضبط في السؤال: «${compactReviewText(q.question_text, 200)}».\n\nالفكرة الأساسية هنا هي «${correctText}». استمر بهذا المستوى من التركيز.${explanationLine}`;
                       } else if (showCorrect && correctText) {
-                        objectiveNote = studentPicked
-                          ? `❌ إجابتك غير صحيحة. اخترت «${studentPicked}»، بينما الإجابة الصحيحة هي «${correctText}». سبب الخطأ أن اختيارك لا يطابق المطلوب في السؤال: «${compactReviewText(q.question_text)}». راجع هذه النقطة وركّز على الفرق بين الاختيارين.`
-                          : `❌ إجابة غير صحيحة. الصواب هو «${correctText}». السؤال كان يطلب: «${compactReviewText(q.question_text)}»، لذلك راجع القاعدة المرتبطة به قبل المحاولة التالية.`;
+                        localNote = studentPicked
+                          ? `❌ إجابتك غير صحيحة.\n\nاخترت «${studentPicked}»، بينما الإجابة الصحيحة هي «${correctText}».\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}». يبدو أنك خلطت بين خيارين متقاربين، فراجع الفرق بينهما جيداً قبل الإجابة في المرة القادمة.${explanationLine}`
+                          : `❌ إجابة غير صحيحة.\n\nالإجابة الصحيحة هي «${correctText}».\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}». راجع القاعدة المرتبطة به في الدرس وحاول تحديد الفكرة المطلوبة قبل الإجابة.${explanationLine}`;
                       } else {
-                        objectiveNote = `❌ إجابة غير صحيحة. راجع السؤال «${compactReviewText(q.question_text)}» في الدرس وحاول تحديد الفكرة المطلوبة قبل اختيار الإجابة.`;
+                        localNote = `❌ إجابة غير صحيحة. راجع السؤال «${compactReviewText(q.question_text, 200)}» في الدرس وحدّد الفكرة المطلوبة قبل اختيار الإجابة.${explanationLine}`;
+                      }
+                    } else if (isWrittenText) {
+                      const student = String(a?.answer_text || "").trim();
+                      const model = String(q.correct_answer || "").trim();
+                      const compactQuestion = compactReviewText(q.question_text, 200);
+                      const compactStudent = student ? compactReviewText(student, 220) : "";
+                      if (!student) {
+                        localNote = `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${compactQuestion}».${model ? `\n\nالإجابة النموذجية: ${model}` : ""}\n\nحاول في المرة القادمة أن تكتب ما تعرفه ولو جزءاً منه؛ الإجابة الجزئية تستحق درجة، أما الفراغ فلا.${explanationLine}`;
+                      } else if (isCorrect) {
+                        localNote = `✅ إجابتك صحيحة، أحسنت!\n\nما كتبته «${compactStudent}» يطابق المطلوب في السؤال: «${compactQuestion}».${model ? `\n\nالفكرة الأساسية هنا: ${model}` : ""}\n\nاستمر بهذا المستوى من الفهم.${explanationLine}`;
+                      } else if (isPartial) {
+                        localNote = `🟡 إجابتك جزئية، وحصلت على ${awarded} من ${maxMark}.\n\nما كتبته: «${compactStudent}»${model ? `\n\nالإجابة النموذجية الكاملة: ${model}` : ""}\n\nذكرت بعض العناصر الصحيحة لكن نقصت عناصر مهمة أخرى. راجع النموذج أعلاه وحدّد ما فاتك حتى تحصل على الدرجة الكاملة في المرة القادمة.${explanationLine}`;
+                      } else {
+                        localNote = `❌ إجابتك غير صحيحة.\n\nما كتبته: «${compactStudent}»${model ? `\n\nالإجابة الصحيحة: ${model}` : ""}\n\nالسؤال كان يطلب: «${compactQuestion}». يبدو أن إجابتك ابتعدت عن المطلوب أو خلطت بين مفهومين. راجع هذه النقطة في الدرس وركّز على الكلمات المفتاحية قبل الإجابة في المرة القادمة.${explanationLine}`;
                       }
                     }
 
@@ -163,9 +192,9 @@ export default function ExamReviewPage() {
                       : "";
 
                     const storedFeedback = String(a?.ai_feedback || "").trim();
-                    const visibleFeedback = isObjective && objectiveNote && isLegacyReviewFeedback(storedFeedback)
-                      ? objectiveNote
-                      : (storedFeedback || objectiveNote);
+                    const visibleFeedback = isLegacyReviewFeedback(storedFeedback)
+                      ? (localNote || storedFeedback)
+                      : (storedFeedback || localNote);
 
                     return (
                       <>
