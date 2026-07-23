@@ -4,8 +4,27 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot, Lightbulb, Sparkles, BookOpen } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
+
+type SmartFeedback = { notes: string; explanation: string; extra: string };
+
+function parseSmartFeedback(raw: unknown): SmartFeedback | null {
+  const text = String(raw ?? "").trim();
+  if (!text || text[0] !== "{") return null;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && parsed.v === 1 && (parsed.notes || parsed.explanation || parsed.extra)) {
+      return {
+        notes: String(parsed.notes || "").trim(),
+        explanation: String(parsed.explanation || "").trim(),
+        extra: String(parsed.extra || "").trim(),
+      };
+    }
+  } catch { /* legacy plain text */ }
+  return null;
+}
+
 
 const normalizeReviewAnswer = (value: unknown) =>
   String(value ?? "")
@@ -192,9 +211,10 @@ export default function ExamReviewPage() {
                       : "";
 
                     const storedFeedback = String(a?.ai_feedback || "").trim();
-                    const visibleFeedback = isLegacyReviewFeedback(storedFeedback)
-                      ? (localNote || storedFeedback)
-                      : (storedFeedback || localNote);
+                    const smart = parseSmartFeedback(storedFeedback);
+                    const visibleFeedback = smart
+                      ? null
+                      : (isLegacyReviewFeedback(storedFeedback) ? (localNote || storedFeedback) : (storedFeedback || localNote));
 
                     return (
                       <>
@@ -240,22 +260,55 @@ export default function ExamReviewPage() {
                           </div>
                         )}
 
-                        {visibleFeedback && (
-                          <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                            <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
-                            <div className="text-sm whitespace-pre-wrap">{visibleFeedback}</div>
-                          </div>
-                        )}
-
-                        {(q.explanation || autoExplain) && (
-                          <Card className="bg-amber-500/5 border-amber-500/30">
-                            <CardContent className="p-3 text-sm">
-                              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
-                                <Info className="h-4 w-4" />الشرح
+                        {smart ? (
+                          <div className="space-y-3">
+                            {smart.notes && (
+                              <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300 mb-2 font-bold text-sm">
+                                  <Sparkles className="h-4 w-4" />
+                                  ملاحظات ذكية
+                                </div>
+                                <div className="text-sm whitespace-pre-wrap leading-relaxed">{smart.notes}</div>
                               </div>
-                              <div className="whitespace-pre-wrap">{q.explanation || autoExplain}</div>
-                            </CardContent>
-                          </Card>
+                            )}
+                            {smart.explanation && (
+                              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                                <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-2 font-bold text-sm">
+                                  <BookOpen className="h-4 w-4" />
+                                  الشرح الذكي
+                                </div>
+                                <div className="text-sm whitespace-pre-wrap leading-relaxed">{smart.explanation}</div>
+                              </div>
+                            )}
+                            {smart.extra && (
+                              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+                                <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 mb-2 font-bold text-sm">
+                                  <Lightbulb className="h-4 w-4" />
+                                  معلومة إضافية
+                                </div>
+                                <div className="text-sm whitespace-pre-wrap leading-relaxed">{smart.extra}</div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            {visibleFeedback && (
+                              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                                <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
+                                <div className="text-sm whitespace-pre-wrap">{visibleFeedback}</div>
+                              </div>
+                            )}
+                            {(q.explanation || autoExplain) && (
+                              <Card className="bg-amber-500/5 border-amber-500/30">
+                                <CardContent className="p-3 text-sm">
+                                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
+                                    <Info className="h-4 w-4" />الشرح
+                                  </div>
+                                  <div className="whitespace-pre-wrap">{q.explanation || autoExplain}</div>
+                                </CardContent>
+                              </Card>
+                            )}
+                          </>
                         )}
                       </>
                     );
@@ -270,3 +323,4 @@ export default function ExamReviewPage() {
     </StudentLayout>
   );
 }
+
