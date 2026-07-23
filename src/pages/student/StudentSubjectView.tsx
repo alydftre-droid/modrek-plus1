@@ -498,6 +498,7 @@ const StudentSubjectView = () => {
       .from("content_groups")
       .select("id, title, description, month_label, image_url, price, section_name, subject_id, is_active, lesson_count, start_date, end_date, teacher_id, created_by, term, education_type")
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
+      .eq("term", activeTerm)
       .eq("is_active", true)
       .eq("price_approved", true);
 
