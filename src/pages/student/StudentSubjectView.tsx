@@ -1435,16 +1435,30 @@ const StudentSubjectView = () => {
           return (
           <Card
             key={item.id}
-            className={`hover:shadow-md transition-shadow ${openable ? "cursor-pointer" : "opacity-80"}`}
+            className={`transition-shadow hover:shadow-md ${openable ? "cursor-pointer" : "cursor-pointer border-border/80 bg-card"}`}
             onClick={(e) => handleContentClick(e, item)}
           >
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               {item.type === "video" ? (
-                  <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-14 w-20 shrink-0 rounded-lg" />
+                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg">
+                    <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-full w-full" rounded="rounded-lg" />
+                    {!openable && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card/95 shadow-sm">
+                          <Lock className="h-3.5 w-3.5 text-primary" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="rounded-lg bg-accent p-3 shrink-0">
+                  <div className="relative shrink-0 rounded-lg bg-accent p-3">
                     <FileText className="h-6 w-6 text-primary" />
+                    {!openable && (
+                      <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-card shadow-sm">
+                        <Lock className="h-3 w-3 text-primary" />
+                      </div>
+                    )}
                   </div>
                 )}
                 <div className="min-w-0">
@@ -1454,10 +1468,26 @@ const StudentSubjectView = () => {
               </div>
               <div className="flex w-full items-center justify-end gap-2 shrink-0 sm:w-auto">
                 {!openable ? (
-                  <Badge variant="secondary" className="gap-1">
-                    <Lock className="h-3 w-3" />
-                    مدفوع
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="gap-1">
+                      <Lock className="h-3 w-3" />
+                      مقفول
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!activeGroup) return;
+                        setSelectedCourse(activeGroup);
+                        setShowSubscribeConfirm(true);
+                      }}
+                    >
+                      <Wallet className="h-3.5 w-3.5" />
+                      اشتراك
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     variant="outline"
