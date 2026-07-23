@@ -105,7 +105,7 @@ async function fetchPlaybackFromBunnyEmbed(embedUrl: string) {
       /content=["']([^"']+thumbnail\.jpg[^"']*)["'][^>]+property=["']og:image["']/i,
       /(https:\/\/[^"'\s<>]+thumbnail\.jpg[^"'\s<>]*)/i,
     ]);
-    return playbackUrl ? { playbackUrl, thumbnailUrl } : null;
+    return playbackUrl ? { playbackUrl, thumbnailUrl, embedUrl } : null;
   } catch (error) {
     console.warn("Bunny embed resolver exception", error);
     return null;
@@ -266,6 +266,7 @@ Deno.serve(async (req) => {
         || await fetchPlaybackFromBunnyEmbed(`${baseEmbed}?autoplay=true&preload=true&responsive=true`);
       if (embedPlayback?.playbackUrl) {
         playbackUrl = embedPlayback.playbackUrl;
+        embedUrl = embedPlayback.embedUrl || embedUrl;
         thumbnailUrl = embedPlayback.thumbnailUrl || thumbnailUrl;
         signed = true;
       }
