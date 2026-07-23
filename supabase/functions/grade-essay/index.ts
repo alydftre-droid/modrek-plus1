@@ -577,7 +577,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           );
           scores[key] = guarded.score;
           const aiFeedback = String(r.feedback || "").trim();
-          feedback[key] = aiFeedback.length >= 20 ? aiFeedback : safeLocalFeedback(gradingItem, guarded.score);
+          feedback[key] = aiFeedback.length >= 80 ? aiFeedback : safeLocalFeedback(gradingItem, guarded.score);
           await logExamTrace("grade_essay.item.graded", {
             question_id: gradingItem.questionId,
             question_order: gradingItem.questionOrder ?? null,
@@ -630,7 +630,7 @@ ${e.questionOrder !== undefined ? `ترتيب السؤال للعرض فقط: ${
           );
           scores[key] = guarded.score;
           const aiFeedback = String(r.feedback || "").trim();
-          feedback[key] = aiFeedback.length >= 20 ? aiFeedback : safeLocalFeedback(essayItem, guarded.score);
+          feedback[key] = aiFeedback.length >= 80 ? aiFeedback : safeLocalFeedback(essayItem, guarded.score);
         });
       } else {
         console.warn("grade-essay provider unavailable; using deterministic fallback", JSON.stringify({ status: result.status, error: result.lastError || null }));
