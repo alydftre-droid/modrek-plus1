@@ -112,8 +112,17 @@ Deno.serve(async (req) => {
   }
 
   const bunny = getBunnyStreamConfig();
-  if (bunny.missing.length > 0) {
-    return jsonResponse({ error: "Bunny Stream production environment is not fully configured", missing: bunny.missing }, 500);
+  const url = new URL(req.url);
+  const action = url.searchParams.get("action");
+
+  // sign-playback + health don't need the write API key — only library + cdn (+ optional token key).
+  // Other actions (create/get/delete-video) need the full config.
+  const readOnlyAction = action === "sign-playback" || action === "health";
+  const missingForAction = readOnlyAction
+    ? bunny.missing.filter((m) => m !== "BUNNY_STREAM_API_KEY")
+    : bunny.missing;
+  if (missingForAction.length > 0) {
+    return jsonResponse({ error: "Bunny Stream production environment is not fully configured", missing: missingForAction }, 500);
   }
 
   // --- Authentication ---
