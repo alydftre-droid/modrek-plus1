@@ -83,12 +83,20 @@ const TermManagement = () => {
     setSaving(true);
     try {
       const selectedTerms = terms.filter(t => selected.has(t.id));
-      const updates = selectedTerms.map(t =>
-        supabase.from("system_terms")
-          .update({ current_term: targetTerm, updated_at: new Date().toISOString() })
-          .eq("id", t.id)
-      );
-      await Promise.all(updates);
+      const { data: switchResult, error: switchError } = await supabase.rpc("admin_switch_system_terms" as any, {
+        _term_ids: selectedTerms.map((t) => t.id),
+        _target_term: targetTerm,
+      });
+
+      if (switchError) {
+        console.error("Term switch failed", switchError);
+        throw switchError;
+      }
+
+      const updatedCount = Number((switchResult as any)?.updated_count || 0);
+      if (updatedCount === 0) {
+        throw new Error("لم يتم تحديث أي صف");
+      }
 
       // Send personalized notifications
       const termName = termLabels[targetTerm];
@@ -143,8 +151,9 @@ const TermManagement = () => {
       toast.success(`تم التحويل إلى ${termLabels[targetTerm]} وإرسال الإشعارات بنجاح`);
       setSelected(new Set());
       await fetchTerms();
-    } catch {
-      toast.error("خطأ في تبديل الترم");
+    } catch (error) {
+      console.error(error);
+      toast.error("خطأ في تبديل الترم - لم يتم حفظ التغيير");
     } finally {
       setSaving(false);
     }
