@@ -18,7 +18,7 @@ import {
   subjectFilterFromTeacherSelection,
 } from "@/lib/teacherSubjectUtils";
 import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
-import { getCurrentTermForStageGrade } from "@/lib/termSystem";
+import { getCurrentTermForStageGradeStrict } from "@/lib/termSystem";
 
 export default function TeacherGradeDashboard() {
   const { user } = useAuth();
@@ -65,7 +65,12 @@ export default function TeacherGradeDashboard() {
       return;
     }
 
-    const activeTerm = await getCurrentTermForStageGrade(stageKey, gradeKey);
+    const activeTerm = await getCurrentTermForStageGradeStrict(stageKey, gradeKey);
+    if (!activeTerm) {
+      setStats({ totalStudents: 0, subscribedStudents: 0, videos: 0, books: 0, exams: 0, summaries: 0 });
+      setLoading(false);
+      return;
+    }
 
     const { data: subjects } = await supabase
       .from("subjects").select("id")

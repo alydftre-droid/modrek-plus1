@@ -6937,6 +6937,10 @@ export type Database = {
         Returns: boolean
       }
       term_grade_key: { Args: { _grade: string }; Returns: string }
+      term_item_matches_current_system_term: {
+        Args: { _group_id: string; _subject_id: string; _term: string }
+        Returns: boolean
+      }
       validate_financial_closing_functions: { Args: never; Returns: Json }
       validate_recharge_code: {
         Args: { code_text: string }
