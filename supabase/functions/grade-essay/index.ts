@@ -212,7 +212,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "غير مصرح" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const [{ data: questions }, { data: answers }, { data: options }] = await Promise.all([
+    const [{ data: questions }, { data: answers }] = await Promise.all([
       sb.from("exam_questions")
         .select("id, question_text, question_type, correct_answer, explanation, marks, order_index")
         .eq("exam_id", attempt.exam_id)
@@ -222,9 +222,6 @@ serve(async (req) => {
       sb.from("exam_answers")
         .select("id, question_id, answer_text, selected_option_ids, marks_awarded, is_correct")
         .eq("attempt_id", attemptId),
-      sb.from("exam_question_options")
-        .select("id, question_id, option_text, is_correct")
-        .in("question_id", []), // placeholder; replaced below
     ]);
 
     const questionIds = (questions || []).map((q: any) => q.id);
@@ -293,7 +290,7 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `أنت مُصحِّح خبير ومعلّم عربي محترف. مهمتك ليست إخبار الطالب بأن إجابته صحيحة أو خاطئة فقط، بل أن تقدّم له تجربة تعليمية غنية بعد كل سؤال.
+    const systemPrompt = `أنت مُصحِّح خبير ومعلّم عربي محترف داخل منصة تعليمية. المطلوب ليس قول "صح" أو "خطأ"، وليس إعادة كتابة إجابة الطالب. المطلوب أن تشرح للطالب لماذا صحّت إجابته أو لماذا أخطأ، ثم تثبّت المعلومة في ذهنه مثل معلّم يراجع معه السؤال بعد الامتحان.
 
 ## الإخراج لكل سؤال (إلزامي)
 لكل سؤال يجب أن تُرجع الحقول التالية:
@@ -310,13 +307,15 @@ serve(async (req) => {
 - ممنوع أن تكون explanation جملة واحدة أو سطراً واحداً. يجب أن تشرح الفكرة/الدرس (مثلاً: إذا كان السؤال عن الوضوء اشرح الوضوء نفسه، وإذا عن الزكاة اشرح الزكاة).
 - ممنوع أن تكرر explanation نفس نص correct_answer فقط.
 - extra يجب أن تبدأ بصيغة مميّزة مثل: "هل تعلم؟" أو "معلومة مهمة:" أو "تذكّر دائماً:" أو "قاعدة مفيدة:" وتضيف قيمة معرفية جديدة (ليست تكراراً).
+- إذا كانت الإجابة صحيحة لا تكتب فقط "إجابة صحيحة"؛ اشرح سبب صحة الاختيار والقاعدة التي جعلته صحيحاً.
+- إذا كانت الإجابة خاطئة لا تكتفِ بذكر الصحيح؛ قارن بين إجابة الطالب والصحيح واذكر سبب الالتباس.
 
 ## قواعد notes حسب حالة الإجابة
 ### إذا كانت الإجابة صحيحة تماماً:
 - اشرح **لماذا** هذه الإجابة تعتبر صحيحة علمياً/شرعياً/منطقياً.
 - بيّن مستوى فهم الطالب وما يدل عليه اختياره.
 - نبّه لنقطة يجب أن ينتبه لها مستقبلاً (خطأ شائع قريب من هذا السؤال).
-- 3–5 أسطر متكاملة، لا سطر واحد.
+- 4–6 أسطر متكاملة، لا سطر واحد.
 ### إذا كانت الإجابة خاطئة (mcq/tf/fill_blank/كتابي):
 - اشرح **أين** الخطأ بدقة داخل إجابة الطالب.
 - اشرح **لماذا** غالباً اختار الطالب هذه الإجابة (ما الشبهة أو التشابه الذي أوقعه فيها).
@@ -332,7 +331,7 @@ serve(async (req) => {
 
 ## قواعد explanation
 - الشرح يشرح **الدرس/المفهوم**، ليس الاختيار فقط.
-- استخدم فقرة تعليمية متكاملة (3 إلى 6 أسطر).
+- استخدم فقرة تعليمية متكاملة (4 إلى 7 أسطر).
 - ابدأ بتعريف المفهوم، ثم اذكر أركانه/شروطه/تفاصيله المهمة، ثم اربطه بواقع الطالب أو مثال بسيط.
 - ممنوع أن تبدأ بـ "الإجابة الصحيحة هي..." أو "بالطبع" أو "بالتأكيد".
 
@@ -435,8 +434,20 @@ ${it.questionExplanation ? `شرح المعلم المخزّن (استعن به 
       } catch { return []; }
     }
 
-    // Batch into chunks of 8 to keep each prompt focused and each response rich.
-    const CHUNK = 8;
+    const isWeakAiFeedback = (r: any) => {
+      const notes = String(r?.notes || "").trim();
+      const explanation = String(r?.explanation || "").trim();
+      const extra = String(r?.extra || "").trim();
+      const generic = normalizeArabicText(`${notes} ${explanation}`);
+      if (notes.length < 120 || explanation.length < 170 || extra.length < 35) return true;
+      if (/^(✅|❌|🟡)?\s*(اجابة|إجابة)\s+(صحيحة|غير صحيحة|خطأ|جزئية)[.!؟\s]*$/i.test(notes)) return true;
+      if (generic.includes("اجابه صحيحه") && notes.length < 180) return true;
+      if (generic.includes("راجع الاجابه الصحيحه") && notes.length < 180) return true;
+      return false;
+    };
+
+    // Batch into small chunks to force detailed per-question reasoning instead of generic one-line notes.
+    const CHUNK = 4;
     for (let i = 0; i < items.length; i += CHUNK) {
       const batch = items.slice(i, i + CHUNK);
       let aiResults: any[] = [];
@@ -446,7 +457,7 @@ ${it.questionExplanation ? `شرح المعلم المخزّن (استعن به 
       const byQ = new Map(aiResults.map((r: any) => [String(r.questionId || ""), r]));
       for (const it of batch) {
         const r: any = byQ.get(it.questionId);
-        if (r && String(r.notes || "").length >= 40 && String(r.explanation || "").length >= 60) {
+        if (r && !isWeakAiFeedback(r)) {
           // Score handling
           if (!it.isObjective) {
             const proposed = Number(r.score);
