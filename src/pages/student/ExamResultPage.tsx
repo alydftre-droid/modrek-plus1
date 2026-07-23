@@ -19,6 +19,8 @@ export default function ExamResultPage() {
   const [exam, setExam] = useState<any>(null);
   const [attemptsCount, setAttemptsCount] = useState<number>(1);
   const [loading, setLoading] = useState(true);
+  const [gradingTimedOut, setGradingTimedOut] = useState(false);
+  const [retryingGrade, setRetryingGrade] = useState(false);
 
   const loadResult = async () => {
       const [{ data: a }, { data: e }] = await Promise.all([
