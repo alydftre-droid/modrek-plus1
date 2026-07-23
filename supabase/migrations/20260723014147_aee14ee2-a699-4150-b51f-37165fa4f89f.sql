@@ -1,0 +1,1 @@
+select public.process_scheduled_withdrawal_release();
