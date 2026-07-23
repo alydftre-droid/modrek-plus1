@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { extractBunnyVideoId, isBunnyVideo } from "@/lib/bunnyStream";
+import { extractBunnyVideoId, getBunnyEmbedUrl, isBunnyVideo } from "@/lib/bunnyStream";
 
 export interface SignedPlayback {
   videoId: string;
@@ -16,6 +16,43 @@ const cache = new Map<string, SignedPlayback>();
 
 function isFresh(sp: SignedPlayback): boolean {
   return sp.expiresAt * 1000 - Date.now() > 5 * 60 * 1000;
+}
+
+async function fetchEmbedFallback(videoId: string): Promise<SignedPlayback | null> {
+  try {
+    const embedUrl = getBunnyEmbedUrl(videoId);
+    const response = await fetch(embedUrl, { credentials: "omit" });
+    if (!response.ok) return null;
+    const html = await response.text();
+    const decode = (value: string) => {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = value;
+      return textarea.value;
+    };
+    const playbackUrl = decode(
+      html.match(/<source[^>]+type=["']application\/vnd\.apple\.mpegURL["'][^>]+src=["']([^"']+playlist\.m3u8[^"']*)["']/i)?.[1]
+      || html.match(/urlPlaylistUrl\s*=\s*["']([^"']+playlist\.m3u8[^"']*)["']/i)?.[1]
+      || html.match(/(https:\/\/[^"'\s<>]+playlist\.m3u8[^"'\s<>]*)/i)?.[1]
+      || ""
+    );
+    if (!playbackUrl) return null;
+    const thumbnailUrl = decode(
+      html.match(/data-poster=["']([^"']+thumbnail\.jpg[^"']*)["']/i)?.[1]
+      || html.match(/property=["']og:image["'][^>]+content=["']([^"']+thumbnail\.jpg[^"']*)["']/i)?.[1]
+      || html.match(/content=["']([^"']+thumbnail\.jpg[^"']*)["'][^>]+property=["']og:image["']/i)?.[1]
+      || ""
+    );
+    return {
+      videoId,
+      playbackUrl,
+      embedUrl,
+      thumbnailUrl,
+      expiresAt: Math.floor(Date.now() / 1000) + 60 * 60,
+      signed: true,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -38,6 +75,11 @@ export async function getSignedPlayback(fileUrlOrVideoId: string): Promise<Signe
   });
 
   if (error || !data?.playbackUrl) {
+    const fallback = await fetchEmbedFallback(videoId);
+    if (fallback) {
+      cache.set(videoId, fallback);
+      return fallback;
+    }
     return null;
   }
 
