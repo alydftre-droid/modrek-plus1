@@ -51,11 +51,31 @@ export default function ExamResultPage() {
     const timer = window.setInterval(() => {
       ticks += 1;
       loadResult();
-      if (ticks >= 40) window.clearInterval(timer);
+      if (ticks >= 60) {
+        window.clearInterval(timer);
+        setGradingTimedOut(true);
+      }
     }, 3000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt?.id, attempt?.is_graded]);
+
+  const retryGrading = async () => {
+    if (!attemptId) return;
+    setRetryingGrade(true);
+    setGradingTimedOut(false);
+    try {
+      const { error } = await supabase.functions.invoke("grade-essay", { body: { attemptId } });
+      if (error) throw error;
+      toast.success("تم إعادة تشغيل التصحيح الذكي");
+      await loadResult();
+    } catch (e: any) {
+      toast.error("تعذّر إعادة تشغيل التصحيح — سيقوم المعلم بمراجعة إجابتك");
+      setGradingTimedOut(true);
+    } finally {
+      setRetryingGrade(false);
+    }
+  };
 
   const passed = attempt?.passed;
   const pct = Number(attempt?.percentage || 0);
