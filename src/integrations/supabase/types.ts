@@ -6928,6 +6928,7 @@ export type Database = {
         Args: { _metadata: Json }
         Returns: boolean
       }
+      validate_financial_closing_functions: { Args: never; Returns: Json }
       validate_recharge_code: {
         Args: { code_text: string }
         Returns: {
