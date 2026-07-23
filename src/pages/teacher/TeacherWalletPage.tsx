@@ -1481,10 +1481,13 @@ function MethodDialog({ open, onOpenChange, editing, methodType, setMethodType, 
 }
 
 // ============================================================
-// ArchiveWalletReplica — pixel-perfect frozen copy of the
+// ArchiveWalletReplica — TRUE Pixel-Perfect frozen copy of the
 // teacher's wallet exactly as it appeared at closing time.
-// Reads only from archive.snapshot (immutable). Never touches
-// live data so the archive is truly a time-travel view.
+// Renders the SAME section order and SAME components as the live
+// main view. All data comes from archive.snapshot only. Interactive
+// controls are visually preserved but disabled (read-only mode).
+// Every grade is rendered with its OWN full details table (no
+// truncation) so the archive stands alone as a complete document.
 // ============================================================
 function ArchiveWalletReplica({ archive }: { archive: any }) {
   const snap = (archive.snapshot && typeof archive.snapshot === "object" && Object.keys(archive.snapshot).length > 0)
@@ -1529,8 +1532,6 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
   const snapWithdrawals: any[] = Array.isArray(snap?.withdrawals) ? snap.withdrawals : [];
   const paymentMethodsSnap: any[] = Array.isArray(snap?.payment_methods) ? snap.payment_methods : [];
 
-  // Focused grade for the details table (default: top grade)
-  const [focusedKey, setFocusedKey] = useState<string | null>(null);
   const gradeNodes: GradeNode[] = grades.map((g) => ({
     key: g.key,
     stage: g.stage || "",
@@ -1540,15 +1541,13 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
     subscriberCount: Number(g.subscriberCount || 0),
     groupCount: Number(g.groupCount || 0),
   }));
-  const activeKey = focusedKey || gradeNodes[0]?.key || null;
-  const focusedNode = gradeNodes.find((g) => g.key === activeKey) || null;
-  const focusedGroups = activeKey ? (gradeDetails[activeKey] || []) : [];
-  const focusedTotal = focusedGroups.reduce((s, g) => s + Number(g.net || 0), 0);
-  const focusedStudents = focusedGroups.reduce((s, g) => s + Number(g.count || 0), 0);
 
   const withdrawalStatusLabel = (s: string) => ({
     pending: "قيد المراجعة", approved: "قيد التنفيذ", paid: "تمت", rejected: "مرفوضة", cancelled: "ملغاة",
   } as Record<string, string>)[s] || s;
+
+  const noop = () => {};
+  const palette = ["sky", "violet", "emerald", "amber", "rose", "indigo"];
 
   return (
     <div className="space-y-4">
@@ -1556,12 +1555,12 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 font-bold flex items-center gap-2">
         <Archive className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">
-          نسخة أرشيفية مثبتة لشهر {monthLabel(archive.period_label)}
+          نسخة أرشيفية مثبتة — للقراءة فقط • {monthLabel(archive.period_label)}
           {snap?.captured_at && ` — ${new Date(snap.captured_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}`}
         </span>
       </div>
 
-      {/* ============== HERO (identical to live wallet) ============== */}
+      {/* ============== HERO (identical to live wallet, frozen variant) ============== */}
       <div
         dir="rtl"
         className="relative w-full mx-auto overflow-hidden text-white"
@@ -1618,74 +1617,69 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
         </div>
       )}
 
-      {/* ============== EARNINGS BY GRADE (replica) ============== */}
+      {/* ============== 4 ACTION CARDS (2x2, read-only) ============== */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <ActionRow onClick={noop} disabled label="طلب سحب" sub="غير متاح في الأرشيف"
+          icon={<ArrowDownCircle className="h-5 w-5" />} iconBg="linear-gradient(135deg,#22c55e,#16a34a)" />
+        <ActionRow onClick={noop} disabled label="سجل السحوبات" sub={`${snapWithdrawals.length} طلب هذا الشهر`}
+          icon={<History className="h-5 w-5" />} iconBg="linear-gradient(135deg,#3b82f6,#2563eb)" />
+        <ActionRow onClick={noop} disabled label="سجل المحفظة" sub="أرشيف الشهر"
+          icon={<BookOpen className="h-5 w-5" />} iconBg="linear-gradient(135deg,#a855f7,#7c3aed)" />
+        <ActionRow onClick={noop} disabled label="طرق الدفع" sub={`${paymentMethodsSnap.length} طريقة مسجلة`}
+          icon={<CreditCard className="h-5 w-5" />} iconBg="linear-gradient(135deg,#fb923c,#f97316)" />
+      </div>
+
+      {/* ============== EARNINGS BY GRADE (ALL grades, wrapping grid — no truncation) ============== */}
       {gradeNodes.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2 px-1">
             <h2 className="font-black text-sm">الأرباح حسب الصفوف</h2>
             <span className="text-[11px] text-muted-foreground">{gradeNodes.length} صفوف</span>
           </div>
-          {gradeNodes.length <= 3 ? (
-            <div className={`grid gap-2 ${gradeNodes.length === 1 ? "grid-cols-1" : gradeNodes.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
-              {gradeNodes.map((ge, i) => {
-                const hist = gradeHistory[ge.key] || [];
-                const series = hist.length ? hist : [0, ge.totalEarned];
-                const prev = hist.length > 1 ? hist[hist.length - 2] : 0;
-                const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
-                return (
-                  <GradeMiniCard key={ge.key} node={ge} active={ge.key === activeKey}
-                    delta={delta} series={series.length >= 2 ? series : [0, ge.totalEarned]}
-                    color={["sky", "violet", "emerald"][i] || "sky"}
-                    onClick={() => setFocusedKey(ge.key)}
-                    onOpen={() => setFocusedKey(ge.key)} />
-                );
-              })}
-            </div>
-          ) : (
-            <div className="-mx-1 overflow-x-auto scrollbar-none snap-x snap-mandatory">
-              <div className="flex gap-2 px-1 pb-1">
-                {gradeNodes.map((ge, i) => {
-                  const hist = gradeHistory[ge.key] || [];
-                  const series = hist.length ? hist : [0, ge.totalEarned];
-                  const prev = hist.length > 1 ? hist[hist.length - 2] : 0;
-                  const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
-                  const palette = ["sky", "violet", "emerald", "amber", "rose", "indigo"];
-                  return (
-                    <div key={ge.key} className="shrink-0 snap-start" style={{ width: "calc((100% - 1rem) / 3)", minWidth: "112px" }}>
-                      <GradeMiniCard node={ge} active={ge.key === activeKey}
-                        delta={delta} series={series.length >= 2 ? series : [0, ge.totalEarned]}
-                        color={palette[i % palette.length]}
-                        onClick={() => setFocusedKey(ge.key)}
-                        onOpen={() => setFocusedKey(ge.key)} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          <div className="grid grid-cols-3 gap-2">
+            {gradeNodes.map((ge, i) => {
+              const hist = gradeHistory[ge.key] || [];
+              const series = hist.length ? hist : [0, ge.totalEarned];
+              const prev = hist.length > 1 ? hist[hist.length - 2] : 0;
+              const delta = prev > 0 ? Math.round(((ge.totalEarned - prev) / prev) * 100) : (ge.totalEarned > 0 ? 100 : 0);
+              return (
+                <GradeMiniCard key={ge.key} node={ge} active={false}
+                  delta={delta} series={series.length >= 2 ? series : [0, ge.totalEarned]}
+                  color={palette[i % palette.length]}
+                  onClick={noop} onOpen={noop} />
+              );
+            })}
+          </div>
         </div>
       )}
 
-      {/* ============== FOCUSED GRADE TABLE ============== */}
-      {focusedNode && focusedGroups.length > 0 && (
-        <Card className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
-          <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2 px-3 pt-3">
-            <CardTitle className="text-[13px] font-black truncate">
-              تفاصيل - الصف {formatGrade(focusedNode.grade)} {formatStage(focusedNode.stage)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <GradeEarningsTable groups={focusedGroups as any} pct={ratePct} />
-            <div className="border-t border-border/50 px-3 py-2.5 flex items-center justify-between bg-emerald-50/50">
-              <span className="text-xs font-bold">إجمالي الصف</span>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">{focusedStudents} طالب</span>
-                <span className="text-sm font-black text-emerald-600">{fmtMoney(focusedTotal)} ج</span>
+      {/* ============== FULL DETAILS TABLE — one per grade (no truncation) ============== */}
+      {gradeNodes.map((node) => {
+        const gGroups = (gradeDetails[node.key] || []) as any[];
+        if (gGroups.length === 0) return null;
+        const gTotal = gGroups.reduce((s, g) => s + Number(g.net || 0), 0);
+        const gStudents = gGroups.reduce((s, g) => s + Number(g.count || 0), 0);
+        return (
+          <Card key={`gd-${node.key}`} className="border border-border/60 rounded-2xl shadow-none overflow-hidden">
+            <CardHeader className="pb-2 flex-row items-center justify-between space-y-0 gap-2 px-3 pt-3">
+              <CardTitle className="text-[13px] font-black truncate">
+                تفاصيل - الصف {formatGrade(node.grade)} {formatStage(node.stage)}
+              </CardTitle>
+              <span className="text-[10px] text-muted-foreground shrink-0">{node.category}</span>
+            </CardHeader>
+            <CardContent className="p-0">
+              <GradeEarningsTable groups={gGroups as any} pct={ratePct} />
+              <div className="border-t border-border/50 px-3 py-2.5 flex items-center justify-between bg-emerald-50/50">
+                <span className="text-xs font-bold">إجمالي الصف</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">{gStudents} طالب</span>
+                  <span className="text-sm font-black text-emerald-600">{fmtMoney(gTotal)} ج</span>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* ============== GROWTH CHART ============== */}
       {growthSeries.length > 0 && (
@@ -1729,6 +1723,16 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
           <SummaryStat label={`أرباح (${ratePct}%)`} value={fmtInt(Number(summary.currentMonthProfit || 0))} sub="جنيه" icon={<TrendingUp className="h-4 w-4" />} iconTone="profit" highlight />
         </CardContent>
       </Card>
+
+      {/* ============== INFO PILLS (frozen values) ============== */}
+      <div className="grid grid-cols-1 gap-2">
+        <InfoPill iconBg="bg-amber-500" icon={<Lock className="h-5 w-5 text-white" />}
+          title="السحب أُقفل عن هذا الشهر" subtitle={openDateLabel ? `أُقفل بتاريخ ${openDateLabel}` : "شهر مغلق ونسخة أرشيفية"} />
+        <InfoPill iconBg="bg-blue-500" icon={<Calendar className="h-5 w-5 text-white" />}
+          title="الشهر المؤرشف" subtitle={monthLabel(archive.period_label)} />
+        <InfoPill iconBg="bg-violet-500" icon={<PieChart className="h-5 w-5 text-white" />}
+          title="نسبة العمولة وقت الإقفال" subtitle={`${ratePct}% من قيمة الاشتراكات`} />
+      </div>
 
       {/* ============== GROUPS + STUDENT DETAILS ============== */}
       {groupsList.length > 0 && (
@@ -1787,7 +1791,7 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
               <div key={w.id} className="p-3 rounded-2xl bg-background border border-border/60 flex items-start justify-between gap-3">
                 <div className="min-w-0 text-right">
                   <p className="text-sm font-black">{fmtMoney(Number(w.amount))} ج</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{w.payment_method} • <span dir="ltr">{w.phone_number}</span></p>
+                  <p className="text-[11px] text-muted-foreground truncate">{methodLabels[w.payment_method] || w.payment_method} • <span dir="ltr">{w.phone_number}</span></p>
                   {w.admin_message && <p className="text-[10px] text-slate-500 mt-1 line-clamp-2">{w.admin_message}</p>}
                   <p className="text-[10px] text-slate-500 mt-1" dir="ltr">{new Date(w.created_at).toLocaleString("ar-EG", { timeZone: "Africa/Cairo" })}</p>
                 </div>
@@ -1804,8 +1808,13 @@ function ArchiveWalletReplica({ archive }: { archive: any }) {
           <div className="grid grid-cols-1 gap-2">
             {paymentMethodsSnap.map((pm: any) => (
               <div key={pm.id} className="p-3 rounded-2xl bg-muted/40 border border-border/50 flex items-center justify-between">
-                <p className="text-sm font-bold">{methodLabels[pm.method_type] || pm.method_type}</p>
-                <p className="text-xs text-muted-foreground" dir="ltr">{pm.phone_number}</p>
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-2xl bg-gradient-to-br ${methodColors[pm.method_type] || "from-primary to-primary/70"} flex items-center justify-center shadow-md`}>
+                    <CreditCard className="h-4 w-4 text-white" />
+                  </div>
+                  <p className="text-sm font-bold">{methodLabels[pm.method_type] || pm.method_type}</p>
+                </div>
+                <p className="text-xs text-muted-foreground font-mono" dir="ltr">{pm.phone_number}</p>
               </div>
             ))}
           </div>
