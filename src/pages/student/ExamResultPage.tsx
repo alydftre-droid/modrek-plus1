@@ -21,6 +21,7 @@ export default function ExamResultPage() {
   const [loading, setLoading] = useState(true);
   const [gradingTimedOut, setGradingTimedOut] = useState(false);
   const [retryingGrade, setRetryingGrade] = useState(false);
+  const [pollNonce, setPollNonce] = useState(0);
 
   const loadResult = async () => {
       const [{ data: a }, { data: e }] = await Promise.all([
@@ -58,7 +59,7 @@ export default function ExamResultPage() {
     }, 3000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt?.id, attempt?.is_graded]);
+  }, [attempt?.id, attempt?.is_graded, pollNonce]);
 
   const retryGrading = async () => {
     if (!attemptId) return;
@@ -69,6 +70,7 @@ export default function ExamResultPage() {
       if (error) throw error;
       toast.success("تم إعادة تشغيل التصحيح الذكي");
       await loadResult();
+      setPollNonce((n) => n + 1);
     } catch (e: any) {
       toast.error("تعذّر إعادة تشغيل التصحيح — سيقوم المعلم بمراجعة إجابتك");
       setGradingTimedOut(true);
