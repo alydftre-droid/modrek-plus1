@@ -98,6 +98,7 @@ interface CourseGroup {
   start_date: string | null;
   end_date: string | null;
   content_count: number;
+  term?: string | null;
 }
 
 const normalizeTeacherDisplayName = (name?: string | null) => (name || "").trim();
@@ -116,6 +117,24 @@ interface ContentRow {
   subject_id: string | null;
   sub_subject: string | null;
   sub_subject_id?: string | null;
+  is_accessible?: boolean;
+}
+
+interface StudentContentCatalogRow {
+  id: string;
+  title: string;
+  type: string;
+  file_url: string | null;
+  thumbnail_url?: string | null;
+  description: string | null;
+  created_at: string | null;
+  is_paid: boolean;
+  is_free_preview: boolean;
+  group_id: string | null;
+  subject_id: string | null;
+  sub_subject: string | null;
+  sub_subject_id?: string | null;
+  is_accessible: boolean;
 }
 
 
@@ -565,15 +584,28 @@ const StudentSubjectView = () => {
     const groupIds = (groups || []).map(g => g.id);
     let contentCounts = new Map<string, number>();
     if (groupIds.length > 0) {
-      const { data: contents } = await supabase
-        .from("content")
-        .select("group_id")
-        .in("group_id", groupIds)
-        .eq("is_active", true)
-        .eq("term", activeTerm);
-      (contents || []).forEach(c => {
-        if (c.group_id) contentCounts.set(c.group_id, (contentCounts.get(c.group_id) || 0) + 1);
-      });
+      const countResults = await Promise.all(
+        groupIds.map(async (groupId) => {
+          const { data, error } = await supabase.rpc("get_student_group_content_catalog" as any, {
+            _group_id: groupId,
+            _sub_subject_id: null,
+          });
+
+          if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
+
+          console.warn("Secure group catalog count failed; falling back to direct count", { groupId, error });
+          const group = groups.find((item) => item.id === groupId) as any;
+          const { count } = await supabase
+            .from("content")
+            .select("id", { count: "exact", head: true })
+            .eq("group_id", groupId)
+            .eq("is_active", true)
+            .eq("term", group?.term || activeTerm);
+          return [groupId, count || 0] as const;
+        }),
+      );
+
+      contentCounts = new Map(countResults);
     }
 
     const ps = purchasedSet || purchasedGroups;
@@ -753,6 +785,35 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
+      const activeGroup = courses.find((course) => course.id === groupId);
+
+      const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
+        _group_id: groupId,
+        _sub_subject_id: subSubjectId || null,
+      });
+
+      if (!secureError) {
+        setContent(((secureRows || []) as StudentContentCatalogRow[]).map((row) => ({
+          id: row.id,
+          title: row.title,
+          type: row.type,
+          file_url: row.file_url || "",
+          thumbnail_url: row.thumbnail_url || null,
+          description: row.description,
+          created_at: row.created_at,
+          is_paid: row.is_paid,
+          is_free_preview: row.is_free_preview,
+          group_id: row.group_id,
+          subject_id: row.subject_id,
+          sub_subject: row.sub_subject,
+          sub_subject_id: row.sub_subject_id,
+          is_accessible: row.is_accessible,
+        })) as ContentRow[]);
+        return;
+      }
+
+      console.warn("Secure group catalog unavailable; using legacy content query", secureError);
+
       // Section filtering is applied on the CONTENT rows via the joined subject.section,
       // not by restricting to a pre-computed list of subject IDs (that list can be empty
       // if the student's `subjects` context is still loading or if the teacher uploaded
@@ -770,7 +831,7 @@ const StudentSubjectView = () => {
         .select(selectColumns)
         .eq("group_id", groupId)
         .eq("is_active", true)
-        .eq("term", currentTerm)
+        .eq("term", activeGroup?.term || currentTerm)
         .order("order_index", { ascending: true });
 
         // Filter by education_type - show content matching student's type, "both", or shared content (null).
@@ -915,7 +976,7 @@ const StudentSubjectView = () => {
 
 
   const canOpenContent = (item: ContentRow) =>
-    activeGroupPurchased || item.is_free_preview === true;
+    item.is_accessible === true || activeGroupPurchased || item.is_free_preview === true;
 
   const handleContentClick = (e: React.MouseEvent, item: ContentRow) => {
     e.stopPropagation();

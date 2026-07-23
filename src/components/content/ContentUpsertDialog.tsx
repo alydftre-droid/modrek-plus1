@@ -107,7 +107,7 @@ interface ContentUpsertDialogProps {
   uploadedBy?: string;
   item?: ContentItem;
   onSuccess?: () => void;
-  groups?: { id: string; title: string }[];
+  groups?: { id: string; title: string; term?: string | null }[];
   sectionTarget?: string | null;
   allSubjectIds?: string[];
   defaultGroupId?: string;
@@ -350,7 +350,23 @@ const ContentUpsertDialog = ({
       setUploading(true);
       setUploadProgress(null);
       try {
-        const resolvedTerm = currentTerm || await getCurrentTermForSubject(subjectId);
+        const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
+        let groupTerm: string | null = null;
+        if (groupId) {
+          groupTerm = groups.find((group) => group.id === groupId)?.term || null;
+          if (!groupTerm) {
+            const { data: groupRow, error: groupTermError } = await supabase
+              .from("content_groups")
+              .select("term")
+              .eq("id", groupId)
+              .maybeSingle();
+
+            if (groupTermError) throw groupTermError;
+            groupTerm = (groupRow as any)?.term || null;
+          }
+        }
+
+        const resolvedTerm = groupTerm || currentTerm || await getCurrentTermForSubject(subjectId);
         
         let fileUrl: string;
         let thumbnailUrl: string | null = null;
@@ -403,7 +419,6 @@ const ContentUpsertDialog = ({
           return;
         }
 
-        const groupId = selectedGroupId && selectedGroupId !== "none" ? selectedGroupId : (defaultGroupId || null);
         const resolvedSubSubjectId = subSubjectId || (selectedSubSubjectRow && selectedSubSubjectRow.id !== selectedSubSubjectRow.name ? selectedSubSubjectRow.id : null);
         const resolvedSubSubjectName = defaultSubSubject || selectedSubSubjectRow?.name || selectedSubSubject || null;
 

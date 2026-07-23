@@ -95,6 +95,7 @@ type GroupRow = {
   lesson_count: number | null;
   start_date: string | null;
   end_date: string | null;
+  term?: string | null;
 };
 
 function stageLabel(stage: string) {
@@ -895,7 +896,7 @@ const TeacherUploadContent = () => {
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
-          groups={selectedGroup ? [{ id: selectedGroup.id, title: selectedGroup.title }] : []}
+          groups={selectedGroup ? [{ id: selectedGroup.id, title: selectedGroup.title, term: selectedGroup.term }] : []}
           sectionTarget={sectionTarget}
           allSubjectIds={getUploadSubjectIds()}
           defaultGroupId={selectedGroup?.id}
