@@ -18,6 +18,7 @@ import {
   subjectFilterFromTeacherSelection,
 } from "@/lib/teacherSubjectUtils";
 import { reportTeacherScopedStudentIds } from "@/lib/testStudentLeakGuard";
+import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 
 export default function TeacherGradeDashboard() {
   const { user } = useAuth();
@@ -64,6 +65,8 @@ export default function TeacherGradeDashboard() {
       return;
     }
 
+    const activeTerm = await getCurrentTermForStageGrade(stageKey, gradeKey);
+
     const { data: subjects } = await supabase
       .from("subjects").select("id")
       .eq("category", subjectFilter.categoryKey)
@@ -101,6 +104,7 @@ export default function TeacherGradeDashboard() {
       const { data: groups } = await supabase
         .from("content_groups").select("id")
         .in("subject_id", subjectIds)
+        .eq("term", activeTerm)
         .or(`teacher_id.eq.${user.id},created_by.eq.${user.id}`);
       const groupIds = groups?.map(g => g.id) || [];
       if (groupIds.length > 0) {
@@ -131,8 +135,8 @@ export default function TeacherGradeDashboard() {
     let videoCount = 0, bookCount = 0, examCount = 0, summaryCount = 0;
     if (subjectIds.length > 0) {
       const [{ data: content }, { data: exams }] = await Promise.all([
-        supabase.from("content").select("type").eq("uploaded_by", user.id).eq("is_active", true).in("subject_id", subjectIds),
-        supabase.from("exams").select("id").eq("teacher_id", user.id).in("subject_id", subjectIds),
+        supabase.from("content").select("type").eq("uploaded_by", user.id).eq("is_active", true).eq("term", activeTerm).in("subject_id", subjectIds),
+        supabase.from("exams").select("id").eq("teacher_id", user.id).eq("term", activeTerm).in("subject_id", subjectIds),
       ]);
       if (content) {
         videoCount = content.filter(c => c.type === "video").length;
