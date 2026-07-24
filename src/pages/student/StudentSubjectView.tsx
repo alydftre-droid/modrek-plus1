@@ -160,14 +160,6 @@ const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRo
   subject_section: (row as any).subject_section || null,
 });
 
-type ContentVisibilityMeta = {
-  id: string;
-  education_type?: string | null;
-  subject_id?: string | null;
-  subject_section?: string | null;
-};
-
-
 // Sub-subjects fallback lists
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
 const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
@@ -871,120 +863,6 @@ const StudentSubjectView = () => {
         _sub_subject_id: subSubjectId || null,
       });
 
-      const filterContentByStudentTargets = async (rows: ContentRow[]) => {
-        if (rows.length === 0) return rows;
-
-        let metaById = new Map<string, ContentVisibilityMeta>(
-          rows.map((row) => [
-            row.id,
-            {
-              id: row.id,
-              education_type: row.education_type || null,
-              subject_id: row.subject_id || null,
-              subject_section: row.subject_section || null,
-            },
-          ]),
-        );
-
-        const rowsMissingCatalogTargets = rows.some((row) => row.education_type === undefined || row.subject_section === undefined);
-        if (rowsMissingCatalogTargets) {
-          const rowIds = rows.map((row) => row.id).filter(Boolean);
-          const { data: visibilityRows, error: visibilityError } = await supabase
-            .from("content")
-            .select("id, education_type, subject_id")
-            .in("id", rowIds);
-
-          if (visibilityError) {
-            console.error("[student-content-visibility-guard] metadata lookup failed; keeping secure RPC rows", {
-              groupId,
-              subSubjectId: subSubjectId || null,
-              error: visibilityError,
-            });
-            return rows;
-          }
-
-          const subjectIds = [...new Set(((visibilityRows || []) as ContentVisibilityMeta[]).map((meta) => meta.subject_id).filter(Boolean))];
-          const { data: subjectRows, error: subjectError } = subjectIds.length
-            ? await supabase.from("subjects").select("id, section").in("id", subjectIds)
-            : { data: [], error: null };
-
-          if (subjectError) {
-            console.error("[student-content-visibility-guard] subject metadata lookup failed; keeping secure RPC rows", {
-              groupId,
-              subSubjectId: subSubjectId || null,
-              error: subjectError,
-            });
-            return rows;
-          }
-
-          const sectionBySubjectId = new Map(((subjectRows || []) as { id: string; section?: string | null }[]).map((subject) => [subject.id, subject.section || null]));
-          metaById = new Map(
-            ((visibilityRows || []) as ContentVisibilityMeta[]).map((meta) => [
-              meta.id,
-              {
-                ...meta,
-                subject_section: meta.subject_id ? sectionBySubjectId.get(meta.subject_id) || null : null,
-              },
-            ]),
-          );
-        }
-
-        const effectiveStudentSection = studentSection || section;
-        const normalizedStudentEdu = normalizeEducationType(studentEducationType);
-        const normalizedStudentSection = normalizeSectionForSubjects(effectiveStudentSection);
-        const filteredRows = rows.filter((row) => {
-          const meta = metaById.get(row.id);
-          if (!meta) {
-            console.warn("[student-content-visibility-guard] missing metadata; keeping secure RPC row", {
-              contentId: row.id,
-              title: row.title,
-              studentEducationType,
-              effectiveStudentSection,
-            });
-            return true;
-          }
-
-          const contentEdu = normalizeEducationType(meta.education_type);
-          const contentSection = normalizeSectionForSubjects(meta.subject_section);
-          const educationMatches = !contentEdu || (!!normalizedStudentEdu && contentEdu === normalizedStudentEdu);
-          const sectionMatches = !contentSection || (!!normalizedStudentSection && contentSection === normalizedStudentSection);
-          const allowed = educationMatches && sectionMatches;
-
-          console.info("[student-content-visibility-guard] evaluated content row", {
-            contentId: row.id,
-            title: row.title,
-            contentEducationType: meta.education_type || null,
-            studentEducationType,
-            contentSection: meta.subject_section || null,
-            studentSection: effectiveStudentSection,
-            educationMatches,
-            sectionMatches,
-            allowed,
-          });
-
-          return allowed;
-        });
-
-        if (filteredRows.length !== rows.length) {
-          console.warn("[student-content-visibility-guard] blocked mismatched content rows", {
-            groupId,
-            subSubjectId: subSubjectId || null,
-            before: rows.length,
-            after: filteredRows.length,
-            blockedIds: rows.filter((row) => !filteredRows.some((allowed) => allowed.id === row.id)).map((row) => row.id),
-          });
-        }
-
-        return filteredRows.map((row) => {
-          const meta = metaById.get(row.id);
-          return {
-            ...row,
-            education_type: meta?.education_type || null,
-            subject_section: meta?.subject_section || null,
-          };
-        });
-      };
-
       const finishWithContent = (rows: ContentRow[]) => {
         setContent(rows);
 
@@ -1005,17 +883,15 @@ const StudentSubjectView = () => {
 
       if (!secureError) {
         const secureContentRows = ((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent);
-        const guardedContentRows = await filterContentByStudentTargets(secureContentRows);
         console.info("[student-catalog-debug] secure group content catalog", {
           groupId,
           subSubjectId: subSubjectId || null,
-          rows: guardedContentRows.length,
-          rawRows: secureContentRows.length,
-          videos: guardedContentRows.filter((row) => row.type === "video").length,
-          files: guardedContentRows.filter((row) => row.type !== "video").length,
-          locked: guardedContentRows.filter((row) => !canOpenContent(row)).length,
+          rows: secureContentRows.length,
+          videos: secureContentRows.filter((row) => row.type === "video").length,
+          files: secureContentRows.filter((row) => row.type !== "video").length,
+          locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
         });
-        finishWithContent(guardedContentRows);
+        finishWithContent(secureContentRows);
         return;
       }
 

@@ -1,12 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
-import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
-type StudentExamVisibilityProfile = { section?: string | null; education_type?: string | null } | null;
-
 // ----- STUDENT -----
 async function getStudentPurchasedGroupIds(uid: string) {
   const { data, error } = await supabase
@@ -15,32 +12,6 @@ async function getStudentPurchasedGroupIds(uid: string) {
     .eq("student_id", uid);
   if (error) throw error;
   return [...new Set((data || []).map((row: any) => row.group_id).filter(Boolean))];
-}
-
-async function getStudentExamVisibilityProfile(uid: string): Promise<StudentExamVisibilityProfile> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("section, education_type")
-    .eq("id", uid)
-    .maybeSingle();
-  if (error) throw error;
-  return (data as StudentExamVisibilityProfile) || null;
-}
-
-function examMatchesStudentTargets(exam: any, profile: StudentExamVisibilityProfile) {
-  const targetEducationType = normalizeEducationType(exam?.target_education_type);
-  if (targetEducationType) {
-    const studentEducationType = normalizeEducationType(profile?.education_type);
-    if (!studentEducationType || studentEducationType !== targetEducationType) return false;
-  }
-
-  const targetSection = normalizeSectionForSubjects(exam?.target_section) || normalizeSectionForSubjects(exam?.subject_section) || normalizeSectionForSubjects(exam?.subjects?.section);
-  if (targetSection) {
-    const studentSection = normalizeSectionForSubjects(profile?.section);
-    if (!studentSection || studentSection !== targetSection) return false;
-  }
-
-  return true;
 }
 
 export function useStudentExams(filters?: ExamScopeFilters) {
@@ -63,12 +34,9 @@ export function useStudentExams(filters?: ExamScopeFilters) {
       if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.term) query = query.eq("term", filters.term);
       if (filters?.subSubjectId) query = query.eq("sub_subject_id", filters.subSubjectId);
-      const [{ data, error }, profile] = await Promise.all([
-        query.order("created_at", { ascending: false }),
-        getStudentExamVisibilityProfile(uid),
-      ]);
+      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
-      return ((data || []) as any[]).filter((exam) => examMatchesStudentTargets(exam, profile));
+      return (data || []) as any[];
     },
   });
 }
@@ -85,7 +53,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       if (!uid) return { exams: [], attempts: [] };
 
       if (filters?.groupId) {
-        const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }, profile] = await Promise.all([
+        const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }] = await Promise.all([
           (supabase as any).rpc("get_student_group_exam_catalog", {
             _group_id: filters.groupId,
             _sub_subject_id: filters.subSubjectId || null,
@@ -95,84 +63,12 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
             .select("*")
             .eq("student_id", uid)
             .order("started_at", { ascending: false }),
-          getStudentExamVisibilityProfile(uid),
         ]);
 
         if (examCatalogError) throw examCatalogError;
         if (attemptsError) throw attemptsError;
 
-        const rawExamCatalog = (examCatalog || []) as any[];
-        if (rawExamCatalog.length === 0) return { exams: [], attempts: attempts || [] } as any;
-
-        let targetsById = new Map(
-          rawExamCatalog.map((exam) => [
-            exam.id,
-            {
-              id: exam.id,
-              target_section: exam.target_section ?? null,
-              target_education_type: exam.target_education_type ?? null,
-            },
-          ]),
-        );
-
-        const catalogMissingTargets = rawExamCatalog.some(
-          (exam) => exam.target_section === undefined || exam.target_education_type === undefined,
-        );
-
-        if (catalogMissingTargets) {
-          const examIds = rawExamCatalog.map((exam) => exam.id).filter(Boolean);
-          const { data: targetRows, error: targetRowsError } = await supabase
-            .from("exams")
-            .select("id, target_section, target_education_type")
-            .in("id", examIds);
-
-          if (targetRowsError) {
-            console.error("[student-exam-visibility-guard] metadata lookup failed; keeping secure RPC rows", {
-              groupId: filters.groupId,
-              subSubjectId: filters.subSubjectId || null,
-              error: targetRowsError,
-            });
-            return { exams: rawExamCatalog, attempts: attempts || [] } as any;
-          }
-
-          targetsById = new Map(((targetRows || []) as any[]).map((row) => [row.id, row]));
-        }
-
-        const visibleExams = rawExamCatalog.filter((exam) => {
-          const targets = targetsById.get(exam.id);
-          if (!targets) {
-            console.warn("[student-exam-visibility-guard] missing metadata; keeping secure RPC exam", {
-              examId: exam.id,
-              title: exam.title,
-              studentEducationType: profile?.education_type || null,
-              studentSection: profile?.section || null,
-            });
-            return true;
-          }
-
-          const allowed = examMatchesStudentTargets(targets, profile);
-          console.info("[student-exam-visibility-guard] evaluated exam row", {
-            examId: exam.id,
-            title: exam.title,
-            targetEducationType: targets.target_education_type || null,
-            targetSection: targets.target_section || null,
-            studentEducationType: profile?.education_type || null,
-            studentSection: profile?.section || null,
-            allowed,
-          });
-          return allowed;
-        });
-
-        if (visibleExams.length !== rawExamCatalog.length) {
-          console.warn("[student-exam-visibility-guard] blocked mismatched exam rows", {
-            groupId: filters.groupId,
-            before: rawExamCatalog.length,
-            after: visibleExams.length,
-            blockedIds: rawExamCatalog.filter((exam) => !visibleExams.some((allowed) => allowed.id === exam.id)).map((exam) => exam.id),
-          });
-        }
-
-        return { exams: visibleExams, attempts: attempts || [] } as any;
+        return { exams: (examCatalog || []) as any[], attempts: attempts || [] } as any;
       }
 
       const groupIds = await getStudentPurchasedGroupIds(uid);
@@ -189,18 +85,17 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
       if (filters?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", filters.subSubjectId);
 
-      const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }, profile] = await Promise.all([
+      const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }] = await Promise.all([
         examsQuery.order("created_at", { ascending: false }),
         supabase
           .from("exam_attempts")
           .select("*")
           .eq("student_id", uid)
           .order("started_at", { ascending: false }),
-        getStudentExamVisibilityProfile(uid),
       ]);
       if (examsError) throw examsError;
       if (attemptsError) throw attemptsError;
-      return { exams: ((exams || []) as any[]).filter((exam) => examMatchesStudentTargets(exam, profile)), attempts: attempts || [] } as any;
+      return { exams: exams || [], attempts: attempts || [] } as any;
     },
   });
 }
