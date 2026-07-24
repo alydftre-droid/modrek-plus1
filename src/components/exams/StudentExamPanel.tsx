@@ -15,13 +15,14 @@ interface Props {
   subSubjectId?: string;
   isSubscribed?: boolean;
   currentTerm?: string;
+  onRequireSubscription?: () => void;
 }
 
 /**
  * Lightweight in-tab listing of exams scoped to a subject/group.
  * Full experience lives at /student/exams.
  */
-export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isSubscribed = true, currentTerm }: Props) {
+export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isSubscribed = true, currentTerm, onRequireSubscription }: Props) {
   const navigate = useNavigate();
   const { data: catalog, isLoading } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm, subSubjectId });
   const exams = catalog?.exams || [];
@@ -78,13 +79,15 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
         const myAttempt: any = attemptByExam.get(exam.id);
         const isEnded = (endsAt && now > endsAt) || (myAttempt && myAttempt.status !== "in_progress");
         const isAvailable = !isUpcoming && !isEnded;
-        const canOpenExam = isSubscribed && exam.is_accessible !== false && isAvailable;
+        const isLockedBySubscription = !isSubscribed || exam.is_accessible === false;
+        const canOpenExam = !isLockedBySubscription && isAvailable;
         return (
           <Card
             key={exam.id}
             className="cursor-pointer overflow-hidden rounded-[20px] border-border bg-card shadow-sm transition hover:shadow-md"
             onClick={() => {
               if (canOpenExam) navigate(`/student/exams/${exam.id}`);
+              else if (isLockedBySubscription) onRequireSubscription?.();
             }}
           >
             <CardContent className="p-4 flex items-center justify-between gap-3">
@@ -98,13 +101,23 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{exam.duration_minutes} د</span>
-                  {!isSubscribed && <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" />مقفول</Badge>}
+                  {isLockedBySubscription && <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" />مقفول</Badge>}
                   {isUpcoming && <Badge variant="secondary">قادم</Badge>}
                   {isEnded && <Badge variant="destructive">{myAttempt ? `${myAttempt.percentage}%` : "منتهي"}</Badge>}
-                  {isSubscribed && isAvailable && <Badge className="border-0 bg-primary text-primary-foreground">متاح</Badge>}
+                  {!isLockedBySubscription && isAvailable && <Badge className="border-0 bg-primary text-primary-foreground">متاح</Badge>}
                 </div>
               </div>
-              <Button size="sm" disabled={!canOpenExam}>{isSubscribed ? "افتح" : "اشترك أولًا"}</Button>
+              <Button
+                size="sm"
+                disabled={!canOpenExam && !isLockedBySubscription}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (canOpenExam) navigate(`/student/exams/${exam.id}`);
+                  else if (isLockedBySubscription) onRequireSubscription?.();
+                }}
+              >
+                {isLockedBySubscription ? "اشترك أولًا" : "افتح"}
+              </Button>
             </CardContent>
           </Card>
         );
