@@ -880,23 +880,6 @@ const StudentSubjectView = () => {
       });
 
       finishWithContent(deduped as ContentRow[]);
-
-      if (deepLinkContentId && !deepLinkContentOpened) {
-        const targetRow =
-          deduped.find((item: any) => item.id === deepLinkContentId) ||
-          null;
-
-        if (targetRow && (purchasedGroups.has(groupId) || targetRow.is_free_preview === true)) {
-          setDeepLinkContentOpened(true);
-          setTimeout(() => {
-            if (targetRow.type === "video") {
-              setActiveVideo(targetRow as ContentRow);
-            } else {
-              openUrlWithinAppContainer(resolveBunnyStorageUrl(targetRow.file_url));
-            }
-          }, 250);
-        }
-      }
     } catch (e) {
       console.error(e);
     } finally {
