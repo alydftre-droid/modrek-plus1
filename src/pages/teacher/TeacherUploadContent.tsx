@@ -703,6 +703,7 @@ const TeacherUploadContent = () => {
 
 
   const getUploadSubjectIds = (): string[] => {
+    if (selectedGroup?.subject_id) return [selectedGroup.subject_id];
     if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
     if (sectionTarget === "scientific") {
       const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
@@ -716,6 +717,7 @@ const TeacherUploadContent = () => {
   };
 
   const getActiveSubjectId = (): string => {
+    if (selectedGroup?.subject_id) return selectedGroup.subject_id;
     if (sectionTarget === "scientific") {
       const sci = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
       return sci?.id || subjectId!;
