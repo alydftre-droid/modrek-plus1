@@ -76,7 +76,11 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
             className="cursor-pointer overflow-hidden rounded-[20px] border-border bg-card shadow-sm transition hover:shadow-md"
             onClick={() => {
               if (canOpenExam) navigate(`/student/exams/${exam.id}`);
-              else if (isLockedBySubscription) onRequireSubscription?.();
+              else if (isLockedBySubscription) {
+                toast("🔒 يجب الاشتراك في هذه المجموعة أولاً لمشاهدة جميع المحتويات التعليمية.", {
+                  duration: 3500,
+                });
+              }
             }}
           >
             <CardContent className="p-4 flex items-center justify-between gap-3">
@@ -90,29 +94,30 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{exam.duration_minutes} د</span>
-                  {isLockedBySubscription && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      <Lock className="h-2.5 w-2.5" />
-                      مقفول
-                    </span>
-                  )}
                   {isUpcoming && <Badge variant="secondary">قادم</Badge>}
                   {isEnded && <Badge variant="destructive">{myAttempt ? `${myAttempt.percentage}%` : "منتهي"}</Badge>}
                   {!isLockedBySubscription && isAvailable && <Badge className="border-0 bg-primary text-primary-foreground">متاح</Badge>}
                 </div>
               </div>
-              {!isLockedBySubscription && (
-                <Button
-                  size="sm"
-                  disabled={!canOpenExam}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (canOpenExam) navigate(`/student/exams/${exam.id}`);
-                  }}
-                >
-                  افتح
-                </Button>
-              )}
+              <div className="shrink-0">
+                {isLockedBySubscription ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <Lock className="h-2.5 w-2.5" />
+                    مقفول
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    disabled={!canOpenExam}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (canOpenExam) navigate(`/student/exams/${exam.id}`);
+                    }}
+                  >
+                    افتح
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         );
