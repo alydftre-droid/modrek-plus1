@@ -6136,10 +6136,19 @@ export type Database = {
         Returns: undefined
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
-      content_target_matches_student: {
-        Args: { _content_edu: string; _student_id: string }
-        Returns: boolean
-      }
+      content_target_matches_student:
+        | {
+            Args: {
+              _content_edu: string
+              _content_subject_id: string
+              _student_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: { _content_edu: string; _student_id: string }
+            Returns: boolean
+          }
       create_modrek_ai_training_exam: {
         Args: { _payload: Json }
         Returns: Json
@@ -6790,6 +6799,11 @@ export type Database = {
       }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
+      normalize_content_education_type: {
+        Args: { _value: string }
+        Returns: string
+      }
+      normalize_content_section: { Args: { _value: string }; Returns: string }
       normalize_exam_grading_text: { Args: { _value: string }; Returns: string }
       normalize_exam_semantic_token: {
         Args: { _word: string }
