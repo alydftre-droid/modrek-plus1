@@ -39,7 +39,7 @@ export function useStudentExams(filters?: ExamScopeFilters) {
         .in("group_id", scopedGroupIds);
       if (filters?.subjectId && !filters?.groupId) query = query.eq("subject_id", filters.subjectId);
       if (filters?.term) query = query.eq("term", filters.term);
-      if (filters?.subSubjectId) query = query.or(`sub_subject_id.eq.${filters.subSubjectId},sub_subject_id.is.null`);
+      if (filters?.subSubjectId) query = query.eq("sub_subject_id", filters.subSubjectId);
       const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as any[];
