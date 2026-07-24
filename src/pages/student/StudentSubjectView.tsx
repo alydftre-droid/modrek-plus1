@@ -1413,7 +1413,7 @@ const StudentSubjectView = () => {
             onClick={(e) => handleContentClick(e, item)}
           >
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-              <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                 {item.type === "video" ? (
                   <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-accent">
                     <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-full w-full" rounded="rounded-lg" />
@@ -1432,21 +1432,15 @@ const StudentSubjectView = () => {
                     )}
                   </div>
                 )}
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h3 className="line-clamp-2 font-semibold text-foreground">{item.title}</h3>
-                  <div className="mt-1 flex items-center gap-2">
-                    {!openable && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                        <Lock className="h-2.5 w-2.5" />
-                        مقفول
-                      </span>
-                    )}
-                    {item.description && <p className="line-clamp-1 text-xs text-muted-foreground">{item.description}</p>}
-                  </div>
+                  {item.description && (
+                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                  )}
                 </div>
               </div>
-              {openable && (
-                <div className="flex w-full items-center justify-end gap-2 shrink-0 sm:w-auto">
+              <div className="flex shrink-0 items-center justify-end gap-2 sm:w-auto">
+                {openable ? (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1459,8 +1453,13 @@ const StudentSubjectView = () => {
                       <><FileText className="h-4 w-4" />عرض</>
                     )}
                   </Button>
-                </div>
-              )}
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <Lock className="h-2.5 w-2.5" />
+                    مقفول
+                  </span>
+                )}
+              </div>
             </CardContent>
           </Card>
           );
