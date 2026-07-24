@@ -959,20 +959,19 @@ const StudentSubjectView = () => {
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
-  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string, sectionOverride?: string | null) => {
+  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string, _sectionOverride?: string | null) => {
     setLoadingContent(true);
     setStep("subject_content");
-    const shouldUseLiteraryFallback = normalizeSectionForSubjects(sectionOverride ?? studentSection ?? section) === "literary";
+    const shouldUseLiteraryFallback = false;
     
     try {
-      const { data: secureRows, error: secureError } = shouldUseLiteraryFallback
-        ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
-            _group_id: groupId,
-          })
-        : await supabase.rpc("get_student_group_content_catalog" as any, {
-            _group_id: groupId,
-            _sub_subject_id: subSubjectId || null,
-          });
+      const { data: secureRows, error: secureError } = await supabase.rpc(
+        "get_student_group_content_catalog" as any,
+        {
+          _group_id: groupId,
+          _sub_subject_id: subSubjectId || null,
+        },
+      );
 
       const finishWithContent = (rows: ContentRow[]) => {
         setContent(rows);
