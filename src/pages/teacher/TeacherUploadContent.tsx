@@ -814,7 +814,6 @@ const TeacherUploadContent = () => {
         </Badge>
       );
     }
-    if (!targetSection) return null;
     return (
       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
         targetSection === "scientific" ? "border-blue-300 text-blue-600 bg-blue-50" : "border-purple-300 text-purple-600 bg-purple-50"
