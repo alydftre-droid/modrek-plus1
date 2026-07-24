@@ -83,8 +83,34 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       const { data: session } = await supabase.auth.getSession();
       const uid = session.session?.user?.id;
       if (!uid) return { exams: [], attempts: [] };
+
+      if (filters?.groupId) {
+        const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }] = await Promise.all([
+          (supabase as any).rpc("get_student_group_exam_catalog", {
+            _group_id: filters.groupId,
+            _sub_subject_id: filters.subSubjectId || null,
+          }),
+          supabase
+            .from("exam_attempts")
+            .select("*")
+            .eq("student_id", uid)
+            .order("started_at", { ascending: false }),
+        ]);
+
+        if (examCatalogError) throw examCatalogError;
+        if (attemptsError) throw attemptsError;
+
+        const exams = ((examCatalog || []) as any[]).filter((exam) => {
+          if (filters.subjectId && exam.subject_id !== filters.subjectId) return false;
+          if (filters.term && exam.term && exam.term !== filters.term) return false;
+          return true;
+        });
+
+        return { exams, attempts: attempts || [] } as any;
+      }
+
       const groupIds = await getStudentPurchasedGroupIds(uid);
-      const scopedGroupIds = filters?.groupId ? groupIds.filter((id) => id === filters.groupId) : groupIds;
+      const scopedGroupIds = groupIds;
       if (scopedGroupIds.length === 0) return { exams: [], attempts: [] };
 
       let examsQuery = supabase
