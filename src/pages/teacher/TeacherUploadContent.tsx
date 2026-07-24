@@ -661,7 +661,7 @@ const TeacherUploadContent = () => {
     return subjectId!;
   };
 
-  const resolvedUploadEducationTarget = selectedGroupEducationType || normalizedTeacherEducationType || educationTypeTarget;
+  const resolvedUploadEducationTarget = selectedGroupEducationType || (isArabicOrSharia ? normalizedTeacherEducationType : educationTypeTarget);
 
   if (isLoading) {
     return (
