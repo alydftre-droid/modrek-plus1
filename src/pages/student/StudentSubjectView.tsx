@@ -611,7 +611,6 @@ const StudentSubjectView = () => {
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
           console.warn("Secure group catalog count failed; falling back to direct count", { groupId, error });
-          const group = groups.find((item) => item.id === groupId) as any;
           const { count } = await supabase
             .from("content")
             .select("id", { count: "exact", head: true })
