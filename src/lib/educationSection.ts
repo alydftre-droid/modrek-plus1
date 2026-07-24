@@ -1,5 +1,13 @@
 export type StudentSectionValue = string | null | undefined;
 
+const normalizeSectionLookupValue = (section: StudentSectionValue) =>
+  (section || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي");
+
 const SCIENTIFIC_SECTION_VALUES = [
   "scientific",
   "science",
@@ -10,18 +18,14 @@ const SCIENTIFIC_SECTION_VALUES = [
   "علمى",
   "علم",
   "العلمي",
-  "العلمى",
   "القسم العلمي",
-  "القسم العلمى",
   "الشعبة العلمية",
   "الشعبه العلميه",
   "شعبة علمي",
   "شعبه علمي",
   "علمي علوم",
-  "علمى علوم",
   "علوم",
   "علمي رياضة",
-  "علمى رياضة",
   "رياضة",
   "رياضيات",
 ];
@@ -31,31 +35,22 @@ const LITERARY_SECTION_VALUES = [
   "art",
   "adabi",
   "adaby",
-  "أدبي",
   "ادبي",
-  "أدبى",
-  "ادبى",
-  "الأدبي",
   "الادبي",
-  "الأدبى",
-  "الادبى",
-  "القسم الأدبي",
   "القسم الادبي",
-  "القسم الأدبى",
-  "القسم الادبى",
-  "الشعبة الأدبية",
   "الشعبة الادبية",
   "الشعبه الادبيه",
-  "شعبة أدبي",
   "شعبة ادبي",
   "شعبه ادبي",
 ];
 
 export function normalizeSectionForSubjects(section: StudentSectionValue): "scientific" | "literary" | "" {
-  const value = (section || "").trim().replace(/\s+/g, " ").toLowerCase();
+  const value = normalizeSectionLookupValue(section);
 
   if (SCIENTIFIC_SECTION_VALUES.includes(value)) return "scientific";
   if (LITERARY_SECTION_VALUES.includes(value)) return "literary";
+  if (value.includes("علمي") || value.includes("علوم") || value.includes("رياض")) return "scientific";
+  if (value.includes("ادبي") || value.includes("literary") || value.includes("arts") || value.includes("adab")) return "literary";
 
   return "";
 }
