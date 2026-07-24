@@ -877,14 +877,6 @@ const StudentSubjectView = () => {
   };
 
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
-    if (useLiteraryFallbackCatalog) {
-      traceContentTarget("student-literary-fallback.skip-sub-subject-workspace", {
-        groupId,
-        studentSection: studentSection || section,
-      });
-      return false;
-    }
-
     const { data, error } = await supabase
       .from("sub_subjects")
       .select("id")
@@ -902,7 +894,10 @@ const StudentSubjectView = () => {
     }
 
     if ((data || []).length > 0) {
-      const { data: catalogRows, error: catalogError } = await supabase.rpc("get_student_group_content_catalog" as any, {
+      const rpcName = useLiteraryFallbackCatalog
+        ? "get_literary_student_group_content_catalog"
+        : "get_student_group_content_catalog";
+      const { data: catalogRows, error: catalogError } = await supabase.rpc(rpcName as any, {
         _group_id: groupId,
         _sub_subject_id: null,
       });
@@ -1193,7 +1188,7 @@ const StudentSubjectView = () => {
           subjectId: activeGroupSubjectId,
           groupId: activeGroupId,
           term: currentTerm,
-          subSubjectId: useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id,
+          subSubjectId: selectedSubSubject?.id,
         }
       : undefined,
   );
@@ -1201,7 +1196,7 @@ const StudentSubjectView = () => {
     const exams = activeGroupExamCatalog?.exams || [];
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
-      if (!useLiteraryFallbackCatalog && selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
+      if (selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
       return true;
     }).length;
   }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, useLiteraryFallbackCatalog]);
@@ -1757,7 +1752,7 @@ const StudentSubjectView = () => {
               <StudentExamPanel
                 currentTerm={currentTerm}
                 groupId={activeGroup?.id || ""}
-                subSubjectId={useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id || undefined}
+                subSubjectId={selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
                 onRequireSubscription={() => {
                   if (!activeGroup) return;
