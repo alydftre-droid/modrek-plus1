@@ -5,6 +5,7 @@ import { useStudentExamCatalog } from "@/hooks/useExams";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 interface Props {
   subjectId: string;
