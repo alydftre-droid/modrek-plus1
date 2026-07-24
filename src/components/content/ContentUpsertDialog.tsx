@@ -149,6 +149,11 @@ type GroupResolutionRow = {
   month_label?: string | null;
 };
 
+type InsertTargetRow = {
+  subjectId: string;
+  groupId: string | null;
+};
+
 type ResolvedSubSubject = {
   id: string;
   name: string;
@@ -458,6 +463,56 @@ const ContentUpsertDialog = ({
     return subSubjectBySubject;
   };
 
+  const buildInsertTargets = async (params: {
+    targetSubjectIds: string[];
+    groupIdsBySubject: Map<string, string | null>;
+    eduType: string | null;
+    targetSection: string | null;
+    subSubjectName: string | null;
+    type: ContentType;
+  }): Promise<InsertTargetRow[]> => {
+    const { targetSubjectIds, groupIdsBySubject, eduType, targetSection, subSubjectName, type } = params;
+    const uniqueGroupIds = Array.from(new Set(Array.from(groupIdsBySubject.values()).filter(Boolean) as string[]));
+    const groupSubjectById = new Map<string, string>();
+
+    if (uniqueGroupIds.length > 0) {
+      const { data, error } = await supabase
+        .from("content_groups")
+        .select("id, subject_id")
+        .in("id", uniqueGroupIds);
+      if (error) throw error;
+      ((data || []) as Array<{ id: string; subject_id: string }>).forEach((group) => {
+        if (group.id && group.subject_id) groupSubjectById.set(group.id, group.subject_id);
+      });
+    }
+
+    const byLogicalSlot = new Map<string, InsertTargetRow>();
+    targetSubjectIds.forEach((sid) => {
+      const resolvedGroupId = groupIdsBySubject.get(sid) ?? null;
+      const key = [resolvedGroupId || `subject:${sid}`, eduType || "both-edu", targetSection || "both-section", subSubjectName || "no-sub", type].join("|");
+      const current = byLogicalSlot.get(key);
+      const groupSubjectId = resolvedGroupId ? groupSubjectById.get(resolvedGroupId) : null;
+      const next = { subjectId: sid, groupId: resolvedGroupId };
+
+      if (!current) {
+        byLogicalSlot.set(key, next);
+        return;
+      }
+
+      if (groupSubjectId === sid && current.subjectId !== groupSubjectId) {
+        byLogicalSlot.set(key, next);
+      }
+    });
+
+    const targets = Array.from(byLogicalSlot.values());
+    traceContentTarget("teacher-upload.insert-targets", {
+      targetSubjectIds,
+      targets,
+      groupSubjects: Array.from(groupSubjectById.entries()).map(([groupId, subjectId]) => ({ groupId, subjectId })),
+    });
+    return targets;
+  };
+
   const handleSubmit = async (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -581,10 +636,20 @@ const ContentUpsertDialog = ({
           selectedSubSubjectName: resolvedSubSubjectName,
         });
 
+        const insertTargets = await buildInsertTargets({
+          targetSubjectIds: targetIds,
+          groupIdsBySubject,
+          eduType,
+          targetSection,
+          subSubjectName: resolvedSubSubjectName,
+          type,
+        });
+
         const insertedIds: string[] = [];
-        for (const sid of targetIds) {
+        for (const target of insertTargets) {
+          const sid = target.subjectId;
           const contentId = crypto.randomUUID();
-          const resolvedGroupId = groupIdsBySubject.get(sid) ?? groupId;
+          const resolvedGroupId = target.groupId ?? groupId;
           const rowSubSubjectId = subSubjectIdsBySubject.get(sid) ?? resolvedSubSubjectId;
           const { error: dbError } = await supabase.from("content").insert({
             id: contentId,
