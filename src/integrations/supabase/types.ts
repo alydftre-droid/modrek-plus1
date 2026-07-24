@@ -954,6 +954,7 @@ export type Database = {
           sub_subject: string | null
           sub_subject_id: string | null
           subject_id: string | null
+          target_section: string | null
           term: string
           thumbnail_url: string | null
           title: string
@@ -977,6 +978,7 @@ export type Database = {
           sub_subject?: string | null
           sub_subject_id?: string | null
           subject_id?: string | null
+          target_section?: string | null
           term?: string
           thumbnail_url?: string | null
           title: string
@@ -1000,6 +1002,7 @@ export type Database = {
           sub_subject?: string | null
           sub_subject_id?: string | null
           subject_id?: string | null
+          target_section?: string | null
           term?: string
           thumbnail_url?: string | null
           title?: string
@@ -6140,12 +6143,30 @@ export type Database = {
         Args: { _content_edu: string; _content_group_id: string }
         Returns: string
       }
+      content_effective_section: {
+        Args: {
+          _content_group_id?: string
+          _content_subject_id: string
+          _content_target_section: string
+        }
+        Returns: string
+      }
       content_target_matches_student:
         | {
             Args: {
               _content_edu: string
               _content_group_id: string
               _content_subject_id: string
+              _student_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _content_edu: string
+              _content_group_id: string
+              _content_subject_id: string
+              _content_target_section: string
               _student_id: string
             }
             Returns: boolean
@@ -6220,6 +6241,14 @@ export type Database = {
       exam_boolean_answer_key: { Args: { _value: string }; Returns: string }
       exam_effective_education_type: {
         Args: { _group_id: string; _target_edu: string }
+        Returns: string
+      }
+      exam_effective_section: {
+        Args: {
+          _group_id?: string
+          _subject_id: string
+          _target_section: string
+        }
         Returns: string
       }
       exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }

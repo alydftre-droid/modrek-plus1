@@ -40,6 +40,10 @@ export interface ContentItem {
   file_url: string;
   description: string | null;
   sub_subject?: string | null;
+  subject_id?: string | null;
+  education_type?: string | null;
+  target_section?: string | null;
+  subject_section?: string | null;
 }
 
 export function extractStoragePathFromPublicUrl(url: string): { bucket: string; path: string } | null {
@@ -423,6 +427,7 @@ const ContentUpsertDialog = ({
         const resolvedSubSubjectName = defaultSubSubject || selectedSubSubjectRow?.name || selectedSubSubject || null;
 
         const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
+        const targetSection = sectionTarget === "both" ? null : (sectionTarget || null);
         console.info("[teacher-content-targeting] insert plan", {
           groupId,
           targetSubjectIds: targetIds,
@@ -449,6 +454,7 @@ const ContentUpsertDialog = ({
             sub_subject_id: resolvedSubSubjectId,
             term: resolvedTerm,
             education_type: eduType,
+            target_section: targetSection,
           } as any);
           if (dbError) {
             console.error("[teacher-content-targeting] DB insert error", {
@@ -456,7 +462,7 @@ const ContentUpsertDialog = ({
               subjectId: sid,
               groupId,
               educationTypeTarget: eduType,
-              sectionTarget: sectionTarget || "both",
+              sectionTarget: targetSection || "both",
             });
             toast.error(dbError.message || "خطأ في حفظ المحتوى");
             setUploading(false);
@@ -488,12 +494,17 @@ const ContentUpsertDialog = ({
 
       setUploading(true);
       try {
+        const targetSection = sectionTarget === "both" ? null : (sectionTarget || item.target_section || null);
+        const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || item.education_type || null);
+
         const { error } = await supabase
           .from("content")
           .update({ 
             title, 
             description: description || null,
             sub_subject: selectedSubSubject || null,
+            education_type: eduType,
+            target_section: targetSection,
           })
           .eq("id", item.id);
 
