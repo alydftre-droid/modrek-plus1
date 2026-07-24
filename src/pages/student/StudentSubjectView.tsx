@@ -967,12 +967,21 @@ const StudentSubjectView = () => {
     e.stopPropagation();
     e.preventDefault();
     if (!canOpenContent(item)) {
-      toast.error("يجب الاشتراك في الكورس أولًا لمشاهدة المحتوى");
+      if (activeGroup) {
+        setSelectedCourse(activeGroup);
+        setShowSubscribeConfirm(true);
+      } else {
+        toast.error("يجب الاشتراك في المجموعة أولًا للوصول إلى هذا المحتوى");
+      }
       return;
     }
     if (item.type === "video") {
       setActiveVideo(item);
     } else {
+      if (!item.file_url) {
+        toast.error("رابط الملف غير متاح حاليًا");
+        return;
+      }
       const resolvedUrl = resolveBunnyStorageUrl(item.file_url);
       openUrlWithinAppContainer(resolvedUrl);
     }
@@ -991,7 +1000,7 @@ const StudentSubjectView = () => {
   // ========== Content filtering ==========
   // Content is already filtered by sub_subject_id when loading, so just use all content
   const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
-  const books = useMemo(() => content.filter(c => c.type === "pdf"), [content]);
+  const learningFiles = useMemo(() => content.filter(c => c.type !== "video"), [content]);
   const activeGroupSubjectId = useMemo(() => courses.find(c => c.id === activeGroupId)?.subject_id || "", [courses, activeGroupId]);
   const activeGroupSubjectMeta = useMemo(
     () => subjects.find((subject) => subject.id === activeGroupSubjectId),
@@ -1009,18 +1018,9 @@ const StudentSubjectView = () => {
   );
   const activeGroupExamCount = useMemo(() => {
     const exams = activeGroupExamCatalog?.exams || [];
-    const activeSubject = exams.find((exam: any) => exam.subject_id === activeGroupSubjectId)?.subjects;
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
       if (selectedSubSubject?.id && e.sub_subject_id !== selectedSubSubject.id) return false;
-      if (e.subject_id !== activeGroupSubjectId && activeSubject && e.subjects) {
-        const sameSubjectScope =
-          e.subjects.name === activeSubject.name &&
-          e.subjects.stage === activeSubject.stage &&
-          e.subjects.grade === activeSubject.grade &&
-          normalizeSectionForSubjects(e.subjects.section) === normalizeSectionForSubjects(activeSubject.section);
-        if (!sameSubjectScope) return false;
-      }
       return true;
     }).length;
   }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId]);
@@ -1426,7 +1426,7 @@ const StudentSubjectView = () => {
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
               {item.type === "video" ? (
-                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg">
+                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-accent">
                     <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-full w-full" rounded="rounded-lg" />
                     {!openable && (
                       <div className="absolute inset-0 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
@@ -1437,11 +1437,22 @@ const StudentSubjectView = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="relative shrink-0 rounded-lg bg-accent p-3">
-                    <FileText className="h-6 w-6 text-primary" />
+                  <div className="relative flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent">
+                    {item.thumbnail_url ? (
+                      <img
+                        src={resolveBunnyStorageUrl(item.thumbnail_url)}
+                        alt={item.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <FileText className="h-6 w-6 text-primary" />
+                    )}
                     {!openable && (
-                      <div className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-card shadow-sm">
-                        <Lock className="h-3 w-3 text-primary" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card/95 shadow-sm">
+                          <Lock className="h-3.5 w-3.5 text-primary" />
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1562,8 +1573,8 @@ const StudentSubjectView = () => {
               </TabsTrigger>
               <TabsTrigger value="books" className="gap-1">
                 <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">الكتب</span>
-                <span className="text-xs bg-muted px-1.5 rounded">{books.length}</span>
+                <span className="hidden sm:inline">الكتب والملفات</span>
+                <span className="text-xs bg-muted px-1.5 rounded">{learningFiles.length}</span>
               </TabsTrigger>
               <TabsTrigger value="live" className="gap-1">
                 <Radio className="h-4 w-4" />
@@ -1584,7 +1595,7 @@ const StudentSubjectView = () => {
               {renderContentList(videos, <Video className="h-12 w-12" />, "لم يتم رفع فيديوهات في هذه المجموعة بعد")}
             </TabsContent>
             <TabsContent value="books">
-              {renderContentList(books, <FileText className="h-12 w-12" />, "لم يتم رفع كتب في هذه المجموعة بعد")}
+              {renderContentList(learningFiles, <FileText className="h-12 w-12" />, "لم يتم رفع كتب أو ملفات في هذه المجموعة بعد")}
             </TabsContent>
             <TabsContent value="live">
               <LiveTabContent groupId={activeGroupId || ""} groupTitle={activeGroup?.title || ""} isTeacher={false} />
@@ -1595,6 +1606,11 @@ const StudentSubjectView = () => {
                 groupId={activeGroup?.id || ""}
                 subSubjectId={selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
+                onRequireSubscription={() => {
+                  if (!activeGroup) return;
+                  setSelectedCourse(activeGroup);
+                  setShowSubscribeConfirm(true);
+                }}
                 subjectId={activeGroup?.subject_id || ""}
                 subjectName={subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
               />

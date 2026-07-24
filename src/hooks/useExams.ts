@@ -101,7 +101,6 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         if (attemptsError) throw attemptsError;
 
         const exams = ((examCatalog || []) as any[]).filter((exam) => {
-          if (filters.subjectId && exam.subject_id !== filters.subjectId) return false;
           if (filters.term && exam.term && exam.term !== filters.term) return false;
           return true;
         });
