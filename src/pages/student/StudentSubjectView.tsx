@@ -866,15 +866,44 @@ const StudentSubjectView = () => {
       });
     }
 
-    if ((data || []).length > 0) return true;
+    if ((data || []).length > 0) {
+      const { data: catalogRows, error: catalogError } = await supabase.rpc("get_student_group_content_catalog" as any, {
+        _group_id: groupId,
+        _sub_subject_id: null,
+      });
 
-    // Fallback for legacy/default subject structures. Do not let preview mode skip
-    // the sub-subject workspace for subjects that are designed to use it.
-    return (
+      if (!catalogError) {
+        const hasSectionedContent = ((catalogRows || []) as StudentContentCatalogRow[]).some((row) => !!row.sub_subject_id);
+        if (!hasSectionedContent) {
+          traceContentTarget("student-sub-subjects.skipped-no-sectioned-content", {
+            groupId,
+            activeSubSubjectRows: (data || []).length,
+            visibleContentRows: ((catalogRows || []) as StudentContentCatalogRow[]).length,
+          });
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+    // Never force the student into the sub-subject workspace without real rows.
+    // Some أدبي groups (especially math/literary secondary groups) have content
+    // uploaded directly to the group with no sub_subjects rows; forcing the
+    // workspace here showed an empty sections screen and hid all videos/files.
+    if (
       categorySupportsSubSubjects(category) ||
       categorySupportsSubSubjects(subjectNameFilter) ||
       availableSubSubjects.length > 0
-    );
+    ) {
+      traceContentTarget("student-sub-subjects.skipped-empty-workspace", {
+        groupId,
+        category,
+        subjectNameFilter,
+      });
+    }
+
+    return false;
   };
 
   // ========== Enter Group - Check for sub-subjects ==========
