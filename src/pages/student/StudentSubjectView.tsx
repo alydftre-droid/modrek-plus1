@@ -366,7 +366,11 @@ const StudentSubjectView = () => {
 
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
-  const useLiteraryFallbackCatalog = normalizeSectionForSubjects(studentSection || section) === "literary";
+  // Unified targeting engine: every student uses the same RPC. The backend
+  // matching function treats NULL target as "all" and value target as strict
+  // match, which handles every combination (single section, multi section,
+  // single education type, multi education type, all-students) correctly.
+  const useLiteraryFallbackCatalog = false;
 
   // ========== Init ==========
   useEffect(() => {
