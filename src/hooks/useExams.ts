@@ -127,7 +127,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         .in("group_id", scopedGroupIds);
       if (filters?.subjectId && !filters?.groupId) examsQuery = examsQuery.eq("subject_id", filters.subjectId);
       if (filters?.term) examsQuery = examsQuery.eq("term", filters.term);
-      if (filters?.subSubjectId) examsQuery = examsQuery.or(`sub_subject_id.eq.${filters.subSubjectId},sub_subject_id.is.null`);
+      if (filters?.subSubjectId) examsQuery = examsQuery.eq("sub_subject_id", filters.subSubjectId);
 
       const [{ data: exams, error: examsError }, { data: attempts, error: attemptsError }] = await Promise.all([
         examsQuery.order("created_at", { ascending: false }),
