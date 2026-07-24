@@ -615,13 +615,11 @@ const StudentSubjectView = () => {
         section: subject.section,
       });
 
-      if (stage !== "secondary" || !effectiveEducationType) return true;
+      if (stage !== "secondary") return true;
 
-      const matchesEducationType =
-        !group.education_type ||
-        group.education_type === "both" ||
-        group.education_type === effectiveEducationType;
-      return matchesEducationType;
+      const groupEducationType = normalizeEducationType(group.education_type);
+      const normalizedStudentEducationType = normalizeEducationType(effectiveEducationType);
+      return !groupEducationType || !normalizedStudentEducationType || groupEducationType === normalizedStudentEducationType;
     });
 
     console.info("[student-catalog-debug] group visibility counts", {
