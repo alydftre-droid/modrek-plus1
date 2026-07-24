@@ -764,6 +764,13 @@ const StudentSubjectView = () => {
   const enterGroupContent = async (group: CourseGroup) => {
     setActiveGroupId(group.id);
     setSelectedSubSubject(null);
+
+    // Preview mode: non-subscribed students must see the full group catalog
+    // (videos/books names + thumbnails) in one place, while playback/opening stays locked.
+    if (!purchasedGroups.has(group.id)) {
+      await loadGroupContent(group.id);
+      return;
+    }
     
     // For Arabic or Sharia materials, show sub-subjects selection first
     // Show sub-subjects when the category OR the chosen subject name supports them
@@ -792,8 +799,26 @@ const StudentSubjectView = () => {
         _sub_subject_id: subSubjectId || null,
       });
 
+      const finishWithContent = (rows: ContentRow[]) => {
+        setContent(rows);
+
+        if (deepLinkContentId && !deepLinkContentOpened) {
+          const targetRow = rows.find((item) => item.id === deepLinkContentId);
+          if (targetRow && (purchasedGroups.has(groupId) || targetRow.is_accessible === true || targetRow.is_free_preview === true)) {
+            setDeepLinkContentOpened(true);
+            setTimeout(() => {
+              if (targetRow.type === "video") {
+                setActiveVideo(targetRow);
+              } else if (targetRow.file_url) {
+                openUrlWithinAppContainer(resolveBunnyStorageUrl(targetRow.file_url));
+              }
+            }, 250);
+          }
+        }
+      };
+
       if (!secureError) {
-        setContent(((secureRows || []) as StudentContentCatalogRow[]).map((row) => ({
+        finishWithContent(((secureRows || []) as StudentContentCatalogRow[]).map((row) => ({
           id: row.id,
           title: row.title,
           type: row.type,
@@ -814,18 +839,10 @@ const StudentSubjectView = () => {
 
       console.warn("Secure group catalog unavailable; using legacy content query", secureError);
 
-      // Section filtering is applied on the CONTENT rows via the joined subject.section,
-      // not by restricting to a pre-computed list of subject IDs (that list can be empty
-      // if the student's `subjects` context is still loading or if the teacher uploaded
-      // under a subject variant not present in the local list — which previously caused
-      // ALL content to disappear).
-      const hasSectionVariants = subjects.some((subject) => Boolean(normalizeSectionForSubjects(subject.section)));
-      const shouldFilterBySection = Boolean(normalizedSection) && hasSectionVariants;
-
       const buildQuery = (includeFreePreview: boolean) => {
         const selectColumns = includeFreePreview
-          ? "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)"
-          : "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id, education_type, subjects:subject_id(section)";
+          ? "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id"
+          : "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id";
 
         let q = (supabase.from("content") as any)
         .select(selectColumns)
@@ -833,11 +850,6 @@ const StudentSubjectView = () => {
         .eq("is_active", true)
         .eq("term", activeGroup?.term || currentTerm)
         .order("order_index", { ascending: true });
-
-        // Filter by education_type - show content matching student's type, "both", or shared content (null).
-        if (studentEducationType) {
-          q = q.or(`education_type.eq.${studentEducationType},education_type.eq.both,education_type.is.null`);
-        }
 
         // Filter by sub_subject_id if provided
         if (subSubjectId) {
@@ -856,33 +868,23 @@ const StudentSubjectView = () => {
       }
       if (error) throw error;
 
-      // Apply section filtering on the returned rows using the joined subject.section.
-      // If the row's subject has no section tag → treat as shared (visible to all).
       const rows = (data || []) as any[];
-      const sectionFiltered = rows.filter((row: any) => {
-        if (!shouldFilterBySection) return true;
-        const rowSection = normalizeSectionForSubjects(row?.subjects?.section);
-        if (!rowSection) return true;
-        return rowSection === normalizedSection;
-      });
 
-      // Deduplicate by file_url to prevent showing same content twice
+      // Deduplicate only by row id. Never deduplicate by file_url because locked
+      // preview rows intentionally have an empty URL and must still all appear.
       const seen = new Set<string>();
-      const deduped = sectionFiltered.filter((c: any) => {
-        if (seen.has(c.file_url)) return false;
-        seen.add(c.file_url);
+      const deduped = rows.filter((c: any) => {
+        if (seen.has(c.id)) return false;
+        seen.add(c.id);
         return true;
       });
 
-      setContent(deduped as ContentRow[]);
+      finishWithContent(deduped as ContentRow[]);
 
       if (deepLinkContentId && !deepLinkContentOpened) {
         const targetRow =
           deduped.find((item: any) => item.id === deepLinkContentId) ||
-          (() => {
-            const original = sectionFiltered.find((item: any) => item.id === deepLinkContentId);
-            return original ? deduped.find((item: any) => item.file_url === original.file_url) : null;
-          })();
+          null;
 
         if (targetRow && (purchasedGroups.has(groupId) || targetRow.is_free_preview === true)) {
           setDeepLinkContentOpened(true);
