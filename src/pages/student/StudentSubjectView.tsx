@@ -1018,18 +1018,9 @@ const StudentSubjectView = () => {
   );
   const activeGroupExamCount = useMemo(() => {
     const exams = activeGroupExamCatalog?.exams || [];
-    const activeSubject = exams.find((exam: any) => exam.subject_id === activeGroupSubjectId)?.subjects;
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
       if (selectedSubSubject?.id && e.sub_subject_id !== selectedSubSubject.id) return false;
-      if (e.subject_id !== activeGroupSubjectId && activeSubject && e.subjects) {
-        const sameSubjectScope =
-          e.subjects.name === activeSubject.name &&
-          e.subjects.stage === activeSubject.stage &&
-          e.subjects.grade === activeSubject.grade &&
-          normalizeSectionForSubjects(e.subjects.section) === normalizeSectionForSubjects(activeSubject.section);
-        if (!sameSubjectScope) return false;
-      }
       return true;
     }).length;
   }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId]);
