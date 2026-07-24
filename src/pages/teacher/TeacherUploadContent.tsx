@@ -101,6 +101,17 @@ type GroupRow = {
   education_type?: string | null;
 };
 
+const isContentTargetDebugEnabled = () => {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugContent") === "1" || window.localStorage.getItem("modrek-content-target-debug") === "1";
+};
+
+const traceContentTarget = (stage: string, payload: Record<string, unknown>) => {
+  if (!isContentTargetDebugEnabled()) return;
+  console.info(`[content-target-debug] ${stage}`, payload);
+};
+
 function stageLabel(stage: string) {
   if (stage === "preparatory") return "المرحلة الإعدادية";
   if (stage === "secondary") return "المرحلة الثانوية";
@@ -404,6 +415,22 @@ const TeacherUploadContent = () => {
   const fetchGroupContent = async (groupId: string) => {
     if (!effectiveUserId || !currentTerm) return;
     try {
+      traceContentTarget("teacher-view.query-start", {
+        groupId,
+        effectiveUserId,
+        currentTerm,
+        subSubjectId: subSubjectId || null,
+        sectionFilter,
+        hasSections,
+        selectedGroup: selectedGroup ? {
+          id: selectedGroup.id,
+          title: selectedGroup.title,
+          subjectId: selectedGroup.subject_id,
+          term: selectedGroup.term,
+          educationType: selectedGroup.education_type || null,
+        } : null,
+      });
+
       const buildQuery = (includeFreePreview: boolean) => {
         const selectColumns = includeFreePreview
           ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section"
@@ -457,18 +484,51 @@ const TeacherUploadContent = () => {
 
       if (error) throw error;
       
-      // Deduplicate by file_url
+      // Deduplicate only exact duplicate rows. Do not collapse rows that share the
+      // same file_url but have different targeting, because one upload can create
+      // separate علمي/أدبي or عام/أزهر variants for the same file.
       const rows = (contentData || []) as any[];
       const seen = new Set<string>();
       const deduped = rows.filter(c => {
-        if (seen.has(c.file_url)) return false;
-        seen.add(c.file_url);
+        const key = [
+          c.file_url || c.id,
+          c.education_type || "both-edu",
+          c.target_section || c.subject_id || "both-section",
+          c.sub_subject_id || c.sub_subject || "no-sub",
+          c.type || "content",
+        ].join("|");
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
+      });
+
+      traceContentTarget("teacher-view.query-result", {
+        groupId,
+        rawRows: rows.length,
+        dedupedRows: deduped.length,
+        rows: deduped.map((row) => ({
+          id: row.id,
+          title: row.title,
+          type: row.type,
+          subjectId: row.subject_id || null,
+          groupId: row.group_id || null,
+          subSubjectId: row.sub_subject_id || null,
+          educationType: row.education_type || null,
+          targetSection: row.target_section || null,
+          term: row.term || currentTerm,
+          uploadedBy: effectiveUserId,
+        })),
       });
 
       setContent(deduped as ContentRow[]);
     } catch (e) {
       console.error(e);
+      traceContentTarget("teacher-view.query-error", {
+        groupId,
+        effectiveUserId,
+        currentTerm,
+        error: e instanceof Error ? e.message : String(e),
+      });
     }
   };
 
