@@ -3,6 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import type { EditorQuestion, EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
 import { normalizeEducationType } from "@/lib/educationSection";
 
+type ExamGroupResolutionRow = {
+  id: string;
+  subject_id: string;
+  term?: string | null;
+  teacher_id?: string | null;
+  created_by?: string | null;
+  title?: string | null;
+  month_label?: string | null;
+};
+
 function normalizeQuestionType(type: unknown): EditorQType {
   const raw = String(type ?? "").trim().toLowerCase();
   if (["tf", "truefalse", "true-false", "true false", "صح/خطأ", "صح وخطأ", "صح خطأ", "boolean"].includes(raw)) return "true_false";
@@ -111,6 +121,83 @@ async function getTeacherDefaultSubject(uid: string) {
   return null;
 }
 
+async function resolveSiblingGroupForExam(params: {
+  sourceGroupId: string;
+  requestedSubjectId?: string | null;
+  teacherId: string;
+  fallbackTerm?: string | null;
+}) {
+  const { sourceGroupId, requestedSubjectId, teacherId, fallbackTerm } = params;
+  const { data: sourceGroup, error: sourceError } = await supabase
+    .from("content_groups")
+    .select("id, subject_id, term, education_type, teacher_id, created_by, title, month_label")
+    .eq("id", sourceGroupId)
+    .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
+    .maybeSingle();
+
+  if (sourceError) throw sourceError;
+  if (!sourceGroup?.subject_id) {
+    throw new Error("تعذر تحديد المجموعة. افتح الامتحانات من داخل المجموعة المطلوبة مرة أخرى.");
+  }
+
+  const source = sourceGroup as ExamGroupResolutionRow & { education_type?: string | null };
+  if (!requestedSubjectId || requestedSubjectId === source.subject_id) return source;
+
+  const ownerId = source.teacher_id || source.created_by || teacherId;
+  const siblingQuery = supabase
+    .from("content_groups")
+    .select("id, subject_id, term, education_type, teacher_id, created_by, title, month_label")
+    .eq("subject_id", requestedSubjectId)
+    .eq("is_active", true)
+    .or(`teacher_id.eq.${ownerId},created_by.eq.${ownerId}`);
+
+  const sourceTerm = source.term || fallbackTerm || null;
+  if (sourceTerm) siblingQuery.eq("term", sourceTerm);
+
+  const { data: siblings, error: siblingError } = await siblingQuery;
+  if (siblingError) throw siblingError;
+
+  const rows = ((siblings || []) as Array<ExamGroupResolutionRow & { education_type?: string | null }>).filter((group) => group.id);
+  const sourceTitle = String(source.title || "").trim();
+  const sourceMonth = String(source.month_label || "").trim();
+  return (
+    rows.find((group) => sourceMonth && String(group.month_label || "").trim() === sourceMonth) ||
+    rows.find((group) => sourceTitle && String(group.title || "").trim() === sourceTitle) ||
+    rows[0] ||
+    source
+  );
+}
+
+async function resolveSiblingSubSubjectForExam(params: {
+  sourceSubSubjectId?: string | null;
+  sourceGroupId?: string | null;
+  targetGroupId?: string | null;
+}) {
+  const { sourceSubSubjectId, sourceGroupId, targetGroupId } = params;
+  if (!sourceSubSubjectId || !sourceGroupId || !targetGroupId || sourceGroupId === targetGroupId) return sourceSubSubjectId || null;
+
+  const { data: sourceSubSubject, error: sourceError } = await supabase
+    .from("sub_subjects")
+    .select("name")
+    .eq("id", sourceSubSubjectId)
+    .maybeSingle();
+
+  if (sourceError) throw sourceError;
+  const cleanName = String((sourceSubSubject as any)?.name || "").trim();
+  if (!cleanName) return sourceSubSubjectId;
+
+  const { data: targetSubSubject, error: targetError } = await supabase
+    .from("sub_subjects")
+    .select("id")
+    .eq("group_id", targetGroupId)
+    .eq("is_active", true)
+    .eq("name", cleanName)
+    .maybeSingle();
+
+  if (targetError) throw targetError;
+  return (targetSubSubject as any)?.id || sourceSubSubjectId;
+}
+
 export function useCreateExam() {
   const qc = useQueryClient();
   return useMutation({
@@ -119,27 +206,31 @@ export function useCreateExam() {
       const uid = session.session?.user?.id;
       if (!uid) throw new Error("غير مسجل");
       let subject_id = payload.subject_id;
-      const group_id: string | null | undefined = payload.group_id;
+      let group_id: string | null | undefined = payload.group_id;
+      const sourceGroupId = group_id || null;
+      let subSubjectId = payload.sub_subject_id ?? null;
       let term = payload.term;
       let targetEducationType = normalizeEducationType(payload.target_education_type) || null;
       if (!group_id) {
         throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
       }
       if (group_id) {
-        const { data: group, error: groupError } = await supabase
-          .from("content_groups")
-          .select("subject_id, term, education_type")
-          .eq("id", group_id)
-          .or(`teacher_id.eq.${uid},created_by.eq.${uid}`)
-          .maybeSingle();
-        if (groupError) throw groupError;
-        if (!group?.subject_id) {
-          throw new Error("تعذر تحديد المجموعة. افتح الامتحانات من داخل المجموعة المطلوبة مرة أخرى.");
-        }
+        const group = await resolveSiblingGroupForExam({
+          sourceGroupId: group_id,
+          requestedSubjectId: subject_id,
+          teacherId: uid,
+          fallbackTerm: term,
+        });
+        group_id = group.id;
         subject_id = group.subject_id as string;
         term = ((group as any)?.term as string | undefined) || term;
         const groupEducationType = normalizeEducationType((group as any)?.education_type);
         if (groupEducationType) targetEducationType = groupEducationType;
+        subSubjectId = await resolveSiblingSubSubjectForExam({
+          sourceSubSubjectId: subSubjectId,
+          sourceGroupId,
+          targetGroupId: group_id,
+        });
       }
       if (!subject_id) {
         throw new Error("تعذر تحديد مادة المجموعة. افتح الامتحانات من داخل المجموعة مرة أخرى.");
@@ -153,7 +244,7 @@ export function useCreateExam() {
           teacher_id: uid,
           subject_id,
           group_id: group_id ?? null,
-          sub_subject_id: payload.sub_subject_id ?? null,
+          sub_subject_id: subSubjectId,
           title: payload.title || "امتحان جديد",
           description: payload.description ?? null,
           instructions: payload.instructions ?? null,

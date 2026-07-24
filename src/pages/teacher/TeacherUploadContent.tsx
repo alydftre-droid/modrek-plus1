@@ -703,17 +703,19 @@ const TeacherUploadContent = () => {
 
 
   const getUploadSubjectIds = (): string[] => {
-    if (selectedGroup?.subject_id) return [selectedGroup.subject_id];
-    if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
+    const fallbackSubjectId = subjectId || selectedGroup?.subject_id || "";
+    if (showSectionTarget && sectionTarget === "both") {
+      return allSubjects.length ? allSubjects.map(s => s.id).filter(Boolean) : [fallbackSubjectId].filter(Boolean);
+    }
     if (sectionTarget === "scientific") {
       const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
-      return [s?.id || subjectId!].filter(Boolean);
+      return [s?.id || fallbackSubjectId].filter(Boolean);
     }
     if (sectionTarget === "literary") {
       const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "literary");
-      return [s?.id || subjectId!].filter(Boolean);
+      return [s?.id || fallbackSubjectId].filter(Boolean);
     }
-    return [subjectId!];
+    return [selectedGroup?.subject_id || fallbackSubjectId].filter(Boolean);
   };
 
   const getActiveSubjectId = (): string => {

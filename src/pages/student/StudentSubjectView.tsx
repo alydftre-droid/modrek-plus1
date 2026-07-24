@@ -1173,12 +1173,12 @@ const StudentSubjectView = () => {
   };
 
   // ========== Content filtering ==========
-  // When a sub-subject is selected, ONLY show content uploaded into that exact sub-subject.
-  // Content uploaded to a different sub-subject must never appear here.
+  // The catalog RPC already applies strict sub-subject matching, including
+  // sibling groups where the same sub-subject has a different UUID. Do not
+  // re-filter by raw UUID here or أدبي/علمي sibling content is dropped.
   const filteredContent = useMemo(() => {
-    if (!selectedSubSubject?.id) return content;
-    return content.filter((c) => c.sub_subject_id === selectedSubSubject.id);
-  }, [content, selectedSubSubject?.id]);
+    return content;
+  }, [content]);
   const videos = useMemo(() => filteredContent.filter(c => c.type === "video"), [filteredContent]);
   const learningFiles = useMemo(() => filteredContent.filter(c => c.type !== "video"), [filteredContent]);
   const activeGroupSubjectId = useMemo(() => courses.find(c => c.id === activeGroupId)?.subject_id || "", [courses, activeGroupId]);
@@ -1200,7 +1200,6 @@ const StudentSubjectView = () => {
     const exams = activeGroupExamCatalog?.exams || [];
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
-      if (selectedSubSubject?.id && e.sub_subject_id !== selectedSubSubject.id) return false;
       return true;
     }).length;
   }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, useLiteraryFallbackCatalog]);

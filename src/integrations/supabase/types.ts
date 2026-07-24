@@ -7025,6 +7025,14 @@ export type Database = {
         Args: { p_category: string; p_subject_name?: string }
         Returns: string
       }
+      resolve_teacher_target_group: {
+        Args: {
+          _source_group_id: string
+          _target_subject_id: string
+          _teacher_id?: string
+        }
+        Returns: string
+      }
       run_subscription_expiry_automation: { Args: never; Returns: undefined }
       run_teacher_visibility_audit: { Args: never; Returns: Json }
       save_exam_answer: {
