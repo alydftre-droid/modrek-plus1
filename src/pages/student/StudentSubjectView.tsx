@@ -137,6 +137,8 @@ interface StudentContentCatalogRow {
   sub_subject: string | null;
   sub_subject_id?: string | null;
   is_accessible: boolean;
+  education_type?: string | null;
+  subject_section?: string | null;
 }
 
 const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRow => ({
@@ -161,7 +163,8 @@ const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRo
 type ContentVisibilityMeta = {
   id: string;
   education_type?: string | null;
-  subjects?: { section?: string | null } | null;
+  subject_id?: string | null;
+  subject_section?: string | null;
 };
 
 
@@ -612,13 +615,11 @@ const StudentSubjectView = () => {
         section: subject.section,
       });
 
-      if (stage !== "secondary" || !effectiveEducationType) return true;
+      if (stage !== "secondary") return true;
 
-      const matchesEducationType =
-        !group.education_type ||
-        group.education_type === "both" ||
-        group.education_type === effectiveEducationType;
-      return matchesEducationType;
+      const groupEducationType = normalizeEducationType(group.education_type);
+      const normalizedStudentEducationType = normalizeEducationType(effectiveEducationType);
+      return !groupEducationType || !normalizedStudentEducationType || groupEducationType === normalizedStudentEducationType;
     });
 
     console.info("[student-catalog-debug] group visibility counts", {
@@ -849,24 +850,61 @@ const StudentSubjectView = () => {
       const filterContentByStudentTargets = async (rows: ContentRow[]) => {
         if (rows.length === 0) return rows;
 
-        const rowIds = rows.map((row) => row.id).filter(Boolean);
-        const { data: visibilityRows, error: visibilityError } = await supabase
-          .from("content")
-          .select("id, education_type, subjects(section)")
-          .in("id", rowIds);
+        let metaById = new Map<string, ContentVisibilityMeta>(
+          rows.map((row) => [
+            row.id,
+            {
+              id: row.id,
+              education_type: row.education_type || null,
+              subject_id: row.subject_id || null,
+              subject_section: row.subject_section || null,
+            },
+          ]),
+        );
 
-        if (visibilityError) {
-          console.error("[student-content-visibility-guard] metadata lookup failed", {
-            groupId,
-            subSubjectId: subSubjectId || null,
-            error: visibilityError,
-          });
-          return [];
+        const rowsMissingCatalogTargets = rows.some((row) => row.education_type === undefined || row.subject_section === undefined);
+        if (rowsMissingCatalogTargets) {
+          const rowIds = rows.map((row) => row.id).filter(Boolean);
+          const { data: visibilityRows, error: visibilityError } = await supabase
+            .from("content")
+            .select("id, education_type, subject_id")
+            .in("id", rowIds);
+
+          if (visibilityError) {
+            console.error("[student-content-visibility-guard] metadata lookup failed; keeping secure RPC rows", {
+              groupId,
+              subSubjectId: subSubjectId || null,
+              error: visibilityError,
+            });
+            return rows;
+          }
+
+          const subjectIds = [...new Set(((visibilityRows || []) as ContentVisibilityMeta[]).map((meta) => meta.subject_id).filter(Boolean))];
+          const { data: subjectRows, error: subjectError } = subjectIds.length
+            ? await supabase.from("subjects").select("id, section").in("id", subjectIds)
+            : { data: [], error: null };
+
+          if (subjectError) {
+            console.error("[student-content-visibility-guard] subject metadata lookup failed; keeping secure RPC rows", {
+              groupId,
+              subSubjectId: subSubjectId || null,
+              error: subjectError,
+            });
+            return rows;
+          }
+
+          const sectionBySubjectId = new Map(((subjectRows || []) as { id: string; section?: string | null }[]).map((subject) => [subject.id, subject.section || null]));
+          metaById = new Map(
+            ((visibilityRows || []) as ContentVisibilityMeta[]).map((meta) => [
+              meta.id,
+              {
+                ...meta,
+                subject_section: meta.subject_id ? sectionBySubjectId.get(meta.subject_id) || null : null,
+              },
+            ]),
+          );
         }
 
-        const metaById = new Map(
-          ((visibilityRows || []) as ContentVisibilityMeta[]).map((meta) => [meta.id, meta]),
-        );
         const effectiveStudentSection = studentSection || section;
         const normalizedStudentEdu = normalizeEducationType(studentEducationType);
         const normalizedStudentSection = normalizeSectionForSubjects(effectiveStudentSection);
@@ -875,17 +913,17 @@ const StudentSubjectView = () => {
         const filteredRows = rows.filter((row) => {
           const meta = metaById.get(row.id);
           if (!meta) {
-            console.warn("[student-content-visibility-guard] blocked row with missing metadata", {
+            console.warn("[student-content-visibility-guard] missing metadata; keeping secure RPC row", {
               contentId: row.id,
               title: row.title,
               studentEducationType,
               effectiveStudentSection,
             });
-            return false;
+            return true;
           }
 
           const contentEdu = normalizeEducationType(meta.education_type);
-          const contentSection = normalizeSectionForSubjects(meta.subjects?.section);
+          const contentSection = normalizeSectionForSubjects(meta.subject_section);
           const educationMatches = !contentEdu || (!!normalizedStudentEdu && contentEdu === normalizedStudentEdu);
           const sectionMatches = !shouldApplySectionGuard || !contentSection || !normalizedStudentSection || contentSection === normalizedStudentSection;
           const allowed = educationMatches && sectionMatches;
@@ -895,7 +933,7 @@ const StudentSubjectView = () => {
             title: row.title,
             contentEducationType: meta.education_type || null,
             studentEducationType,
-            contentSection: meta.subjects?.section || null,
+            contentSection: meta.subject_section || null,
             studentSection: effectiveStudentSection,
             educationMatches,
             sectionMatches,
@@ -920,7 +958,7 @@ const StudentSubjectView = () => {
           return {
             ...row,
             education_type: meta?.education_type || null,
-            subject_section: meta?.subjects?.section || null,
+            subject_section: meta?.subject_section || null,
           };
         });
       };
