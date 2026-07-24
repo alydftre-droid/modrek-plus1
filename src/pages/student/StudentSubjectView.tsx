@@ -1174,9 +1174,14 @@ const StudentSubjectView = () => {
   };
 
   // ========== Content filtering ==========
-  // Content is already filtered by sub_subject_id when loading, so just use all content
-  const videos = useMemo(() => content.filter(c => c.type === "video"), [content]);
-  const learningFiles = useMemo(() => content.filter(c => c.type !== "video"), [content]);
+  // When a sub-subject is selected, ONLY show content uploaded into that exact sub-subject.
+  // Content uploaded to a different sub-subject must never appear here.
+  const filteredContent = useMemo(() => {
+    if (!selectedSubSubject?.id) return content;
+    return content.filter((c) => c.sub_subject_id === selectedSubSubject.id);
+  }, [content, selectedSubSubject?.id]);
+  const videos = useMemo(() => filteredContent.filter(c => c.type === "video"), [filteredContent]);
+  const learningFiles = useMemo(() => filteredContent.filter(c => c.type !== "video"), [filteredContent]);
   const activeGroupSubjectId = useMemo(() => courses.find(c => c.id === activeGroupId)?.subject_id || "", [courses, activeGroupId]);
   const activeGroupSubjectMeta = useMemo(
     () => subjects.find((subject) => subject.id === activeGroupSubjectId),
