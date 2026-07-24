@@ -701,14 +701,10 @@ const StudentSubjectView = () => {
     if (groupIds.length > 0) {
       const countResults = await Promise.all(
         groupIds.map(async (groupId) => {
-          const { data, error } = normalizeSectionForSubjects(effectiveStudentSection) === "literary"
-            ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
-                _group_id: groupId,
-              })
-            : await supabase.rpc("get_student_group_content_catalog" as any, {
-                _group_id: groupId,
-                _sub_subject_id: null,
-              });
+          const { data, error } = await supabase.rpc("get_student_group_content_catalog" as any, {
+            _group_id: groupId,
+            _sub_subject_id: null,
+          });
 
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
