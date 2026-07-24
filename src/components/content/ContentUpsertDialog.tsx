@@ -415,6 +415,49 @@ const ContentUpsertDialog = ({
     return groupBySubject;
   };
 
+  const resolveSubSubjectIdsForGroups = async (params: {
+    groupIdsBySubject: Map<string, string | null>;
+    targetSubjectIds: string[];
+    selectedSubSubjectId: string | null;
+    selectedSubSubjectName: string | null;
+  }) => {
+    const { groupIdsBySubject, targetSubjectIds, selectedSubSubjectId, selectedSubSubjectName } = params;
+    const subSubjectBySubject = new Map<string, string | null>();
+    targetSubjectIds.forEach((sid) => subSubjectBySubject.set(sid, selectedSubSubjectId));
+
+    const cleanName = String(selectedSubSubjectName || "").trim();
+    const uniqueGroupIds = Array.from(new Set(Array.from(groupIdsBySubject.values()).filter(Boolean) as string[]));
+    if (!cleanName || uniqueGroupIds.length === 0) return subSubjectBySubject;
+
+    const { data, error } = await supabase
+      .from("sub_subjects")
+      .select("id, group_id, name")
+      .in("group_id", uniqueGroupIds)
+      .eq("is_active", true);
+
+    if (error) throw error;
+
+    const rows = ((data || []) as Array<{ id: string; group_id: string; name: string }>).filter((row) => row.id && row.group_id);
+    targetSubjectIds.forEach((sid) => {
+      const gid = groupIdsBySubject.get(sid);
+      if (!gid) return;
+      const matching = rows.find((row) => row.group_id === gid && String(row.name || "").trim() === cleanName);
+      subSubjectBySubject.set(sid, matching?.id || selectedSubSubjectId);
+    });
+
+    traceContentTarget("teacher-upload.sub-subject-resolution", {
+      selectedSubSubjectId,
+      selectedSubSubjectName: cleanName,
+      resolved: targetSubjectIds.map((sid) => ({
+        subjectId: sid,
+        groupId: groupIdsBySubject.get(sid) || null,
+        subSubjectId: subSubjectBySubject.get(sid) || null,
+      })),
+    });
+
+    return subSubjectBySubject;
+  };
+
   const handleSubmit = async (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -531,10 +574,18 @@ const ContentUpsertDialog = ({
           fallbackTerm: resolvedTerm,
         });
 
+        const subSubjectIdsBySubject = await resolveSubSubjectIdsForGroups({
+          groupIdsBySubject,
+          targetSubjectIds: targetIds,
+          selectedSubSubjectId: resolvedSubSubjectId,
+          selectedSubSubjectName: resolvedSubSubjectName,
+        });
+
         const insertedIds: string[] = [];
         for (const sid of targetIds) {
           const contentId = crypto.randomUUID();
           const resolvedGroupId = groupIdsBySubject.get(sid) ?? groupId;
+          const rowSubSubjectId = subSubjectIdsBySubject.get(sid) ?? resolvedSubSubjectId;
           const { error: dbError } = await supabase.from("content").insert({
             id: contentId,
             title,
@@ -546,7 +597,7 @@ const ContentUpsertDialog = ({
             uploaded_by: uploadedBy || null,
             group_id: resolvedGroupId,
             sub_subject: resolvedSubSubjectName,
-            sub_subject_id: resolvedSubSubjectId,
+            sub_subject_id: rowSubSubjectId,
             term: resolvedTerm,
             education_type: eduType,
             target_section: targetSection,
