@@ -6136,7 +6136,20 @@ export type Database = {
         Returns: undefined
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
+      content_effective_education_type: {
+        Args: { _content_edu: string; _content_group_id: string }
+        Returns: string
+      }
       content_target_matches_student:
+        | {
+            Args: {
+              _content_edu: string
+              _content_group_id: string
+              _content_subject_id: string
+              _student_id: string
+            }
+            Returns: boolean
+          }
         | {
             Args: {
               _content_edu: string
@@ -6205,15 +6218,30 @@ export type Database = {
         Returns: Json
       }
       exam_boolean_answer_key: { Args: { _value: string }; Returns: string }
-      exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }
-      exam_target_matches_student: {
-        Args: {
-          _student_id: string
-          _target_education_type: string
-          _target_section: string
-        }
-        Returns: boolean
+      exam_effective_education_type: {
+        Args: { _group_id: string; _target_edu: string }
+        Returns: string
       }
+      exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }
+      exam_target_matches_student:
+        | {
+            Args: {
+              _student_id: string
+              _target_education_type: string
+              _target_section: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _group_id: string
+              _student_id: string
+              _subject_id: string
+              _target_education_type: string
+              _target_section: string
+            }
+            Returns: boolean
+          }
       exam_text_feedback:
         | {
             Args: {
@@ -6473,6 +6501,27 @@ export type Database = {
           type: string
         }[]
       }
+      get_student_group_content_target_debug: {
+        Args: {
+          _group_id: string
+          _student_id: string
+          _sub_subject_id?: string
+        }
+        Returns: {
+          allowed: boolean
+          content_id: string
+          decision_reason: string
+          division_matches: boolean
+          education_matches: boolean
+          effective_education_type: string
+          group_id: string
+          saved_division: string
+          saved_education_type: string
+          student_division: string
+          student_education_type: string
+          title: string
+        }[]
+      }
       get_student_group_exam_catalog: {
         Args: { _group_id: string; _sub_subject_id?: string }
         Returns: {
@@ -6568,6 +6617,11 @@ export type Database = {
         Returns: boolean
       }
       is_test_student: { Args: { _user_id: string }; Returns: boolean }
+      is_valid_target_education_type: {
+        Args: { _value: string }
+        Returns: boolean
+      }
+      is_valid_target_section: { Args: { _value: string }; Returns: boolean }
       library_book_progress_v2: { Args: { p_book_id: string }; Returns: Json }
       library_canonical_track_name: { Args: { _code: string }; Returns: string }
       library_canonical_track_sort: { Args: { _code: string }; Returns: number }

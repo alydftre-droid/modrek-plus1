@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import aiBot from "@/assets/ai-bot-mascot.png";
 
 
@@ -38,17 +39,24 @@ export default function CreateMethodPage() {
     let cancelled = false;
     (async () => {
       if (!subjectId) return;
-      const { data: subj } = await supabase
+      const [{ data: subj }, { data: group }] = await Promise.all([
+        supabase
         .from("subjects")
         .select("name, stage, grade, category, section")
         .eq("id", subjectId)
-        .maybeSingle();
+        .maybeSingle(),
+        groupId
+          ? supabase.from("content_groups").select("education_type").eq("id", groupId).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+      ]);
       if (cancelled || !subj) return;
+      const groupEducationType = normalizeEducationType((group as any)?.education_type);
+      if (groupEducationType) setEduTarget(groupEducationType);
       const cat = String(subj.category || "").toLowerCase();
       const isArabic = cat === "arabic" || cat.includes("عرب");
       const isSharia = cat === "sharia" || cat === "religious" || cat.includes("شرع");
       const isSecondary = subj.stage === "secondary";
-      setShowEduTarget(isSecondary && !(isArabic || isSharia));
+      setShowEduTarget(isSecondary && !(isArabic || isSharia) && !groupEducationType);
 
       // Only show section selector when subject has two section variants
       const { data: variants } = await supabase
@@ -58,18 +66,12 @@ export default function CreateMethodPage() {
         .eq("stage", subj.stage)
         .eq("grade", subj.grade)
         .eq("is_active", true);
-      const norm = (v: string | null) => {
-        const s = (v || "").trim().toLowerCase();
-        if (["scientific", "science", "علمي", "علمى", "علوم", "علمي علوم", "علمي رياضة", "رياضة", "رياضيات"].includes(s)) return "scientific";
-        if (["literary", "أدبي", "ادبي"].includes(s)) return "literary";
-        return "";
-      };
-      const uniq = new Set((variants || []).map((r: any) => norm(r.section)).filter(Boolean));
+      const uniq = new Set((variants || []).map((r: any) => normalizeSectionForSubjects(r.section)).filter(Boolean));
       const isSingleSectionCategory = ["science", "scientific", "integrated_science", "literary", "history_geo"].includes(cat);
       setShowSectionTarget(isSecondary && uniq.size >= 2 && !isSingleSectionCategory);
     })();
     return () => { cancelled = true; };
-  }, [subjectId]);
+  }, [subjectId, groupId]);
 
   const buildQuery = useMemo(() => {
     const next = new URLSearchParams(params);

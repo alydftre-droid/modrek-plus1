@@ -20,7 +20,7 @@ import AiLessonManager from "@/components/teacher/AiLessonManager";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
-import { normalizeSectionForSubjects } from "@/lib/educationSection";
+import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import {
   BookOpen,
   ChevronLeft,
@@ -96,6 +96,7 @@ type GroupRow = {
   start_date: string | null;
   end_date: string | null;
   term?: string | null;
+  education_type?: string | null;
 };
 
 function stageLabel(stage: string) {
@@ -509,7 +510,9 @@ const TeacherUploadContent = () => {
   const showSectionTarget =
     isSecondaryStage && hasBothSectionVariants && !isSingleSectionCategory;
   // Education-type targeting hidden for arabic/sharia (separate teachers); shown for secondary otherwise
-  const showEducationTypeTargetComputed = !isArabicOrSharia && isSecondaryStage;
+  const selectedGroupEducationType = normalizeEducationType((selectedGroup as any)?.education_type);
+  const normalizedTeacherEducationType = normalizeEducationType(teacherEducationType);
+  const showEducationTypeTargetComputed = !selectedGroupEducationType && !isArabicOrSharia && isSecondaryStage;
 
   // Filter content by section
   const filterBySection = (items: ContentRow[]) => {
@@ -545,10 +548,20 @@ const TeacherUploadContent = () => {
     setUploadType(type);
     // Default: target both sections + both education types (no filter unless teacher chooses).
     setSectionTarget("both");
+    if (selectedGroupEducationType) {
+      setEducationTypeTarget(selectedGroupEducationType);
+    } else if (isArabicOrSharia) {
+      if (!normalizedTeacherEducationType) {
+        toast({
+          title: "لم يتم تحديد نوع تعليم المعلم",
+          description: "لا يمكن رفع محتوى العربي أو الشرعي قبل اكتمال نوع التعليم في حساب المعلم.",
+          variant: "destructive",
+        });
+        return;
+      }
+      setEducationTypeTarget(normalizedTeacherEducationType);
     // For Arabic/Sharia subjects the teacher does NOT pick — content is auto-stamped
     // with the teacher's own education_type so it only reaches matching students.
-    if (isArabicOrSharia && teacherEducationType) {
-      setEducationTypeTarget(teacherEducationType);
     } else {
       setEducationTypeTarget("both");
     }
@@ -647,6 +660,8 @@ const TeacherUploadContent = () => {
     }
     return subjectId!;
   };
+
+  const resolvedUploadEducationTarget = selectedGroupEducationType || (isArabicOrSharia ? normalizedTeacherEducationType : educationTypeTarget);
 
   if (isLoading) {
     return (
@@ -907,7 +922,7 @@ const TeacherUploadContent = () => {
           subSubjectId={subSubjectId || undefined}
           currentTerm={currentTerm || undefined}
           showEducationTypeTarget={showEducationTypeTargetComputed}
-          educationTypeTarget={educationTypeTarget}
+          educationTypeTarget={resolvedUploadEducationTarget}
           onEducationTypeTargetChange={setEducationTypeTarget}
         />
       )}
