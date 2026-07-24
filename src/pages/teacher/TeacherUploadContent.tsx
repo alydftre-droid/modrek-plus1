@@ -78,6 +78,8 @@ type ContentRow = {
   sub_subject: string | null;
   subject_id?: string | null;
   is_free_preview?: boolean;
+  education_type?: string | null;
+  target_section?: string | null;
 };
 
 
@@ -404,8 +406,8 @@ const TeacherUploadContent = () => {
     try {
       const buildQuery = (includeFreePreview: boolean) => {
         const selectColumns = includeFreePreview
-          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview"
-          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id";
+          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section"
+          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, education_type, target_section";
 
         let q = (supabase.from("content") as any)
         .select(selectColumns)
@@ -576,6 +578,9 @@ const TeacherUploadContent = () => {
       file_url: item.file_url,
       description: item.description,
       sub_subject: item.sub_subject,
+      subject_id: item.subject_id || null,
+      education_type: item.education_type || null,
+      target_section: item.target_section || null,
     });
     setEditOpen(true);
   };
@@ -691,12 +696,13 @@ const TeacherUploadContent = () => {
   const getSectionBadge = (item: ContentRow) => {
     if (!hasSections || !item.subject_id) return null;
     const section = subjectSectionMap[item.subject_id];
-    if (!section) return null;
+    const targetSection = normalizeSectionForSubjects(item.target_section) || normalizeSectionForSubjects(section);
+    if (!targetSection) return null;
     return (
       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
-        section === "scientific" ? "border-blue-300 text-blue-600 bg-blue-50" : "border-purple-300 text-purple-600 bg-purple-50"
+        targetSection === "scientific" ? "border-blue-300 text-blue-600 bg-blue-50" : "border-purple-300 text-purple-600 bg-purple-50"
       }`}>
-        {section === "scientific" ? "علمي" : "أدبي"}
+        {targetSection === "scientific" ? "علمي" : "أدبي"}
       </Badge>
     );
   };
@@ -935,6 +941,8 @@ const TeacherUploadContent = () => {
           onOpenChange={setEditOpen}
           subjectId={subjectId!}
           item={editItem}
+          sectionTarget={editItem.target_section || undefined}
+          educationTypeTarget={editItem.education_type || "both"}
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
