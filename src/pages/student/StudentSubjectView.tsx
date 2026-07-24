@@ -524,13 +524,25 @@ const StudentSubjectView = () => {
     const shouldFilterBySection = normalizedSection && !isSharedSectionCategory(category);
     const categoryVariants = CATEGORY_KEY_TO_SUBJECT_CATEGORIES[category] || [category];
 
-    const { data: rawGroups } = await supabase
+    const { data: rawGroups, error: rawGroupsError } = await supabase
       .from("content_groups")
       .select("id, title, description, month_label, image_url, price, section_name, subject_id, is_active, lesson_count, start_date, end_date, teacher_id, created_by, term, education_type")
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
-      .eq("term", activeTerm)
       .eq("is_active", true)
       .eq("price_approved", true);
+
+    if (rawGroupsError) {
+      console.error("[student-catalog-debug] content_groups query failed", {
+        activeTerm,
+        stage,
+        grade,
+        category,
+        error: rawGroupsError,
+      });
+      setSubjects([]);
+      setCourses([]);
+      return;
+    }
 
     const subjectIds = [...new Set(((rawGroups as any[]) || []).map((group) => group.subject_id).filter(Boolean))];
     const { data: subjectRows } = subjectIds.length
@@ -572,10 +584,10 @@ const StudentSubjectView = () => {
       return true;
     });
 
-    // Strict term isolation: only show groups that explicitly belong to the active term.
-    // No fallback to other terms and no allowance for null-term groups — each term is a
-    // fully separate workspace as required by the term-switching system.
-    const groupsSource = eligibleGroups.filter((group) => group.term === activeTerm);
+    // Term isolation is enforced by the backend RLS policy (group_matches_current_system_term).
+    // Do not duplicate it here: if the local term fetch is stale, the client-side filter hides
+    // the whole group before the secure catalog RPC can return locked preview metadata.
+    const groupsSource = eligibleGroups;
 
     const groups = groupsSource.filter((group) => {
       const subject = subjectMap.get(group.subject_id);
@@ -594,6 +606,17 @@ const StudentSubjectView = () => {
         group.education_type === "both" ||
         group.education_type === effectiveEducationType;
       return matchesEducationType;
+    });
+
+    console.info("[student-catalog-debug] group visibility counts", {
+      activeTerm,
+      stage,
+      grade,
+      category,
+      rawGroups: ((rawGroups as any[]) || []).length,
+      eligibleGroups: eligibleGroups.length,
+      visibleGroups: groups.length,
+      visibleGroupIds: groups.map((group) => group.id),
     });
 
     setSubjects(Array.from(matchedSubjects.values()));
@@ -631,6 +654,9 @@ const StudentSubjectView = () => {
         const bPurchased = ps.has(b.id) ? 0 : 1;
         return aPurchased - bPurchased;
       });
+    console.info("[student-catalog-debug] group content counts", {
+      groups: sorted.map((group) => ({ id: group.id, title: group.title, content_count: group.content_count })),
+    });
     setCourses(sorted);
   };
 
@@ -831,7 +857,16 @@ const StudentSubjectView = () => {
       };
 
       if (!secureError) {
-        finishWithContent(((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent));
+        const secureContentRows = ((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent);
+        console.info("[student-catalog-debug] secure group content catalog", {
+          groupId,
+          subSubjectId: subSubjectId || null,
+          rows: secureContentRows.length,
+          videos: secureContentRows.filter((row) => row.type === "video").length,
+          files: secureContentRows.filter((row) => row.type !== "video").length,
+          locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
+        });
+        finishWithContent(secureContentRows);
         return;
       }
 
