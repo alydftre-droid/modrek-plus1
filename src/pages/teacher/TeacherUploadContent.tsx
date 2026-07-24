@@ -805,9 +805,15 @@ const TeacherUploadContent = () => {
 
   // Get section badge for a content item
   const getSectionBadge = (item: ContentRow) => {
-    if (!hasSections || !item.subject_id) return null;
-    const section = subjectSectionMap[item.subject_id];
-    const targetSection = normalizeSectionForSubjects(item.target_section) || normalizeSectionForSubjects(section);
+    if (!hasSections) return null;
+    const targetSection = normalizeSectionForSubjects(item.target_section);
+    if (!targetSection) {
+      return (
+        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-300 text-emerald-700 bg-emerald-50">
+          الجميع
+        </Badge>
+      );
+    }
     if (!targetSection) return null;
     return (
       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${
