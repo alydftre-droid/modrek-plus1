@@ -59,22 +59,15 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       if (!uid) return { exams: [], attempts: [] };
 
       if (filters?.groupId) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("section")
-          .eq("id", uid)
-          .maybeSingle();
-        const useLiteraryFallback = normalizeStudentSectionForExamFallback((profile as any)?.section) === "literary";
-
+        // Unified targeting: main RPC uses exam_target_matches_student which
+        // treats NULL target as "all" and value as strict match — this covers
+        // every combination (single/multi section, single/multi education
+        // type, all-students) uniformly for every student.
         const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }] = await Promise.all([
-          useLiteraryFallback
-            ? (supabase as any).rpc("get_literary_student_group_exam_catalog", {
-                _group_id: filters.groupId,
-              })
-            : (supabase as any).rpc("get_student_group_exam_catalog", {
-                _group_id: filters.groupId,
-                _sub_subject_id: filters.subSubjectId || null,
-              }),
+          (supabase as any).rpc("get_student_group_exam_catalog", {
+            _group_id: filters.groupId,
+            _sub_subject_id: filters.subSubjectId || null,
+          }),
           supabase
             .from("exam_attempts")
             .select("*")
@@ -87,14 +80,11 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
           reportRpcError({
             title: "تعذر تحميل امتحانات المجموعة",
             error: examCatalogError,
-            operation: useLiteraryFallback
-              ? "rpc:get_literary_student_group_exam_catalog"
-              : "rpc:get_student_group_exam_catalog",
+            operation: "rpc:get_student_group_exam_catalog",
             sourceHint: "useStudentExamCatalog",
             context: {
               groupId: filters.groupId,
               subSubjectId: filters.subSubjectId || null,
-              useLiteraryFallback,
               studentId: uid,
             },
           });
