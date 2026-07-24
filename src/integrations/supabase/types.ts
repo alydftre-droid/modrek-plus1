@@ -6136,6 +6136,10 @@ export type Database = {
         Returns: undefined
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
+      content_target_matches_student: {
+        Args: { _content_edu: string; _student_id: string }
+        Returns: boolean
+      }
       create_modrek_ai_training_exam: {
         Args: { _payload: Json }
         Returns: Json
