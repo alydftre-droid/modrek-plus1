@@ -894,26 +894,6 @@ const StudentSubjectView = () => {
     }
 
     if ((data || []).length > 0) {
-      const { data: catalogRows, error: catalogError } = await supabase.rpc(
-        "get_student_group_content_catalog" as any,
-        {
-          _group_id: groupId,
-          _sub_subject_id: null,
-        },
-      );
-
-      if (!catalogError) {
-        const hasSectionedContent = ((catalogRows || []) as StudentContentCatalogRow[]).some((row) => !!row.sub_subject_id);
-        if (!hasSectionedContent) {
-          traceContentTarget("student-sub-subjects.skipped-no-sectioned-content", {
-            groupId,
-            activeSubSubjectRows: (data || []).length,
-            visibleContentRows: ((catalogRows || []) as StudentContentCatalogRow[]).length,
-          });
-          return false;
-        }
-      }
-
       return true;
     }
 
