@@ -1188,7 +1188,7 @@ const StudentSubjectView = () => {
           subjectId: activeGroupSubjectId,
           groupId: activeGroupId,
           term: currentTerm,
-          subSubjectId: useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id,
+          subSubjectId: selectedSubSubject?.id,
         }
       : undefined,
   );
