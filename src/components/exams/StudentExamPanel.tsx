@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +5,6 @@ import { useStudentExamCatalog } from "@/hooks/useExams";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { normalizeSectionForSubjects } from "@/lib/educationSection";
 
 interface Props {
   subjectId: string;
