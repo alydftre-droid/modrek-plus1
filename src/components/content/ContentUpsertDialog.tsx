@@ -139,6 +139,16 @@ interface ContentUpsertDialogProps {
   onEducationTypeTargetChange?: (t: string) => void;
 }
 
+type GroupResolutionRow = {
+  id: string;
+  subject_id: string;
+  term?: string | null;
+  teacher_id?: string | null;
+  created_by?: string | null;
+  title?: string | null;
+  month_label?: string | null;
+};
+
 type ResolvedSubSubject = {
   id: string;
   name: string;
@@ -345,6 +355,66 @@ const ContentUpsertDialog = ({
     return `bunny://${videoId}`;
   };
 
+  const resolveGroupIdsForSubjects = async (params: {
+    sourceGroupId: string | null;
+    targetSubjectIds: string[];
+    uploaderId?: string | null;
+    fallbackTerm?: string | null;
+  }) => {
+    const { sourceGroupId, targetSubjectIds, uploaderId, fallbackTerm } = params;
+    const groupBySubject = new Map<string, string | null>();
+    targetSubjectIds.forEach((sid) => groupBySubject.set(sid, sourceGroupId));
+
+    if (!sourceGroupId || targetSubjectIds.length <= 1) return groupBySubject;
+
+    const { data: sourceGroup, error: sourceGroupError } = await supabase
+      .from("content_groups")
+      .select("id, subject_id, term, teacher_id, created_by, title, month_label")
+      .eq("id", sourceGroupId)
+      .maybeSingle();
+
+    if (sourceGroupError) throw sourceGroupError;
+    if (!sourceGroup) return groupBySubject;
+
+    const ownerId = (sourceGroup as GroupResolutionRow).teacher_id || (sourceGroup as GroupResolutionRow).created_by || uploaderId || null;
+    const siblingQuery = supabase
+      .from("content_groups")
+      .select("id, subject_id, term, teacher_id, created_by, title, month_label")
+      .in("subject_id", targetSubjectIds)
+      .eq("is_active", true);
+
+    const sourceTerm = (sourceGroup as GroupResolutionRow).term || fallbackTerm || null;
+    if (sourceTerm) siblingQuery.eq("term", sourceTerm);
+    if (ownerId) siblingQuery.or(`teacher_id.eq.${ownerId},created_by.eq.${ownerId}`);
+
+    const { data: siblingGroups, error: siblingError } = await siblingQuery;
+    if (siblingError) throw siblingError;
+
+    const rows = ((siblingGroups || []) as GroupResolutionRow[]).filter((group) => group.subject_id);
+    const sourceTitle = String((sourceGroup as GroupResolutionRow).title || "").trim();
+    const sourceMonth = String((sourceGroup as GroupResolutionRow).month_label || "").trim();
+    const pickBestGroup = (sid: string) => {
+      const candidates = rows.filter((group) => group.subject_id === sid);
+      if (candidates.length === 0) return sourceGroupId;
+      return (
+        candidates.find((group) => group.id === sourceGroupId)?.id ||
+        candidates.find((group) => sourceMonth && String(group.month_label || "").trim() === sourceMonth)?.id ||
+        candidates.find((group) => sourceTitle && String(group.title || "").trim() === sourceTitle)?.id ||
+        candidates[0].id
+      );
+    };
+
+    targetSubjectIds.forEach((sid) => groupBySubject.set(sid, pickBestGroup(sid)));
+    traceContentTarget("teacher-upload.group-resolution", {
+      sourceGroupId,
+      sourceSubjectId: (sourceGroup as GroupResolutionRow).subject_id,
+      targetSubjectIds,
+      resolved: Array.from(groupBySubject.entries()).map(([sid, gid]) => ({ subjectId: sid, groupId: gid })),
+    });
+
+    return groupBySubject;
+  };
+
   const handleSubmit = async (e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -454,9 +524,17 @@ const ContentUpsertDialog = ({
           type,
         });
 
+        const groupIdsBySubject = await resolveGroupIdsForSubjects({
+          sourceGroupId: groupId,
+          targetSubjectIds: targetIds,
+          uploaderId: uploadedBy || null,
+          fallbackTerm: resolvedTerm,
+        });
+
         const insertedIds: string[] = [];
         for (const sid of targetIds) {
           const contentId = crypto.randomUUID();
+          const resolvedGroupId = groupIdsBySubject.get(sid) ?? groupId;
           const { error: dbError } = await supabase.from("content").insert({
             id: contentId,
             title,
@@ -466,7 +544,7 @@ const ContentUpsertDialog = ({
             subject_id: sid,
             description: description || null,
             uploaded_by: uploadedBy || null,
-            group_id: groupId,
+            group_id: resolvedGroupId,
             sub_subject: resolvedSubSubjectName,
             sub_subject_id: resolvedSubSubjectId,
             term: resolvedTerm,
@@ -477,7 +555,7 @@ const ContentUpsertDialog = ({
             console.error("[teacher-content-targeting] DB insert error", {
               error: dbError,
               subjectId: sid,
-              groupId,
+              groupId: resolvedGroupId,
               educationTypeTarget: eduType,
               sectionTarget: targetSection || "both",
             });
