@@ -28,21 +28,11 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   const exams = catalog?.exams || [];
   const attempts = catalog?.attempts || [];
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
-  const activeSubject = useMemo(() => exams.find((exam: any) => exam.subject_id === subjectId)?.subjects, [exams, subjectId]);
-
   const filtered = exams.filter((e: any) => {
     if (groupId && e.group_id !== groupId) return false;
     if (subSubjectId && e.sub_subject_id !== subSubjectId) return false;
     if (!groupId && currentTerm && e.term && e.term !== currentTerm) return false;
     if (!groupId && e.subject_id !== subjectId) return false;
-    if (groupId && e.subject_id !== subjectId && activeSubject && e.subjects) {
-      const sameSubjectScope =
-        e.subjects.name === activeSubject.name &&
-        e.subjects.stage === activeSubject.stage &&
-        e.subjects.grade === activeSubject.grade &&
-        normalizeSectionForSubjects(e.subjects.section) === normalizeSectionForSubjects(activeSubject.section);
-      if (!sameSubjectScope) return false;
-    }
     return true;
   });
 
