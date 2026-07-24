@@ -1,13 +1,56 @@
 export type StudentSectionValue = string | null | undefined;
 
-const SCIENTIFIC_SECTION_VALUES = ["scientific", "science", "sci", "علمي", "علمى", "علم", "علمي علوم", "علمى علوم", "علوم", "علمي رياضة", "علمى رياضة", "رياضة", "رياضيات"];
-const LITERARY_SECTION_VALUES = ["literary", "أدبي", "ادبي", "أدبى", "ادبى", "الأدبي", "الادبي"];
+const normalizeSectionLookupValue = (section: StudentSectionValue) =>
+  (section || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي");
+
+const SCIENTIFIC_SECTION_VALUES = [
+  "scientific",
+  "science",
+  "sci",
+  "scientific section",
+  "science section",
+  "علمي",
+  "علمى",
+  "علم",
+  "العلمي",
+  "القسم العلمي",
+  "الشعبة العلمية",
+  "الشعبه العلميه",
+  "شعبة علمي",
+  "شعبه علمي",
+  "علمي علوم",
+  "علوم",
+  "علمي رياضة",
+  "رياضة",
+  "رياضيات",
+];
+const LITERARY_SECTION_VALUES = [
+  "literary",
+  "arts",
+  "art",
+  "adabi",
+  "adaby",
+  "ادبي",
+  "الادبي",
+  "القسم الادبي",
+  "الشعبة الادبية",
+  "الشعبه الادبيه",
+  "شعبة ادبي",
+  "شعبه ادبي",
+];
 
 export function normalizeSectionForSubjects(section: StudentSectionValue): "scientific" | "literary" | "" {
-  const value = (section || "").trim().replace(/\s+/g, " ").toLowerCase();
+  const value = normalizeSectionLookupValue(section);
 
   if (SCIENTIFIC_SECTION_VALUES.includes(value)) return "scientific";
   if (LITERARY_SECTION_VALUES.includes(value)) return "literary";
+  if (value.includes("علمي") || value.includes("علوم") || value.includes("رياض")) return "scientific";
+  if (value.includes("ادبي") || value.includes("literary") || value.includes("arts") || value.includes("adab")) return "literary";
 
   return "";
 }
@@ -48,9 +91,10 @@ export function isMathSpecialty(section: StudentSectionValue) {
 
 export function formatSectionLabel(section: StudentSectionValue) {
   const value = (section || "").trim();
+  const normalized = normalizeSectionForSubjects(value);
 
-  if (value === "scientific") return "علمي";
-  if (value === "literary") return "أدبي";
+  if (normalized === "scientific") return "علمي";
+  if (normalized === "literary") return "أدبي";
 
   return value;
 }

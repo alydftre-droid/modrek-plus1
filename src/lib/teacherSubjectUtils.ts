@@ -104,10 +104,28 @@ export function choiceCategoryVariantsFromSelection(selectionOrKey: string, subj
   const normalizedSubjectName = normalizeSubjectSelectionName(subjectName || "");
   const filter = subjectFilterFromTeacherSelection(raw);
   const variants = new Set<string>();
+  const legacyChoiceVariants: Record<string, string[]> = {
+    arabic: ["arabic", "المواد العربية", "لغة عربية", "اللغة العربية"],
+    sharia: ["sharia", "religious", "المواد الشرعية"],
+    religious: ["sharia", "religious", "المواد الشرعية"],
+    science: ["science", "scientific", "العلوم", "المواد العلمية"],
+    scientific: ["science", "scientific", "العلوم", "المواد العلمية"],
+    integrated_science: ["integrated_science", "العلوم المتكاملة"],
+    literary: ["literary", "history_geo", "المواد الأدبية", "التاريخ والجغرافيا", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا"],
+    history_geo: ["history_geo", "literary", "المواد الأدبية", "التاريخ والجغرافيا", "تاريخ", "التاريخ", "جغرافيا", "الجغرافيا"],
+    math: ["math", "mathematics", "رياضيات", "الرياضيات"],
+    english: ["english", "الإنجليزية", "لغة إنجليزية", "اللغة الإنجليزية"],
+    french: ["french", "الفرنسية", "لغة فرنسية", "اللغة الفرنسية"],
+  };
 
   if (raw) variants.add(raw);
   if (filter?.categoryKey) variants.add(filter.categoryKey);
   if (filter?.subjectName) variants.add(filter.subjectName);
+
+  (legacyChoiceVariants[raw] || []).forEach((variant) => variants.add(variant));
+  if (filter?.categoryKey) {
+    (legacyChoiceVariants[filter.categoryKey] || []).forEach((variant) => variants.add(variant));
+  }
 
   if (normalizedSubjectName) {
     variants.add(normalizedSubjectName);

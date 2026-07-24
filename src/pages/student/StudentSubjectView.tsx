@@ -967,6 +967,18 @@ const StudentSubjectView = () => {
           files: secureContentRows.filter((row) => row.type !== "video").length,
           locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
         });
+        if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary") {
+          traceContentTarget("student-content.empty-literary-catalog", {
+            groupId,
+            subSubjectId: subSubjectId || null,
+            studentId: user?.id || null,
+            studentEducationType,
+            studentSection,
+            normalizedStudentSection: normalizeSectionForSubjects(studentSection),
+            activeGroupSubjectId,
+            activeGroupSubjectMeta,
+          });
+        }
         traceContentTarget("student-content.rpc-result", {
           groupId,
           subSubjectId: subSubjectId || null,
