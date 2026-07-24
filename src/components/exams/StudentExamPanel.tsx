@@ -29,7 +29,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
   const filtered = exams.filter((e: any) => {
     if (groupId && e.group_id !== groupId) return false;
-    if (subSubjectId && e.sub_subject_id !== subSubjectId) return false;
+    if (subSubjectId && e.sub_subject_id && e.sub_subject_id !== subSubjectId) return false;
     if (!groupId && currentTerm && e.term && e.term !== currentTerm) return false;
     if (!groupId && e.subject_id !== subjectId) return false;
     return true;
