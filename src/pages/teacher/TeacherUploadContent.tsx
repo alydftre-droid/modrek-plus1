@@ -101,6 +101,8 @@ type GroupRow = {
   education_type?: string | null;
 };
 
+const uniqueValues = <T,>(values: T[]) => Array.from(new Set(values.filter(Boolean)));
+
 const isContentTargetDebugEnabled = () => {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
@@ -415,11 +417,66 @@ const TeacherUploadContent = () => {
   const fetchGroupContent = async (groupId: string) => {
     if (!effectiveUserId || !currentTerm) return;
     try {
+      const subjectIdsInScope = uniqueValues(allSubjects.map((item) => item.id));
+      const selectedTitle = String(selectedGroup?.title || "").trim();
+      const selectedMonth = String(selectedGroup?.month_label || "").trim();
+      const relatedGroupIds = new Set<string>([groupId]);
+
+      if (subjectIdsInScope.length > 0 && selectedGroup) {
+        let groupQuery = supabase
+          .from("content_groups")
+          .select("id, title, month_label, subject_id")
+          .in("subject_id", subjectIdsInScope)
+          .eq("is_active", true)
+          .eq("term", currentTerm)
+          .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`);
+
+        if (selectedMonth) {
+          groupQuery = groupQuery.eq("month_label", selectedMonth);
+        } else if (selectedTitle) {
+          groupQuery = groupQuery.eq("title", selectedTitle);
+        }
+
+        const { data: siblingGroups, error: siblingGroupError } = await groupQuery;
+        if (siblingGroupError) throw siblingGroupError;
+        ((siblingGroups || []) as Array<{ id: string }>).forEach((group) => {
+          if (group.id) relatedGroupIds.add(group.id);
+        });
+      }
+
+      let relatedSubSubjectIds: string[] | null = null;
+      let relatedSubSubjectNames: string[] | null = null;
+      if (subSubjectId) {
+        const { data: selectedSubSubject } = await supabase
+          .from("sub_subjects")
+          .select("name")
+          .eq("id", subSubjectId)
+          .maybeSingle();
+
+        const cleanSubSubjectName = String((selectedSubSubject as any)?.name || subSubjectName || "").trim();
+        if (cleanSubSubjectName && relatedGroupIds.size > 0) {
+          const { data: matchingSubSubjects, error: subSubjectError } = await supabase
+            .from("sub_subjects")
+            .select("id, name")
+            .in("group_id", Array.from(relatedGroupIds))
+            .eq("is_active", true)
+            .eq("name", cleanSubSubjectName);
+          if (subSubjectError) throw subSubjectError;
+          relatedSubSubjectIds = uniqueValues(((matchingSubSubjects || []) as Array<{ id: string }>).map((row) => row.id));
+          relatedSubSubjectNames = [cleanSubSubjectName];
+        } else {
+          relatedSubSubjectIds = [subSubjectId];
+          relatedSubSubjectNames = subSubjectName ? [subSubjectName] : null;
+        }
+      }
+
       traceContentTarget("teacher-view.query-start", {
         groupId,
+        relatedGroupIds: Array.from(relatedGroupIds),
         effectiveUserId,
         currentTerm,
         subSubjectId: subSubjectId || null,
+        relatedSubSubjectIds,
         sectionFilter,
         hasSections,
         selectedGroup: selectedGroup ? {
@@ -438,27 +495,10 @@ const TeacherUploadContent = () => {
 
         let q = (supabase.from("content") as any)
         .select(selectColumns)
-        .eq("group_id", groupId)
+        .in("group_id", Array.from(relatedGroupIds))
         .eq("is_active", true)
         .eq("uploaded_by", effectiveUserId)
         .eq("term", currentTerm);
-      
-        if (subSubjectId) {
-          q = q.eq("sub_subject_id", subSubjectId);
-        }
-
-        const shouldFilterSectionInTeacherView = hasSections && sectionFilter !== "all";
-        if (shouldFilterSectionInTeacherView) {
-          const filteredIds = allSubjects
-            .filter((subject) => normalizeSectionForSubjects(subject.section) === sectionFilter)
-            .map((subject) => subject.id);
-
-          if (filteredIds.length === 0) {
-            return null;
-          }
-
-          q = q.in("subject_id", filteredIds);
-        }
 
         return q.order("created_at", { ascending: false });
       };
@@ -487,13 +527,19 @@ const TeacherUploadContent = () => {
       // Deduplicate only exact duplicate rows. Do not collapse rows that share the
       // same file_url but have different targeting, because one upload can create
       // separate علمي/أدبي or عام/أزهر variants for the same file.
-      const rows = (contentData || []) as any[];
+      const rows = ((contentData || []) as any[]).filter((row) => {
+        if (!subSubjectId) return true;
+        const rowSubSubjectName = String(row.sub_subject || "").trim();
+        const idMatches = relatedSubSubjectIds ? relatedSubSubjectIds.includes(row.sub_subject_id) : row.sub_subject_id === subSubjectId;
+        const nameMatches = relatedSubSubjectNames ? relatedSubSubjectNames.includes(rowSubSubjectName) : false;
+        return idMatches || nameMatches;
+      });
       const seen = new Set<string>();
       const deduped = rows.filter(c => {
         const key = [
           c.file_url || c.id,
           c.education_type || "both-edu",
-          c.target_section || c.subject_id || "both-section",
+          c.target_section || "both-section",
           c.sub_subject_id || c.sub_subject || "no-sub",
           c.type || "content",
         ].join("|");
@@ -580,10 +626,16 @@ const TeacherUploadContent = () => {
   const filterBySection = (items: ContentRow[]) => {
     if (!hasSections || sectionFilter === "all") return items;
     return items.filter(item => {
-      const section = item.subject_id ? subjectSectionMap[item.subject_id] : null;
-      const normalizedItemSection = normalizeSectionForSubjects(item.target_section) || normalizeSectionForSubjects(section);
-      return normalizedItemSection === sectionFilter;
+      const explicitTarget = normalizeSectionForSubjects(item.target_section);
+      if (!explicitTarget) return true;
+      return explicitTarget === sectionFilter;
     });
+  };
+
+  const getItemSectionTarget = (item: ContentRow[]) => null;
+  const filterByLegacySection = (item: ContentRow) => {
+      const section = item.subject_id ? subjectSectionMap[item.subject_id] : null;
+      return normalizeSectionForSubjects(section);
   };
 
   const videos = useMemo(() => filterBySection(content.filter((c) => c.type === "video")), [content, sectionFilter, hasSections, subjectSectionMap]);
