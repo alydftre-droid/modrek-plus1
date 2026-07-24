@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import { reportRpcError } from "@/lib/rpcErrorReporter";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import LiveTabContent from "@/components/live/LiveTabContent";
