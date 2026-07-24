@@ -93,6 +93,17 @@ function formatTime(seconds: number): string {
   return `${(seconds / 3600).toFixed(1)} ساعة`;
 }
 
+const isContentTargetDebugEnabled = () => {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugContent") === "1" || window.localStorage.getItem("modrek-content-target-debug") === "1";
+};
+
+const traceContentTarget = (stage: string, payload: Record<string, unknown>) => {
+  if (!isContentTargetDebugEnabled()) return;
+  console.info(`[content-target-debug] ${stage}`, payload);
+};
+
 interface UploadProgress {
   loaded: number;
   total: number;
@@ -428,16 +439,22 @@ const ContentUpsertDialog = ({
 
         const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
         const targetSection = sectionTarget === "both" ? null : (sectionTarget || null);
-        console.info("[teacher-content-targeting] insert plan", {
+        traceContentTarget("teacher-upload.insert-plan", {
           groupId,
           targetSubjectIds: targetIds,
+          subjectId,
+          uploadedBy: uploadedBy || null,
           sectionTarget: sectionTarget || "both",
-          educationTypeTarget: eduType,
+          savedTargetSection: targetSection,
+          selectedEducationTypeTarget: educationTypeTarget || "both",
+          savedEducationType: eduType,
           term: resolvedTerm,
           subSubjectId: resolvedSubSubjectId,
+          subSubjectName: resolvedSubSubjectName,
           type,
         });
 
+        const insertedIds: string[] = [];
         for (const sid of targetIds) {
           const contentId = crypto.randomUUID();
           const { error: dbError } = await supabase.from("content").insert({
@@ -468,6 +485,31 @@ const ContentUpsertDialog = ({
             setUploading(false);
             return;
           }
+          insertedIds.push(contentId);
+        }
+
+        if (insertedIds.length > 0) {
+          const { data: insertedRows, error: verifyError } = await supabase
+            .from("content")
+            .select("id, title, group_id, subject_id, education_type, target_section, sub_subject_id, term, uploaded_by, is_active")
+            .in("id", insertedIds);
+
+          traceContentTarget("teacher-upload.insert-verified", {
+            insertedIds,
+            verifyError: verifyError ? { message: verifyError.message, code: (verifyError as any).code } : null,
+            rows: (insertedRows || []).map((row: any) => ({
+              id: row.id,
+              title: row.title,
+              groupId: row.group_id,
+              subjectId: row.subject_id,
+              savedEducationType: row.education_type,
+              savedTargetSection: row.target_section,
+              subSubjectId: row.sub_subject_id,
+              term: row.term,
+              uploadedBy: row.uploaded_by,
+              isActive: row.is_active,
+            })),
+          });
         }
 
         toast.success("تم رفع المحتوى بنجاح");
@@ -496,6 +538,15 @@ const ContentUpsertDialog = ({
       try {
         const targetSection = sectionTarget === "both" ? null : (sectionTarget || item.target_section || null);
         const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || item.education_type || null);
+
+        traceContentTarget("teacher-upload.update-plan", {
+          id: item.id,
+          title,
+          savedEducationType: eduType,
+          savedTargetSection: targetSection,
+          selectedEducationTypeTarget: educationTypeTarget || "both",
+          selectedSectionTarget: sectionTarget || "both",
+        });
 
         const { error } = await supabase
           .from("content")

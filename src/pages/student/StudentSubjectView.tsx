@@ -141,6 +141,17 @@ interface StudentContentCatalogRow {
   subject_section?: string | null;
 }
 
+const isContentTargetDebugEnabled = () => {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("debugContent") === "1" || window.localStorage.getItem("modrek-content-target-debug") === "1";
+};
+
+const traceContentTarget = (stage: string, payload: Record<string, unknown>) => {
+  if (!isContentTargetDebugEnabled()) return;
+  console.info(`[content-target-debug] ${stage}`, payload);
+};
+
 const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRow => ({
   id: row.id,
   title: row.title,
@@ -379,6 +390,17 @@ const StudentSubjectView = () => {
       const profileSection = (studentProfile as any)?.section || null;
       setStudentEducationType(eduType);
       setStudentSection(profileSection);
+      traceContentTarget("student-init.profile", {
+        userId: user.id,
+        stage,
+        grade,
+        category,
+        currentTerm: term,
+        educationType: eduType,
+        normalizedEducationType: normalizeEducationType(eduType),
+        section: profileSection,
+        normalizedSection: normalizeSectionForSubjects(profileSection),
+      });
 
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
@@ -623,6 +645,31 @@ const StudentSubjectView = () => {
       eligibleGroups: eligibleGroups.length,
       visibleGroups: groups.length,
       visibleGroupIds: groups.map((group) => group.id),
+    });
+    traceContentTarget("student-groups.filtered", {
+      activeTerm,
+      teacherId,
+      stage,
+      grade,
+      category,
+      studentEducationType: effectiveEducationType,
+      normalizedStudentEducationType: normalizeEducationType(effectiveEducationType),
+      studentSection,
+      normalizedStudentSection: normalizeSectionForSubjects(studentSection),
+      rawGroups: ((rawGroups as any[]) || []).map((group) => ({
+        id: group.id,
+        title: group.title,
+        educationType: group.education_type || null,
+        subjectId: group.subject_id,
+        term: group.term,
+      })),
+      visibleGroups: groups.map((group) => ({
+        id: group.id,
+        title: group.title,
+        educationType: group.education_type || null,
+        subjectId: group.subject_id,
+        term: group.term,
+      })),
     });
 
     setSubjects(Array.from(matchedSubjects.values()));
@@ -890,6 +937,27 @@ const StudentSubjectView = () => {
           videos: secureContentRows.filter((row) => row.type === "video").length,
           files: secureContentRows.filter((row) => row.type !== "video").length,
           locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
+        });
+        traceContentTarget("student-content.rpc-result", {
+          groupId,
+          subSubjectId: subSubjectId || null,
+          studentId: user?.id || null,
+          studentEducationType,
+          normalizedStudentEducationType: normalizeEducationType(studentEducationType),
+          studentSection,
+          normalizedStudentSection: normalizeSectionForSubjects(studentSection),
+          rows: secureContentRows.map((row) => ({
+            id: row.id,
+            title: row.title,
+            type: row.type,
+            educationType: row.education_type || null,
+            subjectSection: row.subject_section || null,
+            subjectId: row.subject_id || null,
+            groupId: row.group_id || null,
+            subSubjectId: row.sub_subject_id || null,
+            isAccessible: row.is_accessible === true,
+            isFreePreview: row.is_free_preview === true,
+          })),
         });
         finishWithContent(secureContentRows);
         return;
