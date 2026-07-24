@@ -6140,7 +6140,7 @@ export type Database = {
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
       content_effective_education_type: {
-        Args: { _content_edu: string; _content_group_id: string }
+        Args: { _content_edu: string; _content_group_id?: string }
         Returns: string
       }
       content_effective_section: {
@@ -6240,7 +6240,7 @@ export type Database = {
       }
       exam_boolean_answer_key: { Args: { _value: string }; Returns: string }
       exam_effective_education_type: {
-        Args: { _group_id: string; _target_edu: string }
+        Args: { _group_id?: string; _target_edu: string }
         Returns: string
       }
       exam_effective_section: {
@@ -6266,6 +6266,14 @@ export type Database = {
               _group_id: string
               _student_id: string
               _subject_id: string
+              _target_education_type: string
+              _target_section: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _student_id: string
               _target_education_type: string
               _target_section: string
             }
