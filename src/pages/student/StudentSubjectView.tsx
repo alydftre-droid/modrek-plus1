@@ -959,12 +959,9 @@ const StudentSubjectView = () => {
     e.stopPropagation();
     e.preventDefault();
     if (!canOpenContent(item)) {
-      if (activeGroup) {
-        setSelectedCourse(activeGroup);
-        setShowSubscribeConfirm(true);
-      } else {
-        toast.error("يجب الاشتراك في المجموعة أولًا للوصول إلى هذا المحتوى");
-      }
+      toast("🔒 يجب الاشتراك في هذه المجموعة أولاً لمشاهدة جميع المحتويات التعليمية.", {
+        duration: 3500,
+      });
       return;
     }
     if (item.type === "video") {
