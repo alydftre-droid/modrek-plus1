@@ -365,6 +365,7 @@ const StudentSubjectView = () => {
 
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
+  const useLiteraryFallbackCatalog = normalizeSectionForSubjects(studentSection || section) === "literary";
 
   // ========== Init ==========
   useEffect(() => {
@@ -438,9 +439,23 @@ const StudentSubjectView = () => {
         const teacherName = normalizeTeacherDisplayName((tProfile as any)?.full_name) || normalizeTeacherDisplayName((fallbackProfile as any)?.full_name);
         setChosenTeacherName(teacherName || "اسم المعلم غير متاح");
         setChosenTeacherPhoto((tPhoto as any)?.photo_url || (tProfile as any)?.avatar_url || (fallbackProfile as any)?.avatar_url || null);
-        await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term, eduType);
+        const loadedCourses = await fetchTeacherCourses(choiceData.teacher_id, purchasedSet, term, eduType, profileSection);
+        const requestedGroup = effectiveDeepLinkGroupId
+          ? loadedCourses.find((group) => group.id === effectiveDeepLinkGroupId)
+          : null;
 
-        setStep("groups_list");
+        if (requestedGroup) {
+          setDeepLinkApplied(true);
+          setActiveGroupId(requestedGroup.id);
+          await loadGroupContent(
+            requestedGroup.id,
+            effectiveDeepLinkSubSubjectId || undefined,
+            undefined,
+            profileSection,
+          );
+        } else {
+          setStep("groups_list");
+        }
       } else {
         await fetchTeachers(eduType);
         setStep("teacher_selection");
@@ -548,9 +563,11 @@ const StudentSubjectView = () => {
     purchasedSet?: Set<string>,
     termOverride?: string,
     educationTypeOverride?: string | null,
+    sectionOverride?: string | null,
   ) => {
     const activeTerm = termOverride || currentTerm;
     const effectiveEducationType = educationTypeOverride ?? studentEducationType;
+    const effectiveStudentSection = sectionOverride ?? studentSection;
     const shouldFilterBySection = normalizedSection && !isSharedSectionCategory(category);
     const categoryVariants = CATEGORY_KEY_TO_SUBJECT_CATEGORIES[category] || [category];
 
@@ -571,7 +588,7 @@ const StudentSubjectView = () => {
       });
       setSubjects([]);
       setCourses([]);
-      return;
+      return [];
     }
 
     const subjectIds = [...new Set(((rawGroups as any[]) || []).map((group) => group.subject_id).filter(Boolean))];
@@ -654,8 +671,8 @@ const StudentSubjectView = () => {
       category,
       studentEducationType: effectiveEducationType,
       normalizedStudentEducationType: normalizeEducationType(effectiveEducationType),
-      studentSection,
-      normalizedStudentSection: normalizeSectionForSubjects(studentSection),
+      studentSection: effectiveStudentSection,
+      normalizedStudentSection: normalizeSectionForSubjects(effectiveStudentSection),
       rawGroups: ((rawGroups as any[]) || []).map((group) => ({
         id: group.id,
         title: group.title,
@@ -679,10 +696,14 @@ const StudentSubjectView = () => {
     if (groupIds.length > 0) {
       const countResults = await Promise.all(
         groupIds.map(async (groupId) => {
-          const { data, error } = await supabase.rpc("get_student_group_content_catalog" as any, {
-            _group_id: groupId,
-            _sub_subject_id: null,
-          });
+          const { data, error } = normalizeSectionForSubjects(effectiveStudentSection) === "literary"
+            ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
+                _group_id: groupId,
+              })
+            : await supabase.rpc("get_student_group_content_catalog" as any, {
+                _group_id: groupId,
+                _sub_subject_id: null,
+              });
 
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
@@ -710,6 +731,7 @@ const StudentSubjectView = () => {
       groups: sorted.map((group) => ({ id: group.id, title: group.title, content_count: group.content_count })),
     });
     setCourses(sorted);
+    return sorted;
   };
 
   // Remove all paid purchases the student has with a specific (previous) teacher within this subject scope
@@ -854,6 +876,14 @@ const StudentSubjectView = () => {
   };
 
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
+    if (useLiteraryFallbackCatalog) {
+      traceContentTarget("student-literary-fallback.skip-sub-subject-workspace", {
+        groupId,
+        studentSection: studentSection || section,
+      });
+      return false;
+    }
+
     const { data, error } = await supabase
       .from("sub_subjects")
       .select("id")
@@ -933,15 +963,20 @@ const StudentSubjectView = () => {
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
-  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string) => {
+  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string, sectionOverride?: string | null) => {
     setLoadingContent(true);
     setStep("subject_content");
+    const shouldUseLiteraryFallback = normalizeSectionForSubjects(sectionOverride ?? studentSection ?? section) === "literary";
     
     try {
-            const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
-        _group_id: groupId,
-        _sub_subject_id: subSubjectId || null,
-      });
+      const { data: secureRows, error: secureError } = shouldUseLiteraryFallback
+        ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
+            _group_id: groupId,
+          })
+        : await supabase.rpc("get_student_group_content_catalog" as any, {
+            _group_id: groupId,
+            _sub_subject_id: subSubjectId || null,
+          });
 
       const finishWithContent = (rows: ContentRow[]) => {
         setContent(rows);
@@ -964,6 +999,7 @@ const StudentSubjectView = () => {
       if (!secureError) {
         const secureContentRows = ((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent);
         console.info("[student-catalog-debug] secure group content catalog", {
+          source: shouldUseLiteraryFallback ? "literary-fallback" : "standard",
           groupId,
           subSubjectId: subSubjectId || null,
           rows: secureContentRows.length,
@@ -973,6 +1009,7 @@ const StudentSubjectView = () => {
         });
         if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary") {
           traceContentTarget("student-content.empty-literary-catalog", {
+            source: shouldUseLiteraryFallback ? "literary-fallback" : "standard",
             groupId,
             subSubjectId: subSubjectId || null,
             studentId: user?.id || null,
@@ -1069,8 +1106,9 @@ const StudentSubjectView = () => {
     if (step !== "groups_list" || courses.length === 0) return;
     const group = courses.find((c) => c.id === effectiveDeepLinkGroupId);
     if (!group) return;
-    // Access control: only auto-open groups the student has purchased.
-    if (!purchasedGroups.has(group.id)) return;
+    // Deep links and explicit group_id routes should open the group catalog even
+    // for non-subscribed students, because the product supports previewing locked
+    // items in place. Actual playback/opening remains guarded by canOpenContent.
     setDeepLinkApplied(true);
     (async () => {
       setActiveGroupId(group.id);
@@ -1144,7 +1182,7 @@ const StudentSubjectView = () => {
           subjectId: activeGroupSubjectId,
           groupId: activeGroupId,
           term: currentTerm,
-          subSubjectId: selectedSubSubject?.id,
+          subSubjectId: useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id,
         }
       : undefined,
   );
@@ -1152,10 +1190,10 @@ const StudentSubjectView = () => {
     const exams = activeGroupExamCatalog?.exams || [];
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
-      if (selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
+      if (!useLiteraryFallbackCatalog && selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
       return true;
     }).length;
-  }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId]);
+  }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, useLiteraryFallbackCatalog]);
 
   // ========== Header ==========
   const renderHeader = () => (
@@ -1708,7 +1746,7 @@ const StudentSubjectView = () => {
               <StudentExamPanel
                 currentTerm={currentTerm}
                 groupId={activeGroup?.id || ""}
-                subSubjectId={selectedSubSubject?.id || undefined}
+                subSubjectId={useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
                 onRequireSubscription={() => {
                   if (!activeGroup) return;

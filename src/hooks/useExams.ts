@@ -4,6 +4,12 @@ import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
+const normalizeStudentSectionForExamFallback = (value?: string | null) => {
+  const normalized = (value || "").trim().toLowerCase().replace(/[أإآ]/g, "ا").replace(/ى/g, "ي");
+  if (normalized.includes("ادبي") || normalized.includes("literary") || normalized.includes("arts")) return "literary";
+  return normalized;
+};
+
 // ----- STUDENT -----
 async function getStudentPurchasedGroupIds(uid: string) {
   const { data, error } = await supabase
@@ -53,11 +59,22 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       if (!uid) return { exams: [], attempts: [] };
 
       if (filters?.groupId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("section")
+          .eq("id", uid)
+          .maybeSingle();
+        const useLiteraryFallback = normalizeStudentSectionForExamFallback((profile as any)?.section) === "literary";
+
         const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }] = await Promise.all([
-          (supabase as any).rpc("get_student_group_exam_catalog", {
-            _group_id: filters.groupId,
-            _sub_subject_id: filters.subSubjectId || null,
-          }),
+          useLiteraryFallback
+            ? (supabase as any).rpc("get_literary_student_group_exam_catalog", {
+                _group_id: filters.groupId,
+              })
+            : (supabase as any).rpc("get_student_group_exam_catalog", {
+                _group_id: filters.groupId,
+                _sub_subject_id: filters.subSubjectId || null,
+              }),
           supabase
             .from("exam_attempts")
             .select("*")
