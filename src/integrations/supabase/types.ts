@@ -6254,9 +6254,9 @@ export type Database = {
       }
       exam_effective_section: {
         Args: {
-          _group_id?: string
-          _subject_id: string
-          _target_section: string
+          _exam_group_id?: string
+          _exam_subject_id: string
+          _exam_target_section: string
         }
         Returns: string
       }
