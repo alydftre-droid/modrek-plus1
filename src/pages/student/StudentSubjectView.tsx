@@ -680,10 +680,14 @@ const StudentSubjectView = () => {
     if (groupIds.length > 0) {
       const countResults = await Promise.all(
         groupIds.map(async (groupId) => {
-          const { data, error } = await supabase.rpc("get_student_group_content_catalog" as any, {
-            _group_id: groupId,
-            _sub_subject_id: null,
-          });
+          const { data, error } = normalizeSectionForSubjects(studentSection) === "literary"
+            ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
+                _group_id: groupId,
+              })
+            : await supabase.rpc("get_student_group_content_catalog" as any, {
+                _group_id: groupId,
+                _sub_subject_id: null,
+              });
 
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
@@ -1084,8 +1088,9 @@ const StudentSubjectView = () => {
     if (step !== "groups_list" || courses.length === 0) return;
     const group = courses.find((c) => c.id === effectiveDeepLinkGroupId);
     if (!group) return;
-    // Access control: only auto-open groups the student has purchased.
-    if (!purchasedGroups.has(group.id)) return;
+    // Deep links and explicit group_id routes should open the group catalog even
+    // for non-subscribed students, because the product supports previewing locked
+    // items in place. Actual playback/opening remains guarded by canOpenContent.
     setDeepLinkApplied(true);
     (async () => {
       setActiveGroupId(group.id);
