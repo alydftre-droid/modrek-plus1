@@ -1417,19 +1417,12 @@ const StudentSubjectView = () => {
           >
             <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
               <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-              {item.type === "video" ? (
-                  <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-accent">
+                {item.type === "video" ? (
+                  <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-accent">
                     <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-full w-full" rounded="rounded-lg" />
-                    {!openable && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card/95 shadow-sm">
-                          <Lock className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
-                  <div className="relative flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent">
+                  <div className="flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-accent">
                     {item.thumbnail_url ? (
                       <img
                         src={resolveBunnyStorageUrl(item.thumbnail_url)}
@@ -1440,43 +1433,23 @@ const StudentSubjectView = () => {
                     ) : (
                       <FileText className="h-6 w-6 text-primary" />
                     )}
-                    {!openable && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-card/95 shadow-sm">
-                          <Lock className="h-3.5 w-3.5 text-primary" />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
                 <div className="min-w-0">
                   <h3 className="line-clamp-2 font-semibold text-foreground">{item.title}</h3>
-                  {item.description && <p className="line-clamp-2 text-sm text-muted-foreground">{item.description}</p>}
+                  <div className="mt-1 flex items-center gap-2">
+                    {!openable && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                        <Lock className="h-2.5 w-2.5" />
+                        مقفول
+                      </span>
+                    )}
+                    {item.description && <p className="line-clamp-1 text-xs text-muted-foreground">{item.description}</p>}
+                  </div>
                 </div>
               </div>
-              <div className="flex w-full items-center justify-end gap-2 shrink-0 sm:w-auto">
-                {!openable ? (
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="gap-1">
-                      <Lock className="h-3 w-3" />
-                      مقفول
-                    </Badge>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (!activeGroup) return;
-                        setSelectedCourse(activeGroup);
-                        setShowSubscribeConfirm(true);
-                      }}
-                    >
-                      <Wallet className="h-3.5 w-3.5" />
-                      اشتراك
-                    </Button>
-                  </div>
-                ) : (
+              {openable && (
+                <div className="flex w-full items-center justify-end gap-2 shrink-0 sm:w-auto">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1489,8 +1462,8 @@ const StudentSubjectView = () => {
                       <><FileText className="h-4 w-4" />عرض</>
                     )}
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
           );
