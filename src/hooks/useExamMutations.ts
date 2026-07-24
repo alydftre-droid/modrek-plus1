@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { EditorQuestion, EditorQType } from "@/components/exams/teacher/QuestionEditorCard";
+import { normalizeEducationType } from "@/lib/educationSection";
 
 function normalizeQuestionType(type: unknown): EditorQType {
   const raw = String(type ?? "").trim().toLowerCase();
@@ -120,13 +121,14 @@ export function useCreateExam() {
       let subject_id = payload.subject_id;
       const group_id: string | null | undefined = payload.group_id;
       let term = payload.term;
+      let targetEducationType = normalizeEducationType(payload.target_education_type) || null;
       if (!group_id) {
         throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
       }
       if (group_id) {
         const { data: group, error: groupError } = await supabase
           .from("content_groups")
-          .select("subject_id, term")
+          .select("subject_id, term, education_type")
           .eq("id", group_id)
           .or(`teacher_id.eq.${uid},created_by.eq.${uid}`)
           .maybeSingle();
@@ -136,6 +138,8 @@ export function useCreateExam() {
         }
         subject_id = group.subject_id as string;
         term = ((group as any)?.term as string | undefined) || term;
+        const groupEducationType = normalizeEducationType((group as any)?.education_type);
+        if (groupEducationType) targetEducationType = groupEducationType;
       }
       if (!subject_id) {
         throw new Error("تعذر تحديد مادة المجموعة. افتح الامتحانات من داخل المجموعة مرة أخرى.");
@@ -173,7 +177,7 @@ export function useCreateExam() {
           status: payload.status ?? "draft",
           is_published: payload.is_published ?? false,
           term,
-          target_education_type: payload.target_education_type ?? null,
+          target_education_type: targetEducationType,
           target_section: payload.target_section ?? null,
         } as any)
         .select()

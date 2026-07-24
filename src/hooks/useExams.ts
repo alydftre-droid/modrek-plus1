@@ -34,7 +34,7 @@ function examMatchesStudentTargets(exam: any, profile: StudentExamVisibilityProf
     if (!studentEducationType || studentEducationType !== targetEducationType) return false;
   }
 
-  const targetSection = normalizeSectionForSubjects(exam?.target_section);
+  const targetSection = normalizeSectionForSubjects(exam?.target_section) || normalizeSectionForSubjects(exam?.subject_section) || normalizeSectionForSubjects(exam?.subjects?.section);
   if (targetSection) {
     const studentSection = normalizeSectionForSubjects(profile?.section);
     if (!studentSection || studentSection !== targetSection) return false;

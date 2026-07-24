@@ -619,7 +619,7 @@ const StudentSubjectView = () => {
 
       const groupEducationType = normalizeEducationType(group.education_type);
       const normalizedStudentEducationType = normalizeEducationType(effectiveEducationType);
-      return !groupEducationType || !normalizedStudentEducationType || groupEducationType === normalizedStudentEducationType;
+      return !groupEducationType || (!!normalizedStudentEducationType && groupEducationType === normalizedStudentEducationType);
     });
 
     console.info("[student-catalog-debug] group visibility counts", {
@@ -932,8 +932,6 @@ const StudentSubjectView = () => {
         const effectiveStudentSection = studentSection || section;
         const normalizedStudentEdu = normalizeEducationType(studentEducationType);
         const normalizedStudentSection = normalizeSectionForSubjects(effectiveStudentSection);
-        const shouldApplySectionGuard = !isSharedSectionCategory(category);
-
         const filteredRows = rows.filter((row) => {
           const meta = metaById.get(row.id);
           if (!meta) {
@@ -949,7 +947,7 @@ const StudentSubjectView = () => {
           const contentEdu = normalizeEducationType(meta.education_type);
           const contentSection = normalizeSectionForSubjects(meta.subject_section);
           const educationMatches = !contentEdu || (!!normalizedStudentEdu && contentEdu === normalizedStudentEdu);
-          const sectionMatches = !shouldApplySectionGuard || !contentSection || !normalizedStudentSection || contentSection === normalizedStudentSection;
+          const sectionMatches = !contentSection || (!!normalizedStudentSection && contentSection === normalizedStudentSection);
           const allowed = educationMatches && sectionMatches;
 
           console.info("[student-content-visibility-guard] evaluated content row", {

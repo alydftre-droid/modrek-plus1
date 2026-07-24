@@ -422,8 +422,18 @@ const ContentUpsertDialog = ({
         const resolvedSubSubjectId = subSubjectId || (selectedSubSubjectRow && selectedSubSubjectRow.id !== selectedSubSubjectRow.name ? selectedSubSubjectRow.id : null);
         const resolvedSubSubjectName = defaultSubSubject || selectedSubSubjectRow?.name || selectedSubSubject || null;
 
+        const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
+        console.info("[teacher-content-targeting] insert plan", {
+          groupId,
+          targetSubjectIds: targetIds,
+          sectionTarget: sectionTarget || "both",
+          educationTypeTarget: eduType,
+          term: resolvedTerm,
+          subSubjectId: resolvedSubSubjectId,
+          type,
+        });
+
         for (const sid of targetIds) {
-          const eduType = educationTypeTarget === "both" ? null : (educationTypeTarget || null);
           const contentId = crypto.randomUUID();
           const { error: dbError } = await supabase.from("content").insert({
             id: contentId,
@@ -441,7 +451,13 @@ const ContentUpsertDialog = ({
             education_type: eduType,
           } as any);
           if (dbError) {
-            console.error("DB insert error:", dbError);
+            console.error("[teacher-content-targeting] DB insert error", {
+              error: dbError,
+              subjectId: sid,
+              groupId,
+              educationTypeTarget: eduType,
+              sectionTarget: sectionTarget || "both",
+            });
             toast.error(dbError.message || "خطأ في حفظ المحتوى");
             setUploading(false);
             return;
