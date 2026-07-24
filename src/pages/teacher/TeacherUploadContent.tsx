@@ -754,12 +754,18 @@ const TeacherUploadContent = () => {
       return allSubjects.length ? allSubjects.map(s => s.id).filter(Boolean) : [fallbackSubjectId].filter(Boolean);
     }
     if (sectionTarget === "scientific") {
-      const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
-      return [s?.id || fallbackSubjectId].filter(Boolean);
+      const ids = allSubjects
+        .filter(s => normalizeSectionForSubjects(s.section) === "scientific")
+        .map(s => s.id)
+        .filter(Boolean);
+      return ids.length ? ids : [fallbackSubjectId].filter(Boolean);
     }
     if (sectionTarget === "literary") {
-      const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "literary");
-      return [s?.id || fallbackSubjectId].filter(Boolean);
+      const ids = allSubjects
+        .filter(s => normalizeSectionForSubjects(s.section) === "literary")
+        .map(s => s.id)
+        .filter(Boolean);
+      return ids.length ? ids : [fallbackSubjectId].filter(Boolean);
     }
     return [selectedGroup?.subject_id || fallbackSubjectId].filter(Boolean);
   };
