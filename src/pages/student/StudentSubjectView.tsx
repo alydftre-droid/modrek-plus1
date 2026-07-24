@@ -808,9 +808,7 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-      const activeGroup = courses.find((course) => course.id === groupId);
-
-      const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
+            const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
         _group_id: groupId,
         _sub_subject_id: subSubjectId || null,
       });
