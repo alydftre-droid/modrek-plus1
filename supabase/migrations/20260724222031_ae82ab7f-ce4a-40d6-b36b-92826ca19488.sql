@@ -1,0 +1,10 @@
+REVOKE EXECUTE ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.get_student_group_exam_catalog(uuid, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.term_item_matches_current_system_term(uuid, uuid, text) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.content_target_matches_student(text, uuid, uuid, uuid, text) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.exam_target_matches_student(uuid, text, text, uuid, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.content_effective_section(text, uuid, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.exam_effective_section(text, uuid, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.content_effective_education_type(text, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.exam_effective_education_type(text, uuid) FROM supabase_read_only_user;
+REVOKE EXECUTE ON FUNCTION public.normalize_content_section(text) FROM supabase_read_only_user;
