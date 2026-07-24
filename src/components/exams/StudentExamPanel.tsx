@@ -45,15 +45,6 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     return true;
   });
 
-  if (!isSubscribed) {
-    return (
-      <Card className="text-center p-8 border-dashed">
-        <Lock className="h-12 w-12 mx-auto text-[#6D4AFF] mb-3" />
-        <p className="text-[#6B6B7B]">يجب الاشتراك في المجموعة لرؤية الامتحانات</p>
-      </Card>
-    );
-  }
-
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -87,25 +78,33 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
         const myAttempt: any = attemptByExam.get(exam.id);
         const isEnded = (endsAt && now > endsAt) || (myAttempt && myAttempt.status !== "in_progress");
         const isAvailable = !isUpcoming && !isEnded;
+        const canOpenExam = isSubscribed && exam.is_accessible !== false && isAvailable;
         return (
-          <Card key={exam.id} className="cursor-pointer overflow-hidden rounded-[20px] border-[#EFEDF7] bg-white shadow-[0_2px_16px_rgba(109,74,255,0.06)] transition hover:shadow-[0_10px_26px_rgba(109,74,255,0.12)]" onClick={() => navigate(`/student/exams/${exam.id}`)}>
+          <Card
+            key={exam.id}
+            className="cursor-pointer overflow-hidden rounded-[20px] border-border bg-card shadow-sm transition hover:shadow-md"
+            onClick={() => {
+              if (canOpenExam) navigate(`/student/exams/${exam.id}`);
+            }}
+          >
             <CardContent className="p-4 flex items-center justify-between gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#EFEAFF] text-[#6D4AFF]">
-                <Sparkles className="h-5 w-5" />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                {isSubscribed ? <Sparkles className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-extrabold truncate text-[#1A1A2E]">{exam.title}</h4>
+                  <h4 className="font-extrabold truncate text-foreground">{exam.title}</h4>
                   {exam.is_ai_generated && <Badge variant="outline" className="text-[10px]">AI</Badge>}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-[#6B6B7B]">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{exam.duration_minutes} د</span>
+                  {!isSubscribed && <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" />مقفول</Badge>}
                   {isUpcoming && <Badge variant="secondary">قادم</Badge>}
                   {isEnded && <Badge variant="destructive">{myAttempt ? `${myAttempt.percentage}%` : "منتهي"}</Badge>}
-                  {isAvailable && <Badge className="border-0 bg-[#22C55E] text-white">متاح</Badge>}
+                  {isSubscribed && isAvailable && <Badge className="border-0 bg-primary text-primary-foreground">متاح</Badge>}
                 </div>
               </div>
-              <Button size="sm" disabled={!isAvailable} className="bg-[#6D4AFF] text-white hover:bg-[#5B3BE8]">افتح</Button>
+              <Button size="sm" disabled={!canOpenExam}>{isSubscribed ? "افتح" : "اشترك أولًا"}</Button>
             </CardContent>
           </Card>
         );
