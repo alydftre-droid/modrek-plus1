@@ -632,12 +632,6 @@ const TeacherUploadContent = () => {
     });
   };
 
-  const getItemSectionTarget = (item: ContentRow[]) => null;
-  const filterByLegacySection = (item: ContentRow) => {
-      const section = item.subject_id ? subjectSectionMap[item.subject_id] : null;
-      return normalizeSectionForSubjects(section);
-  };
-
   const videos = useMemo(() => filterBySection(content.filter((c) => c.type === "video")), [content, sectionFilter, hasSections, subjectSectionMap]);
   const books = useMemo(() => filterBySection(content.filter((c) => c.type === "pdf")), [content, sectionFilter, hasSections, subjectSectionMap]);
   // Fetch teacher's own education_type (from teacher_requests) — used to auto-stamp Arabic/Sharia uploads
