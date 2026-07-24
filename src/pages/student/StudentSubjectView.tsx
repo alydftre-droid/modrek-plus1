@@ -695,14 +695,19 @@ const StudentSubjectView = () => {
     }
 
     const ps = purchasedSet || purchasedGroups;
-    const sorted = (groups || [])
-      .map(g => ({ ...g, content_count: contentCounts.get(g.id) || 0 }))
+    const groupsWithCounts = (groups || [])
+      .map(g => ({ ...g, content_count: contentCounts.get(g.id) || 0 }));
+    const visibleGroupsWithContent = groupsWithCounts.filter((group) => (group.content_count || 0) > 0);
+    const sorted = visibleGroupsWithContent
       .sort((a, b) => {
         const aPurchased = ps.has(a.id) ? 0 : 1;
         const bPurchased = ps.has(b.id) ? 0 : 1;
         return aPurchased - bPurchased;
       });
     console.info("[student-catalog-debug] group content counts", {
+      hiddenEmptyGroups: groupsWithCounts
+        .filter((group) => (group.content_count || 0) === 0)
+        .map((group) => ({ id: group.id, title: group.title })),
       groups: sorted.map((group) => ({ id: group.id, title: group.title, content_count: group.content_count })),
     });
     setCourses(sorted);
