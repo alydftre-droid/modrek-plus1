@@ -366,7 +366,11 @@ const StudentSubjectView = () => {
 
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
-  const useLiteraryFallbackCatalog = normalizeSectionForSubjects(studentSection || section) === "literary";
+  // Unified targeting engine: every student uses the same RPC. The backend
+  // matching function treats NULL target as "all" and value target as strict
+  // match, which handles every combination (single section, multi section,
+  // single education type, multi education type, all-students) correctly.
+  const useLiteraryFallbackCatalog = false;
 
   // ========== Init ==========
   useEffect(() => {
@@ -697,14 +701,10 @@ const StudentSubjectView = () => {
     if (groupIds.length > 0) {
       const countResults = await Promise.all(
         groupIds.map(async (groupId) => {
-          const { data, error } = normalizeSectionForSubjects(effectiveStudentSection) === "literary"
-            ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
-                _group_id: groupId,
-              })
-            : await supabase.rpc("get_student_group_content_catalog" as any, {
-                _group_id: groupId,
-                _sub_subject_id: null,
-              });
+          const { data, error } = await supabase.rpc("get_student_group_content_catalog" as any, {
+            _group_id: groupId,
+            _sub_subject_id: null,
+          });
 
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
@@ -894,13 +894,13 @@ const StudentSubjectView = () => {
     }
 
     if ((data || []).length > 0) {
-      const rpcName = useLiteraryFallbackCatalog
-        ? "get_literary_student_group_content_catalog"
-        : "get_student_group_content_catalog";
-      const { data: catalogRows, error: catalogError } = await supabase.rpc(rpcName as any, {
-        _group_id: groupId,
-        _sub_subject_id: null,
-      });
+      const { data: catalogRows, error: catalogError } = await supabase.rpc(
+        "get_student_group_content_catalog" as any,
+        {
+          _group_id: groupId,
+          _sub_subject_id: null,
+        },
+      );
 
       if (!catalogError) {
         const hasSectionedContent = ((catalogRows || []) as StudentContentCatalogRow[]).some((row) => !!row.sub_subject_id);
@@ -959,20 +959,19 @@ const StudentSubjectView = () => {
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
-  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string, sectionOverride?: string | null) => {
+  const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string, _sectionOverride?: string | null) => {
     setLoadingContent(true);
     setStep("subject_content");
-    const shouldUseLiteraryFallback = normalizeSectionForSubjects(sectionOverride ?? studentSection ?? section) === "literary";
+    const shouldUseLiteraryFallback = false;
     
     try {
-      const { data: secureRows, error: secureError } = shouldUseLiteraryFallback
-        ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
-            _group_id: groupId,
-          })
-        : await supabase.rpc("get_student_group_content_catalog" as any, {
-            _group_id: groupId,
-            _sub_subject_id: subSubjectId || null,
-          });
+      const { data: secureRows, error: secureError } = await supabase.rpc(
+        "get_student_group_content_catalog" as any,
+        {
+          _group_id: groupId,
+          _sub_subject_id: subSubjectId || null,
+        },
+      );
 
       const finishWithContent = (rows: ContentRow[]) => {
         setContent(rows);
