@@ -104,32 +104,50 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         const rawExamCatalog = (examCatalog || []) as any[];
         if (rawExamCatalog.length === 0) return { exams: [], attempts: attempts || [] } as any;
 
-        const examIds = rawExamCatalog.map((exam) => exam.id).filter(Boolean);
-        const { data: targetRows, error: targetRowsError } = await supabase
-          .from("exams")
-          .select("id, target_section, target_education_type")
-          .in("id", examIds);
+        let targetsById = new Map(
+          rawExamCatalog.map((exam) => [
+            exam.id,
+            {
+              id: exam.id,
+              target_section: exam.target_section ?? null,
+              target_education_type: exam.target_education_type ?? null,
+            },
+          ]),
+        );
 
-        if (targetRowsError) {
-          console.error("[student-exam-visibility-guard] metadata lookup failed", {
-            groupId: filters.groupId,
-            subSubjectId: filters.subSubjectId || null,
-            error: targetRowsError,
-          });
-          return { exams: [], attempts: attempts || [] } as any;
+        const catalogMissingTargets = rawExamCatalog.some(
+          (exam) => exam.target_section === undefined || exam.target_education_type === undefined,
+        );
+
+        if (catalogMissingTargets) {
+          const examIds = rawExamCatalog.map((exam) => exam.id).filter(Boolean);
+          const { data: targetRows, error: targetRowsError } = await supabase
+            .from("exams")
+            .select("id, target_section, target_education_type")
+            .in("id", examIds);
+
+          if (targetRowsError) {
+            console.error("[student-exam-visibility-guard] metadata lookup failed; keeping secure RPC rows", {
+              groupId: filters.groupId,
+              subSubjectId: filters.subSubjectId || null,
+              error: targetRowsError,
+            });
+            return { exams: rawExamCatalog, attempts: attempts || [] } as any;
+          }
+
+          targetsById = new Map(((targetRows || []) as any[]).map((row) => [row.id, row]));
         }
 
-        const targetsById = new Map(((targetRows || []) as any[]).map((row) => [row.id, row]));
         const visibleExams = rawExamCatalog.filter((exam) => {
           const targets = targetsById.get(exam.id);
           if (!targets) {
-            console.warn("[student-exam-visibility-guard] blocked exam with missing metadata", {
+            console.warn("[student-exam-visibility-guard] missing metadata; keeping secure RPC exam", {
               examId: exam.id,
               title: exam.title,
               studentEducationType: profile?.education_type || null,
               studentSection: profile?.section || null,
             });
-            return false;
+            return true;
           }
 
           const allowed = examMatchesStudentTargets(targets, profile);

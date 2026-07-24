@@ -6457,6 +6457,7 @@ export type Database = {
         Returns: {
           created_at: string
           description: string
+          education_type: string
           file_url: string
           group_id: string
           id: string
@@ -6466,6 +6467,7 @@ export type Database = {
           sub_subject: string
           sub_subject_id: string
           subject_id: string
+          subject_section: string
           thumbnail_url: string
           title: string
           type: string
@@ -6486,6 +6488,8 @@ export type Database = {
           start_at: string
           sub_subject_id: string
           subject_id: string
+          target_education_type: string
+          target_section: string
           term: string
           title: string
           total_marks: number
