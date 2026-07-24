@@ -12,7 +12,7 @@ import { isBunnyVideo } from "@/lib/bunnyStream";
 import VideoThumb from "@/components/student/VideoThumb";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
-import { isSharedSectionCategory, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { isSharedSectionCategory, normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent } from "@/lib/teacherFiltering";
 import { choiceCategoryKeyFromSelection, choiceCategoryVariantsFromSelection, gradeKeyFromArabicLabel, normalizeSubjectSelectionName, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
@@ -118,6 +118,8 @@ interface ContentRow {
   sub_subject: string | null;
   sub_subject_id?: string | null;
   is_accessible?: boolean;
+  education_type?: string | null;
+  subject_section?: string | null;
 }
 
 interface StudentContentCatalogRow {
@@ -152,7 +154,15 @@ const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRo
   sub_subject: row.sub_subject,
   sub_subject_id: row.sub_subject_id,
   is_accessible: row.is_accessible,
+  education_type: (row as any).education_type || null,
+  subject_section: (row as any).subject_section || null,
 });
+
+type ContentVisibilityMeta = {
+  id: string;
+  education_type?: string | null;
+  subjects?: { section?: string | null } | null;
+};
 
 
 // Sub-subjects fallback lists
@@ -302,6 +312,7 @@ const StudentSubjectView = () => {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<ViewStep>("teacher_selection");
   const [studentEducationType, setStudentEducationType] = useState<string | null>(null);
+  const [studentSection, setStudentSection] = useState<string | null>(null);
 
   // Teacher selection
   const [teachers, setTeachers] = useState<TeacherInfo[]>([]);
@@ -366,11 +377,13 @@ const StudentSubjectView = () => {
       // Fetch student's education type
       const { data: studentProfile } = await supabase
         .from("profiles")
-        .select("education_type")
+        .select("education_type, section")
         .eq("id", user.id)
         .maybeSingle();
       const eduType = (studentProfile as any)?.education_type || null;
+      const profileSection = (studentProfile as any)?.section || null;
       setStudentEducationType(eduType);
+      setStudentSection(profileSection);
 
       const { data: choiceData } = await supabase
         .from("student_teacher_choices")
@@ -833,6 +846,85 @@ const StudentSubjectView = () => {
         _sub_subject_id: subSubjectId || null,
       });
 
+      const filterContentByStudentTargets = async (rows: ContentRow[]) => {
+        if (rows.length === 0) return rows;
+
+        const rowIds = rows.map((row) => row.id).filter(Boolean);
+        const { data: visibilityRows, error: visibilityError } = await supabase
+          .from("content")
+          .select("id, education_type, subjects(section)")
+          .in("id", rowIds);
+
+        if (visibilityError) {
+          console.error("[student-content-visibility-guard] metadata lookup failed", {
+            groupId,
+            subSubjectId: subSubjectId || null,
+            error: visibilityError,
+          });
+          return [];
+        }
+
+        const metaById = new Map(
+          ((visibilityRows || []) as ContentVisibilityMeta[]).map((meta) => [meta.id, meta]),
+        );
+        const effectiveStudentSection = studentSection || section;
+        const normalizedStudentEdu = normalizeEducationType(studentEducationType);
+        const normalizedStudentSection = normalizeSectionForSubjects(effectiveStudentSection);
+        const shouldApplySectionGuard = !isSharedSectionCategory(category);
+
+        const filteredRows = rows.filter((row) => {
+          const meta = metaById.get(row.id);
+          if (!meta) {
+            console.warn("[student-content-visibility-guard] blocked row with missing metadata", {
+              contentId: row.id,
+              title: row.title,
+              studentEducationType,
+              effectiveStudentSection,
+            });
+            return false;
+          }
+
+          const contentEdu = normalizeEducationType(meta.education_type);
+          const contentSection = normalizeSectionForSubjects(meta.subjects?.section);
+          const educationMatches = !contentEdu || (!!normalizedStudentEdu && contentEdu === normalizedStudentEdu);
+          const sectionMatches = !shouldApplySectionGuard || !contentSection || !normalizedStudentSection || contentSection === normalizedStudentSection;
+          const allowed = educationMatches && sectionMatches;
+
+          console.info("[student-content-visibility-guard] evaluated content row", {
+            contentId: row.id,
+            title: row.title,
+            contentEducationType: meta.education_type || null,
+            studentEducationType,
+            contentSection: meta.subjects?.section || null,
+            studentSection: effectiveStudentSection,
+            educationMatches,
+            sectionMatches,
+            allowed,
+          });
+
+          return allowed;
+        });
+
+        if (filteredRows.length !== rows.length) {
+          console.warn("[student-content-visibility-guard] blocked mismatched content rows", {
+            groupId,
+            subSubjectId: subSubjectId || null,
+            before: rows.length,
+            after: filteredRows.length,
+            blockedIds: rows.filter((row) => !filteredRows.some((allowed) => allowed.id === row.id)).map((row) => row.id),
+          });
+        }
+
+        return filteredRows.map((row) => {
+          const meta = metaById.get(row.id);
+          return {
+            ...row,
+            education_type: meta?.education_type || null,
+            subject_section: meta?.subjects?.section || null,
+          };
+        });
+      };
+
       const finishWithContent = (rows: ContentRow[]) => {
         setContent(rows);
 
@@ -853,15 +945,17 @@ const StudentSubjectView = () => {
 
       if (!secureError) {
         const secureContentRows = ((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent);
+        const guardedContentRows = await filterContentByStudentTargets(secureContentRows);
         console.info("[student-catalog-debug] secure group content catalog", {
           groupId,
           subSubjectId: subSubjectId || null,
-          rows: secureContentRows.length,
-          videos: secureContentRows.filter((row) => row.type === "video").length,
-          files: secureContentRows.filter((row) => row.type !== "video").length,
-          locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
+          rows: guardedContentRows.length,
+          rawRows: secureContentRows.length,
+          videos: guardedContentRows.filter((row) => row.type === "video").length,
+          files: guardedContentRows.filter((row) => row.type !== "video").length,
+          locked: guardedContentRows.filter((row) => !canOpenContent(row)).length,
         });
-        finishWithContent(secureContentRows);
+        finishWithContent(guardedContentRows);
         return;
       }
 
