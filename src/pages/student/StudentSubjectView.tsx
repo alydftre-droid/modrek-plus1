@@ -633,13 +633,8 @@ const StudentSubjectView = () => {
 
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
-          console.warn("Secure group catalog count failed; falling back to direct count", { groupId, error });
-          const { count } = await supabase
-            .from("content")
-            .select("id", { count: "exact", head: true })
-            .eq("group_id", groupId)
-            .eq("is_active", true);
-          return [groupId, count || 0] as const;
+          console.error("[student-catalog-debug] secure group catalog count failed", { groupId, error });
+          return [groupId, 0] as const;
         }),
       );
 
@@ -870,48 +865,13 @@ const StudentSubjectView = () => {
         return;
       }
 
-      console.warn("Secure group catalog unavailable; using legacy content query", secureError);
-
-      const buildQuery = (includeFreePreview: boolean) => {
-        const selectColumns = includeFreePreview
-          ? "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, is_free_preview, group_id, subject_id, sub_subject, sub_subject_id"
-          : "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id";
-
-        let q = (supabase.from("content") as any)
-          .select(selectColumns)
-          .eq("group_id", groupId)
-          .eq("is_active", true)
-          .order("order_index", { ascending: true });
-
-        // Filter by sub_subject_id if provided
-        if (subSubjectId) {
-          q = q.eq("sub_subject_id", subSubjectId);
-        }
-
-        return q;
-      };
-
-      let { data, error } = await buildQuery(true);
-      if (error && String(error.message || "").includes("is_free_preview")) {
-        console.warn("[content] is_free_preview unavailable; retrying legacy content query", error);
-        const legacyRes = await buildQuery(false);
-        data = ((legacyRes.data || []) as any[]).map((row) => ({ ...row, is_free_preview: false }));
-        error = legacyRes.error;
-      }
-      if (error) throw error;
-
-      const rows = (data || []) as any[];
-
-      // Deduplicate only by row id. Never deduplicate by file_url because locked
-      // preview rows intentionally have an empty URL and must still all appear.
-      const seen = new Set<string>();
-      const deduped = rows.filter((c: any) => {
-        if (seen.has(c.id)) return false;
-        seen.add(c.id);
-        return true;
+      console.error("[student-catalog-debug] secure group catalog unavailable", {
+        groupId,
+        subSubjectId: subSubjectId || null,
+        error: secureError,
       });
-
-      finishWithContent(deduped as ContentRow[]);
+      setContent([]);
+      toast.error("تعذر تحميل محتوى المجموعة الآن. يرجى تحديث الصفحة والمحاولة مرة أخرى.");
     } catch (e) {
       console.error(e);
     } finally {
