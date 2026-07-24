@@ -1045,13 +1045,23 @@ const StudentSubjectView = () => {
         return;
       }
 
-      console.error("[student-catalog-debug] secure group catalog unavailable", {
-        groupId,
-        subSubjectId: subSubjectId || null,
-        error: secureError,
-      });
       setContent([]);
-      toast.error("تعذر تحميل محتوى المجموعة الآن. يرجى تحديث الصفحة والمحاولة مرة أخرى.");
+      reportRpcError({
+        title: "تعذر تحميل محتوى المجموعة",
+        error: secureError,
+        operation: shouldUseLiteraryFallback
+          ? "rpc:get_literary_student_group_content_catalog"
+          : "rpc:get_student_group_content_catalog",
+        sourceHint: "StudentSubjectView.loadGroupContent",
+        context: {
+          groupId,
+          subSubjectId: subSubjectId || null,
+          shouldUseLiteraryFallback,
+          studentSection,
+          studentEducationType,
+          userId: user?.id || null,
+        },
+      });
     } catch (e) {
       console.error(e);
     } finally {
