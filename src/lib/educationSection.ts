@@ -1,7 +1,55 @@
 export type StudentSectionValue = string | null | undefined;
 
-const SCIENTIFIC_SECTION_VALUES = ["scientific", "science", "sci", "علمي", "علمى", "علم", "علمي علوم", "علمى علوم", "علوم", "علمي رياضة", "علمى رياضة", "رياضة", "رياضيات"];
-const LITERARY_SECTION_VALUES = ["literary", "أدبي", "ادبي", "أدبى", "ادبى", "الأدبي", "الادبي"];
+const SCIENTIFIC_SECTION_VALUES = [
+  "scientific",
+  "science",
+  "sci",
+  "scientific section",
+  "science section",
+  "علمي",
+  "علمى",
+  "علم",
+  "العلمي",
+  "العلمى",
+  "القسم العلمي",
+  "القسم العلمى",
+  "الشعبة العلمية",
+  "الشعبه العلميه",
+  "شعبة علمي",
+  "شعبه علمي",
+  "علمي علوم",
+  "علمى علوم",
+  "علوم",
+  "علمي رياضة",
+  "علمى رياضة",
+  "رياضة",
+  "رياضيات",
+];
+const LITERARY_SECTION_VALUES = [
+  "literary",
+  "arts",
+  "art",
+  "adabi",
+  "adaby",
+  "أدبي",
+  "ادبي",
+  "أدبى",
+  "ادبى",
+  "الأدبي",
+  "الادبي",
+  "الأدبى",
+  "الادبى",
+  "القسم الأدبي",
+  "القسم الادبي",
+  "القسم الأدبى",
+  "القسم الادبى",
+  "الشعبة الأدبية",
+  "الشعبة الادبية",
+  "الشعبه الادبيه",
+  "شعبة أدبي",
+  "شعبة ادبي",
+  "شعبه ادبي",
+];
 
 export function normalizeSectionForSubjects(section: StudentSectionValue): "scientific" | "literary" | "" {
   const value = (section || "").trim().replace(/\s+/g, " ").toLowerCase();
@@ -48,9 +96,10 @@ export function isMathSpecialty(section: StudentSectionValue) {
 
 export function formatSectionLabel(section: StudentSectionValue) {
   const value = (section || "").trim();
+  const normalized = normalizeSectionForSubjects(value);
 
-  if (value === "scientific") return "علمي";
-  if (value === "literary") return "أدبي";
+  if (normalized === "scientific") return "علمي";
+  if (normalized === "literary") return "أدبي";
 
   return value;
 }
