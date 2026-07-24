@@ -82,8 +82,35 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
             .order("started_at", { ascending: false }),
         ]);
 
-        if (examCatalogError) throw examCatalogError;
-        if (attemptsError) throw attemptsError;
+        if (examCatalogError) {
+          const { reportRpcError } = await import("@/lib/rpcErrorReporter");
+          reportRpcError({
+            title: "تعذر تحميل امتحانات المجموعة",
+            error: examCatalogError,
+            operation: useLiteraryFallback
+              ? "rpc:get_literary_student_group_exam_catalog"
+              : "rpc:get_student_group_exam_catalog",
+            sourceHint: "useStudentExamCatalog",
+            context: {
+              groupId: filters.groupId,
+              subSubjectId: filters.subSubjectId || null,
+              useLiteraryFallback,
+              studentId: uid,
+            },
+          });
+          throw examCatalogError;
+        }
+        if (attemptsError) {
+          const { reportRpcError } = await import("@/lib/rpcErrorReporter");
+          reportRpcError({
+            title: "تعذر تحميل محاولات الامتحان",
+            error: attemptsError,
+            operation: "table:exam_attempts",
+            sourceHint: "useStudentExamCatalog",
+            context: { studentId: uid, groupId: filters.groupId },
+          });
+          throw attemptsError;
+        }
 
         return { exams: (examCatalog || []) as any[], attempts: attempts || [] } as any;
       }
