@@ -1752,7 +1752,7 @@ const StudentSubjectView = () => {
               <StudentExamPanel
                 currentTerm={currentTerm}
                 groupId={activeGroup?.id || ""}
-                subSubjectId={useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id || undefined}
+                subSubjectId={selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
                 onRequireSubscription={() => {
                   if (!activeGroup) return;
