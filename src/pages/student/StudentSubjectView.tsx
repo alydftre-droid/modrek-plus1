@@ -877,14 +877,6 @@ const StudentSubjectView = () => {
   };
 
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
-    if (useLiteraryFallbackCatalog) {
-      traceContentTarget("student-literary-fallback.skip-sub-subject-workspace", {
-        groupId,
-        studentSection: studentSection || section,
-      });
-      return false;
-    }
-
     const { data, error } = await supabase
       .from("sub_subjects")
       .select("id")
@@ -902,7 +894,10 @@ const StudentSubjectView = () => {
     }
 
     if ((data || []).length > 0) {
-      const { data: catalogRows, error: catalogError } = await supabase.rpc("get_student_group_content_catalog" as any, {
+      const rpcName = useLiteraryFallbackCatalog
+        ? "get_literary_student_group_content_catalog"
+        : "get_student_group_content_catalog";
+      const { data: catalogRows, error: catalogError } = await supabase.rpc(rpcName as any, {
         _group_id: groupId,
         _sub_subject_id: null,
       });
