@@ -137,6 +137,23 @@ interface StudentContentCatalogRow {
   is_accessible: boolean;
 }
 
+const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRow => ({
+  id: row.id,
+  title: row.title,
+  type: row.type,
+  file_url: row.file_url || "",
+  thumbnail_url: row.thumbnail_url || null,
+  description: row.description,
+  created_at: row.created_at,
+  is_paid: row.is_paid,
+  is_free_preview: row.is_free_preview,
+  group_id: row.group_id,
+  subject_id: row.subject_id,
+  sub_subject: row.sub_subject,
+  sub_subject_id: row.sub_subject_id,
+  is_accessible: row.is_accessible,
+});
+
 
 // Sub-subjects fallback lists
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
@@ -594,13 +611,11 @@ const StudentSubjectView = () => {
           if (!error) return [groupId, ((data || []) as StudentContentCatalogRow[]).length] as const;
 
           console.warn("Secure group catalog count failed; falling back to direct count", { groupId, error });
-          const group = groups.find((item) => item.id === groupId) as any;
           const { count } = await supabase
             .from("content")
             .select("id", { count: "exact", head: true })
             .eq("group_id", groupId)
-            .eq("is_active", true)
-            .eq("term", group?.term || activeTerm);
+            .eq("is_active", true);
           return [groupId, count || 0] as const;
         }),
       );
@@ -792,9 +807,7 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-      const activeGroup = courses.find((course) => course.id === groupId);
-
-      const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
+            const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
         _group_id: groupId,
         _sub_subject_id: subSubjectId || null,
       });
@@ -818,22 +831,7 @@ const StudentSubjectView = () => {
       };
 
       if (!secureError) {
-        finishWithContent(((secureRows || []) as StudentContentCatalogRow[]).map((row) => ({
-          id: row.id,
-          title: row.title,
-          type: row.type,
-          file_url: row.file_url || "",
-          thumbnail_url: row.thumbnail_url || null,
-          description: row.description,
-          created_at: row.created_at,
-          is_paid: row.is_paid,
-          is_free_preview: row.is_free_preview,
-          group_id: row.group_id,
-          subject_id: row.subject_id,
-          sub_subject: row.sub_subject,
-          sub_subject_id: row.sub_subject_id,
-          is_accessible: row.is_accessible,
-        })) as ContentRow[]);
+        finishWithContent(((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent));
         return;
       }
 
@@ -845,11 +843,10 @@ const StudentSubjectView = () => {
           : "id, title, type, file_url, thumbnail_url, description, created_at, is_paid, group_id, subject_id, sub_subject, sub_subject_id";
 
         let q = (supabase.from("content") as any)
-        .select(selectColumns)
-        .eq("group_id", groupId)
-        .eq("is_active", true)
-        .eq("term", activeGroup?.term || currentTerm)
-        .order("order_index", { ascending: true });
+          .select(selectColumns)
+          .eq("group_id", groupId)
+          .eq("is_active", true)
+          .order("order_index", { ascending: true });
 
         // Filter by sub_subject_id if provided
         if (subSubjectId) {
