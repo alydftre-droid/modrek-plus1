@@ -894,13 +894,13 @@ const StudentSubjectView = () => {
     }
 
     if ((data || []).length > 0) {
-      const rpcName = useLiteraryFallbackCatalog
-        ? "get_literary_student_group_content_catalog"
-        : "get_student_group_content_catalog";
-      const { data: catalogRows, error: catalogError } = await supabase.rpc(rpcName as any, {
-        _group_id: groupId,
-        _sub_subject_id: null,
-      });
+      const { data: catalogRows, error: catalogError } = await supabase.rpc(
+        "get_student_group_content_catalog" as any,
+        {
+          _group_id: groupId,
+          _sub_subject_id: null,
+        },
+      );
 
       if (!catalogError) {
         const hasSectionedContent = ((catalogRows || []) as StudentContentCatalogRow[]).some((row) => !!row.sub_subject_id);
