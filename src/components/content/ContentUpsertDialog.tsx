@@ -614,7 +614,7 @@ const ContentUpsertDialog = ({
             )}
 
             {/* Compact Targeting (optional, hidden behind 3-dots button) */}
-            {mode === "create" && ((hasSections && onSectionTargetChange) || (showEducationTypeTarget && onEducationTypeTargetChange)) && (
+            {((hasSections && onSectionTargetChange) || (showEducationTypeTarget && onEducationTypeTargetChange)) && (
               <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-border bg-muted/30">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />

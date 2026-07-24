@@ -521,7 +521,8 @@ const TeacherUploadContent = () => {
     if (!hasSections || sectionFilter === "all") return items;
     return items.filter(item => {
       const section = item.subject_id ? subjectSectionMap[item.subject_id] : null;
-      return section === sectionFilter;
+      const normalizedItemSection = normalizeSectionForSubjects(item.target_section) || normalizeSectionForSubjects(section);
+      return normalizedItemSection === sectionFilter;
     });
   };
 
@@ -645,11 +646,11 @@ const TeacherUploadContent = () => {
     if (sectionTarget === "both") return allSubjects.length ? allSubjects.map(s => s.id) : [subjectId!];
     if (sectionTarget === "scientific") {
       const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "scientific");
-      return s ? [s.id] : [];
+      return [s?.id || subjectId!].filter(Boolean);
     }
     if (sectionTarget === "literary") {
       const s = allSubjects.find(s => normalizeSectionForSubjects(s.section) === "literary");
-      return s ? [s.id] : [];
+      return [s?.id || subjectId!].filter(Boolean);
     }
     return [subjectId!];
   };
@@ -943,6 +944,10 @@ const TeacherUploadContent = () => {
           item={editItem}
           sectionTarget={editItem.target_section || undefined}
           educationTypeTarget={editItem.education_type || "both"}
+          hasSections={showSectionTarget}
+          onSectionTargetChange={(target) => setEditItem((prev) => prev ? { ...prev, target_section: target === "both" ? null : target } : prev)}
+          showEducationTypeTarget={showEducationTypeTargetComputed}
+          onEducationTypeTargetChange={(target) => setEditItem((prev) => prev ? { ...prev, education_type: target === "both" ? null : target } : prev)}
           onSuccess={() => {
             if (selectedGroup) fetchGroupContent(selectedGroup.id);
           }}
