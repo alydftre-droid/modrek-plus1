@@ -80,7 +80,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
           >
             <CardContent className="p-4 flex items-center justify-between gap-3">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                {isSubscribed ? <Sparkles className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
+                <Sparkles className="h-5 w-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -89,23 +89,29 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{exam.duration_minutes} د</span>
-                  {isLockedBySubscription && <Badge variant="secondary" className="gap-1"><Lock className="h-3 w-3" />مقفول</Badge>}
+                  {isLockedBySubscription && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      <Lock className="h-2.5 w-2.5" />
+                      مقفول
+                    </span>
+                  )}
                   {isUpcoming && <Badge variant="secondary">قادم</Badge>}
                   {isEnded && <Badge variant="destructive">{myAttempt ? `${myAttempt.percentage}%` : "منتهي"}</Badge>}
                   {!isLockedBySubscription && isAvailable && <Badge className="border-0 bg-primary text-primary-foreground">متاح</Badge>}
                 </div>
               </div>
-              <Button
-                size="sm"
-                disabled={!canOpenExam && !isLockedBySubscription}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (canOpenExam) navigate(`/student/exams/${exam.id}`);
-                  else if (isLockedBySubscription) onRequireSubscription?.();
-                }}
-              >
-                {isLockedBySubscription ? "اشترك أولًا" : "افتح"}
-              </Button>
+              {!isLockedBySubscription && (
+                <Button
+                  size="sm"
+                  disabled={!canOpenExam}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (canOpenExam) navigate(`/student/exams/${exam.id}`);
+                  }}
+                >
+                  افتح
+                </Button>
+              )}
             </CardContent>
           </Card>
         );
