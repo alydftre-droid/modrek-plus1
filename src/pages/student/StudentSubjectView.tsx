@@ -1615,6 +1615,11 @@ const StudentSubjectView = () => {
                 groupId={activeGroup?.id || ""}
                 subSubjectId={selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
+                onRequireSubscription={() => {
+                  if (!activeGroup) return;
+                  setSelectedCourse(activeGroup);
+                  setShowSubscribeConfirm(true);
+                }}
                 subjectId={activeGroup?.subject_id || ""}
                 subjectName={subjects.find(s => s.id === activeGroup?.subject_id)?.name || category}
               />
