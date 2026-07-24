@@ -365,6 +365,7 @@ const StudentSubjectView = () => {
 
   // Is the active group purchased?
   const activeGroupPurchased = activeGroupId ? purchasedGroups.has(activeGroupId) : false;
+  const useLiteraryFallbackCatalog = normalizeSectionForSubjects(studentSection || section) === "literary";
 
   // ========== Init ==========
   useEffect(() => {
@@ -854,6 +855,14 @@ const StudentSubjectView = () => {
   };
 
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
+    if (useLiteraryFallbackCatalog) {
+      traceContentTarget("student-literary-fallback.skip-sub-subject-workspace", {
+        groupId,
+        studentSection: studentSection || section,
+      });
+      return false;
+    }
+
     const { data, error } = await supabase
       .from("sub_subjects")
       .select("id")
@@ -938,10 +947,14 @@ const StudentSubjectView = () => {
     setStep("subject_content");
     
     try {
-            const { data: secureRows, error: secureError } = await supabase.rpc("get_student_group_content_catalog" as any, {
-        _group_id: groupId,
-        _sub_subject_id: subSubjectId || null,
-      });
+      const { data: secureRows, error: secureError } = useLiteraryFallbackCatalog
+        ? await supabase.rpc("get_literary_student_group_content_catalog" as any, {
+            _group_id: groupId,
+          })
+        : await supabase.rpc("get_student_group_content_catalog" as any, {
+            _group_id: groupId,
+            _sub_subject_id: subSubjectId || null,
+          });
 
       const finishWithContent = (rows: ContentRow[]) => {
         setContent(rows);
@@ -964,6 +977,7 @@ const StudentSubjectView = () => {
       if (!secureError) {
         const secureContentRows = ((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent);
         console.info("[student-catalog-debug] secure group content catalog", {
+          source: useLiteraryFallbackCatalog ? "literary-fallback" : "standard",
           groupId,
           subSubjectId: subSubjectId || null,
           rows: secureContentRows.length,
@@ -973,6 +987,7 @@ const StudentSubjectView = () => {
         });
         if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary") {
           traceContentTarget("student-content.empty-literary-catalog", {
+            source: useLiteraryFallbackCatalog ? "literary-fallback" : "standard",
             groupId,
             subSubjectId: subSubjectId || null,
             studentId: user?.id || null,
@@ -1144,7 +1159,7 @@ const StudentSubjectView = () => {
           subjectId: activeGroupSubjectId,
           groupId: activeGroupId,
           term: currentTerm,
-          subSubjectId: selectedSubSubject?.id,
+          subSubjectId: useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id,
         }
       : undefined,
   );
@@ -1152,10 +1167,10 @@ const StudentSubjectView = () => {
     const exams = activeGroupExamCatalog?.exams || [];
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
-      if (selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
+      if (!useLiteraryFallbackCatalog && selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
       return true;
     }).length;
-  }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId]);
+  }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, useLiteraryFallbackCatalog]);
 
   // ========== Header ==========
   const renderHeader = () => (
@@ -1708,7 +1723,7 @@ const StudentSubjectView = () => {
               <StudentExamPanel
                 currentTerm={currentTerm}
                 groupId={activeGroup?.id || ""}
-                subSubjectId={selectedSubSubject?.id || undefined}
+                subSubjectId={useLiteraryFallbackCatalog ? undefined : selectedSubSubject?.id || undefined}
                 isSubscribed={activeGroupPurchased}
                 onRequireSubscription={() => {
                   if (!activeGroup) return;

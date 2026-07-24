@@ -6512,6 +6512,49 @@ export type Database = {
         Args: { _attempt_id: string }
         Returns: Json
       }
+      get_literary_student_group_content_catalog: {
+        Args: { _group_id: string }
+        Returns: {
+          created_at: string
+          description: string
+          education_type: string
+          file_url: string
+          group_id: string
+          id: string
+          is_accessible: boolean
+          is_free_preview: boolean
+          is_paid: boolean
+          sub_subject: string
+          sub_subject_id: string
+          subject_id: string
+          subject_section: string
+          thumbnail_url: string
+          title: string
+          type: string
+        }[]
+      }
+      get_literary_student_group_exam_catalog: {
+        Args: { _group_id: string }
+        Returns: {
+          created_at: string
+          description: string
+          duration_minutes: number
+          end_at: string
+          group_id: string
+          id: string
+          is_accessible: boolean
+          is_ai_generated: boolean
+          pass_marks: number
+          start_at: string
+          sub_subject_id: string
+          subject_id: string
+          target_education_type: string
+          target_section: string
+          term: string
+          title: string
+          total_marks: number
+        }[]
+      }
       get_modrek_library_bootstrap: { Args: never; Returns: Json }
       get_modrek_training_questions_for_attempt: {
         Args: { _attempt_id: string }
