@@ -908,10 +908,18 @@ const StudentSubjectView = () => {
 
   // ========== Enter Group - Check for sub-subjects ==========
   const enterGroupContent = async (group: CourseGroup) => {
-    setActiveGroupId(group.id);
+    const targetGroup = group.content_count === 0
+      ? courses.find((candidate) =>
+          candidate.id !== group.id &&
+          candidate.subject_id === group.subject_id &&
+          (candidate.content_count || 0) > 0
+        ) || group
+      : group;
+
+    setActiveGroupId(targetGroup.id);
     setSelectedSubSubject(null);
 
-    const hasSubSubjects = await shouldShowSubSubjectsForGroup(group.id);
+    const hasSubSubjects = await shouldShowSubSubjectsForGroup(targetGroup.id);
     if (hasSubSubjects) {
       setStep("sub_subjects");
       return;
@@ -919,13 +927,13 @@ const StudentSubjectView = () => {
 
     // Preview mode: non-subscribed students must see the full group catalog
     // (videos/books names + thumbnails) only when the group has no sub-subject workspace.
-    if (!purchasedGroups.has(group.id)) {
-      await loadGroupContent(group.id);
+    if (!purchasedGroups.has(targetGroup.id)) {
+      await loadGroupContent(targetGroup.id);
       return;
     }
 
     // No sub-subjects, go directly to content
-    await loadGroupContent(group.id);
+    await loadGroupContent(targetGroup.id);
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
