@@ -6458,6 +6458,26 @@ export type Database = {
           type: string
         }[]
       }
+      get_student_group_exam_catalog: {
+        Args: { _group_id: string; _sub_subject_id?: string }
+        Returns: {
+          created_at: string
+          description: string
+          duration_minutes: number
+          end_at: string
+          group_id: string
+          id: string
+          is_accessible: boolean
+          is_ai_generated: boolean
+          pass_marks: number
+          start_at: string
+          sub_subject_id: string
+          subject_id: string
+          term: string
+          title: string
+          total_marks: number
+        }[]
+      }
       get_student_purchased_group_teacher_details: {
         Args: { _group_ids: string[]; _student_id: string }
         Returns: {
