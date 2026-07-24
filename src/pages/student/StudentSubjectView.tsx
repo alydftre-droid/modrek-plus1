@@ -810,30 +810,54 @@ const StudentSubjectView = () => {
     }
   };
 
+  const shouldShowSubSubjectsForGroup = async (groupId: string) => {
+    const { data, error } = await supabase
+      .from("sub_subjects")
+      .select("id")
+      .eq("group_id", groupId)
+      .eq("is_active", true)
+      .limit(1);
+
+    if (error) {
+      console.error("[student-sub-subjects-debug] active sub-subject lookup failed", {
+        groupId,
+        category,
+        subjectNameFilter,
+        error,
+      });
+    }
+
+    if ((data || []).length > 0) return true;
+
+    // Fallback for legacy/default subject structures. Do not let preview mode skip
+    // the sub-subject workspace for subjects that are designed to use it.
+    return (
+      categorySupportsSubSubjects(category) ||
+      categorySupportsSubSubjects(subjectNameFilter) ||
+      availableSubSubjects.length > 0
+    );
+  };
+
   // ========== Enter Group - Check for sub-subjects ==========
   const enterGroupContent = async (group: CourseGroup) => {
     setActiveGroupId(group.id);
     setSelectedSubSubject(null);
 
+    const hasSubSubjects = await shouldShowSubSubjectsForGroup(group.id);
+    if (hasSubSubjects) {
+      setStep("sub_subjects");
+      return;
+    }
+
     // Preview mode: non-subscribed students must see the full group catalog
-    // (videos/books names + thumbnails) in one place, while playback/opening stays locked.
+    // (videos/books names + thumbnails) only when the group has no sub-subject workspace.
     if (!purchasedGroups.has(group.id)) {
       await loadGroupContent(group.id);
       return;
     }
-    
-    // For Arabic or Sharia materials, show sub-subjects selection first
-    // Show sub-subjects when the category OR the chosen subject name supports them
-    // (e.g. الرياضيات/الدراسات under scientific/literary parent categories).
-    const hasSubSubjects =
-      (categorySupportsSubSubjects(category) || categorySupportsSubSubjects(subjectNameFilter))
-      && availableSubSubjects.length > 0;
-    if (hasSubSubjects) {
-      setStep("sub_subjects");
-    } else {
-      // No sub-subjects, go directly to content
-      await loadGroupContent(group.id);
-    }
+
+    // No sub-subjects, go directly to content
+    await loadGroupContent(group.id);
   };
 
   // ========== Load content for group (optionally filtered by sub_subject_id) ==========
