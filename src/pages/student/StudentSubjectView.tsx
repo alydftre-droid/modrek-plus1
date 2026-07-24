@@ -1201,7 +1201,7 @@ const StudentSubjectView = () => {
     const exams = activeGroupExamCatalog?.exams || [];
     return exams.filter((e: any) => {
       if (activeGroupId && e.group_id !== activeGroupId) return false;
-      if (selectedSubSubject?.id && e.sub_subject_id && e.sub_subject_id !== selectedSubSubject.id) return false;
+      if (selectedSubSubject?.id && e.sub_subject_id !== selectedSubSubject.id) return false;
       return true;
     }).length;
   }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, useLiteraryFallbackCatalog]);
