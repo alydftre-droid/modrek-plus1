@@ -85,7 +85,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
       if (!uid) return { exams: [], attempts: [] };
 
       if (filters?.groupId) {
-        const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }] = await Promise.all([
+        const [{ data: examCatalog, error: examCatalogError }, { data: attempts, error: attemptsError }, profile] = await Promise.all([
           (supabase as any).rpc("get_student_group_exam_catalog", {
             _group_id: filters.groupId,
             _sub_subject_id: filters.subSubjectId || null,
@@ -95,12 +95,66 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
             .select("*")
             .eq("student_id", uid)
             .order("started_at", { ascending: false }),
+          getStudentExamVisibilityProfile(uid),
         ]);
 
         if (examCatalogError) throw examCatalogError;
         if (attemptsError) throw attemptsError;
 
-        return { exams: examCatalog || [], attempts: attempts || [] } as any;
+        const rawExamCatalog = (examCatalog || []) as any[];
+        if (rawExamCatalog.length === 0) return { exams: [], attempts: attempts || [] } as any;
+
+        const examIds = rawExamCatalog.map((exam) => exam.id).filter(Boolean);
+        const { data: targetRows, error: targetRowsError } = await supabase
+          .from("exams")
+          .select("id, target_section, target_education_type")
+          .in("id", examIds);
+
+        if (targetRowsError) {
+          console.error("[student-exam-visibility-guard] metadata lookup failed", {
+            groupId: filters.groupId,
+            subSubjectId: filters.subSubjectId || null,
+            error: targetRowsError,
+          });
+          return { exams: [], attempts: attempts || [] } as any;
+        }
+
+        const targetsById = new Map(((targetRows || []) as any[]).map((row) => [row.id, row]));
+        const visibleExams = rawExamCatalog.filter((exam) => {
+          const targets = targetsById.get(exam.id);
+          if (!targets) {
+            console.warn("[student-exam-visibility-guard] blocked exam with missing metadata", {
+              examId: exam.id,
+              title: exam.title,
+              studentEducationType: profile?.education_type || null,
+              studentSection: profile?.section || null,
+            });
+            return false;
+          }
+
+          const allowed = examMatchesStudentTargets(targets, profile);
+          console.info("[student-exam-visibility-guard] evaluated exam row", {
+            examId: exam.id,
+            title: exam.title,
+            targetEducationType: targets.target_education_type || null,
+            targetSection: targets.target_section || null,
+            studentEducationType: profile?.education_type || null,
+            studentSection: profile?.section || null,
+            allowed,
+          });
+          return allowed;
+        });
+
+        if (visibleExams.length !== rawExamCatalog.length) {
+          console.warn("[student-exam-visibility-guard] blocked mismatched exam rows", {
+            groupId: filters.groupId,
+            before: rawExamCatalog.length,
+            after: visibleExams.length,
+            blockedIds: rawExamCatalog.filter((exam) => !visibleExams.some((allowed) => allowed.id === exam.id)).map((exam) => exam.id),
+          });
+        }
+
+        return { exams: visibleExams, attempts: attempts || [] } as any;
       }
 
       const groupIds = await getStudentPurchasedGroupIds(uid);
