@@ -6087,6 +6087,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      catalog_subjects_match: {
+        Args: {
+          p_candidate_category: string
+          p_candidate_name: string
+          p_target_category: string
+          p_target_name: string
+        }
+        Returns: boolean
+      }
       claim_library_job: {
         Args: { _worker: string }
         Returns: {
