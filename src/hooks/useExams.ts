@@ -100,12 +100,7 @@ export function useStudentExamCatalog(filters?: ExamScopeFilters) {
         if (examCatalogError) throw examCatalogError;
         if (attemptsError) throw attemptsError;
 
-        const exams = ((examCatalog || []) as any[]).filter((exam) => {
-          if (filters.term && exam.term && exam.term !== filters.term) return false;
-          return true;
-        });
-
-        return { exams, attempts: attempts || [] } as any;
+        return { exams: examCatalog || [], attempts: attempts || [] } as any;
       }
 
       const groupIds = await getStudentPurchasedGroupIds(uid);
