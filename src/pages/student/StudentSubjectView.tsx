@@ -1238,11 +1238,8 @@ const StudentSubjectView = () => {
   );
   const activeGroupExamCount = useMemo(() => {
     const exams = activeGroupExamCatalog?.exams || [];
-    return exams.filter((e: any) => {
-      if (activeGroupId && e.group_id !== activeGroupId) return false;
-      return true;
-    }).length;
-  }, [activeGroupExamCatalog, activeGroupId, selectedSubSubject?.id, activeGroupSubjectId, useLiteraryFallbackCatalog]);
+    return exams.length;
+  }, [activeGroupExamCatalog]);
 
   // ========== Header ==========
   const renderHeader = () => (

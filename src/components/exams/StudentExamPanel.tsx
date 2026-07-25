@@ -101,7 +101,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
 
   useEffect(() => {
     let cancelled = false;
-    if (!groupId || filtered.length > 0) {
+    if (!groupId) {
       setDebugRows([]);
       setDebugError(null);
       setDebugLoading(false);
@@ -130,7 +130,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     return () => {
       cancelled = true;
     };
-  }, [filtered.length, groupId, subSubjectId]);
+  }, [currentTerm, groupId, subSubjectId, subjectId]);
 
   const hiddenDebugRows = useMemo(
     () => debugRows.filter((row) => row.visibility_status !== "visible"),
@@ -143,7 +143,19 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
 
   const catalogMismatch = filtered.length === 0 && visibleDebugRows.length > 0;
   const noDiagnosticSignal = !debugLoading && !debugError && debugRows.length === 0;
-  const shouldShowDiagnostics = !isLoading && groupId && filtered.length === 0;
+  const shouldShowDiagnostics = Boolean(
+    !isLoading
+      && groupId
+      && (
+        filtered.length === 0
+        || debugLoading
+        || Boolean(catalogErrorMessage)
+        || Boolean(debugError)
+        || catalogMismatch
+        || noDiagnosticSignal
+        || hiddenDebugRows.length > 0
+      ),
+  );
 
   const diagnosticReport = useMemo(() => {
     const lines = [
