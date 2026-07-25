@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +12,11 @@ import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 const AdminSecuritySettings = () => {
   const {
     user,
-    sendReauthOtp,
-    updatePasswordWithOtp,
+    changePasswordWithCurrent,
     sendEmailChangeOtp,
     verifyEmailChangeOtp,
   } = useAuth();
+  const navigate = useNavigate();
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
 
@@ -23,10 +24,11 @@ const AdminSecuritySettings = () => {
   const [emailOtpOpen, setEmailOtpOpen] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
 
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [showPwd, setShowPwd] = useState(false);
-  const [pwdOtpOpen, setPwdOtpOpen] = useState(false);
 
   const rules = {
     length: newPwd.length >= 10,
@@ -50,15 +52,16 @@ const AdminSecuritySettings = () => {
     setEmailOtpOpen(true);
   };
 
-  const handleStartPwd = async () => {
+  const handleChangePwd = async () => {
+    if (!currentPwd) return toast.error("أدخل كلمة المرور الحالية");
     if (!strongPwd) return toast.error("كلمة المرور لا تستوفي الشروط");
     if (!rules.match) return toast.error("تأكيد كلمة المرور غير متطابق");
     setSavingPwd(true);
-    const { error } = await sendReauthOtp();
+    const { error } = await changePasswordWithCurrent(currentPwd, newPwd);
     setSavingPwd(false);
     if (error) { toast.error(error); return; }
-    toast.success("تم إرسال رمز التحقق إلى بريدك");
-    setPwdOtpOpen(true);
+    toast.success("تم تغيير كلمة المرور بنجاح ✓");
+    setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
   };
 
   const Rule = ({ ok, text }: { ok: boolean; text: string }) => (
@@ -101,9 +104,18 @@ const AdminSecuritySettings = () => {
         <CardHeader><CardTitle className="flex items-center gap-2 text-base"><KeyRound className="h-5 w-5" /> تغيير كلمة المرور</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div>
+            <Label>كلمة المرور الحالية</Label>
+            <div className="relative">
+              <Input type={showCurrent ? "text" : "password"} dir="ltr" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} autoComplete="current-password" />
+              <button type="button" onClick={() => setShowCurrent(s => !s)} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div>
             <Label>كلمة المرور الجديدة</Label>
             <div className="relative">
-              <Input type={showPwd ? "text" : "password"} dir="ltr" value={newPwd} onChange={e => setNewPwd(e.target.value)} />
+              <Input type={showPwd ? "text" : "password"} dir="ltr" value={newPwd} onChange={e => setNewPwd(e.target.value)} autoComplete="new-password" />
               <button type="button" onClick={() => setShowPwd(s => !s)} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
                 {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -111,7 +123,7 @@ const AdminSecuritySettings = () => {
           </div>
           <div>
             <Label>تأكيد كلمة المرور الجديدة</Label>
-            <Input type={showPwd ? "text" : "password"} dir="ltr" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} />
+            <Input type={showPwd ? "text" : "password"} dir="ltr" value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} autoComplete="new-password" />
           </div>
           <div className="grid grid-cols-2 gap-1.5 rounded-lg border p-2.5">
             <Rule ok={rules.length} text="10 أحرف على الأقل" />
@@ -121,31 +133,19 @@ const AdminSecuritySettings = () => {
             <Rule ok={rules.symbol} text="رمز خاص (!@#…)" />
             <Rule ok={rules.match} text="التأكيد مطابق" />
           </div>
-          <Button onClick={handleStartPwd} disabled={savingPwd || !strongPwd || !rules.match} className="w-full gap-2">
+          <Button onClick={handleChangePwd} disabled={savingPwd || !currentPwd || !strongPwd || !rules.match} className="w-full gap-2">
             {savingPwd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            إرسال رمز التحقق
+            حفظ كلمة المرور الجديدة
           </Button>
-          <p className="text-[11px] text-muted-foreground">سنرسل رمز تحقق إلى بريدك لتأكيد العملية.</p>
+          <button
+            type="button"
+            onClick={() => navigate("/forgot-password")}
+            className="w-full text-center text-sm font-semibold text-primary hover:underline"
+          >
+            هل نسيت كلمة المرور؟
+          </button>
         </CardContent>
       </Card>
-
-      <OtpVerificationDialog
-        open={pwdOtpOpen}
-        email={user?.email || ""}
-        title="تأكيد تغيير كلمة المرور"
-        skipSessionWait
-        onSendOtp={sendReauthOtp}
-        onVerify={async (code) => {
-          const res = await updatePasswordWithOtp(newPwd, code);
-          if (!res.error) {
-            toast.success("تم تغيير كلمة المرور بنجاح ✓");
-            setNewPwd(""); setConfirmPwd("");
-          }
-          return res;
-        }}
-        onVerified={() => setPwdOtpOpen(false)}
-        onClose={() => setPwdOtpOpen(false)}
-      />
 
       <OtpVerificationDialog
         open={emailOtpOpen}
