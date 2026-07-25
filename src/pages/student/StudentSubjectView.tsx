@@ -1525,15 +1525,9 @@ const StudentSubjectView = () => {
 
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="student-group-meta-chip flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
-                            <Play className="h-3.5 w-3.5 text-primary" />
-                            <span>{course.content_count} محتوى</span>
+                            <BookText className="h-3.5 w-3.5 text-primary" />
+                            <span>{course.lesson_count ?? 0} حصة</span>
                           </div>
-                          {course.lesson_count ? (
-                            <div className="student-group-meta-chip flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
-                              <BookText className="h-3.5 w-3.5 text-primary" />
-                              <span>{course.lesson_count} حصة</span>
-                            </div>
-                          ) : null}
                           <div className="flex items-baseline gap-1">
                             <span className="student-group-price text-2xl font-extrabold">{course.price}</span>
                             <span className="text-xs font-medium text-muted-foreground">جنيه</span>
