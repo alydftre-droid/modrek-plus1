@@ -1,3 +1,4 @@
+import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,15 @@ interface OtpVerificationDialogProps {
   onChangeEmail?: () => void;
   type?: "email" | "recovery";
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   /** OTP code length. Default 6. Use 4 if your Supabase template sends 4-digit codes. */
   length?: number;
+  /** Override the default send-OTP behavior (used for reauth / email-change flows). */
+  onSendOtp?: () => Promise<{ error: string | null }>;
+  /** Override the default verify behavior. When present, session-wait is skipped. */
+  onVerify?: (code: string) => Promise<{ error: string | null }>;
+  /** Skip waiting for an auth session after verification (for email-change or reauth). */
+  skipSessionWait?: boolean;
 }
 
 const RESEND_COOLDOWN = 60;
@@ -33,6 +40,9 @@ export default function OtpVerificationDialog({
   title = "تأكيد البريد الإلكتروني",
   description,
   length = 6,
+  onSendOtp,
+  onVerify,
+  skipSessionWait = false,
 }: OtpVerificationDialogProps) {
   const { verifyEmailOtp, sendEmailOtp } = useAuth();
   const [code, setCode] = useState("");
@@ -88,7 +98,9 @@ export default function OtpVerificationDialog({
       return;
     }
     setVerifying(true);
-    const { error } = await verifyEmailOtp(email, code, type);
+    const { error } = onVerify
+      ? await onVerify(code)
+      : await verifyEmailOtp(email, code, type);
     if (error) {
       setVerifying(false);
       setAttempts((a) => a + 1);
@@ -96,8 +108,8 @@ export default function OtpVerificationDialog({
       setCode("");
       return;
     }
-    // Ensure the session is persisted before the parent navigates away.
-    const ok = await waitForSession();
+    // Ensure the session is persisted before the parent navigates away (skip for reauth/email-change).
+    const ok = skipSessionWait || onVerify ? true : await waitForSession();
     setVerifying(false);
     if (!ok) {
       toast({
@@ -114,7 +126,7 @@ export default function OtpVerificationDialog({
   const handleResend = async () => {
     if (cooldown > 0) return;
     setResending(true);
-    const { error } = await sendEmailOtp(email, false);
+    const { error } = onSendOtp ? await onSendOtp() : await sendEmailOtp(email, false);
     setResending(false);
     if (error) {
       const friendly = /magic link|smtp|sending|email/i.test(error)
