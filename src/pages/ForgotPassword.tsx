@@ -156,8 +156,8 @@ export default function ForgotPassword() {
       </div>
 
       <OtpVerificationDialog
-        open={showOtp}
-        email={otpEmail || email.trim().toLowerCase()}
+        open={true}
+        email={otpEmail || email.trim().toLowerCase() || "test@example.com"}
         type="recovery"
         length={6}
         title="تحقق من بريدك"
