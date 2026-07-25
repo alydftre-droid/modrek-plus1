@@ -77,6 +77,7 @@ type ContentRow = {
   created_at: string | null;
   group_id: string | null;
   sub_subject: string | null;
+  sub_subject_id?: string | null;
   subject_id?: string | null;
   is_free_preview?: boolean;
   education_type?: string | null;
