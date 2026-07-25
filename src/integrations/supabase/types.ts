@@ -6045,10 +6045,9 @@ export type Database = {
             }
             Returns: Json
           }
-      admin_switch_system_terms: {
-        Args: { _target_term: string; _term_ids: string[] }
-        Returns: Json
-      }
+      admin_switch_system_terms:
+        | { Args: { _target_term: string; _term_ids: string[] }; Returns: Json }
+        | { Args: { _target_term: string; _term_ids: string[] }; Returns: Json }
       admin_teacher_monthly_statement: {
         Args: { _period_label: string; _teacher_id: string }
         Returns: Json
