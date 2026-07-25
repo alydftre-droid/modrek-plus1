@@ -1317,7 +1317,7 @@ const StudentSubjectView = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openUrlWithinAppContainer(teacher.video_url!);
+                                setIntroVideo({ url: teacher.video_url!, name: teacher.full_name });
                               }}
                               className="gap-1"
                             >
