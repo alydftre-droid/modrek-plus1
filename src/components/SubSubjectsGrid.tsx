@@ -133,6 +133,15 @@ const CARD_STYLES = [
 
 const ICONS = [BookMarked, ScrollText, Feather, PenTool, Library, BookOpenCheck, Bookmark, GraduationCap, BookText, BookOpen];
 
+const normalizeSubSubjectLabel = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
 const SubSubjectsGrid = ({
   groupId,
   groupTitle,
@@ -168,10 +177,10 @@ const SubSubjectsGrid = ({
 
       if (error) throw error;
       let subs = (data || []) as SubSubjectRow[];
+      let resolvedSubjectName = subjectName || "";
+      let resolvedSubjectData: { category?: string | null; stage?: string | null; grade?: string | null; section?: string | null; name?: string | null } | null = null;
 
-      if (subs.length === 0 && isTeacher) {
-        let defaults = getDefaultSubSubjects({ category, subjectName }) || getDefaultSubs(category);
-
+      if (!resolvedSubjectName || (subs.length === 0 && isTeacher)) {
         const { data: groupData } = await supabase
           .from("content_groups")
           .select("subject_id")
@@ -186,8 +195,17 @@ const SubSubjectsGrid = ({
             .maybeSingle();
 
           if (subjectData) {
-            defaults = getDefaultSubSubjects(subjectData);
+            resolvedSubjectData = subjectData;
+            resolvedSubjectName = subjectData.name || resolvedSubjectName;
           }
+        }
+      }
+
+      if (subs.length === 0 && isTeacher) {
+        let defaults = getDefaultSubSubjects({ category, subjectName }) || getDefaultSubs(category);
+
+        if (resolvedSubjectData) {
+          defaults = getDefaultSubSubjects(resolvedSubjectData);
         }
 
         if (defaults.length > 0) {
@@ -207,6 +225,16 @@ const SubSubjectsGrid = ({
             subs = inserted as SubSubjectRow[];
           }
         }
+      }
+
+      const parentLabel = normalizeSubSubjectLabel(resolvedSubjectName);
+      const realSubs = subs.filter((sub) => {
+        const subLabel = normalizeSubSubjectLabel(sub.name);
+        return subLabel && subLabel !== parentLabel;
+      });
+
+      if (realSubs.length > 0) {
+        subs = realSubs;
       }
 
       const activeIds = new Set(subs.map((sub) => sub.id));

@@ -172,6 +172,15 @@ const mapStudentCatalogRowToContent = (row: StudentContentCatalogRow): ContentRo
   subject_section: (row as any).subject_section || null,
 });
 
+const normalizeSubSubjectLabel = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
 // Sub-subjects fallback lists
 const ARABIC_SUB_SUBJECTS = ["نحو", "صرف", "بلاغة", "أدب", "نصوص", "قراءة"];
 const SHARIA_SUB_SUBJECTS = ["فقه", "حديث", "تفسير", "توحيد", "سيرة"];
@@ -879,10 +888,10 @@ const StudentSubjectView = () => {
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
     const { data, error } = await supabase
       .from("sub_subjects")
-      .select("id")
+      .select("id, name")
       .eq("group_id", groupId)
       .eq("is_active", true)
-      .limit(1);
+      .order("order_index", { ascending: true });
 
     if (error) {
       console.error("[student-sub-subjects-debug] active sub-subject lookup failed", {
@@ -893,7 +902,15 @@ const StudentSubjectView = () => {
       });
     }
 
-    if ((data || []).length > 0) {
+    const groupSubjectId = courses.find((course) => course.id === groupId)?.subject_id || "";
+    const parentSubjectName = subjects.find((subject) => subject.id === groupSubjectId)?.name || subjectNameFilter || category;
+    const parentLabel = normalizeSubSubjectLabel(parentSubjectName);
+    const realSubSubjects = ((data || []) as Array<{ id: string; name?: string | null }>).filter((sub) => {
+      const subLabel = normalizeSubSubjectLabel(sub.name);
+      return subLabel && subLabel !== parentLabel;
+    });
+
+    if (realSubSubjects.length > 0) {
       return true;
     }
 
@@ -982,7 +999,7 @@ const StudentSubjectView = () => {
           files: secureContentRows.filter((row) => row.type !== "video").length,
           locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
         });
-        if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary") {
+        if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary" && isContentTargetDebugEnabled()) {
           const { data: diagnosticRows, error: diagnosticError } = await supabase.rpc(
             "get_student_group_content_diagnostics" as any,
             {
