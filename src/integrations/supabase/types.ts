@@ -6167,6 +6167,10 @@ export type Database = {
         }
         Returns: string
       }
+      content_group_sibling_ids: {
+        Args: { _group_id: string }
+        Returns: string[]
+      }
       content_target_matches_student:
         | {
             Args: {
