@@ -1317,7 +1317,7 @@ const StudentSubjectView = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setIntroVideo({ url: teacher.video_url!, name: teacher.full_name });
+                                setIntroVideo({ url: teacher.video_url!, name: teacher.teacher_name });
                               }}
                               className="gap-1"
                             >
