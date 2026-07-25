@@ -21,6 +21,7 @@ import LiveTabContent from "@/components/live/LiveTabContent";
 import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { isImpersonating } from "@/lib/devImpersonation";
 import {
   BookOpen,
   ChevronLeft,
