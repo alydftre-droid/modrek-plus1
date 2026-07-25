@@ -1,3 +1,12 @@
+-- content_effective_education_type_defaults_hardening
+DROP FUNCTION IF EXISTS public.content_effective_education_type(text, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.exam_effective_education_type(text, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.content_target_matches_student(text, uuid, uuid, text) CASCADE;
+DROP FUNCTION IF EXISTS public.content_target_matches_student(text, uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.content_target_matches_student(text, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.exam_target_matches_student(uuid, text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.exam_target_matches_student(text, uuid, text, text) CASCADE;
+
 -- Root protection for teacher content targeting (education type + section)
 
 CREATE OR REPLACE FUNCTION public.normalize_content_education_type(_value text)
