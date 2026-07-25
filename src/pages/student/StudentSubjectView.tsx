@@ -298,6 +298,7 @@ const StudentSubjectView = () => {
   const deepLinkSubSubjectId = params.get("sub_subject_id") || "";
   const deepLinkContentId = params.get("content_id") || "";
   const [resolvedDeepLinkGroupId, setResolvedDeepLinkGroupId] = useState(deepLinkGroupId);
+  const [introVideo, setIntroVideo] = useState<{ url: string; name: string } | null>(null);
   const [resolvedDeepLinkSubSubjectId, setResolvedDeepLinkSubSubjectId] = useState(deepLinkSubSubjectId);
   const effectiveDeepLinkGroupId = resolvedDeepLinkGroupId || deepLinkGroupId;
   const effectiveDeepLinkSubSubjectId = resolvedDeepLinkSubSubjectId || deepLinkSubSubjectId;
@@ -1316,7 +1317,7 @@ const StudentSubjectView = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openUrlWithinAppContainer(teacher.video_url!);
+                                setIntroVideo({ url: teacher.video_url!, name: teacher.teacher_name });
                               }}
                               className="gap-1"
                             >
@@ -1333,6 +1334,16 @@ const StudentSubjectView = () => {
             </div>
           )}
         </main>
+        <Dialog open={!!introVideo} onOpenChange={(o) => !o && setIntroVideo(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>فيديو تعريفي - {introVideo?.name}</DialogTitle>
+            </DialogHeader>
+            {introVideo?.url && (
+              <video src={introVideo.url} controls autoPlay playsInline className="w-full rounded-lg" />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
