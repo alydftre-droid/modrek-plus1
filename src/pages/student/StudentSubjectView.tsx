@@ -991,10 +991,18 @@ const StudentSubjectView = () => {
             },
           );
           const diagnostic = ((diagnosticRows || []) as any[])[0] || null;
+          const diagnosticUnavailable =
+            diagnosticError?.code === "PGRST202" ||
+            String(diagnosticError?.message || "").includes("get_student_group_content_diagnostics");
 
           reportRpcError({
             title: "لم يرجع كتالوج المجموعة أي محتوى لهذا الطالب الأدبي",
-            error: diagnosticError || {
+            error: diagnosticUnavailable ? {
+              code: "EMPTY_STUDENT_CONTENT_CATALOG",
+              message: "عاد كتالوج المحتوى بدون صفوف، ودالة التشخيص غير متاحة مؤقتًا في كاش الخادم. تم تجاهل خطأ التشخيص لأنه ليس سبب اختفاء المحتوى.",
+              details: `groupId=${groupId}; subSubjectId=${subSubjectId || "null"}; studentSection=${studentSection || "null"}; studentEducationType=${studentEducationType || "null"}`,
+              hint: "سبب المشكلة الحقيقي في كتالوج المحتوى أو بيانات الاستهداف، وليس في دالة التشخيص.",
+            } : diagnosticError || {
               code: "EMPTY_STUDENT_CONTENT_CATALOG",
               message: diagnostic
                 ? `reason=${diagnostic.reason}; total=${diagnostic.total_teacher_content}; term=${diagnostic.matching_term_content}; subSubject=${diagnostic.matching_sub_subject_content}; visible=${diagnostic.visible_to_student_content}`
