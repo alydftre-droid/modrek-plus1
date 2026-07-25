@@ -97,7 +97,9 @@ export default function OtpVerificationDialog({
       return;
     }
     setVerifying(true);
-    const { error } = await verifyEmailOtp(email, code, type);
+    const { error } = onVerify
+      ? await onVerify(code)
+      : await verifyEmailOtp(email, code, type);
     if (error) {
       setVerifying(false);
       setAttempts((a) => a + 1);
@@ -105,8 +107,8 @@ export default function OtpVerificationDialog({
       setCode("");
       return;
     }
-    // Ensure the session is persisted before the parent navigates away.
-    const ok = await waitForSession();
+    // Ensure the session is persisted before the parent navigates away (skip for reauth/email-change).
+    const ok = skipSessionWait || onVerify ? true : await waitForSession();
     setVerifying(false);
     if (!ok) {
       toast({
@@ -123,7 +125,7 @@ export default function OtpVerificationDialog({
   const handleResend = async () => {
     if (cooldown > 0) return;
     setResending(true);
-    const { error } = await sendEmailOtp(email, false);
+    const { error } = onSendOtp ? await onSendOtp() : await sendEmailOtp(email, false);
     setResending(false);
     if (error) {
       const friendly = /magic link|smtp|sending|email/i.test(error)
