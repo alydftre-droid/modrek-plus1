@@ -39,6 +39,9 @@ export default function OtpVerificationDialog({
   title = "تأكيد البريد الإلكتروني",
   description,
   length = 6,
+  onSendOtp,
+  onVerify,
+  skipSessionWait = false,
 }: OtpVerificationDialogProps) {
   const { verifyEmailOtp, sendEmailOtp } = useAuth();
   const [code, setCode] = useState("");
