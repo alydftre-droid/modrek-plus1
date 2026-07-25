@@ -80,10 +80,25 @@ export const getTeacherProfileUploadErrorMessage = (error: unknown, fallback: st
   return fallback;
 };
 
+const directStorageUpload = async (file: File, path: string, contentType: string) => {
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, file, { upsert: true, contentType, cacheControl: "3600" });
+  if (error) throw error;
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+};
+
 export const uploadTeacherProfileFile = async (file: File, userId: string, kind: TeacherProfileUploadKind) => {
   const preparedFile = kind === "video" ? file : await imageFileToJpeg(file);
   const path = buildPath(preparedFile, userId, kind);
   const contentType = getUploadContentType(preparedFile, kind);
+
+  // Videos: upload directly to Storage. Routing 50MB through an edge function
+  // buffers the whole file in memory and frequently stalls or times out.
+  if (kind === "video") {
+    return await directStorageUpload(preparedFile, path, contentType);
+  }
 
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
@@ -93,7 +108,7 @@ export const uploadTeacherProfileFile = async (file: File, userId: string, kind:
   if (token && supabaseUrl && supabaseKey) {
     const form = new FormData();
     form.append("file", preparedFile);
-    form.append("kind", kind === "video" ? "video" : "photo");
+    form.append("kind", "photo");
     form.append("path", path);
     form.append("contentType", contentType);
 
@@ -118,15 +133,10 @@ export const uploadTeacherProfileFile = async (file: File, userId: string, kind:
     }
   }
 
-  const directUpload = await supabase.storage
-    .from(BUCKET)
-    .upload(path, preparedFile, { upsert: true, contentType });
-
-  if (directUpload.error) {
-    console.error("teacher profile direct storage upload failed", directUpload.error);
-    throw directUpload.error;
+  try {
+    return await directStorageUpload(preparedFile, path, contentType);
+  } catch (error) {
+    console.error("teacher profile direct storage upload failed", error);
+    throw error;
   }
-
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
 };
