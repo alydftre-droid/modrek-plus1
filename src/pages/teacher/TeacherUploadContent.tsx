@@ -849,13 +849,6 @@ const TeacherUploadContent = () => {
             <Card
               key={item.id}
               className="hover:shadow-md transition-shadow"
-              onMouseDown={() => startLongPress(item)}
-              onMouseUp={cancelLongPress}
-              onMouseLeave={cancelLongPress}
-              onTouchStart={() => startLongPress(item)}
-              onTouchEnd={cancelLongPress}
-              onTouchCancel={cancelLongPress}
-              onContextMenu={(e) => { if (isAdminMode) { e.preventDefault(); setFreePreviewItem(item); } }}
             >
               <CardContent className="p-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -897,13 +890,26 @@ const TeacherUploadContent = () => {
                       مشاهدة
                     </Button>
                   ) : (
-                    <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
-                      <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
-                        <Download className="h-3.5 w-3.5" />
-                        تحميل
-                      </a>
-                    </Button>
-                  )}
+                  <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
+                    <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
+                      <Download className="h-3.5 w-3.5" />
+                      تحميل
+                    </a>
+                  </Button>
+                )}
+                {isAdminMode && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className={`h-8 w-8 ${item.is_free_preview ? "text-amber-600 hover:text-amber-700" : "text-muted-foreground hover:text-amber-600"}`}
+                    title={item.is_free_preview ? "إزالة المجانية" : "تعيين كمحتوى مجاني"}
+                    aria-label={item.is_free_preview ? "إزالة المجانية" : "تعيين كمحتوى مجاني"}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFreePreviewItem(item); }}
+                  >
+                    <Star className={`h-3.5 w-3.5 ${item.is_free_preview ? "fill-amber-500 text-amber-500" : ""}`} />
+                  </Button>
+                )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
