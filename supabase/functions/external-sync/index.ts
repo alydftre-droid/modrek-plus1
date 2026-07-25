@@ -499,7 +499,10 @@ BEGIN
     d.c_id,
     d.c_title,
     d.c_type,
-    d.c_file_url,
+    CASE
+      WHEN v_is_admin OR v_is_purchased OR COALESCE(d.c_is_paid, false) = false OR COALESCE(d.c_is_free_preview, false) = true THEN COALESCE(d.c_file_url, '')
+      ELSE ''::text
+    END AS file_url,
     d.c_thumbnail_url,
     d.c_description,
     d.c_created_at,
