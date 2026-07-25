@@ -45,11 +45,11 @@ type ExamVisibilityDebugRow = {
 const EXAM_DIAGNOSTIC_SOURCE = "src/components/exams/StudentExamPanel.tsx";
 const EXAM_DIAGNOSTIC_LOCATIONS = {
   panelFilter: "src/components/exams/StudentExamPanel.tsx:67-85",
-  diagnosticLoader: "src/components/exams/StudentExamPanel.tsx:91-122",
+  diagnosticLoader: "src/components/exams/StudentExamPanel.tsx:98-137",
   catalogHook: "src/hooks/useExams.ts:50-105",
   createExamHook: "src/hooks/useExamMutations.ts:201-274",
   databaseCatalog: "database:function public.get_student_group_exam_catalog",
-  databaseDiagnostic: "database:function public.diagnose_student_group_exam_visibility",
+  databaseDiagnostic: "database:function public.get_student_group_exam_catalog",
   databaseBroadcast: "database:function public.exam_broadcast_group_ids",
   databaseTargeting: "database:function public.exam_target_matches_student",
 };
@@ -135,7 +135,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
       `Catalog hook location: ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`,
       `Exam creation hook location: ${EXAM_DIAGNOSTIC_LOCATIONS.createExamHook}`,
       `Database catalog function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog}`,
-      `Database diagnostic function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic}`,
+      `Visibility function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog}`,
       `Database broadcast function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseBroadcast}`,
       `Database targeting function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseTargeting}`,
       `Group ID: ${formatDebugValue(groupId)}`,
@@ -154,7 +154,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     if (noDiagnosticSignal) {
       lines.push(
         "Primary issue: diagnostic_returned_no_rows",
-        "Reason code: diagnostic_returned_no_rows",
+        "Reason code: catalog_returned_no_rows",
         `Source file: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`,
         "Reason: دالة كتالوج الامتحانات لم تُرجع أي امتحان ظاهر لهذه المجموعة. بعد الإصلاح الحالي أصبح المسار المسؤول هو get_student_group_exam_catalog فقط؛ إذا استمر الصفر فانسخ هذا التقرير مع Group ID وSub Subject ID.",
       );
@@ -360,11 +360,11 @@ function ExamVisibilityDiagnostics({
     : catalogMismatch
       ? { title: "القاعدة ترى امتحان ظاهر لكن الواجهة لا تعرضه", reason_code: "frontend_catalog_mismatch", reason: "دالة التشخيص أعادت امتحانًا ظاهرًا، لكن قائمة الامتحانات المعروضة للطالب فارغة. افحص فلترة useStudentExamCatalog أو StudentExamPanel.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook} + ${EXAM_DIAGNOSTIC_LOCATIONS.panelFilter}`, source_function: "useStudentExamCatalog" }
       : error
-    ? { title: "تعذر تشغيل تشخيص الامتحانات", reason_code: "diagnostic_rpc_failed", reason: error, source_file: EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic, source_function: "diagnose_student_group_exam_visibility" }
+    ? { title: "تعذر تحميل كتالوج الامتحانات", reason_code: "catalog_rpc_failed", reason: error, source_file: EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog, source_function: "get_student_group_exam_catalog" }
     : isLoading
-    ? { title: "جاري تشغيل تتبع الامتحانات", reason_code: "diagnostic_loading", reason: "الواجهة استدعت نظام التشخيص وتنتظر رد قاعدة البيانات.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.diagnosticLoader} + ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic}`, source_function: "diagnose_student_group_exam_visibility" }
+    ? { title: "جاري تحميل كتالوج الامتحانات", reason_code: "catalog_loading", reason: "الواجهة تنتظر رد دالة كتالوج الامتحانات التي أصبحت مصدر الظهور الوحيد.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.diagnosticLoader} + ${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog}`, source_function: "get_student_group_exam_catalog" }
     : noDiagnosticSignal
-    ? { title: "التشخيص لم يرجع أي سبب", reason_code: "diagnostic_returned_no_rows", reason: "دالة التشخيص لم تُرجع أي صفوف. افحص استدعاء التشخيص ودالة الكتالوج لأن الامتحان اختفى قبل مرحلة تحليل الأسباب.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`, source_function: "diagnose_student_group_exam_visibility" }
+    ? { title: "لا توجد امتحانات في كتالوج المجموعة", reason_code: "catalog_returned_no_rows", reason: "دالة كتالوج الامتحانات لم تُرجع أي امتحان مرشح لهذه المجموعة/المادة الفرعية. افحص groupId وsubSubjectId أو نشر الامتحان.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`, source_function: "get_student_group_exam_catalog" }
     : hiddenRows[0] || rows[0] || null;
 
   return (
