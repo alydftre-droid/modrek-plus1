@@ -81,6 +81,7 @@ type ContentRow = {
   is_free_preview?: boolean;
   education_type?: string | null;
   target_section?: string | null;
+  uploaded_by?: string | null;
 };
 
 
@@ -420,36 +421,43 @@ const TeacherUploadContent = () => {
     }
   }, [groupIdParam, subject]);
 
+  const getRelatedGroupIdsForActiveSelection = async (groupId: string) => {
+    const relatedGroupIds = new Set<string>([groupId]);
+    const subjectIdsInScope = uniqueValues(allSubjects.map((item) => item.id));
+    const selectedTitle = String(selectedGroup?.title || "").trim();
+    const selectedMonth = String(selectedGroup?.month_label || "").trim();
+
+    if (!effectiveUserId || !currentTerm || subjectIdsInScope.length === 0 || !selectedGroup) {
+      return relatedGroupIds;
+    }
+
+    let groupQuery = supabase
+      .from("content_groups")
+      .select("id, title, month_label, subject_id")
+      .in("subject_id", subjectIdsInScope)
+      .eq("is_active", true)
+      .eq("term", currentTerm)
+      .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`);
+
+    if (selectedMonth) {
+      groupQuery = groupQuery.eq("month_label", selectedMonth);
+    } else if (selectedTitle) {
+      groupQuery = groupQuery.eq("title", selectedTitle);
+    }
+
+    const { data: siblingGroups, error: siblingGroupError } = await groupQuery;
+    if (siblingGroupError) throw siblingGroupError;
+    ((siblingGroups || []) as Array<{ id: string }>).forEach((group) => {
+      if (group.id) relatedGroupIds.add(group.id);
+    });
+    return relatedGroupIds;
+  };
+
   // Fetch content for selected group - now also fetch subject_id
   const fetchGroupContent = async (groupId: string) => {
     if (!effectiveUserId || !currentTerm) return;
     try {
-      const subjectIdsInScope = uniqueValues(allSubjects.map((item) => item.id));
-      const selectedTitle = String(selectedGroup?.title || "").trim();
-      const selectedMonth = String(selectedGroup?.month_label || "").trim();
-      const relatedGroupIds = new Set<string>([groupId]);
-
-      if (subjectIdsInScope.length > 0 && selectedGroup) {
-        let groupQuery = supabase
-          .from("content_groups")
-          .select("id, title, month_label, subject_id")
-          .in("subject_id", subjectIdsInScope)
-          .eq("is_active", true)
-          .eq("term", currentTerm)
-          .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`);
-
-        if (selectedMonth) {
-          groupQuery = groupQuery.eq("month_label", selectedMonth);
-        } else if (selectedTitle) {
-          groupQuery = groupQuery.eq("title", selectedTitle);
-        }
-
-        const { data: siblingGroups, error: siblingGroupError } = await groupQuery;
-        if (siblingGroupError) throw siblingGroupError;
-        ((siblingGroups || []) as Array<{ id: string }>).forEach((group) => {
-          if (group.id) relatedGroupIds.add(group.id);
-        });
-      }
+      const relatedGroupIds = await getRelatedGroupIdsForActiveSelection(groupId);
 
       let relatedSubSubjectIds: string[] | null = null;
       let relatedSubSubjectNames: string[] | null = null;
@@ -497,8 +505,8 @@ const TeacherUploadContent = () => {
 
       const buildQuery = (includeFreePreview: boolean) => {
         const selectColumns = includeFreePreview
-          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section"
-          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, education_type, target_section";
+          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section, uploaded_by"
+          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, education_type, target_section, uploaded_by";
 
         let q = (supabase.from("content") as any)
         .select(selectColumns)
@@ -733,17 +741,54 @@ const TeacherUploadContent = () => {
   };
 
   const toggleFreePreview = async (item: ContentRow) => {
-    const next = !(item.is_free_preview === true);
     try {
+      const activeGroupForToggle = item.group_id || selectedGroup?.id || groupIdParam;
+      if (!activeGroupForToggle) throw new Error("تعذر تحديد المجموعة المرتبطة بالمحتوى");
+
+      const relatedGroupIds = await getRelatedGroupIdsForActiveSelection(activeGroupForToggle);
+      let candidatesQuery = supabase
+        .from("content")
+        .select("id, sub_subject_id, sub_subject, is_free_preview")
+        .eq("file_url", item.file_url)
+        .eq("type", item.type)
+        .eq("is_active", true)
+        .in("group_id", Array.from(relatedGroupIds));
+
+      if (currentTerm) candidatesQuery = candidatesQuery.eq("term", currentTerm);
+      const ownerId = item.uploaded_by || effectiveUserId;
+      if (ownerId) candidatesQuery = candidatesQuery.eq("uploaded_by", ownerId);
+
+      const { data: candidateRows, error: candidateError } = await candidatesQuery;
+      if (candidateError) throw candidateError;
+
+      const itemSubName = String(item.sub_subject || "").trim();
+      const matchingRows = ((candidateRows || []) as Array<{
+        id: string;
+        sub_subject_id: string | null;
+        sub_subject: string | null;
+        is_free_preview: boolean | null;
+      }>).filter((row) => {
+        if (!item.sub_subject_id && !itemSubName) {
+          return !row.sub_subject_id && !String(row.sub_subject || "").trim();
+        }
+        if (item.sub_subject_id && row.sub_subject_id === item.sub_subject_id) return true;
+        return itemSubName.length > 0 && String(row.sub_subject || "").trim() === itemSubName;
+      });
+
+      const targetRows = matchingRows.length > 0 ? matchingRows : [{ id: item.id, is_free_preview: item.is_free_preview === true }];
+      const targetIds = targetRows.map((row) => row.id);
+      const next = targetRows.some((row) => row.is_free_preview !== true);
+
       const { error } = await supabase
         .from("content")
-        .update({ is_free_preview: next })
-        .eq("id", item.id);
+        .update({ is_free_preview: next, updated_at: new Date().toISOString() } as any)
+        .in("id", targetIds);
       if (error) throw error;
-      setContent(prev => prev.map(c => c.id === item.id ? { ...c, is_free_preview: next } : c));
+      setContent(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, is_free_preview: next } : c));
+      if (selectedGroup?.id) await fetchGroupContent(selectedGroup.id);
       toast({
         title: next ? "تم التعيين كمحتوى مجاني" : "تمت إزالة المجانية",
-        description: next ? "يمكن للطلاب غير المشتركين مشاهدته الآن." : "أصبح المحتوى مغلقاً لغير المشتركين.",
+        description: next ? "تم فتح كل النسخ المرتبطة بهذا العنصر للطلاب غير المشتركين." : "أصبح المحتوى مغلقاً لغير المشتركين.",
       });
     } catch (e: any) {
       console.error(e);
