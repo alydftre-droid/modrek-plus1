@@ -47,6 +47,7 @@ ALTER TABLE public.modrek_ai_conversations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Students manage their own AI conversations" ON public.modrek_ai_conversations;
 DROP POLICY IF EXISTS "Students manage their own AI conversations" ON public.modrek_ai_conversations;
+DROP POLICY IF EXISTS "Students manage their own AI conversations" ON public.modrek_ai_conversations;
 CREATE POLICY "Students manage their own AI conversations"
   ON public.modrek_ai_conversations
   FOR ALL
@@ -96,6 +97,7 @@ ALTER TABLE public.modrek_ai_messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Students access messages of their conversations" ON public.modrek_ai_messages;
 DROP POLICY IF EXISTS "Students access messages of their conversations" ON public.modrek_ai_messages;
+DROP POLICY IF EXISTS "Students access messages of their conversations" ON public.modrek_ai_messages;
 CREATE POLICY "Students access messages of their conversations"
   ON public.modrek_ai_messages
   FOR ALL
@@ -132,6 +134,7 @@ $$;
 
 DROP TRIGGER IF EXISTS modrek_ai_msg_touch_conv ON public.modrek_ai_messages;
 DROP TRIGGER IF EXISTS modrek_ai_msg_touch_conv ON public.modrek_ai_messages;
+DROP TRIGGER IF EXISTS modrek_ai_msg_touch_conv ON public.modrek_ai_messages;
 CREATE TRIGGER modrek_ai_msg_touch_conv
   AFTER INSERT ON public.modrek_ai_messages
   FOR EACH ROW EXECUTE FUNCTION public.modrek_ai_touch_conversation();
@@ -140,6 +143,7 @@ CREATE OR REPLACE FUNCTION public.modrek_ai_update_updated_at()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
 $$;
+DROP TRIGGER IF EXISTS modrek_ai_conv_updated_at ON public.modrek_ai_conversations;
 DROP TRIGGER IF EXISTS modrek_ai_conv_updated_at ON public.modrek_ai_conversations;
 DROP TRIGGER IF EXISTS modrek_ai_conv_updated_at ON public.modrek_ai_conversations;
 CREATE TRIGGER modrek_ai_conv_updated_at
@@ -155,6 +159,7 @@ ALTER TABLE public.exams ALTER COLUMN teacher_id DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_exams_owner_student ON public.exams(owner_student_id) WHERE owner_student_id IS NOT NULL;
 
+DROP POLICY IF EXISTS "Students access their own Modrek AI exams" ON public.exams;
 DROP POLICY IF EXISTS "Students access their own Modrek AI exams" ON public.exams;
 DROP POLICY IF EXISTS "Students access their own Modrek AI exams" ON public.exams;
 CREATE POLICY "Students access their own Modrek AI exams"

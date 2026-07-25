@@ -1,3 +1,7 @@
+-- get_student_group_exam_catalog_return_type_hardening
+DROP FUNCTION IF EXISTS public.get_student_group_exam_catalog(uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.get_student_group_exam_catalog(uuid) CASCADE;
+
 CREATE OR REPLACE FUNCTION public.get_student_group_exam_catalog(_group_id uuid, _sub_subject_id uuid DEFAULT NULL::uuid)
 RETURNS TABLE(
   id uuid,

@@ -183,4 +183,29 @@ if exam_catalog_path.exists():
         print("Hardened get_student_group_exam_catalog migration:", exam_catalog_path.name)
 
 
+# Harden content_effective_education_type migration: production already has
+# this function (and its dependents like content_target_matches_student /
+# get_student_group_content_catalog) with parameter defaults. CREATE OR
+# REPLACE can't remove/alter parameter defaults, so Postgres rejects it with
+# 42P13 "cannot remove parameter defaults from existing function". Drop the
+# function (and dependents — they're recreated later in the same migration)
+# with CASCADE before recreating it.
+content_edu_path = Path("supabase/migrations/20260724114856_3ac54e70-e44f-4865-8e0e-d070f8542bb3.sql")
+if content_edu_path.exists():
+    content_edu_sql = content_edu_path.read_text(encoding="utf-8")
+    if "-- content_effective_education_type_defaults_hardening" not in content_edu_sql:
+        content_edu_sql = (
+            "-- content_effective_education_type_defaults_hardening\n"
+            "DROP FUNCTION IF EXISTS public.content_effective_education_type(text, uuid) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.exam_effective_education_type(text, uuid) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.content_target_matches_student(text, uuid, uuid, text) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.content_target_matches_student(text, uuid, uuid) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.content_target_matches_student(text, uuid) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.exam_target_matches_student(uuid, text, text) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.exam_target_matches_student(text, uuid, text, text) CASCADE;\n\n"
+        ) + content_edu_sql
+        content_edu_path.write_text(content_edu_sql, encoding="utf-8")
+        print("Hardened content_effective_education_type migration:", content_edu_path.name)
+
+
 
