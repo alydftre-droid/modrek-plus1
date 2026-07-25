@@ -363,7 +363,7 @@ CREATE POLICY "Students view subscribed current-term exams" ON public.exams
       WHERE sgp.group_id = exams.group_id
         AND sgp.student_id = auth.uid()
     )
-    AND public.exam_target_matches_student(auth.uid(), target_section, target_education_type)
+    AND public.exam_target_matches_student(auth.uid(), target_section, target_education_type, subject_id, group_id)
   );
 
 -- Student group catalogs: students must see the full group metadata before purchase.
@@ -384,7 +384,9 @@ RETURNS TABLE(
   subject_id uuid,
   sub_subject text,
   sub_subject_id uuid,
-  is_accessible boolean
+  is_accessible boolean,
+  education_type text,
+  subject_section text
 )
 LANGUAGE plpgsql
 STABLE
@@ -394,8 +396,39 @@ AS $$
 DECLARE
   v_student_id uuid := auth.uid();
   v_is_purchased boolean := false;
+  v_is_admin boolean := false;
+  v_group record;
+  v_selected_name text := NULL;
+  v_parent_subject_name text := NULL;
+  v_selected_is_parent_subject boolean := false;
 BEGIN
+  SELECT
+    cg.id,
+    cg.subject_id,
+    cg.teacher_id,
+    cg.created_by,
+    cg.term,
+    cg.education_type,
+    trim(lower(s.name)) AS subject_name
+  INTO v_group
+  FROM public.content_groups cg
+  LEFT JOIN public.subjects s ON s.id = cg.subject_id
+  WHERE cg.id = _group_id
+    AND COALESCE(cg.is_active, true) = true;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  v_parent_subject_name := v_group.subject_name;
+
   IF v_student_id IS NOT NULL THEN
+    BEGIN
+      v_is_admin := public.has_role(v_student_id, 'admin'::public.app_role);
+    EXCEPTION WHEN OTHERS THEN
+      v_is_admin := false;
+    END;
+
     SELECT EXISTS (
       SELECT 1
       FROM public.student_group_purchases sgp
@@ -404,51 +437,87 @@ BEGIN
     ) INTO v_is_purchased;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.content_groups cg
-    WHERE cg.id = _group_id
+  IF _sub_subject_id IS NOT NULL THEN
+    SELECT trim(lower(ss.name)) INTO v_selected_name
+    FROM public.sub_subjects ss
+    WHERE ss.id = _sub_subject_id
+      AND ss.group_id = _group_id
       AND COALESCE(cg.is_active, true) = true
-  ) THEN
-    RETURN;
+      AND COALESCE(ss.is_active, true) = true;
+
+    v_selected_is_parent_subject := v_selected_name IS NOT NULL AND v_selected_name = v_parent_subject_name;
   END IF;
 
   RETURN QUERY
+  WITH candidate_content AS (
+    SELECT
+      c.id AS c_id,
+      c.title AS c_title,
+      c.type AS c_type,
+      c.file_url AS c_file_url,
+      c.thumbnail_url AS c_thumbnail_url,
+      c.description AS c_description,
+      c.created_at AS c_created_at,
+      c.is_paid AS c_is_paid,
+      c.is_free_preview AS c_is_free_preview,
+      c.group_id AS c_group_id,
+      c.subject_id AS c_subject_id,
+      COALESCE(NULLIF(trim(c.sub_subject), ''), source_ss.name) AS c_sub_subject,
+      COALESCE(c.sub_subject_id, source_ss.id) AS c_sub_subject_id,
+      source_ss.name AS c_source_ss_name,
+      public.content_effective_education_type(c.education_type, c.group_id) AS c_effective_education_type,
+      public.content_effective_section(c.target_section, c.subject_id, c.group_id) AS c_effective_target_section
+    FROM public.content c
+    LEFT JOIN public.sub_subjects source_ss
+      ON source_ss.id = c.sub_subject_id
+     AND source_ss.group_id = _group_id
+     AND COALESCE(source_ss.is_active, true) = true
+    WHERE c.group_id = _group_id
+      AND COALESCE(c.is_active, true) = true
+      AND COALESCE(c.type, '') <> 'student_library'
+      AND public.term_item_matches_current_system_term(c.subject_id, c.group_id, c.term)
+      AND (
+        _sub_subject_id IS NULL
+        OR v_selected_is_parent_subject
+        OR c.sub_subject_id = _sub_subject_id
+        OR c.sub_subject_id IS NULL
+        OR (
+          v_selected_name IS NOT NULL
+          AND (
+            trim(lower(COALESCE(c.sub_subject, ''))) = v_selected_name
+            OR trim(lower(COALESCE(source_ss.name, ''))) = v_selected_name
+          )
+        )
+      )
+      AND public.content_target_matches_student(c.education_type, c.subject_id, c.group_id, v_student_id, c.target_section)
+  ), deduped AS (
+    SELECT DISTINCT ON (cc.c_id) cc.*
+    FROM candidate_content cc
+    ORDER BY cc.c_id, cc.c_created_at DESC
+  )
   SELECT
-    c.id,
-    c.title,
-    c.type,
-    CASE
-      WHEN v_is_purchased OR NOT COALESCE(c.is_paid, true) OR COALESCE(c.is_free_preview, false) THEN COALESCE(c.file_url, '')
-      ELSE ''::text
-    END AS file_url,
-    COALESCE(
-      NULLIF(c.thumbnail_url, ''),
-      CASE
-        WHEN c.type = 'video' AND c.file_url LIKE 'bunny://%' THEN
-          'https://vz-9fc4b938-1b7.b-cdn.net/' || replace(c.file_url, 'bunny://', '') || '/thumbnail.jpg'
-        ELSE NULL::text
-      END
-    ) AS thumbnail_url,
-    c.description,
-    c.created_at,
-    COALESCE(c.is_paid, true) AS is_paid,
-    COALESCE(c.is_free_preview, false) AS is_free_preview,
-    c.group_id,
-    c.subject_id,
-    c.sub_subject,
-    c.sub_subject_id,
-    (v_is_purchased OR NOT COALESCE(c.is_paid, true) OR COALESCE(c.is_free_preview, false)) AS is_accessible
-  FROM public.content c
-  WHERE c.group_id = _group_id
-    AND COALESCE(c.is_active, true) = true
-    AND (_sub_subject_id IS NULL OR c.sub_subject_id = _sub_subject_id)
-  ORDER BY COALESCE(c.order_index, 0) ASC, c.created_at ASC, c.id ASC;
+    d.c_id,
+    d.c_title,
+    d.c_type,
+    d.c_file_url,
+    d.c_thumbnail_url,
+    d.c_description,
+    d.c_created_at,
+    COALESCE(d.c_is_paid, false),
+    COALESCE(d.c_is_free_preview, false),
+    _group_id,
+    d.c_subject_id,
+    d.c_sub_subject,
+    d.c_sub_subject_id,
+    (v_is_admin OR v_is_purchased OR COALESCE(d.c_is_paid, false) = false OR COALESCE(d.c_is_free_preview, false) = true),
+    d.c_effective_education_type,
+    d.c_effective_target_section
+  FROM deduped d
+  ORDER BY d.c_created_at DESC, d.c_id DESC;
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) TO service_role;
 
@@ -468,7 +537,9 @@ RETURNS TABLE(
   sub_subject_id uuid,
   term text,
   created_at timestamp with time zone,
-  is_accessible boolean
+  is_accessible boolean,
+  target_section text,
+  target_education_type text
 )
 LANGUAGE plpgsql
 STABLE
@@ -478,8 +549,40 @@ AS $$
 DECLARE
   v_student_id uuid := auth.uid();
   v_is_purchased boolean := false;
+  v_is_admin boolean := false;
+  v_group record;
+  v_selected_name text := NULL;
+  v_parent_subject_name text := NULL;
+  v_selected_is_parent_subject boolean := false;
 BEGIN
+  SELECT
+    cg.id,
+    cg.subject_id,
+    cg.teacher_id,
+    cg.created_by,
+    cg.term,
+    cg.education_type,
+    trim(lower(s.name)) AS subject_name,
+    s.section AS subject_section
+  INTO v_group
+  FROM public.content_groups cg
+  LEFT JOIN public.subjects s ON s.id = cg.subject_id
+  WHERE cg.id = _group_id
+    AND COALESCE(cg.is_active, true) = true;
+
+  IF NOT FOUND THEN
+    RETURN;
+  END IF;
+
+  v_parent_subject_name := v_group.subject_name;
+
   IF v_student_id IS NOT NULL THEN
+    BEGIN
+      v_is_admin := public.has_role(v_student_id, 'admin'::public.app_role);
+    EXCEPTION WHEN OTHERS THEN
+      v_is_admin := false;
+    END;
+
     SELECT EXISTS (
       SELECT 1
       FROM public.student_group_purchases sgp
@@ -488,43 +591,71 @@ BEGIN
     ) INTO v_is_purchased;
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.content_groups cg
-    WHERE cg.id = _group_id
+  IF _sub_subject_id IS NOT NULL THEN
+    SELECT trim(lower(ss.name)) INTO v_selected_name
+    FROM public.sub_subjects ss
+    WHERE ss.id = _sub_subject_id
+      AND ss.group_id = _group_id
       AND COALESCE(cg.is_active, true) = true
-  ) THEN
-    RETURN;
+      AND COALESCE(ss.is_active, true) = true;
+
+    v_selected_is_parent_subject := v_selected_name IS NOT NULL AND v_selected_name = v_parent_subject_name;
   END IF;
 
   RETURN QUERY
+  WITH candidate_exams AS (
+    SELECT
+      e.*,
+      source_ss.name AS c_source_ss_name
+    FROM public.exams e
+    LEFT JOIN public.sub_subjects source_ss
+      ON source_ss.id = e.sub_subject_id
+     AND source_ss.group_id = _group_id
+     AND COALESCE(source_ss.is_active, true) = true
+    WHERE e.group_id = _group_id
+      AND COALESCE(e.is_published, false) = true
+      AND e.status = 'published'::public.exam_status
+      AND public.term_item_matches_current_system_term(e.subject_id, e.group_id, e.term)
+      AND (
+        _sub_subject_id IS NULL
+        OR v_selected_is_parent_subject
+        OR e.sub_subject_id = _sub_subject_id
+        OR e.sub_subject_id IS NULL
+        OR (
+          v_selected_name IS NOT NULL
+          AND trim(lower(COALESCE(source_ss.name, ''))) = v_selected_name
+        )
+      )
+      AND public.exam_target_matches_student(v_student_id, e.target_section, e.target_education_type, e.subject_id, e.group_id)
+  ), deduped AS (
+    SELECT DISTINCT ON (id) *
+    FROM candidate_exams
+    ORDER BY id, created_at DESC
+  )
   SELECT
-    e.id,
-    e.title,
-    e.description,
-    e.duration_minutes,
-    e.total_marks,
-    e.pass_marks,
-    e.start_at,
-    e.end_at,
-    COALESCE(e.is_ai_generated, false) AS is_ai_generated,
-    e.group_id,
-    e.subject_id,
-    e.sub_subject_id,
-    e.term,
-    e.created_at,
-    v_is_purchased AS is_accessible
-  FROM public.exams e
-  WHERE e.group_id = _group_id
-    AND COALESCE(e.is_published, false) = true
-    AND e.status = 'published'::public.exam_status
-    AND (_sub_subject_id IS NULL OR e.sub_subject_id = _sub_subject_id)
-  ORDER BY e.created_at DESC, e.id DESC;
+    d.id,
+    d.title,
+    d.description,
+    d.duration_minutes,
+    d.total_marks,
+    d.pass_marks,
+    d.start_at,
+    d.end_at,
+    COALESCE(d.is_ai_generated, false) AS is_ai_generated,
+    _group_id AS group_id,
+    d.subject_id,
+    d.sub_subject_id,
+    d.term,
+    d.created_at,
+    (v_is_admin OR v_is_purchased) AS is_accessible,
+    public.exam_effective_section(d.target_section, d.subject_id, d.group_id) AS target_section,
+    public.exam_effective_education_type(d.target_education_type, d.group_id) AS target_education_type
+  FROM deduped d
+  ORDER BY d.created_at DESC, d.id DESC;
 END;
 $$;
 
 REVOKE ALL ON FUNCTION public.get_student_group_exam_catalog(uuid, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_student_group_exam_catalog(uuid, uuid) TO anon;
 GRANT EXECUTE ON FUNCTION public.get_student_group_exam_catalog(uuid, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_student_group_exam_catalog(uuid, uuid) TO service_role;
 
