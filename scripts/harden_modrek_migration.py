@@ -149,3 +149,21 @@ if worker_path.exists():
         worker_path.write_text(patched, encoding="utf-8")
         print("Hardened modrek_worker heartbeat migration:", worker_path.name)
 
+
+# Harden get_student_group_content_catalog migration: the CREATE OR REPLACE
+# changes the RETURNS TABLE shape vs. an earlier version already installed in
+# production, which Postgres rejects with 42P13. Drop both known prior
+# signatures with CASCADE before recreating.
+catalog_path = Path("supabase/migrations/20260723224548_36f44339-26de-45d2-a213-91dea0496ee6.sql")
+if catalog_path.exists():
+    catalog_sql = catalog_path.read_text(encoding="utf-8")
+    if "-- get_student_group_content_catalog_return_type_hardening" not in catalog_sql:
+        catalog_sql = (
+            "-- get_student_group_content_catalog_return_type_hardening\n"
+            "DROP FUNCTION IF EXISTS public.get_student_group_content_catalog(uuid, uuid) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.get_student_group_content_catalog(uuid) CASCADE;\n\n"
+        ) + catalog_sql
+        catalog_path.write_text(catalog_sql, encoding="utf-8")
+        print("Hardened get_student_group_content_catalog migration:", catalog_path.name)
+
+
