@@ -667,7 +667,7 @@
     background: linear-gradient(135deg, var(--auth-primary-sky) 0%, var(--auth-primary) 100%) !important;
     color: #ffffff !important;
     box-shadow: 0 12px 28px rgba(4, 120, 87, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
-    transition: transform 300ms ease, box-shadow 300ms ease, filter 300ms ease !important;
+    transition: transform 300ms ease, box-shadow 300ms ease, filter 300ms ease, opacity 200ms ease !important;
   }
 
   .auth2026-primary-button:hover {
@@ -683,6 +683,26 @@
   .auth2026-primary-button svg {
     color: #ffffff !important;
     stroke: #ffffff !important;
+  }
+
+  /* Ensure the primary button stays clearly visible even when disabled
+     (e.g. inside the OTP dialog on a white background). */
+  .auth2026-primary-button:disabled,
+  .auth2026-primary-button[disabled],
+  .auth2026-primary-button[aria-disabled="true"] {
+    opacity: 1 !important;
+    cursor: not-allowed !important;
+    background: linear-gradient(135deg, #6EE7B7 0%, #10B981 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 10px 24px rgba(4, 120, 87, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  }
+
+  .auth2026-primary-button:disabled svg,
+  .auth2026-primary-button[disabled] svg,
+  .auth2026-primary-button[aria-disabled="true"] svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+    opacity: 0.9 !important;
   }
 
   .auth2026-google-button,

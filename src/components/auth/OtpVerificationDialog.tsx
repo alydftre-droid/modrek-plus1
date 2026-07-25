@@ -192,7 +192,7 @@ export default function OtpVerificationDialog({
           <Button
             onClick={handleVerify}
             disabled={verifying || code.length !== length}
-            className="auth2026-primary-button w-full h-12 text-base font-semibold"
+            className="auth2026-primary-button w-full h-12 text-base font-semibold bg-emerald-500 text-white hover:bg-emerald-600 disabled:bg-emerald-400 disabled:opacity-100"
             size="lg"
           >
             {verifying ? <Loader2 className="h-5 w-5 animate-spin" /> : "تأكيد الرمز"}
