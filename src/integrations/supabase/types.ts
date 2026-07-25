@@ -6339,9 +6339,9 @@ export type Database = {
           }
         | {
             Args: {
-              _group_id: string
+              _group_id?: string
               _student_id: string
-              _subject_id: string
+              _subject_id?: string
               _target_education_type: string
               _target_section: string
             }
