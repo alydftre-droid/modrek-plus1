@@ -224,8 +224,6 @@ export function useCreateExam() {
         group_id = group.id;
         subject_id = group.subject_id as string;
         term = ((group as any)?.term as string | undefined) || term;
-        const groupEducationType = normalizeEducationType((group as any)?.education_type);
-        if (groupEducationType) targetEducationType = groupEducationType;
         subSubjectId = await resolveSiblingSubSubjectForExam({
           sourceSubSubjectId: subSubjectId,
           sourceGroupId,

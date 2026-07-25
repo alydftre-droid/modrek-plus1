@@ -97,7 +97,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     }
 
     const loadDiagnostics = async () => {
-      const { data, error } = await (supabase as any).rpc("debug_student_group_exam_visibility", {
+      const { data, error } = await (supabase as any).rpc("diagnose_student_group_exam_visibility", {
         _group_id: groupId,
         _sub_subject_id: subSubjectId || null,
       });
@@ -339,7 +339,7 @@ function ExamVisibilityDiagnostics({
     : catalogMismatch
       ? { title: "القاعدة ترى امتحان ظاهر لكن الواجهة لا تعرضه", reason_code: "frontend_catalog_mismatch", reason: "دالة التشخيص أعادت امتحانًا ظاهرًا، لكن قائمة الامتحانات المعروضة للطالب فارغة. افحص فلترة useStudentExamCatalog أو StudentExamPanel.", source_file: "src/hooks/useExams.ts + src/components/exams/StudentExamPanel.tsx", source_function: "useStudentExamCatalog" }
       : error
-    ? { title: "تعذر تشغيل تشخيص الامتحانات", reason_code: "diagnostic_rpc_failed", reason: error, source_file: "database:function public.debug_student_group_exam_visibility", source_function: "debug_student_group_exam_visibility" }
+    ? { title: "تعذر تشغيل تشخيص الامتحانات", reason_code: "diagnostic_rpc_failed", reason: error, source_file: "database:function public.diagnose_student_group_exam_visibility", source_function: "diagnose_student_group_exam_visibility" }
     : hiddenRows[0] || rows[0] || null;
 
   return (
