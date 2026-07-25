@@ -470,8 +470,9 @@ const ContentUpsertDialog = ({
     targetSection: string | null;
     subSubjectName: string | null;
     type: ContentType;
+    preferredSubjectId: string;
   }): Promise<InsertTargetRow[]> => {
-    const { targetSubjectIds, groupIdsBySubject, eduType, targetSection, subSubjectName, type } = params;
+    const { targetSubjectIds, groupIdsBySubject, eduType, targetSection, subSubjectName, type, preferredSubjectId } = params;
     const uniqueGroupIds = Array.from(new Set(Array.from(groupIdsBySubject.values()).filter(Boolean) as string[]));
     const groupSubjectById = new Map<string, string>();
 
@@ -484,6 +485,24 @@ const ContentUpsertDialog = ({
       ((data || []) as Array<{ id: string; subject_id: string }>).forEach((group) => {
         if (group.id && group.subject_id) groupSubjectById.set(group.id, group.subject_id);
       });
+    }
+
+    if (targetSection === null) {
+      const preferredTarget = targetSubjectIds.includes(preferredSubjectId)
+        ? preferredSubjectId
+        : targetSubjectIds[0];
+      const target = {
+        subjectId: preferredTarget,
+        groupId: groupIdsBySubject.get(preferredTarget) ?? null,
+      };
+
+      traceContentTarget("teacher-upload.insert-targets-unrestricted-section", {
+        targetSubjectIds,
+        target,
+        savedTargetSection: null,
+      });
+
+      return target.subjectId ? [target] : [];
     }
 
     const byLogicalSlot = new Map<string, InsertTargetRow>();
@@ -643,6 +662,7 @@ const ContentUpsertDialog = ({
           targetSection,
           subSubjectName: resolvedSubSubjectName,
           type,
+          preferredSubjectId: subjectId,
         });
 
         const insertedIds: string[] = [];

@@ -6590,6 +6590,20 @@ export type Database = {
           type: string
         }[]
       }
+      get_student_group_content_diagnostics: {
+        Args: { _group_id: string; _sub_subject_id?: string }
+        Returns: {
+          group_subject_id: string
+          group_term: string
+          matching_sub_subject_content: number
+          matching_term_content: number
+          reason: string
+          student_education_type: string
+          student_section: string
+          total_teacher_content: number
+          visible_to_student_content: number
+        }[]
+      }
       get_student_group_content_target_debug: {
         Args: {
           _group_id: string
