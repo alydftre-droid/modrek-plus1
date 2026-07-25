@@ -28,10 +28,10 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   const attempts = catalog?.attempts || [];
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
   const filtered = exams.filter((e: any) => {
-    if (groupId && e.group_id !== groupId) return false;
+    if (groupId) return true;
     if (subSubjectId && e.sub_subject_id && e.sub_subject_id !== subSubjectId) return false;
-    if (!groupId && currentTerm && e.term && e.term !== currentTerm) return false;
-    if (!groupId && e.subject_id !== subjectId) return false;
+    if (currentTerm && e.term && e.term !== currentTerm) return false;
+    if (e.subject_id !== subjectId) return false;
     return true;
   });
 
