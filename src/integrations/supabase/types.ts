@@ -6207,6 +6207,32 @@ export type Database = {
         Args: { _payload: Json }
         Returns: Json
       }
+      debug_student_group_exam_visibility: {
+        Args: { _group_id: string; _sub_subject_id?: string }
+        Returns: {
+          exam_group_id: string
+          exam_id: string
+          exam_subject_id: string
+          in_broadcast_scope: boolean
+          is_published: boolean
+          normalized_target_education_type: string
+          normalized_target_section: string
+          reason: string
+          reason_code: string
+          requested_group_id: string
+          requested_subject_id: string
+          source_file: string
+          source_function: string
+          status: string
+          student_education_type: string
+          student_section: string
+          sub_subject_matches: boolean
+          target_matches: boolean
+          term_matches: boolean
+          title: string
+          visibility_status: string
+        }[]
+      }
       dispatch_automation: {
         Args: {
           _actor_user_id: string
