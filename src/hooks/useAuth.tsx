@@ -740,6 +740,86 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Send a reauthentication OTP to the currently logged-in user's email.
+  // Used before sensitive changes like password update from inside the account.
+  const sendReauthOtp = async (): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.reauthenticate();
+      if (error) {
+        if (error.message.toLowerCase().includes("rate")) {
+          return { error: "تم إرسال الكود مؤخراً. انتظر قليلاً قبل المحاولة." };
+        }
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch {
+      return { error: "تعذر إرسال رمز التحقق" };
+    }
+  };
+
+  // Update the password after reauthentication OTP verification.
+  const updatePasswordWithOtp = async (
+    password: string,
+    code: string,
+  ): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password,
+        nonce: code.trim(),
+      } as any);
+      if (error) {
+        const m = error.message.toLowerCase();
+        if (m.includes("invalid") || m.includes("nonce")) return { error: "الرمز غير صحيح" };
+        if (m.includes("expired")) return { error: "انتهت صلاحية الرمز. اطلب رمزاً جديداً." };
+        return { error: error.message };
+      }
+      queueExternalSync(["auth"], true);
+      return { error: null };
+    } catch {
+      return { error: "تعذر تحديث كلمة المرور" };
+    }
+  };
+
+  // Request a change of email. Supabase sends a confirmation code to the NEW address.
+  const sendEmailChangeOtp = async (newEmail: string): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+      if (error) {
+        if (error.message.toLowerCase().includes("rate")) {
+          return { error: "تم إرسال الكود مؤخراً. انتظر قليلاً قبل المحاولة." };
+        }
+        return { error: error.message };
+      }
+      return { error: null };
+    } catch {
+      return { error: "تعذر إرسال رمز التحقق" };
+    }
+  };
+
+  // Verify the OTP sent to the new email to complete the email change.
+  const verifyEmailChangeOtp = async (
+    newEmail: string,
+    code: string,
+  ): Promise<{ error: string | null }> => {
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: newEmail.trim(),
+        token: code.trim(),
+        type: "email_change" as any,
+      });
+      if (error) {
+        const m = error.message.toLowerCase();
+        if (m.includes("expired")) return { error: "انتهت صلاحية الرمز. اطلب رمزاً جديداً." };
+        if (m.includes("invalid")) return { error: "الرمز غير صحيح" };
+        return { error: error.message };
+      }
+      queueExternalSync(["auth", "tables"], true);
+      return { error: null };
+    } catch {
+      return { error: "تعذر التحقق من الرمز" };
+    }
+  };
+
   const signInWithGoogle = async (options?: { correlationId?: string; redirectUri?: string; source?: string }): Promise<{ error: string | null }> => {
     try {
       const nativeRuntime = await isNativeOAuthRuntime();
