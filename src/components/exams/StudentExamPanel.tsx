@@ -165,7 +165,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     }
 
     if (debugError) {
-      lines.push(`Diagnostic RPC Error: ${debugError}`);
+      lines.push(`Catalog RPC Error: ${debugError}`);
     }
 
     if (debugRows.length === 0 && !debugError) {
