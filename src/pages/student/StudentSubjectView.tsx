@@ -959,9 +959,12 @@ const StudentSubjectView = () => {
   const loadGroupContent = async (groupId: string, subSubjectId?: string, _subSubjectName?: string, _sectionOverride?: string | null) => {
     setLoadingContent(true);
     setStep("subject_content");
-    const shouldUseLiteraryFallback = false;
-    
+
     try {
+      // Unified path for every student (scientific + literary). The RPC's
+      // content_target_matches_student handles section/education_type/track
+      // uniformly — the only input that differs between sections is the
+      // caller's own profile row, never the code path.
       const { data: secureRows, error: secureError } = await supabase.rpc(
         "get_student_group_content_catalog" as any,
         {
@@ -990,102 +993,6 @@ const StudentSubjectView = () => {
 
       if (!secureError) {
         const secureContentRows = ((secureRows || []) as StudentContentCatalogRow[]).map(mapStudentCatalogRowToContent);
-        console.info("[student-catalog-debug] secure group content catalog", {
-          source: shouldUseLiteraryFallback ? "literary-fallback" : "standard",
-          groupId,
-          subSubjectId: subSubjectId || null,
-          rows: secureContentRows.length,
-          videos: secureContentRows.filter((row) => row.type === "video").length,
-          files: secureContentRows.filter((row) => row.type !== "video").length,
-          locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
-        });
-        // Auto-diagnostic for literary students: always run whenever content is
-        // empty OR partially missing (fewer visible rows than the teacher
-        // actually uploaded to this group). Surfaces the real reason + source
-        // location so the developer can pinpoint the failing filter without
-        // needing to enable a debug flag.
-        if (normalizeSectionForSubjects(studentSection) === "literary") {
-          try {
-            const { data: diagnosticRows, error: diagnosticError } = await supabase.rpc(
-              "get_student_group_content_diagnostics" as any,
-              { _group_id: groupId, _sub_subject_id: subSubjectId || null },
-            );
-            const diagnostic = ((diagnosticRows || []) as any[])[0] || null;
-            const total = Number(diagnostic?.total_teacher_content || 0);
-            const termCount = Number(diagnostic?.matching_term_content || 0);
-            const subCount = Number(diagnostic?.matching_sub_subject_content || 0);
-            const visible = Number(diagnostic?.visible_to_student_content || 0);
-            const rendered = secureContentRows.length;
-            const reason = String(diagnostic?.reason || "unknown");
-            // Only flag *real* problems: the RPC explicitly reports a blocking
-            // filter, OR the student sees literally nothing while the group has
-            // content. A gap between total/subOK/visible is EXPECTED — it just
-            // means the teacher targeted some items at other sections or
-            // education types, which is normal targeting behavior, not a bug.
-            const isRealBlock = reason.startsWith("blocked_by_") || reason === "no_content_in_this_group";
-            const isEmptyForStudent = rendered === 0 && total > 0;
-
-            console.info("[literary-auto-diagnostic]", {
-              groupId,
-              subSubjectId: subSubjectId || null,
-              rendered,
-              diagnostic,
-              source: "src/pages/student/StudentSubjectView.tsx:loadGroupContent",
-            });
-
-            if (isRealBlock || isEmptyForStudent) {
-              const reasonMap: Record<string, string> = {
-                group_not_found: "المجموعة غير موجودة أو غير نشطة.",
-                student_not_authenticated: "لم يتم التعرف على الطالب (غير مسجل دخول).",
-                student_profile_not_found: "ملف الطالب غير موجود في قاعدة البيانات.",
-                no_content_in_this_group: "لم يرفع المعلم أي محتوى لهذه المجموعة بعد.",
-                blocked_by_term_filter: "الفلترة حسب الفصل الدراسي (term) تحجب المحتوى — تحقق من system_terms.",
-                blocked_by_sub_subject_filter: "الفلترة حسب المادة الفرعية (sub_subject_id) تحجب المحتوى.",
-                blocked_by_student_target_filter: "فلتر الاستهداف يحجب المحتوى: target_section أو education_type في content لا يطابق شعبة/نوع تعليم الطالب.",
-                ok: "الكتالوج يعمل بشكل صحيح ولكن ظهرت فجوة أثناء التصيير على الواجهة.",
-              };
-              reportRpcError({
-                title: isEmptyForStudent
-                  ? "لم يظهر أي محتوى للطالب الأدبي داخل هذه المجموعة"
-                  : "الفلترة تحجب محتوى المجموعة عن الطالب الأدبي",
-                error: diagnosticError || {
-                  code: isRealBlock ? "LITERARY_CONTENT_BLOCKED" : "EMPTY_STUDENT_CONTENT_CATALOG",
-                  message: `${reasonMap[reason] || reason} — total=${total}, termOK=${termCount}, subOK=${subCount}, visible=${visible}, rendered=${rendered}`,
-                  hint: "افتح تفاصيل التشخيص أدناه لتحديد الفلتر المسؤول.",
-                  details: [
-                    `file: src/pages/student/StudentSubjectView.tsx`,
-                    `function: loadGroupContent (line ~965)`,
-                    `rpc: public.get_student_group_content_catalog`,
-                    `diagnostic-rpc: public.get_student_group_content_diagnostics`,
-                    `groupId=${groupId}`,
-                    `subSubjectId=${subSubjectId || "null"}`,
-                    `studentSection=${studentSection || "null"} (normalized=literary)`,
-                    `studentEducationType=${studentEducationType || "null"}`,
-                    `group_subject_id=${diagnostic?.group_subject_id || "null"}`,
-                    `group_term=${diagnostic?.group_term || "null"}`,
-                    `reason=${reason}`,
-                  ].join("\n"),
-                },
-                operation: isEmptyForStudent
-                  ? "rpc:get_student_group_content_catalog:empty-literary"
-                  : "rpc:get_student_group_content_catalog:blocked-literary",
-                sourceHint: "StudentSubjectView.loadGroupContent @ src/pages/student/StudentSubjectView.tsx:965",
-                context: {
-                  groupId,
-                  subSubjectId: subSubjectId || null,
-                  studentId: user?.id || null,
-                  studentEducationType,
-                  studentSection,
-                  diagnostic,
-                  rendered,
-                },
-                duration: 25000,
-              });
-            }
-          } catch (diagErr) {
-            console.warn("[literary-auto-diagnostic] failed", diagErr);
-          }
-        }
         traceContentTarget("student-content.rpc-result", {
           groupId,
           subSubjectId: subSubjectId || null,
@@ -1115,14 +1022,11 @@ const StudentSubjectView = () => {
       reportRpcError({
         title: "تعذر تحميل محتوى المجموعة",
         error: secureError,
-        operation: shouldUseLiteraryFallback
-          ? "rpc:get_literary_student_group_content_catalog"
-          : "rpc:get_student_group_content_catalog",
+        operation: "rpc:get_student_group_content_catalog",
         sourceHint: "StudentSubjectView.loadGroupContent",
         context: {
           groupId,
           subSubjectId: subSubjectId || null,
-          shouldUseLiteraryFallback,
           studentSection,
           studentEducationType,
           userId: user?.id || null,

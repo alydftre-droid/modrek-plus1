@@ -4,11 +4,6 @@ import type { Exam, ExamQuestion, ExamAttempt } from "@/types/exam";
 import { loadModrekTrainingQuestionsViaFunction, startModrekTrainingAttemptViaFunction } from "@/features/modrek-ai/api";
 
 type ExamScopeFilters = { subjectId?: string; groupId?: string; term?: string; subSubjectId?: string };
-const normalizeStudentSectionForExamFallback = (value?: string | null) => {
-  const normalized = (value || "").trim().toLowerCase().replace(/[أإآ]/g, "ا").replace(/ى/g, "ي");
-  if (normalized.includes("ادبي") || normalized.includes("literary") || normalized.includes("arts")) return "literary";
-  return normalized;
-};
 
 // ----- STUDENT -----
 async function getStudentPurchasedGroupIds(uid: string) {
