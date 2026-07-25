@@ -97,3 +97,32 @@ if "modrek_ai_messages_production_replay_hardening" not in sql:
 
 path.write_text(sql, encoding="utf-8")
 print("Hardened production replay migration:", path.name)
+
+
+# Harden admin_switch_system_terms consolidation migration for production replay.
+# Migration 20260725180920 creates both (uuid[], text) and a (text, uuid[]) SQL
+# wrapper that depends on it. Migration 20260725180953 then drops (uuid[], text)
+# WITHOUT CASCADE — which fails on fresh production replay because the wrapper
+# still depends on it. Patch the DROP statements to use CASCADE.
+term_path = Path("supabase/migrations/20260725180953_b0642069-afaf-4fab-a1f2-278011bcfdc2.sql")
+if term_path.exists():
+    term_sql = term_path.read_text(encoding="utf-8")
+    patched = term_sql
+    patched = patched.replace(
+        "DROP FUNCTION IF EXISTS public.admin_switch_system_terms(uuid[], text);",
+        "DROP FUNCTION IF EXISTS public.admin_switch_system_terms(uuid[], text) CASCADE;",
+    )
+    patched = patched.replace(
+        "DROP FUNCTION IF EXISTS public.admin_switch_system_terms(text, uuid[]);",
+        "DROP FUNCTION IF EXISTS public.admin_switch_system_terms(text, uuid[]) CASCADE;",
+    )
+    # Also ensure any leftover (uuid[], text) wrapper is removed defensively.
+    if "-- admin_switch_system_terms_production_replay_hardening" not in patched:
+        patched = (
+            "-- admin_switch_system_terms_production_replay_hardening\n"
+            "DROP FUNCTION IF EXISTS public.admin_switch_system_terms(uuid[], text) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.admin_switch_system_terms(text, uuid[]) CASCADE;\n\n"
+        ) + patched
+    if patched != term_sql:
+        term_path.write_text(patched, encoding="utf-8")
+        print("Hardened admin_switch_system_terms migration:", term_path.name)
