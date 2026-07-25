@@ -109,17 +109,18 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   );
 
   const catalogMismatch = filtered.length === 0 && visibleDebugRows.length > 0;
-  const noDiagnosticSignal = filtered.length === 0 && !debugLoading && !debugError && debugRows.length === 0;
+  const noDiagnosticSignal = false;
+  // Only show diagnostic UI when there is an actual problem (RPC error, or
+  // rows visible in DB but filtered out by the client). An empty catalog is
+  // a NORMAL state — it just means the teacher has not published any exam
+  // targeted at this student's section/education type/term for this group.
   const shouldShowDiagnostics = Boolean(
     !isLoading
       && groupId
       && (
-        filtered.length === 0
-        || debugLoading
-        || Boolean(catalogErrorMessage)
+        Boolean(catalogErrorMessage)
         || Boolean(debugError)
         || catalogMismatch
-        || noDiagnosticSignal
         || hiddenDebugRows.length > 0
       ),
   );
