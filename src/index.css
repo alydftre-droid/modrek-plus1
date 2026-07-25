@@ -470,6 +470,14 @@
   }
 
   .auth2026-otp-content {
+    --auth-primary: #087A5C;
+    --auth-primary-hover: #075E49;
+    --auth-primary-sky: #12B886;
+    --auth-ink: #0F172A;
+    --auth-ink-soft: #64748B;
+    --auth-line: #BFDCD4;
+    --auth-focus: #0B8F6B;
+    --auth-bg: #F6FBF8;
     border: 1px solid var(--auth-line) !important;
     border-radius: 28px !important;
     background: #ffffff !important;
@@ -657,17 +665,37 @@
 
   .auth2026-primary-button,
   .auth2026-primary-button:hover,
-  .auth2026-primary-button:focus-visible {
+  .auth2026-primary-button:focus,
+  .auth2026-primary-button:focus-visible,
+  .auth2026-primary-button:active,
+  .auth2026-primary-button:not(:disabled),
+  .auth2026-primary-button:not(:disabled):hover,
+  .auth2026-primary-button:not(:disabled):focus,
+  .auth2026-primary-button:not(:disabled):focus-visible,
+  .auth2026-primary-button:not(:disabled):active {
     width: 100% !important;
     border: 0 !important;
     border-radius: 18px !important;
     height: 56px !important;
     font-size: 17px !important;
     font-weight: 800 !important;
-    background: linear-gradient(135deg, var(--auth-primary-sky) 0%, var(--auth-primary) 100%) !important;
+    background: linear-gradient(135deg, var(--auth-primary-sky, #12B886) 0%, var(--auth-primary, #087A5C) 100%) !important;
     color: #ffffff !important;
     box-shadow: 0 12px 28px rgba(4, 120, 87, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
     transition: transform 300ms ease, box-shadow 300ms ease, filter 300ms ease, opacity 200ms ease !important;
+  }
+
+  .auth2026-otp-content .auth2026-primary-button:not(:disabled),
+  .auth2026-otp-content .auth2026-primary-button:not(:disabled):hover,
+  .auth2026-otp-content .auth2026-primary-button:not(:disabled):focus,
+  .auth2026-otp-content .auth2026-primary-button:not(:disabled):focus-visible,
+  .auth2026-otp-content .auth2026-primary-button:not(:disabled):active {
+    opacity: 1 !important;
+    background-color: var(--auth-primary, #087A5C) !important;
+    background-image: linear-gradient(135deg, var(--auth-primary-sky, #12B886) 0%, var(--auth-primary, #087A5C) 100%) !important;
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    border-color: transparent !important;
   }
 
   .auth2026-primary-button:hover {
@@ -694,6 +722,7 @@
     cursor: not-allowed !important;
     background: linear-gradient(135deg, #6EE7B7 0%, #10B981 100%) !important;
     color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
     box-shadow: 0 10px 24px rgba(4, 120, 87, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
   }
 
