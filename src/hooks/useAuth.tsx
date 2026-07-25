@@ -1076,6 +1076,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         updatePasswordWithOtp,
         sendEmailChangeOtp,
         verifyEmailChangeOtp,
+        changePasswordWithCurrent,
         signInWithGoogle,
       }}
     >
