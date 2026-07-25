@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles, AlertTriangle, Copy, Bug } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   subjectId: string;
@@ -46,11 +45,11 @@ type ExamVisibilityDebugRow = {
 const EXAM_DIAGNOSTIC_SOURCE = "src/components/exams/StudentExamPanel.tsx";
 const EXAM_DIAGNOSTIC_LOCATIONS = {
   panelFilter: "src/components/exams/StudentExamPanel.tsx:67-85",
-  diagnosticLoader: "src/components/exams/StudentExamPanel.tsx:91-122",
+  diagnosticLoader: "src/components/exams/StudentExamPanel.tsx:98-137",
   catalogHook: "src/hooks/useExams.ts:50-105",
   createExamHook: "src/hooks/useExamMutations.ts:201-274",
   databaseCatalog: "database:function public.get_student_group_exam_catalog",
-  databaseDiagnostic: "database:function public.diagnose_student_group_exam_visibility",
+  databaseDiagnostic: "database:function public.get_student_group_exam_catalog",
   databaseBroadcast: "database:function public.exam_broadcast_group_ids",
   databaseTargeting: "database:function public.exam_target_matches_student",
 };
@@ -75,9 +74,6 @@ const formatDebugValue = (value: unknown) => {
 export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isSubscribed = true, currentTerm, onRequireSubscription }: Props) {
   const navigate = useNavigate();
   const { data: catalog, isLoading, error: catalogError } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm, subSubjectId });
-  const [debugRows, setDebugRows] = useState<ExamVisibilityDebugRow[]>([]);
-  const [debugError, setDebugError] = useState<string | null>(null);
-  const [debugLoading, setDebugLoading] = useState(false);
   const [traceId, setTraceId] = useState(() => createTraceId());
   const catalogErrorMessage = catalogError
     ? catalogError instanceof Error
@@ -99,47 +95,9 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     setTraceId(createTraceId());
   }, [groupId, subSubjectId, subjectId, currentTerm]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!groupId) {
-      setDebugRows([]);
-      setDebugError(null);
-      setDebugLoading(false);
-      return;
-    }
-
-    const loadDiagnostics = async () => {
-      setDebugLoading(true);
-      let { data, error } = await (supabase as any).rpc("diagnose_student_group_exam_visibility", {
-        _group_id: groupId,
-        _sub_subject_id: subSubjectId || null,
-      });
-
-      if (error && /schema cache|could not find the function/i.test(error.message || "")) {
-        const fallback = await (supabase as any).rpc("debug_student_group_exam_visibility", {
-          _group_id: groupId,
-          _sub_subject_id: subSubjectId || null,
-        });
-        data = fallback.data;
-        error = fallback.error;
-      }
-
-      if (cancelled) return;
-      setDebugLoading(false);
-      if (error) {
-        setDebugRows([]);
-        setDebugError(error.message || "تعذر تشغيل تشخيص الامتحانات");
-        return;
-      }
-      setDebugRows((data || []) as ExamVisibilityDebugRow[]);
-      setDebugError(null);
-    };
-
-    loadDiagnostics();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentTerm, groupId, subSubjectId, subjectId]);
+  const debugRows: ExamVisibilityDebugRow[] = [];
+  const debugError: string | null = null;
+  const debugLoading = false;
 
   const hiddenDebugRows = useMemo(
     () => debugRows.filter((row) => row.visibility_status !== "visible"),
@@ -151,7 +109,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   );
 
   const catalogMismatch = filtered.length === 0 && visibleDebugRows.length > 0;
-  const noDiagnosticSignal = !debugLoading && !debugError && debugRows.length === 0;
+  const noDiagnosticSignal = filtered.length === 0 && !debugLoading && !debugError && debugRows.length === 0;
   const shouldShowDiagnostics = Boolean(
     !isLoading
       && groupId
@@ -177,7 +135,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
       `Catalog hook location: ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`,
       `Exam creation hook location: ${EXAM_DIAGNOSTIC_LOCATIONS.createExamHook}`,
       `Database catalog function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog}`,
-      `Database diagnostic function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic}`,
+      `Visibility function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog}`,
       `Database broadcast function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseBroadcast}`,
       `Database targeting function: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseTargeting}`,
       `Group ID: ${formatDebugValue(groupId)}`,
@@ -196,9 +154,9 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     if (noDiagnosticSignal) {
       lines.push(
         "Primary issue: diagnostic_returned_no_rows",
-        "Reason code: diagnostic_returned_no_rows",
+        "Reason code: catalog_returned_no_rows",
         `Source file: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`,
-        "Reason: دالة التشخيص لم تُرجع أي صفوف بعد اختفاء الامتحانات. هذا يعني أن طلب التشخيص لم يصل أو أن شروط البحث عن الامتحانات ضيقة جداً قبل مرحلة تحديد السبب.",
+        "Reason: دالة كتالوج الامتحانات لم تُرجع أي امتحان ظاهر لهذه المجموعة. بعد الإصلاح الحالي أصبح المسار المسؤول هو get_student_group_exam_catalog فقط؛ إذا استمر الصفر فانسخ هذا التقرير مع Group ID وSub Subject ID.",
       );
     }
 
@@ -207,7 +165,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     }
 
     if (debugError) {
-      lines.push(`Diagnostic RPC Error: ${debugError}`);
+      lines.push(`Catalog RPC Error: ${debugError}`);
     }
 
     if (debugRows.length === 0 && !debugError) {
@@ -402,11 +360,11 @@ function ExamVisibilityDiagnostics({
     : catalogMismatch
       ? { title: "القاعدة ترى امتحان ظاهر لكن الواجهة لا تعرضه", reason_code: "frontend_catalog_mismatch", reason: "دالة التشخيص أعادت امتحانًا ظاهرًا، لكن قائمة الامتحانات المعروضة للطالب فارغة. افحص فلترة useStudentExamCatalog أو StudentExamPanel.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook} + ${EXAM_DIAGNOSTIC_LOCATIONS.panelFilter}`, source_function: "useStudentExamCatalog" }
       : error
-    ? { title: "تعذر تشغيل تشخيص الامتحانات", reason_code: "diagnostic_rpc_failed", reason: error, source_file: EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic, source_function: "diagnose_student_group_exam_visibility" }
+    ? { title: "تعذر تحميل كتالوج الامتحانات", reason_code: "catalog_rpc_failed", reason: error, source_file: EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog, source_function: "get_student_group_exam_catalog" }
     : isLoading
-    ? { title: "جاري تشغيل تتبع الامتحانات", reason_code: "diagnostic_loading", reason: "الواجهة استدعت نظام التشخيص وتنتظر رد قاعدة البيانات.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.diagnosticLoader} + ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic}`, source_function: "diagnose_student_group_exam_visibility" }
+    ? { title: "جاري تحميل كتالوج الامتحانات", reason_code: "catalog_loading", reason: "الواجهة تنتظر رد دالة كتالوج الامتحانات التي أصبحت مصدر الظهور الوحيد.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.diagnosticLoader} + ${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog}`, source_function: "get_student_group_exam_catalog" }
     : noDiagnosticSignal
-    ? { title: "التشخيص لم يرجع أي سبب", reason_code: "diagnostic_returned_no_rows", reason: "دالة التشخيص لم تُرجع أي صفوف. افحص استدعاء التشخيص ودالة الكتالوج لأن الامتحان اختفى قبل مرحلة تحليل الأسباب.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`, source_function: "diagnose_student_group_exam_visibility" }
+    ? { title: "لا توجد امتحانات في كتالوج المجموعة", reason_code: "catalog_returned_no_rows", reason: "دالة كتالوج الامتحانات لم تُرجع أي امتحان مرشح لهذه المجموعة/المادة الفرعية. افحص groupId وsubSubjectId أو نشر الامتحان.", source_file: `${EXAM_DIAGNOSTIC_LOCATIONS.databaseCatalog} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`, source_function: "get_student_group_exam_catalog" }
     : hiddenRows[0] || rows[0] || null;
 
   return (
