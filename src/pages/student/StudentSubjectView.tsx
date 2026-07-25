@@ -983,6 +983,41 @@ const StudentSubjectView = () => {
           locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
         });
         if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary") {
+          const { data: diagnosticRows, error: diagnosticError } = await supabase.rpc(
+            "get_student_group_content_diagnostics" as any,
+            {
+              _group_id: groupId,
+              _sub_subject_id: subSubjectId || null,
+            },
+          );
+          const diagnostic = ((diagnosticRows || []) as any[])[0] || null;
+
+          reportRpcError({
+            title: "لم يرجع كتالوج المجموعة أي محتوى لهذا الطالب الأدبي",
+            error: diagnosticError || {
+              code: "EMPTY_STUDENT_CONTENT_CATALOG",
+              message: diagnostic
+                ? `reason=${diagnostic.reason}; total=${diagnostic.total_teacher_content}; term=${diagnostic.matching_term_content}; subSubject=${diagnostic.matching_sub_subject_content}; visible=${diagnostic.visible_to_student_content}`
+                : "عاد الكتالوج بدون صفوف ولم ترجع دالة التشخيص سببًا محددًا",
+              details: `groupId=${groupId}; subSubjectId=${subSubjectId || "null"}; studentSection=${studentSection || "null"}; studentEducationType=${studentEducationType || "null"}`,
+              hint: diagnostic?.reason === "blocked_by_student_target_filter"
+                ? "سبب الاختفاء هو فلتر الاستهداف: تحقق من target_section / education_type للصفوف المرفوعة."
+                : "انسخ هذه التفاصيل وأرسلها للمطور؛ الرسالة تحتوي سبب الفلترة ومصدر الكود.",
+            },
+            operation: "rpc:get_student_group_content_catalog:empty-diagnostic",
+            sourceHint: "StudentSubjectView.loadGroupContent",
+            context: {
+              groupId,
+              subSubjectId: subSubjectId || null,
+              studentId: user?.id || null,
+              studentEducationType,
+              studentSection,
+              diagnostic,
+              diagnosticError,
+            },
+            duration: 20000,
+          });
+
           traceContentTarget("student-content.empty-literary-catalog", {
             source: shouldUseLiteraryFallback ? "literary-fallback" : "standard",
             groupId,
