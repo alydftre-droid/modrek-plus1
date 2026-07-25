@@ -21,6 +21,7 @@ import LiveTabContent from "@/components/live/LiveTabContent";
 import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { isImpersonating } from "@/lib/devImpersonation";
 import {
   BookOpen,
   ChevronLeft,
@@ -262,9 +263,11 @@ const TeacherUploadContent = () => {
   const teacherIdOverride = searchParams.get("teacherId");
   const isAdminImpersonating = !!teacherIdOverride;
   const isDeveloper = role === "admin";
-  // Show developer-only tools (free preview toggle) whenever a developer is on this page,
-  // whether impersonating a teacher via ?teacherId= or logged in directly as developer.
-  const isAdminMode = isAdminImpersonating || isDeveloper;
+  // Detect developer session impersonating a teacher via magic-link (session becomes the teacher's,
+  // so role === "teacher" but a localStorage flag is set by devImpersonation.ts).
+  const isDevImpersonation = typeof window !== "undefined" && isImpersonating();
+  // Show developer-only tools (free preview toggle) whenever a developer is present on this page.
+  const isAdminMode = isAdminImpersonating || isDeveloper || isDevImpersonation;
   const effectiveUserId = teacherIdOverride || user?.id;
 
   const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([]);
