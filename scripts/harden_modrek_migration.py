@@ -126,3 +126,26 @@ if term_path.exists():
     if patched != term_sql:
         term_path.write_text(patched, encoding="utf-8")
         print("Hardened admin_switch_system_terms migration:", term_path.name)
+
+
+# Harden modrek_worker heartbeat seed migration: gen_random_bytes lives in the
+# extensions schema on production and is not resolvable via the default search
+# path during `supabase db push`. Ensure pgcrypto is present and reference the
+# function with its schema prefix.
+worker_path = Path("supabase/migrations/20260723122908_680889a4-4599-4d43-bc0f-fa4628424a73.sql")
+if worker_path.exists():
+    worker_sql = worker_path.read_text(encoding="utf-8")
+    patched = worker_sql
+    if "-- modrek_worker_heartbeat_pgcrypto_hardening" not in patched:
+        patched = (
+            "-- modrek_worker_heartbeat_pgcrypto_hardening\n"
+            "CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;\n\n"
+        ) + patched
+    patched = patched.replace(
+        "encode(gen_random_bytes(32), 'hex')",
+        "encode(extensions.gen_random_bytes(32), 'hex')",
+    )
+    if patched != worker_sql:
+        worker_path.write_text(patched, encoding="utf-8")
+        print("Hardened modrek_worker heartbeat migration:", worker_path.name)
+

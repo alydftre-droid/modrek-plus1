@@ -1,3 +1,6 @@
+-- modrek_worker_heartbeat_pgcrypto_hardening
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- Fix: Modrek worker cron heartbeat had no auth headers, so every tick returned
 -- 401 unauthorized_worker and the queue never drained (books stuck at 5%).
 --
@@ -6,7 +9,7 @@
 
 INSERT INTO public.platform_settings (key, value)
 SELECT 'modrek_worker_shared_key',
-       to_jsonb(encode(gen_random_bytes(32), 'hex'))
+       to_jsonb(encode(extensions.gen_random_bytes(32), 'hex'))
 WHERE NOT EXISTS (
   SELECT 1 FROM public.platform_settings WHERE key = 'modrek_worker_shared_key'
 );
