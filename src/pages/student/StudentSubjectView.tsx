@@ -1334,6 +1334,16 @@ const StudentSubjectView = () => {
             </div>
           )}
         </main>
+        <Dialog open={!!introVideo} onOpenChange={(o) => !o && setIntroVideo(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>فيديو تعريفي - {introVideo?.name}</DialogTitle>
+            </DialogHeader>
+            {introVideo?.url && (
+              <video src={introVideo.url} controls autoPlay playsInline className="w-full rounded-lg" />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
