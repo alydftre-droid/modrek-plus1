@@ -73,6 +73,7 @@ interface AuthContextType {
   updatePasswordWithOtp: (password: string, code: string) => Promise<{ error: string | null }>;
   sendEmailChangeOtp: (newEmail: string) => Promise<{ error: string | null }>;
   verifyEmailChangeOtp: (newEmail: string, code: string) => Promise<{ error: string | null }>;
+  changePasswordWithCurrent: (currentPassword: string, newPassword: string) => Promise<{ error: string | null }>;
   signInWithGoogle: (options?: { correlationId?: string; redirectUri?: string; source?: string }) => Promise<{ error: string | null }>;
 }
 
