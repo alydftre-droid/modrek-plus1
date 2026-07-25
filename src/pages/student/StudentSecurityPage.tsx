@@ -180,27 +180,8 @@ export default function StudentSecurityPage() {
         </Card>
       </div>
 
-      {/* OTP dialog for password change */}
-      <OtpVerificationDialog
-        open={pwdOtpOpen}
-        email={user?.email || ""}
-        title="تأكيد تغيير كلمة المرور"
-        description={<>أدخل الرمز المرسل إلى<br /><span className="font-semibold" dir="ltr">{user?.email}</span></> as any}
-        skipSessionWait
-        onSendOtp={sendReauthOtp}
-        onVerify={async (code) => {
-          const res = await updatePasswordWithOtp(newPassword, code);
-          if (!res.error) {
-            toast.success("تم تغيير كلمة المرور بنجاح ✓");
-            setNewPassword(""); setConfirmPassword("");
-          }
-          return res;
-        }}
-        onVerified={() => setPwdOtpOpen(false)}
-        onClose={() => setPwdOtpOpen(false)}
-      />
-
       {/* OTP dialog for email change */}
+
       <OtpVerificationDialog
         open={emailOtpOpen}
         email={pendingEmail}
