@@ -15,7 +15,7 @@ interface OtpVerificationDialogProps {
   onChangeEmail?: () => void;
   type?: "email" | "recovery";
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
   /** OTP code length. Default 6. Use 4 if your Supabase template sends 4-digit codes. */
   length?: number;
   /** Override the default send-OTP behavior (used for reauth / email-change flows). */
