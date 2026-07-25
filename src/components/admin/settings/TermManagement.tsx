@@ -30,6 +30,15 @@ const termLabels: Record<string, string> = {
   term2: "الترم الثاني",
 };
 
+const isMissingTermSwitchRpcError = (error: any) => {
+  const message = String(error?.message || error?.details || error?.hint || "").toLowerCase();
+  return (
+    error?.code === "PGRST202" ||
+    (message.includes("admin_switch_system_terms") && message.includes("schema cache")) ||
+    (message.includes("could not find the function") && message.includes("admin_switch_system_terms"))
+  );
+};
+
 const TermManagement = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,14 +92,47 @@ const TermManagement = () => {
     setSaving(true);
     try {
       const selectedTerms = terms.filter(t => selected.has(t.id));
-      const { data: switchResult, error: switchError } = await supabase.rpc("admin_switch_system_terms" as any, {
-        _term_ids: selectedTerms.map((t) => t.id),
+      const selectedIds = selectedTerms.map((t) => t.id);
+      let switchResult: any = null;
+
+      const { data: rpcResult, error: switchError } = await supabase.rpc("admin_switch_system_terms" as any, {
         _target_term: targetTerm,
+        _term_ids: selectedIds,
       });
 
       if (switchError) {
         console.error("Term switch failed", switchError);
-        throw switchError;
+        if (!isMissingTermSwitchRpcError(switchError)) {
+          throw switchError;
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData.user?.id) {
+          throw new Error(userError?.message || "تعذر التحقق من حساب المطور");
+        }
+
+        const { data: directRows, error: directError } = await supabase
+          .from("system_terms")
+          .update({
+            current_term: targetTerm,
+            updated_at: new Date().toISOString(),
+            updated_by: userData.user.id,
+          } as any)
+          .in("id", selectedIds)
+          .select("id, stage, grade, current_term, updated_at");
+
+        if (directError) {
+          console.error("Direct term switch fallback failed", directError);
+          throw directError;
+        }
+
+        switchResult = {
+          success: true,
+          updated_count: directRows?.length || 0,
+          terms: directRows || [],
+        };
+      } else {
+        switchResult = rpcResult;
       }
 
       const updatedCount = Number((switchResult as any)?.updated_count || 0);
