@@ -6259,6 +6259,10 @@ export type Database = {
         Returns: Json
       }
       exam_boolean_answer_key: { Args: { _value: string }; Returns: string }
+      exam_broadcast_group_ids: {
+        Args: { _group_id: string }
+        Returns: string[]
+      }
       exam_effective_education_type: {
         Args: { _group_id?: string; _target_edu: string }
         Returns: string
