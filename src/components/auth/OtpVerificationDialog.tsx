@@ -18,6 +18,12 @@ interface OtpVerificationDialogProps {
   description?: string;
   /** OTP code length. Default 6. Use 4 if your Supabase template sends 4-digit codes. */
   length?: number;
+  /** Override the default send-OTP behavior (used for reauth / email-change flows). */
+  onSendOtp?: () => Promise<{ error: string | null }>;
+  /** Override the default verify behavior. When present, session-wait is skipped. */
+  onVerify?: (code: string) => Promise<{ error: string | null }>;
+  /** Skip waiting for an auth session after verification (for email-change or reauth). */
+  skipSessionWait?: boolean;
 }
 
 const RESEND_COOLDOWN = 60;
