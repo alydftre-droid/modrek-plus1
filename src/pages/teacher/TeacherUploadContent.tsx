@@ -910,10 +910,6 @@ const TeacherUploadContent = () => {
                     <Star className={`h-3.5 w-3.5 ${item.is_free_preview ? "fill-amber-500 text-amber-500" : ""}`} />
                   </Button>
                 )}
-                        تحميل
-                      </a>
-                    </Button>
-                  )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                 </div>
