@@ -298,6 +298,7 @@ const StudentSubjectView = () => {
   const deepLinkSubSubjectId = params.get("sub_subject_id") || "";
   const deepLinkContentId = params.get("content_id") || "";
   const [resolvedDeepLinkGroupId, setResolvedDeepLinkGroupId] = useState(deepLinkGroupId);
+  const [introVideo, setIntroVideo] = useState<{ url: string; name: string } | null>(null);
   const [resolvedDeepLinkSubSubjectId, setResolvedDeepLinkSubSubjectId] = useState(deepLinkSubSubjectId);
   const effectiveDeepLinkGroupId = resolvedDeepLinkGroupId || deepLinkGroupId;
   const effectiveDeepLinkSubSubjectId = resolvedDeepLinkSubSubjectId || deepLinkSubSubjectId;
