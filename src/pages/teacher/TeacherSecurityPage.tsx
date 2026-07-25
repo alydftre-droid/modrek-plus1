@@ -14,8 +14,7 @@ import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 export default function TeacherSecurityPage() {
   const {
     user,
-    sendReauthOtp,
-    updatePasswordWithOtp,
+    changePasswordWithCurrent,
     sendEmailChangeOtp,
     verifyEmailChangeOtp,
   } = useAuth();
@@ -23,12 +22,13 @@ export default function TeacherSecurityPage() {
   const [teacherName, setTeacherName] = useState("");
   const [teacherAvatar, setTeacherAvatar] = useState<string | null>(null);
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [pwdOtpOpen, setPwdOtpOpen] = useState(false);
 
   const [showEmailChange, setShowEmailChange] = useState(false);
   const [newEmail, setNewEmail] = useState("");
@@ -46,15 +46,16 @@ export default function TeacherSecurityPage() {
       });
   }, [user?.id]);
 
-  const startPasswordChange = async () => {
-    if (newPassword.length < 6) { toast.error("كلمة المرور يجب أن تكون 6 أحرف على الأقل"); return; }
+  const handleChangePassword = async () => {
+    if (!currentPassword) { toast.error("أدخل كلمة المرور الحالية"); return; }
+    if (newPassword.length < 6) { toast.error("كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل"); return; }
     if (newPassword !== confirmPassword) { toast.error("كلمتا المرور غير متطابقتين"); return; }
     setSaving(true);
-    const { error } = await sendReauthOtp();
+    const { error } = await changePasswordWithCurrent(currentPassword, newPassword);
     setSaving(false);
     if (error) { toast.error(error); return; }
-    toast.success("تم إرسال رمز التحقق إلى بريدك");
-    setPwdOtpOpen(true);
+    toast.success("تم تغيير كلمة المرور بنجاح ✓");
+    setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
   };
 
   const startEmailChange = async () => {
