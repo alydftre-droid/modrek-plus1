@@ -276,11 +276,35 @@ jobs:
       - name: Decode release keystore
         run: |
           mkdir -p android/app/keystore
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > android/app/keystore/release.keystore
+          # Sanitize the secret: strip whitespace, surrounding quotes, PEM markers,
+          # and convert URL-safe base64 (-, _) to standard (+, /). Then try GNU
+          # base64 first; fall back to openssl which is more permissive with padding.
+          RAW="$ANDROID_KEYSTORE_BASE64"
+          CLEAN=$(printf '%s' "$RAW" \
+            | tr -d '\r\n\t ' \
+            | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//" \
+            | sed -e 's/-----BEGIN[^-]*-----//g' -e 's/-----END[^-]*-----//g' \
+            | tr '_-' '/+')
+          if [ -z "$CLEAN" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 secret is empty after sanitization."
+            exit 1
+          fi
+          # Pad to a multiple of 4
+          MOD=$(( ${#CLEAN} % 4 ))
+          if [ "$MOD" -eq 2 ]; then CLEAN="${CLEAN}=="; fi
+          if [ "$MOD" -eq 3 ]; then CLEAN="${CLEAN}="; fi
+          if [ "$MOD" -eq 1 ]; then
+            echo "ANDROID_KEYSTORE_BASE64 length is invalid (mod 4 == 1). The secret is likely truncated or corrupted."
+            exit 1
+          fi
+          printf '%s' "$CLEAN" | base64 -d > android/app/keystore/release.keystore 2>/dev/null \
+            || printf '%s' "$CLEAN" | openssl base64 -d -A > android/app/keystore/release.keystore 2>/dev/null \
+            || { echo "Failed to decode ANDROID_KEYSTORE_BASE64. Re-generate it with: base64 -w0 release.keystore | pbcopy (macOS) or base64 -w0 release.keystore (Linux), then update the GitHub secret."; exit 1; }
           if [ ! -s android/app/keystore/release.keystore ]; then
             echo "Decoded keystore is empty. Check ANDROID_KEYSTORE_BASE64 secret value."
             exit 1
           fi
+
           keytool -list -keystore android/app/keystore/release.keystore \
             -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null \
             || { echo "Keystore/alias/password mismatch. Verify ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS."; exit 1; }
