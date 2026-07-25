@@ -849,13 +849,6 @@ const TeacherUploadContent = () => {
             <Card
               key={item.id}
               className="hover:shadow-md transition-shadow"
-              onMouseDown={() => startLongPress(item)}
-              onMouseUp={cancelLongPress}
-              onMouseLeave={cancelLongPress}
-              onTouchStart={() => startLongPress(item)}
-              onTouchEnd={cancelLongPress}
-              onTouchCancel={cancelLongPress}
-              onContextMenu={(e) => { if (isAdminMode) { e.preventDefault(); setFreePreviewItem(item); } }}
             >
               <CardContent className="p-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
