@@ -21,7 +21,7 @@ import LiveTabContent from "@/components/live/LiveTabContent";
 import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
-import { isImpersonating } from "@/lib/devImpersonation";
+import { getOriginalDeveloperAccessToken, isImpersonating } from "@/lib/devImpersonation";
 import {
   BookOpen,
   ChevronLeft,
@@ -77,10 +77,12 @@ type ContentRow = {
   created_at: string | null;
   group_id: string | null;
   sub_subject: string | null;
+  sub_subject_id?: string | null;
   subject_id?: string | null;
   is_free_preview?: boolean;
   education_type?: string | null;
   target_section?: string | null;
+  uploaded_by?: string | null;
 };
 
 
@@ -420,36 +422,43 @@ const TeacherUploadContent = () => {
     }
   }, [groupIdParam, subject]);
 
+  const getRelatedGroupIdsForActiveSelection = async (groupId: string) => {
+    const relatedGroupIds = new Set<string>([groupId]);
+    const subjectIdsInScope = uniqueValues(allSubjects.map((item) => item.id));
+    const selectedTitle = String(selectedGroup?.title || "").trim();
+    const selectedMonth = String(selectedGroup?.month_label || "").trim();
+
+    if (!effectiveUserId || !currentTerm || subjectIdsInScope.length === 0 || !selectedGroup) {
+      return relatedGroupIds;
+    }
+
+    let groupQuery = supabase
+      .from("content_groups")
+      .select("id, title, month_label, subject_id")
+      .in("subject_id", subjectIdsInScope)
+      .eq("is_active", true)
+      .eq("term", currentTerm)
+      .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`);
+
+    if (selectedMonth) {
+      groupQuery = groupQuery.eq("month_label", selectedMonth);
+    } else if (selectedTitle) {
+      groupQuery = groupQuery.eq("title", selectedTitle);
+    }
+
+    const { data: siblingGroups, error: siblingGroupError } = await groupQuery;
+    if (siblingGroupError) throw siblingGroupError;
+    ((siblingGroups || []) as Array<{ id: string }>).forEach((group) => {
+      if (group.id) relatedGroupIds.add(group.id);
+    });
+    return relatedGroupIds;
+  };
+
   // Fetch content for selected group - now also fetch subject_id
   const fetchGroupContent = async (groupId: string) => {
     if (!effectiveUserId || !currentTerm) return;
     try {
-      const subjectIdsInScope = uniqueValues(allSubjects.map((item) => item.id));
-      const selectedTitle = String(selectedGroup?.title || "").trim();
-      const selectedMonth = String(selectedGroup?.month_label || "").trim();
-      const relatedGroupIds = new Set<string>([groupId]);
-
-      if (subjectIdsInScope.length > 0 && selectedGroup) {
-        let groupQuery = supabase
-          .from("content_groups")
-          .select("id, title, month_label, subject_id")
-          .in("subject_id", subjectIdsInScope)
-          .eq("is_active", true)
-          .eq("term", currentTerm)
-          .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`);
-
-        if (selectedMonth) {
-          groupQuery = groupQuery.eq("month_label", selectedMonth);
-        } else if (selectedTitle) {
-          groupQuery = groupQuery.eq("title", selectedTitle);
-        }
-
-        const { data: siblingGroups, error: siblingGroupError } = await groupQuery;
-        if (siblingGroupError) throw siblingGroupError;
-        ((siblingGroups || []) as Array<{ id: string }>).forEach((group) => {
-          if (group.id) relatedGroupIds.add(group.id);
-        });
-      }
+      const relatedGroupIds = await getRelatedGroupIdsForActiveSelection(groupId);
 
       let relatedSubSubjectIds: string[] | null = null;
       let relatedSubSubjectNames: string[] | null = null;
@@ -497,8 +506,8 @@ const TeacherUploadContent = () => {
 
       const buildQuery = (includeFreePreview: boolean) => {
         const selectColumns = includeFreePreview
-          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section"
-          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, education_type, target_section";
+          ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section, uploaded_by"
+          : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, education_type, target_section, uploaded_by";
 
         let q = (supabase.from("content") as any)
         .select(selectColumns)
@@ -732,18 +741,50 @@ const TeacherUploadContent = () => {
     }
   };
 
+  const callAdminSetContentFreePreview = async (contentId: string, next: boolean) => {
+    const originalDeveloperToken = isDevImpersonation ? getOriginalDeveloperAccessToken() : null;
+
+    if (originalDeveloperToken) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+      if (!supabaseUrl || !publishableKey) throw new Error("تعذر تجهيز اتصال قاعدة البيانات");
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/admin_set_content_free_preview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${originalDeveloperToken}`,
+          apikey: publishableKey,
+        },
+        body: JSON.stringify({ _content_id: contentId, _is_free_preview: next }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.message || body?.error || "فشل تعديل حالة المجانية");
+      }
+      return Array.isArray(body) ? body[0] : body;
+    }
+
+    const { data, error } = await (supabase.rpc as any)("admin_set_content_free_preview", {
+      _content_id: contentId,
+      _is_free_preview: next,
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data[0] : data;
+  };
+
   const toggleFreePreview = async (item: ContentRow) => {
-    const next = !(item.is_free_preview === true);
     try {
-      const { error } = await supabase
-        .from("content")
-        .update({ is_free_preview: next })
-        .eq("id", item.id);
-      if (error) throw error;
-      setContent(prev => prev.map(c => c.id === item.id ? { ...c, is_free_preview: next } : c));
+      const next = !(item.is_free_preview === true);
+      const result = await callAdminSetContentFreePreview(item.id, next);
+      const targetIds = Array.isArray(result?.updated_ids) && result.updated_ids.length > 0
+        ? result.updated_ids
+        : [item.id];
+      setContent(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, is_free_preview: next } : c));
+      if (selectedGroup?.id) await fetchGroupContent(selectedGroup.id);
       toast({
         title: next ? "تم التعيين كمحتوى مجاني" : "تمت إزالة المجانية",
-        description: next ? "يمكن للطلاب غير المشتركين مشاهدته الآن." : "أصبح المحتوى مغلقاً لغير المشتركين.",
+        description: next ? "تم فتح كل النسخ المرتبطة بهذا العنصر للطلاب غير المشتركين." : "أصبح المحتوى مغلقاً لغير المشتركين.",
       });
     } catch (e: any) {
       console.error(e);

@@ -6000,6 +6000,13 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_set_content_free_preview: {
+        Args: { _content_id: string; _is_free_preview: boolean }
+        Returns: {
+          updated_count: number
+          updated_ids: string[]
+        }[]
+      }
       admin_set_teacher_commission: {
         Args: {
           _effective_date?: string
