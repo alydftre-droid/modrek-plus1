@@ -109,7 +109,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   );
 
   const catalogMismatch = filtered.length === 0 && visibleDebugRows.length > 0;
-  const noDiagnosticSignal = !debugLoading && !debugError && debugRows.length === 0;
+  const noDiagnosticSignal = filtered.length === 0 && !debugLoading && !debugError && debugRows.length === 0;
   const shouldShowDiagnostics = Boolean(
     !isLoading
       && groupId
