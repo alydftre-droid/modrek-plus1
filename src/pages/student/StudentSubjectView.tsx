@@ -1066,9 +1066,9 @@ const StudentSubjectView = () => {
                     `reason=${reason}`,
                   ].join("\n"),
                 },
-                operation: rendered === 0
+                operation: isEmptyForStudent
                   ? "rpc:get_student_group_content_catalog:empty-literary"
-                  : "rpc:get_student_group_content_catalog:partial-literary",
+                  : "rpc:get_student_group_content_catalog:blocked-literary",
                 sourceHint: "StudentSubjectView.loadGroupContent @ src/pages/student/StudentSubjectView.tsx:965",
                 context: {
                   groupId,
