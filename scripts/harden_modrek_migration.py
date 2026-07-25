@@ -167,3 +167,20 @@ if catalog_path.exists():
         print("Hardened get_student_group_content_catalog migration:", catalog_path.name)
 
 
+# Harden get_student_group_exam_catalog migration: CREATE OR REPLACE changes
+# the RETURNS TABLE shape vs. the version already installed in production,
+# which Postgres rejects with 42P13. Drop known prior signatures with CASCADE.
+exam_catalog_path = Path("supabase/migrations/20260724000254_ff09e04f-9337-4f4f-aa50-42a29d772b93.sql")
+if exam_catalog_path.exists():
+    exam_catalog_sql = exam_catalog_path.read_text(encoding="utf-8")
+    if "-- get_student_group_exam_catalog_return_type_hardening" not in exam_catalog_sql:
+        exam_catalog_sql = (
+            "-- get_student_group_exam_catalog_return_type_hardening\n"
+            "DROP FUNCTION IF EXISTS public.get_student_group_exam_catalog(uuid, uuid) CASCADE;\n"
+            "DROP FUNCTION IF EXISTS public.get_student_group_exam_catalog(uuid) CASCADE;\n\n"
+        ) + exam_catalog_sql
+        exam_catalog_path.write_text(exam_catalog_sql, encoding="utf-8")
+        print("Hardened get_student_group_exam_catalog migration:", exam_catalog_path.name)
+
+
+
