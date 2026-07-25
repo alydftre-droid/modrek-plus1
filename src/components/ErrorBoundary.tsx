@@ -39,6 +39,30 @@ export default class ErrorBoundary extends Component<Props, State> {
     } catch {
       // ignore storage errors
     }
+
+    // Auto-recover from stale chunk errors after a new deploy: the user's
+    // index.html references chunk hashes that no longer exist on the CDN, so
+    // dynamic import() rejects with "Failed to fetch dynamically imported
+    // module" / "Importing a module script failed". A single hard reload picks
+    // up the new manifest. Guarded by sessionStorage to prevent reload loops.
+    try {
+      const message = String(error?.message || "");
+      const isChunkError =
+        /Failed to fetch dynamically imported module/i.test(message) ||
+        /Importing a module script failed/i.test(message) ||
+        /Loading chunk [\w-]+ failed/i.test(message) ||
+        /ChunkLoadError/i.test(String(error?.name || ""));
+      if (isChunkError && typeof window !== "undefined") {
+        const KEY = "mp-chunk-reload-at";
+        const last = Number(window.sessionStorage.getItem(KEY) || "0");
+        if (Date.now() - last > 30_000) {
+          window.sessionStorage.setItem(KEY, String(Date.now()));
+          window.location.reload();
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   handleReload = () => {
