@@ -1,4 +1,8 @@
-DROP FUNCTION IF EXISTS public.admin_switch_system_terms(uuid[], text);
+-- admin_switch_system_terms_production_replay_hardening
+DROP FUNCTION IF EXISTS public.admin_switch_system_terms(uuid[], text) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_switch_system_terms(text, uuid[]) CASCADE;
+
+DROP FUNCTION IF EXISTS public.admin_switch_system_terms(uuid[], text) CASCADE;
 
 CREATE OR REPLACE FUNCTION public.admin_switch_system_terms(
   _target_term text,
