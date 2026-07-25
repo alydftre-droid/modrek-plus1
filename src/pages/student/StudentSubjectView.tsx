@@ -1528,11 +1528,24 @@ const StudentSubjectView = () => {
                             <Play className="h-3.5 w-3.5 text-primary" />
                             <span>{course.content_count} محتوى</span>
                           </div>
+                          {course.lesson_count ? (
+                            <div className="student-group-meta-chip flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium">
+                              <BookText className="h-3.5 w-3.5 text-primary" />
+                              <span>{course.lesson_count} حصة</span>
+                            </div>
+                          ) : null}
                           <div className="flex items-baseline gap-1">
                             <span className="student-group-price text-2xl font-extrabold">{course.price}</span>
                             <span className="text-xs font-medium text-muted-foreground">جنيه</span>
                           </div>
                         </div>
+                        {(course.start_date || course.end_date) && (
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-medium text-muted-foreground">
+                            <Calendar className="h-3.5 w-3.5 text-primary" />
+                            {course.start_date && <span>من: {course.start_date}</span>}
+                            {course.end_date && <span>إلى: {course.end_date}</span>}
+                          </div>
+                        )}
 
                         {isPurchased ? (
                             <Button className="student-cloud-blue-button w-full rounded-xl py-3.5 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
