@@ -1044,13 +1044,12 @@ const StudentSubjectView = () => {
                 blocked_by_student_target_filter: "فلتر الاستهداف يحجب المحتوى: target_section أو education_type في content لا يطابق شعبة/نوع تعليم الطالب.",
                 ok: "الكتالوج يعمل بشكل صحيح ولكن ظهرت فجوة أثناء التصيير على الواجهة.",
               };
-              const reason = String(diagnostic?.reason || "unknown");
               reportRpcError({
-                title: rendered === 0
+                title: isEmptyForStudent
                   ? "لم يظهر أي محتوى للطالب الأدبي داخل هذه المجموعة"
-                  : "بعض محتوى المجموعة لا يظهر للطالب الأدبي",
+                  : "الفلترة تحجب محتوى المجموعة عن الطالب الأدبي",
                 error: diagnosticError || {
-                  code: hasGap ? "LITERARY_CONTENT_GAP" : "EMPTY_STUDENT_CONTENT_CATALOG",
+                  code: isRealBlock ? "LITERARY_CONTENT_BLOCKED" : "EMPTY_STUDENT_CONTENT_CATALOG",
                   message: `${reasonMap[reason] || reason} — total=${total}, termOK=${termCount}, subOK=${subCount}, visible=${visible}, rendered=${rendered}`,
                   hint: "افتح تفاصيل التشخيص أدناه لتحديد الفلتر المسؤول.",
                   details: [
