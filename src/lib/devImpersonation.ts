@@ -24,6 +24,17 @@ export function isImpersonating() {
   return !!getImpersonationMeta();
 }
 
+export function getOriginalDeveloperAccessToken(): string | null {
+  try {
+    const raw = localStorage.getItem(ORIGINAL_SESSION_KEY);
+    if (!raw) return null;
+    const original = JSON.parse(raw);
+    return typeof original?.access_token === "string" && original.access_token ? original.access_token : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getPostSignOutPath(fallback = "/auth") {
   return isImpersonating() ? "/admin" : fallback;
 }

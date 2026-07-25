@@ -21,7 +21,7 @@ import LiveTabContent from "@/components/live/LiveTabContent";
 import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
-import { isImpersonating } from "@/lib/devImpersonation";
+import { getOriginalDeveloperAccessToken, isImpersonating } from "@/lib/devImpersonation";
 import {
   BookOpen,
   ChevronLeft,
@@ -741,50 +741,45 @@ const TeacherUploadContent = () => {
     }
   };
 
+  const callAdminSetContentFreePreview = async (contentId: string, next: boolean) => {
+    const originalDeveloperToken = isDevImpersonation ? getOriginalDeveloperAccessToken() : null;
+
+    if (originalDeveloperToken) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+      if (!supabaseUrl || !publishableKey) throw new Error("تعذر تجهيز اتصال قاعدة البيانات");
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/admin_set_content_free_preview`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${originalDeveloperToken}`,
+          apikey: publishableKey,
+        },
+        body: JSON.stringify({ _content_id: contentId, _is_free_preview: next }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.message || body?.error || "فشل تعديل حالة المجانية");
+      }
+      return Array.isArray(body) ? body[0] : body;
+    }
+
+    const { data, error } = await (supabase.rpc as any)("admin_set_content_free_preview", {
+      _content_id: contentId,
+      _is_free_preview: next,
+    });
+    if (error) throw error;
+    return Array.isArray(data) ? data[0] : data;
+  };
+
   const toggleFreePreview = async (item: ContentRow) => {
     try {
-      const activeGroupForToggle = item.group_id || selectedGroup?.id || groupIdParam;
-      if (!activeGroupForToggle) throw new Error("تعذر تحديد المجموعة المرتبطة بالمحتوى");
-
-      const relatedGroupIds = await getRelatedGroupIdsForActiveSelection(activeGroupForToggle);
-      let candidatesQuery = supabase
-        .from("content")
-        .select("id, sub_subject_id, sub_subject, is_free_preview")
-        .eq("file_url", item.file_url)
-        .eq("type", item.type)
-        .eq("is_active", true)
-        .in("group_id", Array.from(relatedGroupIds));
-
-      if (currentTerm) candidatesQuery = candidatesQuery.eq("term", currentTerm);
-      const ownerId = item.uploaded_by || effectiveUserId;
-      if (ownerId) candidatesQuery = candidatesQuery.eq("uploaded_by", ownerId);
-
-      const { data: candidateRows, error: candidateError } = await candidatesQuery;
-      if (candidateError) throw candidateError;
-
-      const itemSubName = String(item.sub_subject || "").trim();
-      const matchingRows = ((candidateRows || []) as Array<{
-        id: string;
-        sub_subject_id: string | null;
-        sub_subject: string | null;
-        is_free_preview: boolean | null;
-      }>).filter((row) => {
-        if (!item.sub_subject_id && !itemSubName) {
-          return !row.sub_subject_id && !String(row.sub_subject || "").trim();
-        }
-        if (item.sub_subject_id && row.sub_subject_id === item.sub_subject_id) return true;
-        return itemSubName.length > 0 && String(row.sub_subject || "").trim() === itemSubName;
-      });
-
-      const targetRows = matchingRows.length > 0 ? matchingRows : [{ id: item.id, is_free_preview: item.is_free_preview === true }];
-      const targetIds = targetRows.map((row) => row.id);
-      const next = targetRows.some((row) => row.is_free_preview !== true);
-
-      const { error } = await supabase
-        .from("content")
-        .update({ is_free_preview: next, updated_at: new Date().toISOString() } as any)
-        .in("id", targetIds);
-      if (error) throw error;
+      const next = !(item.is_free_preview === true);
+      const result = await callAdminSetContentFreePreview(item.id, next);
+      const targetIds = Array.isArray(result?.updated_ids) && result.updated_ids.length > 0
+        ? result.updated_ids
+        : [item.id];
       setContent(prev => prev.map(c => targetIds.includes(c.id) ? { ...c, is_free_preview: next } : c));
       if (selectedGroup?.id) await fetchGroupContent(selectedGroup.id);
       toast({
