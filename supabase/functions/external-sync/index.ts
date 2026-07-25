@@ -369,6 +369,7 @@ CREATE POLICY "Students view subscribed current-term exams" ON public.exams
 -- Student group catalogs: students must see the full group metadata before purchase.
 -- Direct table SELECT policies intentionally hide locked paid rows, so the student UI
 -- must use these SECURITY DEFINER catalogs for previewing videos/files/exams.
+DROP FUNCTION IF EXISTS public.get_student_group_content_catalog(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_student_group_content_catalog(_group_id uuid, _sub_subject_id uuid DEFAULT NULL::uuid)
 RETURNS TABLE(
   id uuid,
@@ -520,6 +521,7 @@ REVOKE ALL ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) FROM
 GRANT EXECUTE ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_student_group_content_catalog(uuid, uuid) TO service_role;
 
+DROP FUNCTION IF EXISTS public.get_student_group_exam_catalog(uuid, uuid) CASCADE;
 CREATE OR REPLACE FUNCTION public.get_student_group_exam_catalog(_group_id uuid, _sub_subject_id uuid DEFAULT NULL::uuid)
 RETURNS TABLE(
   id uuid,
