@@ -10,6 +10,38 @@ import { enforceDataSchemaVersion } from "./lib/dataIntegrity/cacheVersion";
 initSentry();
 enforceDataSchemaVersion();
 
+// Auto-recover from stale chunk errors after a new deploy. When the CDN has
+// rotated hashed asset filenames, in-page navigations that trigger a fresh
+// dynamic import() reject with "Failed to fetch dynamically imported module".
+// Catch it at the window level (React lazy failures also bubble here) and do
+// one guarded hard reload to pick up the new asset manifest.
+if (typeof window !== "undefined") {
+  const RELOAD_KEY = "mp-chunk-reload-at";
+  const isChunkError = (msg: string) =>
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg) ||
+    /Loading chunk [\w-]+ failed/i.test(msg) ||
+    /error loading dynamically imported module/i.test(msg);
+  const tryReload = () => {
+    try {
+      const last = Number(window.sessionStorage.getItem(RELOAD_KEY) || "0");
+      if (Date.now() - last > 30_000) {
+        window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+        window.location.reload();
+      }
+    } catch { /* ignore */ }
+  };
+  window.addEventListener("error", (event) => {
+    const msg = String(event?.message || (event as any)?.error?.message || "");
+    if (isChunkError(msg)) tryReload();
+  });
+  window.addEventListener("unhandledrejection", (event) => {
+    const reason: any = (event as PromiseRejectionEvent).reason;
+    const msg = String(reason?.message || reason || "");
+    if (isChunkError(msg)) tryReload();
+  });
+}
+
 // Initialize Capacitor plugins (no-op on web)
 pruneLegacySupabaseAuthStorage();
 enforceCanonicalRuntimeOrigin();
