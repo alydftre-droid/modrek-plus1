@@ -999,61 +999,86 @@ const StudentSubjectView = () => {
           files: secureContentRows.filter((row) => row.type !== "video").length,
           locked: secureContentRows.filter((row) => !canOpenContent(row)).length,
         });
-        if (secureContentRows.length === 0 && normalizeSectionForSubjects(studentSection) === "literary" && isContentTargetDebugEnabled()) {
-          const { data: diagnosticRows, error: diagnosticError } = await supabase.rpc(
-            "get_student_group_content_diagnostics" as any,
-            {
-              _group_id: groupId,
-              _sub_subject_id: subSubjectId || null,
-            },
-          );
-          const diagnostic = ((diagnosticRows || []) as any[])[0] || null;
-          const diagnosticUnavailable =
-            diagnosticError?.code === "PGRST202" ||
-            String(diagnosticError?.message || "").includes("get_student_group_content_diagnostics");
+        // Auto-diagnostic for literary students: always run whenever content is
+        // empty OR partially missing (fewer visible rows than the teacher
+        // actually uploaded to this group). Surfaces the real reason + source
+        // location so the developer can pinpoint the failing filter without
+        // needing to enable a debug flag.
+        if (normalizeSectionForSubjects(studentSection) === "literary") {
+          try {
+            const { data: diagnosticRows, error: diagnosticError } = await supabase.rpc(
+              "get_student_group_content_diagnostics" as any,
+              { _group_id: groupId, _sub_subject_id: subSubjectId || null },
+            );
+            const diagnostic = ((diagnosticRows || []) as any[])[0] || null;
+            const total = Number(diagnostic?.total_teacher_content || 0);
+            const termCount = Number(diagnostic?.matching_term_content || 0);
+            const subCount = Number(diagnostic?.matching_sub_subject_content || 0);
+            const visible = Number(diagnostic?.visible_to_student_content || 0);
+            const rendered = secureContentRows.length;
+            const hasGap = total > 0 && (rendered < visible || visible < subCount || subCount < termCount || termCount < total);
 
-          reportRpcError({
-            title: "لم يرجع كتالوج المجموعة أي محتوى لهذا الطالب الأدبي",
-            error: diagnosticUnavailable ? {
-              code: "EMPTY_STUDENT_CONTENT_CATALOG",
-              message: "عاد كتالوج المحتوى بدون صفوف، ودالة التشخيص غير متاحة مؤقتًا في كاش الخادم. تم تجاهل خطأ التشخيص لأنه ليس سبب اختفاء المحتوى.",
-              details: `groupId=${groupId}; subSubjectId=${subSubjectId || "null"}; studentSection=${studentSection || "null"}; studentEducationType=${studentEducationType || "null"}`,
-              hint: "سبب المشكلة الحقيقي في كتالوج المحتوى أو بيانات الاستهداف، وليس في دالة التشخيص.",
-            } : diagnosticError || {
-              code: "EMPTY_STUDENT_CONTENT_CATALOG",
-              message: diagnostic
-                ? `reason=${diagnostic.reason}; total=${diagnostic.total_teacher_content}; term=${diagnostic.matching_term_content}; subSubject=${diagnostic.matching_sub_subject_content}; visible=${diagnostic.visible_to_student_content}`
-                : "عاد الكتالوج بدون صفوف ولم ترجع دالة التشخيص سببًا محددًا",
-              details: `groupId=${groupId}; subSubjectId=${subSubjectId || "null"}; studentSection=${studentSection || "null"}; studentEducationType=${studentEducationType || "null"}`,
-              hint: diagnostic?.reason === "blocked_by_student_target_filter"
-                ? "سبب الاختفاء هو فلتر الاستهداف: تحقق من target_section / education_type للصفوف المرفوعة."
-                : "انسخ هذه التفاصيل وأرسلها للمطور؛ الرسالة تحتوي سبب الفلترة ومصدر الكود.",
-            },
-            operation: "rpc:get_student_group_content_catalog:empty-diagnostic",
-            sourceHint: "StudentSubjectView.loadGroupContent",
-            context: {
+            console.info("[literary-auto-diagnostic]", {
               groupId,
               subSubjectId: subSubjectId || null,
-              studentId: user?.id || null,
-              studentEducationType,
-              studentSection,
+              rendered,
               diagnostic,
-              diagnosticError,
-            },
-            duration: 20000,
-          });
+              source: "src/pages/student/StudentSubjectView.tsx:loadGroupContent",
+            });
 
-          traceContentTarget("student-content.empty-literary-catalog", {
-            source: shouldUseLiteraryFallback ? "literary-fallback" : "standard",
-            groupId,
-            subSubjectId: subSubjectId || null,
-            studentId: user?.id || null,
-            studentEducationType,
-            studentSection,
-            normalizedStudentSection: normalizeSectionForSubjects(studentSection),
-            activeGroupSubjectId,
-            activeGroupSubjectMeta,
-          });
+            if (hasGap || rendered === 0) {
+              const reasonMap: Record<string, string> = {
+                group_not_found: "المجموعة غير موجودة أو غير نشطة.",
+                student_not_authenticated: "لم يتم التعرف على الطالب (غير مسجل دخول).",
+                student_profile_not_found: "ملف الطالب غير موجود في قاعدة البيانات.",
+                no_content_in_this_group: "لم يرفع المعلم أي محتوى لهذه المجموعة بعد.",
+                blocked_by_term_filter: "الفلترة حسب الفصل الدراسي (term) تحجب المحتوى — تحقق من system_terms.",
+                blocked_by_sub_subject_filter: "الفلترة حسب المادة الفرعية (sub_subject_id) تحجب المحتوى.",
+                blocked_by_student_target_filter: "فلتر الاستهداف يحجب المحتوى: target_section أو education_type في content لا يطابق شعبة/نوع تعليم الطالب.",
+                ok: "الكتالوج يعمل بشكل صحيح ولكن ظهرت فجوة أثناء التصيير على الواجهة.",
+              };
+              const reason = String(diagnostic?.reason || "unknown");
+              reportRpcError({
+                title: rendered === 0
+                  ? "لم يظهر أي محتوى للطالب الأدبي داخل هذه المجموعة"
+                  : "بعض محتوى المجموعة لا يظهر للطالب الأدبي",
+                error: diagnosticError || {
+                  code: hasGap ? "LITERARY_CONTENT_GAP" : "EMPTY_STUDENT_CONTENT_CATALOG",
+                  message: `${reasonMap[reason] || reason} — total=${total}, termOK=${termCount}, subOK=${subCount}, visible=${visible}, rendered=${rendered}`,
+                  hint: "افتح تفاصيل التشخيص أدناه لتحديد الفلتر المسؤول.",
+                  details: [
+                    `file: src/pages/student/StudentSubjectView.tsx`,
+                    `function: loadGroupContent (line ~965)`,
+                    `rpc: public.get_student_group_content_catalog`,
+                    `diagnostic-rpc: public.get_student_group_content_diagnostics`,
+                    `groupId=${groupId}`,
+                    `subSubjectId=${subSubjectId || "null"}`,
+                    `studentSection=${studentSection || "null"} (normalized=literary)`,
+                    `studentEducationType=${studentEducationType || "null"}`,
+                    `group_subject_id=${diagnostic?.group_subject_id || "null"}`,
+                    `group_term=${diagnostic?.group_term || "null"}`,
+                    `reason=${reason}`,
+                  ].join("\n"),
+                },
+                operation: rendered === 0
+                  ? "rpc:get_student_group_content_catalog:empty-literary"
+                  : "rpc:get_student_group_content_catalog:partial-literary",
+                sourceHint: "StudentSubjectView.loadGroupContent @ src/pages/student/StudentSubjectView.tsx:965",
+                context: {
+                  groupId,
+                  subSubjectId: subSubjectId || null,
+                  studentId: user?.id || null,
+                  studentEducationType,
+                  studentSection,
+                  diagnostic,
+                  rendered,
+                },
+                duration: 25000,
+              });
+            }
+          } catch (diagErr) {
+            console.warn("[literary-auto-diagnostic] failed", diagErr);
+          }
         }
         traceContentTarget("student-content.rpc-result", {
           groupId,
