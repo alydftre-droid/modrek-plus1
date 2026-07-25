@@ -1663,7 +1663,15 @@ const StudentSubjectView = () => {
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <h3 className="line-clamp-2 font-semibold text-foreground">{item.title}</h3>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="line-clamp-2 font-semibold text-foreground">{item.title}</h3>
+                    {item.is_free_preview === true && (
+                      <Badge className="shrink-0 gap-1 border border-primary/20 bg-primary/10 px-1.5 py-0 text-[10px] text-primary">
+                        <Play className="h-2.5 w-2.5" />
+                        مجاني
+                      </Badge>
+                    )}
+                  </div>
                   {item.description && (
                     <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
                   )}
