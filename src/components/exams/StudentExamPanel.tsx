@@ -64,10 +64,15 @@ const formatDebugValue = (value: unknown) => {
  */
 export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isSubscribed = true, currentTerm, onRequireSubscription }: Props) {
   const navigate = useNavigate();
-  const { data: catalog, isLoading } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm, subSubjectId });
+  const { data: catalog, isLoading, error: catalogError } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm, subSubjectId });
   const [debugRows, setDebugRows] = useState<ExamVisibilityDebugRow[]>([]);
   const [debugError, setDebugError] = useState<string | null>(null);
   const [traceId, setTraceId] = useState(() => createTraceId());
+  const catalogErrorMessage = catalogError
+    ? catalogError instanceof Error
+      ? catalogError.message
+      : String((catalogError as any)?.message || catalogError)
+    : null;
   const exams = catalog?.exams || [];
   const attempts = catalog?.attempts || [];
   const attemptByExam = new Map(attempts.map((attempt: any) => [attempt.exam_id, attempt]));
@@ -117,8 +122,13 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     () => debugRows.filter((row) => row.visibility_status !== "visible"),
     [debugRows],
   );
+  const visibleDebugRows = useMemo(
+    () => debugRows.filter((row) => row.visibility_status === "visible"),
+    [debugRows],
+  );
 
-  const shouldShowDiagnostics = !isLoading && groupId && (filtered.length === 0 || hiddenDebugRows.length > 0 || debugError);
+  const catalogMismatch = filtered.length === 0 && visibleDebugRows.length > 0;
+  const shouldShowDiagnostics = !isLoading && groupId && (filtered.length === 0 || hiddenDebugRows.length > 0 || debugError || catalogErrorMessage);
 
   const diagnosticReport = useMemo(() => {
     const lines = [
@@ -132,8 +142,14 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
       `Current Term: ${formatDebugValue(currentTerm)}`,
       `Returned exams count: ${exams.length}`,
       `Displayed exams count: ${filtered.length}`,
+      `Database visible exams count: ${visibleDebugRows.length}`,
+      `Catalog mismatch: ${formatDebugValue(catalogMismatch)}`,
       `Subscribed: ${formatDebugValue(isSubscribed)}`,
     ];
+
+    if (catalogErrorMessage) {
+      lines.push(`Catalog RPC Error: ${catalogErrorMessage}`);
+    }
 
     if (debugError) {
       lines.push(`Diagnostic RPC Error: ${debugError}`);
@@ -171,7 +187,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     });
 
     return lines.join("\n");
-  }, [currentTerm, debugError, debugRows, exams.length, filtered.length, groupId, isSubscribed, subSubjectId, subjectId, traceId]);
+  }, [catalogErrorMessage, catalogMismatch, currentTerm, debugError, debugRows, exams.length, filtered.length, groupId, isSubscribed, subSubjectId, subjectId, traceId, visibleDebugRows.length]);
 
   const copyDiagnostics = async () => {
     try {
@@ -202,6 +218,8 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
             traceId={traceId}
             rows={debugRows}
             hiddenRows={hiddenDebugRows}
+            catalogMismatch={catalogMismatch}
+            catalogError={catalogErrorMessage}
             error={debugError}
             report={diagnosticReport}
             onCopy={copyDiagnostics}
@@ -218,6 +236,8 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
           traceId={traceId}
           rows={debugRows}
           hiddenRows={hiddenDebugRows}
+          catalogMismatch={catalogMismatch}
+          catalogError={catalogErrorMessage}
           error={debugError}
           report={diagnosticReport}
           onCopy={copyDiagnostics}
@@ -299,6 +319,8 @@ function ExamVisibilityDiagnostics({
   traceId,
   rows,
   hiddenRows,
+  catalogMismatch,
+  catalogError,
   error,
   report,
   onCopy,
@@ -306,11 +328,17 @@ function ExamVisibilityDiagnostics({
   traceId: string;
   rows: ExamVisibilityDebugRow[];
   hiddenRows: ExamVisibilityDebugRow[];
+  catalogMismatch: boolean;
+  catalogError: string | null;
   error: string | null;
   report: string;
   onCopy: () => void;
 }) {
-  const primaryIssue = error
+  const primaryIssue = catalogError
+    ? { title: "تعذر تحميل كتالوج الامتحانات", reason_code: "catalog_rpc_failed", reason: catalogError, source_file: "src/hooks/useExams.ts + database:function public.get_student_group_exam_catalog", source_function: "useStudentExamCatalog" }
+    : catalogMismatch
+      ? { title: "القاعدة ترى امتحان ظاهر لكن الواجهة لا تعرضه", reason_code: "frontend_catalog_mismatch", reason: "دالة التشخيص أعادت امتحانًا ظاهرًا، لكن قائمة الامتحانات المعروضة للطالب فارغة. افحص فلترة useStudentExamCatalog أو StudentExamPanel.", source_file: "src/hooks/useExams.ts + src/components/exams/StudentExamPanel.tsx", source_function: "useStudentExamCatalog" }
+      : error
     ? { title: "تعذر تشغيل تشخيص الامتحانات", reason_code: "diagnostic_rpc_failed", reason: error, source_file: "database:function public.debug_student_group_exam_visibility", source_function: "debug_student_group_exam_visibility" }
     : hiddenRows[0] || rows[0] || null;
 
