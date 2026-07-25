@@ -68,6 +68,11 @@ interface AuthContextType {
   sendEmailOtp: (email: string, shouldCreateUser?: boolean) => Promise<{ error: string | null }>;
   verifyEmailOtp: (email: string, token: string, type?: "email" | "recovery") => Promise<{ error: string | null }>;
   setPasswordAfterOtp: (password: string) => Promise<{ error: string | null }>;
+  // Sensitive-action OTP flows for logged-in users
+  sendReauthOtp: () => Promise<{ error: string | null }>;
+  updatePasswordWithOtp: (password: string, code: string) => Promise<{ error: string | null }>;
+  sendEmailChangeOtp: (newEmail: string) => Promise<{ error: string | null }>;
+  verifyEmailChangeOtp: (newEmail: string, code: string) => Promise<{ error: string | null }>;
   signInWithGoogle: (options?: { correlationId?: string; redirectUri?: string; source?: string }) => Promise<{ error: string | null }>;
 }
 
