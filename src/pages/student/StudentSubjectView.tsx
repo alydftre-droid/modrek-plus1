@@ -1016,7 +1016,14 @@ const StudentSubjectView = () => {
             const subCount = Number(diagnostic?.matching_sub_subject_content || 0);
             const visible = Number(diagnostic?.visible_to_student_content || 0);
             const rendered = secureContentRows.length;
-            const hasGap = total > 0 && (rendered < visible || visible < subCount || subCount < termCount || termCount < total);
+            const reason = String(diagnostic?.reason || "unknown");
+            // Only flag *real* problems: the RPC explicitly reports a blocking
+            // filter, OR the student sees literally nothing while the group has
+            // content. A gap between total/subOK/visible is EXPECTED — it just
+            // means the teacher targeted some items at other sections or
+            // education types, which is normal targeting behavior, not a bug.
+            const isRealBlock = reason.startsWith("blocked_by_") || reason === "no_content_in_this_group";
+            const isEmptyForStudent = rendered === 0 && total > 0;
 
             console.info("[literary-auto-diagnostic]", {
               groupId,
@@ -1026,7 +1033,7 @@ const StudentSubjectView = () => {
               source: "src/pages/student/StudentSubjectView.tsx:loadGroupContent",
             });
 
-            if (hasGap || rendered === 0) {
+            if (isRealBlock || isEmptyForStudent) {
               const reasonMap: Record<string, string> = {
                 group_not_found: "المجموعة غير موجودة أو غير نشطة.",
                 student_not_authenticated: "لم يتم التعرف على الطالب (غير مسجل دخول).",
