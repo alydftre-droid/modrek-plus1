@@ -254,13 +254,17 @@ const TeacherUploadContent = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, session, isAuthReady } = useAuth();
+  const { user, session, isAuthReady, role } = useAuth();
   const { subjectId } = useParams();
   const [searchParams] = useSearchParams();
 
   // Admin override: when admin manages teacher's content
   const teacherIdOverride = searchParams.get("teacherId");
-  const isAdminMode = !!teacherIdOverride;
+  const isAdminImpersonating = !!teacherIdOverride;
+  const isDeveloper = role === "admin";
+  // Show developer-only tools (free preview toggle) whenever a developer is on this page,
+  // whether impersonating a teacher via ?teacherId= or logged in directly as developer.
+  const isAdminMode = isAdminImpersonating || isDeveloper;
   const effectiveUserId = teacherIdOverride || user?.id;
 
   const [allSubjects, setAllSubjects] = useState<SubjectRow[]>([]);
