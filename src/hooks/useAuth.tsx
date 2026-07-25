@@ -781,6 +781,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Change password by verifying the current password (no OTP).
+  const changePasswordWithCurrent = async (
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ error: string | null }> => {
+    try {
+      const email = user?.email;
+      if (!email) return { error: "لا توجد جلسة نشطة" };
+      const { error: signErr } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
+      if (signErr) {
+        return { error: "كلمة المرور الحالية غير صحيحة" };
+      }
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return { error: error.message };
+      queueExternalSync(["auth"], true);
+      return { error: null };
+    } catch {
+      return { error: "تعذر تحديث كلمة المرور" };
+    }
+  };
+
   // Request a change of email. Supabase sends a confirmation code to the NEW address.
   const sendEmailChangeOtp = async (newEmail: string): Promise<{ error: string | null }> => {
     try {
