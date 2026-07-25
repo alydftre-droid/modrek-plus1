@@ -86,13 +86,22 @@ export default function TeacherSecurityPage() {
               <Lock className="h-5 w-5 text-primary" />
               <h3 className="text-base font-bold">تغيير كلمة المرور</h3>
             </div>
-            <p className="text-xs text-muted-foreground">سنرسل رمز تحقق إلى بريدك لتأكيد العملية</p>
+            <p className="text-xs text-muted-foreground">أدخل كلمة المرور الحالية ثم كلمة المرور الجديدة لتأكيد العملية</p>
 
             <div className="space-y-3">
               <div>
+                <Label className="text-sm text-muted-foreground mb-1.5 block">كلمة المرور الحالية</Label>
+                <div className="relative">
+                  <Input type={showCurrent ? "text" : "password"} value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} placeholder="كلمة المرور الحالية" className="pl-10" autoComplete="current-password" />
+                  <button type="button" onClick={() => setShowCurrent(!showCurrent)} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div>
                 <Label className="text-sm text-muted-foreground mb-1.5 block">كلمة المرور الجديدة</Label>
                 <div className="relative">
-                  <Input type={showNew ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="كلمة المرور الجديدة" className="pl-10" />
+                  <Input type={showNew ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="كلمة المرور الجديدة" className="pl-10" autoComplete="new-password" />
                   <button type="button" onClick={() => setShowNew(!showNew)} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -101,17 +110,25 @@ export default function TeacherSecurityPage() {
               <div>
                 <Label className="text-sm text-muted-foreground mb-1.5 block">تأكيد كلمة المرور الجديدة</Label>
                 <div className="relative">
-                  <Input type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="أعد كتابة كلمة المرور" className="pl-10" />
+                  <Input type={showConfirm ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="أعد كتابة كلمة المرور" className="pl-10" autoComplete="new-password" />
                   <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                     {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              <Button onClick={startPasswordChange} disabled={saving || !newPassword || !confirmPassword} className="w-full bg-primary text-primary-foreground border-0 mt-2">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Mail className="h-4 w-4 ml-2" />}
-                إرسال رمز التحقق
+              <Button onClick={handleChangePassword} disabled={saving || !currentPassword || !newPassword || !confirmPassword} className="w-full bg-primary text-primary-foreground border-0 mt-2">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin ml-2" /> : <Lock className="h-4 w-4 ml-2" />}
+                حفظ كلمة المرور الجديدة
               </Button>
+
+              <button
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="w-full text-center text-sm font-semibold text-primary hover:underline mt-1"
+              >
+                هل نسيت كلمة المرور؟
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -145,23 +162,7 @@ export default function TeacherSecurityPage() {
         </Card>
       </div>
 
-      <OtpVerificationDialog
-        open={pwdOtpOpen}
-        email={user?.email || ""}
-        title="تأكيد تغيير كلمة المرور"
-        skipSessionWait
-        onSendOtp={sendReauthOtp}
-        onVerify={async (code) => {
-          const res = await updatePasswordWithOtp(newPassword, code);
-          if (!res.error) {
-            toast.success("تم تغيير كلمة المرور بنجاح ✓");
-            setNewPassword(""); setConfirmPassword("");
-          }
-          return res;
-        }}
-        onVerified={() => setPwdOtpOpen(false)}
-        onClose={() => setPwdOtpOpen(false)}
-      />
+
 
       <OtpVerificationDialog
         open={emailOtpOpen}
