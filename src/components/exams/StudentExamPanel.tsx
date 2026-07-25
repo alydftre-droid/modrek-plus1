@@ -110,10 +110,19 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
 
     const loadDiagnostics = async () => {
       setDebugLoading(true);
-      const { data, error } = await (supabase as any).rpc("diagnose_student_group_exam_visibility", {
+      let { data, error } = await (supabase as any).rpc("diagnose_student_group_exam_visibility", {
         _group_id: groupId,
         _sub_subject_id: subSubjectId || null,
       });
+
+      if (error && /schema cache|could not find the function/i.test(error.message || "")) {
+        const fallback = await (supabase as any).rpc("debug_student_group_exam_visibility", {
+          _group_id: groupId,
+          _sub_subject_id: subSubjectId || null,
+        });
+        data = fallback.data;
+        error = fallback.error;
+      }
 
       if (cancelled) return;
       setDebugLoading(false);
