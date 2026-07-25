@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,20 +6,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Save, Loader2, Mail, KeyRound, ShieldCheck, Eye, EyeOff, CheckCircle2, XCircle } from "lucide-react";
-import { queueExternalSync } from "@/lib/externalSync";
+import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 
 const AdminSecuritySettings = () => {
-  const { user } = useAuth();
+  const {
+    user,
+    sendReauthOtp,
+    updatePasswordWithOtp,
+    sendEmailChangeOtp,
+    verifyEmailChangeOtp,
+  } = useAuth();
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
 
   const [newEmail, setNewEmail] = useState("");
-  const [emailConfirmPwd, setEmailConfirmPwd] = useState("");
+  const [emailOtpOpen, setEmailOtpOpen] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
 
-  const [currentPwd, setCurrentPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+  const [pwdOtpOpen, setPwdOtpOpen] = useState(false);
 
   const rules = {
     length: newPwd.length >= 10,
@@ -32,41 +38,27 @@ const AdminSecuritySettings = () => {
   };
   const strongPwd = rules.length && rules.upper && rules.lower && rules.digit && rules.symbol;
 
-  const handleChangeEmail = async () => {
-    if (!user?.email) return;
+  const handleStartEmail = async () => {
     if (!newEmail || !/^\S+@\S+\.\S+$/.test(newEmail)) return toast.error("بريد إلكتروني غير صالح");
-    if (!emailConfirmPwd) return toast.error("ادخل كلمة المرور الحالية للتأكيد");
+    if (newEmail.toLowerCase() === user?.email?.toLowerCase()) return toast.error("هذا هو بريدك الحالي بالفعل");
     setSavingEmail(true);
-    try {
-      const { error: signErr } = await supabase.auth.signInWithPassword({ email: user.email, password: emailConfirmPwd });
-      if (signErr) { toast.error("كلمة المرور الحالية غير صحيحة"); return; }
-      const { error } = await supabase.auth.updateUser({ email: newEmail });
-      if (error) throw error;
-      queueExternalSync(["auth", "tables"], true);
-      toast.success("تم إرسال رابط التأكيد إلى البريد الجديد");
-      setNewEmail(""); setEmailConfirmPwd("");
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر تغيير البريد");
-    } finally { setSavingEmail(false); }
+    const { error } = await sendEmailChangeOtp(newEmail);
+    setSavingEmail(false);
+    if (error) { toast.error(error); return; }
+    setPendingEmail(newEmail.trim().toLowerCase());
+    toast.success("تم إرسال رمز تحقق إلى البريد الجديد");
+    setEmailOtpOpen(true);
   };
 
-  const handleChangePwd = async () => {
-    if (!user?.email) return;
+  const handleStartPwd = async () => {
     if (!strongPwd) return toast.error("كلمة المرور لا تستوفي الشروط");
     if (!rules.match) return toast.error("تأكيد كلمة المرور غير متطابق");
-    if (!currentPwd) return toast.error("ادخل كلمة المرور الحالية");
     setSavingPwd(true);
-    try {
-      const { error: signErr } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPwd });
-      if (signErr) { toast.error("كلمة المرور الحالية غير صحيحة"); return; }
-      const { error } = await supabase.auth.updateUser({ password: newPwd });
-      if (error) throw error;
-      queueExternalSync(["auth"], true);
-      toast.success("تم تغيير كلمة المرور بنجاح");
-      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
-    } catch (e: any) {
-      toast.error(e?.message || "تعذر تغيير كلمة المرور");
-    } finally { setSavingPwd(false); }
+    const { error } = await sendReauthOtp();
+    setSavingPwd(false);
+    if (error) { toast.error(error); return; }
+    toast.success("تم إرسال رمز التحقق إلى بريدك");
+    setPwdOtpOpen(true);
   };
 
   const Rule = ({ ok, text }: { ok: boolean; text: string }) => (
@@ -97,25 +89,17 @@ const AdminSecuritySettings = () => {
             <Label>البريد الإلكتروني الجديد</Label>
             <Input type="email" dir="ltr" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="new@example.com" />
           </div>
-          <div>
-            <Label>كلمة المرور الحالية (للتأكيد)</Label>
-            <Input type="password" dir="ltr" value={emailConfirmPwd} onChange={e => setEmailConfirmPwd(e.target.value)} />
-          </div>
-          <Button onClick={handleChangeEmail} disabled={savingEmail} className="w-full gap-2">
+          <Button onClick={handleStartEmail} disabled={savingEmail} className="w-full gap-2">
             {savingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            تحديث البريد
+            إرسال رمز التحقق
           </Button>
-          <p className="text-[11px] text-muted-foreground">سيتم إرسال رابط تأكيد للبريدين القديم والجديد قبل اعتماد التغيير.</p>
+          <p className="text-[11px] text-muted-foreground">سيتم إرسال رمز تحقق للبريد الجديد ولا يتم اعتماد التغيير إلا بعد إدخال الرمز بشكل صحيح.</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2 text-base"><KeyRound className="h-5 w-5" /> تغيير كلمة المرور</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div>
-            <Label>كلمة المرور الحالية</Label>
-            <Input type={showPwd ? "text" : "password"} dir="ltr" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)} />
-          </div>
           <div>
             <Label>كلمة المرور الجديدة</Label>
             <div className="relative">
@@ -137,12 +121,49 @@ const AdminSecuritySettings = () => {
             <Rule ok={rules.symbol} text="رمز خاص (!@#…)" />
             <Rule ok={rules.match} text="التأكيد مطابق" />
           </div>
-          <Button onClick={handleChangePwd} disabled={savingPwd || !strongPwd || !rules.match} className="w-full gap-2">
+          <Button onClick={handleStartPwd} disabled={savingPwd || !strongPwd || !rules.match} className="w-full gap-2">
             {savingPwd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            تحديث كلمة المرور
+            إرسال رمز التحقق
           </Button>
+          <p className="text-[11px] text-muted-foreground">سنرسل رمز تحقق إلى بريدك لتأكيد العملية.</p>
         </CardContent>
       </Card>
+
+      <OtpVerificationDialog
+        open={pwdOtpOpen}
+        email={user?.email || ""}
+        title="تأكيد تغيير كلمة المرور"
+        skipSessionWait
+        onSendOtp={sendReauthOtp}
+        onVerify={async (code) => {
+          const res = await updatePasswordWithOtp(newPwd, code);
+          if (!res.error) {
+            toast.success("تم تغيير كلمة المرور بنجاح ✓");
+            setNewPwd(""); setConfirmPwd("");
+          }
+          return res;
+        }}
+        onVerified={() => setPwdOtpOpen(false)}
+        onClose={() => setPwdOtpOpen(false)}
+      />
+
+      <OtpVerificationDialog
+        open={emailOtpOpen}
+        email={pendingEmail}
+        title="تأكيد البريد الإلكتروني الجديد"
+        skipSessionWait
+        onSendOtp={() => sendEmailChangeOtp(pendingEmail)}
+        onVerify={async (code) => {
+          const res = await verifyEmailChangeOtp(pendingEmail, code);
+          if (!res.error) {
+            toast.success("تم تغيير البريد الإلكتروني بنجاح ✓");
+            setNewEmail(""); setPendingEmail("");
+          }
+          return res;
+        }}
+        onVerified={() => setEmailOtpOpen(false)}
+        onClose={() => setEmailOtpOpen(false)}
+      />
     </div>
   );
 };
