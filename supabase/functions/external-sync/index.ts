@@ -442,7 +442,6 @@ BEGIN
     FROM public.sub_subjects ss
     WHERE ss.id = _sub_subject_id
       AND ss.group_id = _group_id
-      AND COALESCE(cg.is_active, true) = true
       AND COALESCE(ss.is_active, true) = true;
 
     v_selected_is_parent_subject := v_selected_name IS NOT NULL AND v_selected_name = v_parent_subject_name;
@@ -596,7 +595,6 @@ BEGIN
     FROM public.sub_subjects ss
     WHERE ss.id = _sub_subject_id
       AND ss.group_id = _group_id
-      AND COALESCE(cg.is_active, true) = true
       AND COALESCE(ss.is_active, true) = true;
 
     v_selected_is_parent_subject := v_selected_name IS NOT NULL AND v_selected_name = v_parent_subject_name;
