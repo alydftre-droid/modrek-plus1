@@ -128,7 +128,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
   );
 
   const catalogMismatch = filtered.length === 0 && visibleDebugRows.length > 0;
-  const shouldShowDiagnostics = !isLoading && groupId && (filtered.length === 0 || hiddenDebugRows.length > 0 || debugError || catalogErrorMessage);
+  const shouldShowDiagnostics = !isLoading && groupId && (filtered.length === 0 || catalogMismatch || debugError || catalogErrorMessage);
 
   const diagnosticReport = useMemo(() => {
     const lines = [
