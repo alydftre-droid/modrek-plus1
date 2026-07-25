@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { ClipboardList, Clock, ArrowLeft, Lock, Sparkles, AlertTriangle, Copy, Bug } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
   subjectId: string;
@@ -75,9 +74,6 @@ const formatDebugValue = (value: unknown) => {
 export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isSubscribed = true, currentTerm, onRequireSubscription }: Props) {
   const navigate = useNavigate();
   const { data: catalog, isLoading, error: catalogError } = useStudentExamCatalog({ subjectId, groupId, term: currentTerm, subSubjectId });
-  const [debugRows, setDebugRows] = useState<ExamVisibilityDebugRow[]>([]);
-  const [debugError, setDebugError] = useState<string | null>(null);
-  const [debugLoading, setDebugLoading] = useState(false);
   const [traceId, setTraceId] = useState(() => createTraceId());
   const catalogErrorMessage = catalogError
     ? catalogError instanceof Error
@@ -99,47 +95,9 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
     setTraceId(createTraceId());
   }, [groupId, subSubjectId, subjectId, currentTerm]);
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!groupId) {
-      setDebugRows([]);
-      setDebugError(null);
-      setDebugLoading(false);
-      return;
-    }
-
-    const loadDiagnostics = async () => {
-      setDebugLoading(true);
-      let { data, error } = await (supabase as any).rpc("diagnose_student_group_exam_visibility", {
-        _group_id: groupId,
-        _sub_subject_id: subSubjectId || null,
-      });
-
-      if (error && /schema cache|could not find the function/i.test(error.message || "")) {
-        const fallback = await (supabase as any).rpc("debug_student_group_exam_visibility", {
-          _group_id: groupId,
-          _sub_subject_id: subSubjectId || null,
-        });
-        data = fallback.data;
-        error = fallback.error;
-      }
-
-      if (cancelled) return;
-      setDebugLoading(false);
-      if (error) {
-        setDebugRows([]);
-        setDebugError(error.message || "تعذر تشغيل تشخيص الامتحانات");
-        return;
-      }
-      setDebugRows((data || []) as ExamVisibilityDebugRow[]);
-      setDebugError(null);
-    };
-
-    loadDiagnostics();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentTerm, groupId, subSubjectId, subjectId]);
+  const debugRows: ExamVisibilityDebugRow[] = [];
+  const debugError: string | null = null;
+  const debugLoading = false;
 
   const hiddenDebugRows = useMemo(
     () => debugRows.filter((row) => row.visibility_status !== "visible"),
@@ -198,7 +156,7 @@ export default function StudentExamPanel({ subjectId, groupId, subSubjectId, isS
         "Primary issue: diagnostic_returned_no_rows",
         "Reason code: diagnostic_returned_no_rows",
         `Source file: ${EXAM_DIAGNOSTIC_LOCATIONS.databaseDiagnostic} + ${EXAM_DIAGNOSTIC_LOCATIONS.catalogHook}`,
-        "Reason: دالة التشخيص لم تُرجع أي صفوف بعد اختفاء الامتحانات. هذا يعني أن طلب التشخيص لم يصل أو أن شروط البحث عن الامتحانات ضيقة جداً قبل مرحلة تحديد السبب.",
+        "Reason: دالة كتالوج الامتحانات لم تُرجع أي امتحان ظاهر لهذه المجموعة. بعد الإصلاح الحالي أصبح المسار المسؤول هو get_student_group_exam_catalog فقط؛ إذا استمر الصفر فانسخ هذا التقرير مع Group ID وSub Subject ID.",
       );
     }
 
