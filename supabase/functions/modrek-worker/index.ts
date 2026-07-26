@@ -44,6 +44,7 @@ const AI_REQUEST_TIMEOUT_MS = 60_000;
 const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
 const FILE_API_TIMEOUT_MS = 80_000;
 const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
+const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
@@ -227,6 +228,52 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     try {
       batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
     } catch (err: any) {
+      if (isRateLimitError(err) && Number(asset.byte_size ?? 0) <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+        await log(admin, job.id, "warn", "Gemini quota/rate-limit hit; trying local PDF text-layer fallback before delaying", {
+          page_from: pageFrom,
+          page_to: pageTo,
+          bytes: Number(asset.byte_size ?? 0),
+          error: String(err?.message ?? err).slice(0, 500),
+        });
+        try {
+          const bytes = await fetchAssetBytes(admin, asset);
+          const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
+            await updateJobProgress(admin, job, 55, {
+              stage: "local_pdf_text_layer_after_quota",
+              current_page: donePage,
+              page_from: pageFrom,
+              page_to: pageTo,
+            });
+          });
+          const localText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
+          const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
+          if (localText.length >= minUsefulText) {
+            batchText = localText;
+            await log(admin, job.id, "info", "local PDF text-layer fallback succeeded after Gemini quota/rate-limit", {
+              page_from: pageFrom,
+              page_to: pageTo,
+              chars: batchText.length,
+            });
+          } else {
+            await log(admin, job.id, "warn", "local PDF text-layer fallback was too small; provider cooldown is required", {
+              page_from: pageFrom,
+              page_to: pageTo,
+              chars: localText.length,
+            });
+          }
+        } catch (fallbackErr: any) {
+          await log(admin, job.id, "warn", "local PDF text-layer fallback failed after Gemini quota/rate-limit", {
+            page_from: pageFrom,
+            page_to: pageTo,
+            error: String(fallbackErr?.message ?? fallbackErr).slice(0, 500),
+          });
+        }
+        if (batchText) {
+          // Continue to normal persistence below; no provider retry needed.
+        } else {
+          throw err;
+        }
+      } else {
       // Auto-split: if a multi-page batch fails (timeout / partial output),
       // requeue smaller sub-batches instead of hard-failing the whole book.
       const rangeSize = pageTo - pageFrom + 1;
@@ -246,6 +293,7 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
         return;
       }
       throw err;
+      }
     }
   } else {
     const bytes = await fetchAssetBytes(admin, asset);
