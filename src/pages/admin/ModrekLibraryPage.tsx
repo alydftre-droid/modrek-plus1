@@ -147,10 +147,12 @@ export default function ModrekLibraryPage() {
 
   const filteredGrades = useMemo(() => grades.filter((g) => !f.stage || g.stage_id === f.stage), [grades, f.stage]);
   const filteredSubjects = useMemo(() => subjects.filter((s) => {
-    const sectionCode = sections.find((sec) => sec.id === f.section)?.code;
+    const selectedSectionCode = sections.find((sec) => sec.id === f.section)?.code;
     if (f.stage && s.stage_id && s.stage_id !== f.stage) return false;
-    if (sectionCode === "shared") return true;
-    if (f.section && s.section_id && s.section_id !== f.section) return false;
+    if (f.section && s.section_id && s.section_id !== f.section) {
+      const subjectSectionCode = sections.find((sec) => sec.id === s.section_id)?.code;
+      if (subjectSectionCode !== "shared" && selectedSectionCode !== "shared") return false;
+    }
     return true;
   }), [subjects, sections, f.stage, f.section]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
