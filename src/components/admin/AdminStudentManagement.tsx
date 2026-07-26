@@ -15,7 +15,7 @@ import {
   Activity, Ban, BookOpen, CreditCard, Download, Edit3, Eye, FileText,
   GraduationCap, Loader2, Mail, Phone, Search, ShoppingCart,
   User, Users, Video, Wallet, Clock3, CheckCircle2, XCircle,
-  Calendar, Hash, ChevronRight,
+  Calendar, Hash, ChevronRight, Trash2, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
