@@ -51,11 +51,13 @@ const PDF_TEXT_BATCH_PAGES = 4;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
-const RATE_LIMIT_MIN_BACKOFF_MS = 2 * 60_000;
-const RATE_LIMIT_MAX_BACKOFF_MS = 20 * 60_000;
+const RATE_LIMIT_MIN_BACKOFF_MS = 10 * 60_000;
+const RATE_LIMIT_MAX_BACKOFF_MS = 60 * 60_000;
+const QUOTA_EXHAUSTED_MIN_BACKOFF_MS = 6 * 60 * 60_000;
+const QUOTA_EXHAUSTED_MAX_BACKOFF_MS = 12 * 60 * 60_000;
 
 type FailureDiagnostic = {
-  category: "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
+  category: "quota_exhausted" | "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
   userMessage: string;
   rawMessage: string;
   retryable: boolean;
@@ -214,6 +216,7 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
 
   let batchText = "";
   if (input.extractor === "gemini_file" || input.gemini_file?.uri) {
+    await respectProviderCooldown(admin, job);
     const fileRef = input.gemini_file?.uri ? input.gemini_file : await ensureGeminiFileForAsset(admin, asset, job.id);
     await updateJobProgress(admin, job, 15, {
       stage: "gemini_file_page_extraction",
@@ -1059,7 +1062,12 @@ async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef
       },
     }),
   }, timeoutMs);
-  if (!response.ok) throw new Error(`Gemini file generation failed ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  if (!response.ok) {
+    const retryAfter = response.headers.get("retry-after");
+    const errorText = await response.text().catch(() => "");
+    const message = `Gemini file generation failed ${response.status}${retryAfter ? ` retry-after=${retryAfter}` : ""}: ${errorText.slice(0, 1200)}`;
+    throw new Error(message);
+  }
   const payload = await response.json();
   const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
   if (!jsonMode) return text;
@@ -1298,6 +1306,19 @@ function isRateLimitError(error: unknown): boolean {
   return ["429", "quota", "rate limit", "rate-limit", "resource_exhausted", "resource exhausted", "too many requests"].some((token) => msg.includes(token));
 }
 
+function isQuotaExhaustedError(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return [
+    "exceeded your current quota",
+    "check your plan and billing",
+    "quota exhausted",
+    "quota_exceeded",
+    "resource_exhausted",
+    "resource exhausted",
+    "billing details",
+  ].some((token) => msg.includes(token));
+}
+
 function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const err = error instanceof Error ? error : new Error(String(error ?? "unknown error"));
   const rawMessage = String(err.message || "unknown error");
@@ -1310,7 +1331,8 @@ function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const lineNumber = lineMatch?.[1] ? Number(lineMatch[1]) : null;
 
   let category: FailureDiagnostic["category"] = "unknown";
-  if (isRateLimitError(err)) category = "rate_limit";
+  if (isQuotaExhaustedError(err)) category = "quota_exhausted";
+  else if (isRateLimitError(err)) category = "rate_limit";
   else if (lower.includes("timeout") || lower.includes("مهلة")) category = "timeout";
   else if (lower.includes("gemini") || lower.includes("openrouter") || lower.includes("ai gateway") || lower.includes("generation failed")) category = "provider";
   else if (lower.includes("bunny") || lower.includes("storage")) category = "storage";
@@ -1319,8 +1341,10 @@ function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const input = job?.input ?? {};
   const file = String(input.filename || input.file_name || input.asset_id || job?.asset_id || "unknown-file");
   const pageRange = input.page_from ? ` — الصفحات ${input.page_from}-${input.page_to ?? input.page_from}` : "";
-  const retryable = category === "rate_limit" || category === "timeout" || category === "provider";
-  const userMessage = category === "rate_limit"
+  const retryable = category === "quota_exhausted" || category === "rate_limit" || category === "timeout" || category === "provider";
+  const userMessage = category === "quota_exhausted"
+    ? `تم استهلاك الحصة اليومية/الحالية لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب أو تكرار الفشل على باقي الصفحات؛ تم إيقاف استخراج الصفحات مؤقتاً وسيستأنف تلقائياً بعد عودة الحصة.`
+    : category === "rate_limit"
     ? `تم الوصول لحد الحصة/الطلبات لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب؛ ستتم إعادة المحاولة تلقائياً بتهدئة أبطأ.`
     : category === "timeout"
       ? `انتهت مهلة المعالجة أثناء معالجة ${file}${pageRange}. سيحاول النظام مرة أخرى تلقائياً إذا كانت هناك محاولات متبقية.`
@@ -1350,6 +1374,11 @@ function failureMessage(diagnostic: FailureDiagnostic): string {
 }
 
 function retryDelayMs(diagnostic: FailureDiagnostic, attempts: number): number {
+  if (diagnostic.category === "quota_exhausted") {
+    const exponent = Math.min(1, Math.max(0, attempts - 1));
+    const base = QUOTA_EXHAUSTED_MIN_BACKOFF_MS * (2 ** exponent);
+    return Math.min(QUOTA_EXHAUSTED_MAX_BACKOFF_MS, base) + Math.floor(Math.random() * 5 * 60_000);
+  }
   if (diagnostic.category === "rate_limit") {
     const exponent = Math.min(4, Math.max(0, attempts - 1));
     const base = RATE_LIMIT_MIN_BACKOFF_MS * (2 ** exponent);
@@ -1359,6 +1388,65 @@ function retryDelayMs(diagnostic: FailureDiagnostic, attempts: number): number {
     return Math.min(10 * 60_000, Math.max(30_000, 45_000 * Math.max(1, attempts)));
   }
   return Math.max(5_000, 20_000 * Math.max(1, attempts));
+}
+
+function parseTimestamp(value: unknown): number | null {
+  const time = Date.parse(String(value ?? ""));
+  return Number.isFinite(time) ? time : null;
+}
+
+async function respectProviderCooldown(admin: SupabaseClient, job: any) {
+  const { data } = await admin
+    .from("processing_events")
+    .select("data, created_at")
+    .eq("data->>provider", "gemini_file_api")
+    .in("data->>category", ["quota_exhausted", "rate_limit"] as any)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const until = parseTimestamp((data as any)?.data?.global_cooldown_until);
+  if (until && until > Date.now()) {
+    const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60_000));
+    await updateJobProgress(admin, job, Math.max(1, Number(job.progress_pct ?? 1)), {
+      stage: "provider_cooldown",
+      provider: "gemini_file_api",
+      cooldown_until: new Date(until).toISOString(),
+      remaining_minutes: minutes,
+    });
+    throw new Error(`Gemini provider cooldown active until ${new Date(until).toISOString()} (${minutes} minutes remaining)`);
+  }
+}
+
+async function applyProviderCooldown(admin: SupabaseClient, job: any, diagnostic: FailureDiagnostic, cooldownUntil: string, effectiveMaxAttempts: number, message: string) {
+  if (diagnostic.category !== "quota_exhausted" && diagnostic.category !== "rate_limit") return;
+  await admin
+    .from("processing_jobs")
+    .update({
+      next_run_at: cooldownUntil,
+      max_attempts: effectiveMaxAttempts,
+      updated_at: new Date().toISOString(),
+      error: message,
+    })
+    .eq("kind", "extract_page")
+    .in("status", ["pending", "retrying"] as any)
+    .lt("next_run_at", cooldownUntil);
+
+  await admin.rpc("modrek_log_event", {
+    p_job_id: job.id,
+    p_level: "warn",
+    p_message: diagnostic.category === "quota_exhausted"
+      ? "global Gemini File API quota cooldown activated"
+      : "global Gemini File API rate-limit cooldown activated",
+    p_data: {
+      ...diagnostic,
+      provider: "gemini_file_api",
+      global_cooldown_until: cooldownUntil,
+      max_attempts: effectiveMaxAttempts,
+      memory: memorySnapshot(),
+      at: new Date().toISOString(),
+    },
+  });
 }
 
 async function fetchBunnyRange(asset: any, start: number, end: number): Promise<Uint8Array> {
@@ -1447,6 +1535,9 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
   const canRetry = diagnostic.retryable && attempts < effectiveMaxAttempts;
   const nextRunAt = canRetry ? new Date(Date.now() + retryDelayMs(diagnostic, attempts)).toISOString() : null;
   const message = failureMessage(diagnostic);
+  if (canRetry && nextRunAt) {
+    await applyProviderCooldown(admin, job, diagnostic, nextRunAt, effectiveMaxAttempts, message);
+  }
   await admin.from("processing_jobs").update({
     status: canRetry ? "retrying" : "failed",
     finished_at: new Date().toISOString(), error: message,
