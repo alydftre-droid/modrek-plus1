@@ -220,41 +220,42 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const { data: chosenOnlyTeachers = [] } = useQuery({
     queryKey: ["dev-student-chosen-only-teachers", studentId, teachers.map((t) => t.teacher_id).join(",")],
     queryFn: async (): Promise<TeacherRow[]> => {
-      const { data: choices } = await supabase
+      const { data: choices, error } = await supabase
         .from("student_teacher_choices")
-        .select("teacher_id, subject_id")
+        .select("teacher_id, category, stage, grade, created_at")
         .eq("student_id", studentId);
+      if (error) {
+        console.warn("[chosen-teachers] fetch failed", error);
+        return [];
+      }
       const subscribedIds = new Set(teachers.map((t) => t.teacher_id));
       const chosen = (choices ?? []).filter((c: any) => c.teacher_id && !subscribedIds.has(c.teacher_id));
       if (!chosen.length) return [];
       const teacherIds = [...new Set(chosen.map((c: any) => c.teacher_id))] as string[];
-      const subjectIds = [...new Set(chosen.map((c: any) => c.subject_id).filter(Boolean))] as string[];
-      const [{ data: profs }, { data: subjs }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
-        subjectIds.length
-          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
-      const sMap = new Map((subjs ?? []).map((s: any) => [s.id, s.name]));
-      const byT = new Map<string, TeacherRow & { subjectSet: Set<string> }>();
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("id, full_name, specialty, subject_specialties")
+        .in("id", teacherIds);
+      const pMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+      const byT = new Map<string, TeacherRow & { catSet: Set<string> }>();
       chosen.forEach((c: any) => {
+        const p: any = pMap.get(c.teacher_id) ?? {};
         const row = byT.get(c.teacher_id) ?? {
           teacher_id: c.teacher_id,
-          teacher_name: pMap.get(c.teacher_id) ?? "معلم",
-          specialty: null,
+          teacher_name: p.full_name ?? "معلم",
+          specialty: p.specialty ?? (Array.isArray(p.subject_specialties) ? p.subject_specialties.join("، ") : null),
           courses_count: 0,
           status: "chosen" as const,
-          subjectSet: new Set<string>(),
+          catSet: new Set<string>(),
         };
-        const sn = normalizeSubject(sMap.get(c.subject_id));
-        if (sn && sn !== "—") row.subjectSet.add(sn);
+        const label = [c.category, c.grade].filter(Boolean).join(" - ");
+        if (label) row.catSet.add(label);
         byT.set(c.teacher_id, row);
       });
       return [...byT.values()].map((r) => ({
         teacher_id: r.teacher_id,
         teacher_name: r.teacher_name,
-        specialty: [...r.subjectSet].join("، ") || "—",
+        specialty: r.specialty || [...r.catSet].join("، ") || "—",
         courses_count: 0,
         status: "chosen",
       }));
