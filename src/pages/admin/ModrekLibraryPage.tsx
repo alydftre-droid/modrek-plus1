@@ -119,7 +119,7 @@ export default function ModrekLibraryPage() {
       supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }),
-      supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order", { ascending: true }),
+      supabase.from("library_subjects").select("id,name_ar,code,stage_id,grade_id,section_id,curriculum_track,source_subject_id,source_category").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
     ]);
@@ -177,7 +177,10 @@ export default function ModrekLibraryPage() {
       if (f.stage && s.stage_id !== f.stage) return false;
       if (f.grade && s.grade_id !== f.grade) return false;
       if (f.section && s.section_id !== f.section) return false;
-      if (f.track && s.track_id !== f.track) return false;
+      if (f.track && s.track_id !== f.track) {
+        const selectedTrackCode = tracks.find((track) => track.id === f.track)?.code;
+        if (selectedTrackCode !== "none" || s.track_id) return false;
+      }
       if (f.subject && s.subject_id !== f.subject) return false;
       if (f.sub && s.sub_subject_id !== f.sub) return false;
       if (q && !s.title.toLowerCase().includes(q.toLowerCase())) return false;
