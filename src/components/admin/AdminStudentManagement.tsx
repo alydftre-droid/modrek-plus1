@@ -353,7 +353,7 @@ const RecentView = ({ onStudent }: { onStudent: (s: StudentProfile) => void }) =
 /* ═══════════════════════════════════════════════════════════════ */
 /*  DETAIL VIEW (CV)                                               */
 /* ═══════════════════════════════════════════════════════════════ */
-const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: (s: StudentProfile) => void }) => {
+const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile; onUpdate: (s: StudentProfile) => void; onDeleted: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
   const [editOpen, setEditOpen] = useState(false);
@@ -364,6 +364,9 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
   const [adjustLoading, setAdjustLoading] = useState(false);
   const [banLoading, setBanLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: student.full_name, phone: student.phone || "", stage: student.stage || "", grade: student.grade || "", section: student.section || "" });
 
   const [wallet, setWallet] = useState(0);
