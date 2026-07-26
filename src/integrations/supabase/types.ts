@@ -6020,6 +6020,7 @@ export type Database = {
       admin_financial_overview: { Args: never; Returns: Json }
       admin_get_financial_close: { Args: { _id: string }; Returns: Json }
       admin_get_overview_snapshot: { Args: { _id: string }; Returns: Json }
+      admin_get_teacher_management: { Args: never; Returns: Json }
       admin_get_withdrawal_dashboard: { Args: never; Returns: Json }
       admin_list_audit_logs: {
         Args: {

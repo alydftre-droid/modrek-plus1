@@ -89,121 +89,11 @@ const AdminTeacherManagement = () => {
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
     try {
-      // Union all possible teacher identities so the admin never misses anyone:
-      // 1) user_roles.role='teacher'  2) any teacher_requests row  3) profiles.role='teacher'  4) any teacher_profiles row
-      const [rolesRes, requestsRes, teacherProfilesRes, profilesRoleRes] = await Promise.all([
-        supabase.from("user_roles").select("user_id").eq("role", "teacher"),
-        supabase.from("teacher_requests").select("*").order("created_at", { ascending: false }),
-        supabase.from("teacher_profiles").select("*"),
-        supabase.from("profiles").select("id").eq("role", "teacher"),
-      ]);
+      const { data, error } = await supabase.rpc("admin_get_teacher_management" as any);
+      if (error) throw error;
 
-      if (requestsRes.error) throw requestsRes.error;
-
-      const teacherIdSet = new Set<string>();
-      (rolesRes.data || []).forEach((r: any) => r.user_id && teacherIdSet.add(r.user_id));
-      (requestsRes.data || []).forEach((r: any) => r.user_id && teacherIdSet.add(r.user_id));
-      (teacherProfilesRes.data || []).forEach((p: any) => p.teacher_id && teacherIdSet.add(p.teacher_id));
-      (profilesRoleRes.data || []).forEach((p: any) => p.id && teacherIdSet.add(p.id));
-
-      const teacherIds = Array.from(teacherIdSet);
-      if (teacherIds.length === 0) {
-        setTeachers([]);
-        setLoading(false);
-        return;
-      }
-
-      const [profilesRes, contentRes, choicesRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("id, full_name, email, phone, role, is_banned")
-          .in("id", teacherIds),
-        supabase
-          .from("content")
-          .select("uploaded_by, type")
-          .in("uploaded_by", teacherIds)
-          .eq("is_active", true),
-        supabase.from("student_teacher_choices").select("teacher_id").in("teacher_id", teacherIds),
-      ]);
-
-      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
-      const requestMap = new Map<string, any>();
-      (requestsRes.data || []).forEach((r: any) => {
-        // Keep the most recent request per user (list is sorted DESC)
-        if (!requestMap.has(r.user_id)) requestMap.set(r.user_id, r);
-      });
-      const teacherProfileMap = new Map((teacherProfilesRes.data || []).map((p: any) => [p.teacher_id, p]));
-
-      const contentCounts = new Map<string, { videos: number; pdfs: number }>();
-      (contentRes.data || []).forEach((c: any) => {
-        if (!c.uploaded_by) return;
-        const e = contentCounts.get(c.uploaded_by) || { videos: 0, pdfs: 0 };
-        if (c.type === "video") e.videos++;
-        else e.pdfs++;
-        contentCounts.set(c.uploaded_by, e);
-      });
-
-      const studentCounts = new Map<string, number>();
-      (choicesRes.data || []).forEach((c: any) => {
-        studentCounts.set(c.teacher_id, (studentCounts.get(c.teacher_id) || 0) + 1);
-      });
-
-      const hasTeacherRole = new Set<string>();
-      (rolesRes.data || []).forEach((r: any) => hasTeacherRole.add(r.user_id));
-      (profilesRoleRes.data || []).forEach((p: any) => hasTeacherRole.add(p.id));
-
-      const enriched: TeacherData[] = teacherIds.map((uid) => {
-        const profile: any = profileMap.get(uid) || {};
-        const req: any = requestMap.get(uid) || {};
-        const tp: any = teacherProfileMap.get(uid) || {};
-        const counts = contentCounts.get(uid) || { videos: 0, pdfs: 0 };
-
-        // Normalize status. A teacher with role='teacher' but no request row is approved.
-        // Any unknown/null status on a non-role user shows up as pending so the admin can act.
-        let status: "pending" | "approved" | "rejected";
-        if (req.status === "approved" || req.status === "rejected" || req.status === "pending") {
-          status = req.status;
-        } else if (hasTeacherRole.has(uid)) {
-          status = "approved";
-        } else {
-          status = "pending";
-        }
-
-        return {
-          id: req.id || uid,
-          user_id: uid,
-          full_name: req.full_name || profile.full_name || "معلم",
-          email: req.email || profile.email || "",
-          phone: req.phone ?? profile.phone ?? null,
-          school_name: req.school_name ?? null,
-          employee_id: req.employee_id ?? null,
-          status,
-          rejection_reason: req.rejection_reason ?? null,
-          created_at: req.created_at ?? null,
-          assigned_stages: req.assigned_stages ?? null,
-          assigned_grades: req.assigned_grades ?? null,
-          assigned_category: req.assigned_category ?? null,
-          education_type: req.education_type ?? null,
-          bio: tp.bio ?? null,
-          photo_url: tp.photo_url ?? null,
-          video_url: tp.video_url ?? null,
-          is_profile_approved: tp.is_approved ?? null,
-          video_count: counts.videos,
-          pdf_count: counts.pdfs,
-          student_count: studentCounts.get(uid) || 0,
-          is_banned: !!profile.is_banned,
-        };
-      });
-
-      // Sort: pending first (newest), then approved, then rejected
-      const order: Record<string, number> = { pending: 0, approved: 1, rejected: 2 };
-      enriched.sort((a, b) => {
-        const so = (order[a.status] ?? 3) - (order[b.status] ?? 3);
-        if (so !== 0) return so;
-        return (b.created_at || "").localeCompare(a.created_at || "");
-      });
-
-      setTeachers(enriched);
+      const payload = (data || {}) as { teachers?: TeacherData[] };
+      setTeachers(Array.isArray(payload.teachers) ? payload.teachers : []);
     } catch (e) {
       console.error("Error fetching teachers:", e);
       toast.error("خطأ في تحميل بيانات المعلمين");
@@ -240,7 +130,8 @@ const AdminTeacherManagement = () => {
       const { error: reqError } = await supabase
         .from("teacher_requests")
         .update({ status: "approved", reviewed_at: new Date().toISOString() })
-        .eq("id", teacher.id);
+        .eq("user_id", teacher.user_id)
+        .eq("status", "pending");
       if (reqError) throw reqError;
 
       // Update profile role
@@ -286,7 +177,8 @@ const AdminTeacherManagement = () => {
       const { error } = await supabase
         .from("teacher_requests")
         .update({ status: "rejected", rejection_reason: rejectionReason || "لم يستوفِ الشروط", reviewed_at: new Date().toISOString() })
-        .eq("id", selectedTeacher.id);
+        .eq("user_id", selectedTeacher.user_id)
+        .eq("status", "pending");
       if (error) throw error;
       toast.success("تم رفض الطلب");
       setShowRejectDialog(false);
@@ -374,7 +266,7 @@ const AdminTeacherManagement = () => {
   // (bio / photo / intro video) but it hasn't been approved yet. Include any teacher
   // (not just approved) so the admin never misses a submission.
   const pendingProfiles = filteredTeachers.filter(
-    t => t.is_profile_approved === false && (t.bio || t.photo_url || t.video_url),
+    t => t.is_profile_approved !== true && (t.bio || t.photo_url || t.video_url),
   );
 
   const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }) : "-";
@@ -478,7 +370,7 @@ const AdminTeacherManagement = () => {
         {/* Pending Requests Tab */}
         <TabsContent value="pending">
           {pendingRequests.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-muted-foreground">لا توجد طلبات معلقة</CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-muted-foreground">لا توجد طلبات معلقة حقيقية</CardContent></Card>
           ) : (
             <div className="space-y-3">
               {pendingRequests.map(t => (
@@ -520,7 +412,7 @@ const AdminTeacherManagement = () => {
         {/* Approved Teachers Tab */}
         <TabsContent value="approved">
           {approvedTeachers.length === 0 ? (
-            <Card><CardContent className="p-8 text-center text-muted-foreground">لا يوجد معلمين نشطين</CardContent></Card>
+            <Card><CardContent className="p-8 text-center text-muted-foreground">لا يوجد معلمين نشطين حاليًا</CardContent></Card>
           ) : (
             <div className="space-y-3">
               {approvedTeachers.map(t => (
@@ -727,7 +619,7 @@ const AdminTeacherManagement = () => {
                   <Ban className="h-4 w-4 ml-1" />
                   {selectedTeacher.is_banned ? "فك الحظر" : "حظر المعلم"}
                 </Button>
-                {selectedTeacher.bio && !selectedTeacher.is_profile_approved && (
+                {(selectedTeacher.bio || selectedTeacher.photo_url || selectedTeacher.video_url) && selectedTeacher.is_profile_approved !== true && (
                   <Button className="flex-1 bg-green-500 hover:bg-green-600" onClick={() => handleApproveProfile(selectedTeacher)} disabled={actionLoading}>
                     <CheckCircle className="h-4 w-4 ml-1" />
                     نشر السيرة
