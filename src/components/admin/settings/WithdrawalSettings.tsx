@@ -1112,79 +1112,265 @@ function DateTimePickerTrigger({
 // ============================================================
 // WITHDRAWALS TAB
 // ============================================================
+type WStatus = "all" | "pending" | "approved" | "paid" | "rejected" | "cancelled";
+
+const STATUS_META: Record<Exclude<WStatus, "all">, { label: string; cls: string; card: string; icon: any }> = {
+  pending:   { label: "معلقة",       cls: "bg-amber-100 text-amber-800 border-amber-300",       card: "from-amber-500 to-orange-600",   icon: AlertTriangle },
+  approved:  { label: "قيد التنفيذ", cls: "bg-blue-100 text-blue-800 border-blue-300",           card: "from-blue-500 to-indigo-600",    icon: PlayCircle },
+  paid:      { label: "تمت",         cls: "bg-emerald-100 text-emerald-800 border-emerald-300", card: "from-emerald-500 to-teal-600",   icon: CheckCircle2 },
+  rejected:  { label: "مرفوضة",      cls: "bg-rose-100 text-rose-800 border-rose-300",           card: "from-rose-500 to-red-600",       icon: XCircle },
+  cancelled: { label: "ملغاة",       cls: "bg-slate-100 text-slate-700 border-slate-300",        card: "from-slate-500 to-gray-600",     icon: MinusCircle },
+};
+
+const fmtDateTime = (s?: string | null) => {
+  if (!s) return "—";
+  try {
+    return new Date(s).toLocaleString("ar-EG", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return "—";
+  }
+};
+
+const relativeAr = (s?: string | null) => {
+  if (!s) return "";
+  const diff = Date.now() - new Date(s).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return "الآن";
+  if (m < 60) return `منذ ${m} د`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `منذ ${h} س`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `منذ ${d} يوم`;
+  const mo = Math.floor(d / 30);
+  return `منذ ${mo} شهر`;
+};
+
 function WithdrawalsTab({ overview, onReload }: any) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
-  
+  const [statusFilter, setStatusFilter] = useState<WStatus>("pending");
+  const [search, setSearch] = useState("");
+  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
 
   const load = async () => {
     setLoading(true);
-    let q = supabase
+    const { data, error } = await supabase
       .from("teacher_withdrawal_requests")
       .select("id, teacher_id, amount, status, payment_method, phone_number, created_at, processed_at, admin_message, profiles:teacher_id(full_name, email)")
       .order("created_at", { ascending: false })
-      .limit(100);
-    if (statusFilter !== "all") q = q.eq("status", statusFilter);
-    const { data, error } = await q;
+      .limit(500);
     if (!error) setRows(data || []);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [statusFilter]);
+  useEffect(() => { load(); }, []);
+
+  // Live sync
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin-withdrawals-tab")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, () => load())
+      .subscribe();
+    const iv = setInterval(load, 30_000);
+    return () => { supabase.removeChannel(ch); clearInterval(iv); };
+  }, []);
+
+  const counts = useMemo(() => {
+    const c: Record<string, { n: number; sum: number }> = {
+      all: { n: rows.length, sum: 0 },
+      pending: { n: 0, sum: 0 },
+      approved: { n: 0, sum: 0 },
+      paid: { n: 0, sum: 0 },
+      rejected: { n: 0, sum: 0 },
+      cancelled: { n: 0, sum: 0 },
+    };
+    rows.forEach((r: any) => {
+      const s = r.status as string;
+      if (c[s]) { c[s].n += 1; c[s].sum += Number(r.amount || 0); }
+      c.all.sum += Number(r.amount || 0);
+    });
+    return c;
+  }, [rows]);
+
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (statusFilter !== "all") list = list.filter((r: any) => r.status === statusFilter);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((r: any) =>
+        `${r.profiles?.full_name || ""} ${r.profiles?.email || ""} ${r.phone_number || ""} ${r.payment_method || ""} ${r.admin_message || ""}`
+          .toLowerCase().includes(q),
+      );
+    }
+    list = [...list].sort((a: any, b: any) => {
+      const va = new Date(a.created_at).getTime();
+      const vb = new Date(b.created_at).getTime();
+      return sortDir === "asc" ? va - vb : vb - va;
+    });
+    return list;
+  }, [rows, statusFilter, search, sortDir]);
+
+  const KPI = ({ k }: { k: Exclude<WStatus, "all"> }) => {
+    const meta = STATUS_META[k];
+    const Icon = meta.icon;
+    const active = statusFilter === k;
+    return (
+      <button
+        onClick={() => setStatusFilter(k)}
+        className={`relative overflow-hidden rounded-2xl p-3 text-right transition-all border ${
+          active ? "ring-2 ring-offset-2 ring-blue-500 scale-[1.02] border-transparent" : "border-slate-200 hover:border-slate-300"
+        } bg-gradient-to-br ${meta.card} text-white shadow-md`}
+      >
+        <div className="flex items-start justify-between">
+          <Icon className="h-5 w-5 opacity-90" />
+          <div className="text-[10px] font-black opacity-95">{meta.label}</div>
+        </div>
+        <div className="mt-2">
+          <div className="text-2xl font-black tabular-nums leading-none">{fmtInt(counts[k].n)}</div>
+          <div className="text-[10px] font-bold opacity-95 mt-1 tabular-nums">{fmt(counts[k].sum)} ج</div>
+        </div>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-3">
+      {/* Detailed KPI grid – clickable, live numbers + totals */}
       <div className="grid grid-cols-3 gap-2">
-        <KpiCard label="معلقة" value={`${fmtInt(overview?.pending_requests)}`} sub={`${fmt(overview?.pending_amount)} ج`} icon={AlertTriangle} tint="from-orange-500 to-red-500" />
-        <KpiCard label="مقبولة" value={`${fmtInt(overview?.approved_count)}`} sub={`${fmt(overview?.approved_total)} ج`} icon={CheckCircle2} tint="from-emerald-500 to-teal-600" />
-        <KpiCard label="مرفوضة" value={`${fmtInt(overview?.rejected_count)}`} icon={XCircle} tint="from-slate-500 to-gray-600" />
+        <KPI k="pending" />
+        <KPI k="approved" />
+        <KPI k="paid" />
+        <KPI k="rejected" />
+        <KPI k="cancelled" />
+        <button
+          onClick={() => setStatusFilter("all")}
+          className={`rounded-2xl p-3 text-right transition border ${
+            statusFilter === "all" ? "ring-2 ring-offset-2 ring-blue-500 border-transparent" : "border-slate-200 hover:border-slate-300"
+          } bg-white shadow-md`}
+        >
+          <div className="flex items-start justify-between">
+            <History className="h-5 w-5 text-slate-600" />
+            <div className="text-[10px] font-black text-slate-700">الكل</div>
+          </div>
+          <div className="mt-2">
+            <div className="text-2xl font-black tabular-nums leading-none text-slate-900">{fmtInt(counts.all.n)}</div>
+            <div className="text-[10px] font-bold text-slate-500 mt-1 tabular-nums">{fmt(counts.all.sum)} ج</div>
+          </div>
+        </button>
       </div>
 
-      <div className="flex gap-1 p-1 bg-slate-200 rounded-xl border border-slate-300 shadow-inner">
-        {[["pending", "معلقة"], ["approved", "مقبولة"], ["rejected", "مرفوضة"], ["all", "الكل"]].map(([k, l]) => (
-          <button key={k as string} onClick={() => setStatusFilter(k as any)}
-            className={`flex-1 h-9 rounded-lg text-xs font-black transition-all ${
-              statusFilter === k ? "bg-blue-700 text-white shadow-md" : "bg-white text-slate-800 hover:bg-blue-50"
-            }`}>{l}</button>
-        ))}
+      {/* Search + sort + refresh */}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث بالمعلم / البريد / الرقم / الطريقة / الملاحظة..."
+            className="pr-8 h-9 text-xs bg-white"
+          />
+        </div>
+        <Button variant="outline" size="sm" className="h-9 gap-1"
+          onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}>
+          <Clock className="h-3.5 w-3.5" />
+          {sortDir === "desc" ? "الأحدث" : "الأقدم"}
+        </Button>
+        <Button variant="outline" size="sm" className="h-9" onClick={load} disabled={loading}>
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+        </Button>
       </div>
 
+      <div className="text-[11px] text-slate-600 font-semibold px-1">
+        {fmtInt(filtered.length)} طلب معروض
+        {statusFilter !== "all" && ` • ${STATUS_META[statusFilter as Exclude<WStatus, "all">].label}`}
+      </div>
 
-      <ScrollArea className="max-h-[520px]">
+      <ScrollArea className="max-h-[560px]">
         <div className="space-y-2">
-          {loading ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)
-            : rows.length === 0 ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">لا توجد طلبات</div>
-            ) : rows.map((r) => (
-              <Card key={r.id} className="border border-slate-200 bg-white shadow-md">
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-2 mb-1.5">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-slate-950 truncate">{r.profiles?.full_name || "معلم"}</p>
-                      <p className="text-[10px] text-slate-600 font-semibold truncate">{r.profiles?.email}</p>
+          {loading ? (
+            Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-10 text-sm text-slate-500 bg-white rounded-xl border border-slate-200">
+              لا توجد طلبات مطابقة
+            </div>
+          ) : (
+            filtered.map((r: any) => {
+              const meta = STATUS_META[r.status as Exclude<WStatus, "all">] || STATUS_META.pending;
+              return (
+                <Card key={r.id} className="border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                  <div className={`h-1 bg-gradient-to-r ${meta.card}`} />
+                  <CardContent className="p-3 space-y-2.5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-slate-950 truncate">
+                          {r.profiles?.full_name || "معلم غير معروف"}
+                        </p>
+                        <p className="text-[10px] text-slate-500 truncate" dir="ltr">
+                          {r.profiles?.email || "—"}
+                        </p>
+                      </div>
+                      <div className="text-left shrink-0">
+                        <div className="text-base font-black text-slate-950 tabular-nums leading-none">{fmt(r.amount)} ج</div>
+                        <span className={`inline-block mt-1 text-[10px] font-black px-2 py-0.5 rounded-full border ${meta.cls}`}>
+                          {meta.label}
+                        </span>
+                      </div>
                     </div>
-                    <StatusBadge status={r.status} />
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-[11px]">
-                    <div>
-                      <p className="text-slate-600 font-semibold">المبلغ</p>
-                      <p className="font-black text-slate-950">{fmt(r.amount)} ج</p>
+
+                    {/* Details grid */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-slate-50 rounded-lg p-2 border border-slate-100">
+                      <div>
+                        <p className="text-slate-500 font-semibold">طريقة السحب</p>
+                        <p className="font-bold text-slate-900 truncate">{r.payment_method || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 font-semibold">رقم المحفظة</p>
+                        <p className="font-bold text-slate-900 tabular-nums truncate" dir="ltr">{r.phone_number || "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 font-semibold">تاريخ التقديم</p>
+                        <p className="font-bold text-slate-900 truncate">{fmtDateTime(r.created_at)}</p>
+                        <p className="text-[9px] text-slate-500">{relativeAr(r.created_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 font-semibold">تاريخ المعالجة</p>
+                        <p className="font-bold text-slate-900 truncate">{fmtDateTime(r.processed_at)}</p>
+                        {r.processed_at && <p className="text-[9px] text-slate-500">{relativeAr(r.processed_at)}</p>}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-slate-600 font-semibold">الطريقة</p>
-                      <p className="font-black text-slate-950 truncate">{r.payment_method}</p>
+
+                    {/* Admin note */}
+                    {r.admin_message && (
+                      <div className="text-[11px] bg-blue-50 border border-blue-100 rounded-lg p-2">
+                        <p className="text-blue-700 font-black mb-0.5 flex items-center gap-1">
+                          <FileText className="h-3 w-3" /> ملاحظة الإدارة
+                        </p>
+                        <p className="text-slate-800 font-medium leading-relaxed">{r.admin_message}</p>
+                      </div>
+                    )}
+
+                    {/* Footer id */}
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                      <span className="text-[9px] text-slate-400 font-mono" dir="ltr">
+                        #{String(r.id).slice(0, 8)}
+                      </span>
+                      <span className="text-[9px] text-slate-400">
+                        {r.status === "pending" ? "بانتظار المراجعة" :
+                         r.status === "approved" ? "قيد التحويل للمعلم" :
+                         r.status === "paid" ? "تم التحويل بنجاح" :
+                         r.status === "rejected" ? "تم رفض الطلب" :
+                         r.status === "cancelled" ? "تم إلغاء الطلب" : ""}
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-slate-600 font-semibold">التاريخ</p>
-                      <p className="font-black text-slate-950 truncate" dir="ltr">
-                        {new Date(r.created_at).toLocaleDateString("ar-EG")}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })
+          )}
         </div>
       </ScrollArea>
     </div>
@@ -1192,13 +1378,11 @@ function WithdrawalsTab({ overview, onReload }: any) {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const map: any = {
-    pending: { label: "معلق", cls: "bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300" },
-    approved: { label: "مقبول", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" },
-    rejected: { label: "مرفوض", cls: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300" },
-  };
-  const m = map[status] || { label: status, cls: "bg-muted text-muted-foreground" };
-  return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${m.cls}`}>{m.label}</span>;
+  const meta = STATUS_META[status as Exclude<WStatus, "all">];
+  if (!meta) {
+    return <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{status}</span>;
+  }
+  return <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${meta.cls}`}>{meta.label}</span>;
 }
 
 // ============================================================
