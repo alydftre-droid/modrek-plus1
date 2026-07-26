@@ -167,12 +167,14 @@ export default function ModrekUploadWizard({
     [grades, tax.stage_id],
   );
   const filteredSubjects = useMemo(() => {
-    const sectionCode = sections.find((s) => s.id === tax.section_id)?.code;
+    const selectedSectionCode = sections.find((s) => s.id === tax.section_id)?.code;
     return subjects.filter((s) => {
       if (tax.stage_id && s.stage_id && s.stage_id !== tax.stage_id) return false;
-      if (tax.section_id) {
-        if (sectionCode === "shared") return true;
-        if (s.section_id && s.section_id !== tax.section_id) return false;
+      if (tax.section_id && s.section_id && s.section_id !== tax.section_id) {
+        // "shared" education-system subjects belong to every section (عام + أزهر).
+        // Likewise, if the admin picked "shared", subjects tagged عام/أزهر are still valid.
+        const subjectSectionCode = sections.find((x) => x.id === s.section_id)?.code;
+        if (subjectSectionCode !== "shared" && selectedSectionCode !== "shared") return false;
       }
       return true;
     });
