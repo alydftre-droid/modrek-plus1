@@ -325,31 +325,15 @@ export async function fetchStudentVideoProgressFallback(studentId: string) {
 }
 
 export async function fetchStudentTeachersFallback(studentId: string) {
-  const [{ purchases, groups }, choices] = await Promise.all([
-    getStudentGroups(studentId),
-    safeSelect(supabase.from("student_teacher_choices").select("teacher_id, category, stage, grade, created_at").eq("student_id", studentId)),
-  ]);
-  const choiceRows = choices.map((choice: AnyRow) => ({ teacher_id: choice.teacher_id, created_by: null }));
-  const { teacherMap } = await resolveLookups([...groups, ...choiceRows]);
+  // Only paid subscriptions count — chosen-but-not-subscribed teachers are excluded.
+  const { purchases, groups } = await getStudentGroups(studentId);
+  const { teacherMap } = await resolveLookups(groups);
   const byTeacher = new Map<string, AnyRow>();
-  choices.forEach((choice: AnyRow) => {
-    const teacherId = choice.teacher_id;
-    if (!teacherId) return;
-    byTeacher.set(teacherId, {
-      teacher_id: teacherId,
-      teacher_name: teacherMap.get(teacherId)?.full_name ?? null,
-      avatar_url: teacherMap.get(teacherId)?.avatar_url ?? null,
-      courses_count: 0,
-      total_paid: 0,
-      last_interaction: choice.created_at ?? null,
-      status: "chosen",
-    });
-  });
   groups.forEach((group: AnyRow) => {
     const teacherId = group.teacher_id ?? group.created_by;
     if (!teacherId) return;
     const paid = purchases.filter((p: AnyRow) => p.group_id === group.id).reduce((sum: number, p: AnyRow) => sum + num(p.amount_paid), 0);
-    const old = byTeacher.get(teacherId) ?? { teacher_id: teacherId, teacher_name: teacherMap.get(teacherId)?.full_name ?? null, avatar_url: teacherMap.get(teacherId)?.avatar_url ?? null, courses_count: 0, total_paid: 0, last_interaction: null, status: "chosen" };
+    const old = byTeacher.get(teacherId) ?? { teacher_id: teacherId, teacher_name: teacherMap.get(teacherId)?.full_name ?? null, avatar_url: teacherMap.get(teacherId)?.avatar_url ?? null, courses_count: 0, total_paid: 0, last_interaction: null, status: "subscribed" };
     old.courses_count += 1;
     old.total_paid += paid;
     old.last_interaction = purchases.find((p: AnyRow) => p.group_id === group.id)?.purchased_at ?? old.last_interaction;

@@ -96,29 +96,23 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       // Always enrich with fresh wallet / spend / watch numbers directly from the DB.
       // The RPC may be an older deployed version on the mirrored database and lack
       // wallet_balance / total_spent / watch_minutes, which would render as zeros.
-      const [walletRes, purchRes, videoRes, choicesRes, activityRes, usageRes] = await Promise.all([
+      // Only enrich fields that are outside the "paid subscription" scope
+      // (wallet balance & platform activity). All content/exam/video/teacher
+      // stats come strictly from the RPC and are already scoped to paid groups.
+      const [walletRes, activityRes, usageRes] = await Promise.all([
         supabase.from("wallets").select("balance").eq("user_id", studentId).maybeSingle(),
-        supabase.from("student_group_purchases").select("amount_paid").eq("student_id", studentId),
-        supabase.from("video_progress").select("progress_seconds").eq("user_id", studentId),
-        supabase.from("student_teacher_choices").select("teacher_id").eq("student_id", studentId),
         supabase.from("student_activity_logs").select("duration_seconds").eq("student_id", studentId),
         supabase.from("usage_logs").select("duration_minutes").eq("user_id", studentId),
       ]);
       const liveWallet = Number((walletRes.data as any)?.balance || 0);
-      const liveSpent = ((purchRes.data as any[]) ?? []).reduce((s, p) => s + Number(p.amount_paid || 0), 0);
-      const liveWatchMin = Math.round(((videoRes.data as any[]) ?? []).reduce((s, v) => s + Number(v.progress_seconds || 0), 0) / 60);
       const platformSeconds = ((activityRes.data as any[]) ?? []).reduce((s, row) => s + Number(row.duration_seconds || 0), 0);
       const legacyPlatformSeconds = ((usageRes.data as any[]) ?? []).reduce((s, row) => s + Number(row.duration_minutes || 0) * 60, 0);
-      const chosenTeacherIds = ((choicesRes.data as any[]) ?? []).map((row) => row.teacher_id).filter(Boolean);
 
       return {
         ...overview,
         stats: {
           ...overview.stats,
-          teachers_count: Math.max(Number(overview.stats.teachers_count || 0), new Set(chosenTeacherIds).size),
           wallet_balance: liveWallet,
-          total_spent: liveSpent,
-          watch_minutes: liveWatchMin,
           platform_minutes: Math.round(Math.max(platformSeconds, legacyPlatformSeconds) / 60),
         },
       } as Overview;
@@ -165,27 +159,20 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const { data: teachers = [], isFetching: teachersFetching, dataUpdatedAt: teachersUpdatedAt, refetch: refetchTeachers } = useQuery({
     queryKey: ["dev-student-teachers-with-subject", studentId],
     queryFn: async (): Promise<TeacherRow[]> => {
-      const [{ data: choices }, { data: purchases }] = await Promise.all([
-        supabase
-          .from("student_teacher_choices")
-          .select("teacher_id, category, stage, grade")
-          .eq("student_id", studentId),
-        supabase
+      // Only show teachers the student is actually subscribed with (paid).
+      // Chosen-but-not-subscribed teachers are intentionally excluded so the
+      // developer view reflects reality, not intent.
+      const { data: purchases } = await supabase
         .from("student_group_purchases")
         .select("group_id")
-          .eq("student_id", studentId),
-      ]);
+        .eq("student_id", studentId);
       const groupIds = [...new Set((purchases ?? []).map((p: any) => p.group_id).filter(Boolean))] as string[];
-      const { data: groups } = groupIds.length
-        ? await supabase
-            .from("content_groups")
-            .select("id, teacher_id, created_by, subject_id")
-            .in("id", groupIds)
-        : { data: [] as any[] };
-      const teacherIds = [...new Set([
-        ...((choices ?? []).map((c: any) => c.teacher_id).filter(Boolean)),
-        ...((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean)),
-      ])] as string[];
+      if (!groupIds.length) return [];
+      const { data: groups } = await supabase
+        .from("content_groups")
+        .select("id, teacher_id, created_by, subject_id")
+        .in("id", groupIds);
+      const teacherIds = [...new Set((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean))] as string[];
       const subjectIds = [...new Set((groups ?? []).map((g: any) => g.subject_id).filter(Boolean))] as string[];
       const [{ data: profs }, { data: subjs }] = await Promise.all([
         teacherIds.length
@@ -198,21 +185,6 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
       const sMap = new Map((subjs ?? []).map((s: any) => [s.id, s.name]));
       const byT = new Map<string, TeacherRow & { subjectSet: Set<string> }>();
-      (choices ?? []).forEach((choice: any) => {
-        const tid = choice.teacher_id;
-        if (!tid) return;
-        const row = byT.get(tid) ?? {
-          teacher_id: tid,
-          teacher_name: pMap.get(tid) ?? "معلم",
-          specialty: null,
-          courses_count: 0,
-          status: "chosen",
-          subjectSet: new Set<string>(),
-        };
-        const label = [choice.category, choice.stage, choice.grade].filter(Boolean).join(" · ");
-        if (label) row.subjectSet.add(label);
-        byT.set(tid, row);
-      });
       (groups ?? []).forEach((g: any) => {
         const tid = g.teacher_id ?? g.created_by;
         if (!tid) return;
@@ -221,7 +193,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           teacher_name: pMap.get(tid) ?? "معلم",
           specialty: null,
           courses_count: 0,
-          status: "chosen",
+          status: "subscribed",
           subjectSet: new Set<string>(),
         };
         row.courses_count += 1;
@@ -354,25 +326,25 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
             <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.exams_count)}</span>
           </IconRow>
           <IconRow icon={Users} color="text-emerald-500">
-            <span className="text-slate-700">معلمون مختارون:</span>{" "}
+            <span className="text-slate-700">معلمون مشترك معهم:</span>{" "}
             <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.teachers_count)}</span>
           </IconRow>
         </ul>
       </Card>
 
-      {/* المعلمون المختارون */}
-      <Card title="المعلمون الذين اختارهم الطالب">
+      {/* المعلمون المشترك معهم فعلياً */}
+      <Card title="المعلمون الذين اشترك معهم الطالب فعلياً">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
           <span className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-700">
             <span className={`h-2 w-2 rounded-full bg-emerald-500 ${teachersFetching ? "animate-pulse" : ""}`} />
-            يعرض المختارين سواء تم الاشتراك معهم أو لا · آخر تحديث {teachersLastSync}
+            يعرض فقط المعلمين الذين دفع الطالب اشتراكهم · آخر تحديث {teachersLastSync}
           </span>
           <button onClick={() => refetchTeachers()} className="text-[11px] font-bold text-emerald-700 underline-offset-4 hover:underline">
             تحديث الآن
           </button>
         </div>
         {teachers.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-2">لا توجد اختيارات معلمين بعد.</p>
+          <p className="text-xs text-slate-500 text-center py-2">لم يشترك الطالب مع أي معلم بعد.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <table className="w-full text-sm text-right border-collapse">
