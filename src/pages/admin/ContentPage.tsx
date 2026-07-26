@@ -141,11 +141,15 @@ const ContentPage = () => {
   const handleDelete = async (content: Content) => {
     if (!confirm("هل أنت متأكد من حذف هذا المحتوى؟")) return;
 
+    const { deleteContentBunnyAssets, writeDeletionAudit } = await import("@/lib/bunnyCleanup");
+    const startedAt = performance.now();
+    let bunnyResults: Awaited<ReturnType<typeof deleteContentBunnyAssets>> = [];
+    let auditError: string | null = null;
+
     try {
       // 1) Delete media from Bunny (Stream + Storage) BEFORE removing the DB row,
       //    because bunny-* edge functions authorize deletion by row lookup.
-      const { deleteContentBunnyAssets } = await import("@/lib/bunnyCleanup");
-      await deleteContentBunnyAssets({
+      bunnyResults = await deleteContentBunnyAssets({
         file_url: content.file_url,
         thumbnail_url: (content as unknown as { thumbnail_url?: string | null }).thumbnail_url,
       });
@@ -166,10 +170,22 @@ const ContentPage = () => {
       toast.success("تم حذف المحتوى");
       loadData();
     } catch (error) {
+      auditError = error instanceof Error ? error.message : String(error);
       console.error("Delete error:", error);
       toast.error("خطأ في حذف المحتوى");
+    } finally {
+      await writeDeletionAudit({
+        actionType: "content_delete",
+        targetId: content.id,
+        targetLabel: content.title,
+        targetMeta: { type: content.type, file_url: content.file_url },
+        bunnyResults,
+        startedAt,
+        error: auditError,
+      });
     }
   };
+
 
   const getSubjectName = (subjectId: string | null) => {
     if (!subjectId) return "-";

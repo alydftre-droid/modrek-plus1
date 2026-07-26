@@ -1174,6 +1174,60 @@ export type Database = {
         }
         Relationships: []
       }
+      deletion_audit_logs: {
+        Row: {
+          action_type: string
+          actor_email: string | null
+          actor_id: string | null
+          bunny_details: Json
+          bunny_failed: number
+          bunny_success: number
+          bunny_total: number
+          created_at: string
+          duration_ms: number
+          error: string | null
+          id: string
+          status: string
+          target_id: string | null
+          target_label: string | null
+          target_meta: Json
+        }
+        Insert: {
+          action_type: string
+          actor_email?: string | null
+          actor_id?: string | null
+          bunny_details?: Json
+          bunny_failed?: number
+          bunny_success?: number
+          bunny_total?: number
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          id?: string
+          status?: string
+          target_id?: string | null
+          target_label?: string | null
+          target_meta?: Json
+        }
+        Update: {
+          action_type?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          bunny_details?: Json
+          bunny_failed?: number
+          bunny_success?: number
+          bunny_total?: number
+          created_at?: string
+          duration_ms?: number
+          error?: string | null
+          id?: string
+          status?: string
+          target_id?: string | null
+          target_label?: string | null
+          target_meta?: Json
+        }
+        Relationships: []
+      }
       deposit_requests: {
         Row: {
           admin_message: string | null
