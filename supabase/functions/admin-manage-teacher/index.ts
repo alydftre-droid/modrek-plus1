@@ -142,158 +142,182 @@ Deno.serve(async (req) => {
     }
 
     if (action === "delete_teacher") {
+      const teacherDeleteStart = Date.now();
+      let teacherAuditError: string | null = null;
+
+      // Snapshot teacher label for the audit log BEFORE the cascade wipes profiles.
+      let teacherLabel: string | null = null;
+      let teacherEmail: string | null = null;
+      try {
+        const { data: prof0 } = await admin.from("profiles").select("full_name, email").eq("id", teacher_id).maybeSingle();
+        teacherLabel = (prof0?.full_name as string | null) ?? null;
+        teacherEmail = (prof0?.email as string | null) ?? null;
+      } catch { /* best-effort */ }
+
       // Full cascade cleanup of every teacher-owned row so no FK blocks auth.users deletion.
       const swallow = async (label: string, fn: () => Promise<unknown>) => {
         try { await fn(); } catch (err) { console.warn(`[delete_teacher:${label}]`, err); }
       };
 
       // ── Bunny.net cleanup ─────────────────────────────────────────────
-      // Delete every video (Bunny Stream) and file/thumbnail (Bunny Storage)
-      // owned by this teacher BEFORE removing the DB rows, so nothing is left
-      // orphaned on Bunny after the cascade.
       const bunnyStreamApiKey  = Deno.env.get("BUNNY_STREAM_API_KEY") || Deno.env.get("BUNNY_API_KEY") || "";
       const bunnyStreamLibrary = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || "686928";
       const bunnyStorageApiKey = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
       const bunnyStorageZone   = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
       const bunnyStorageHost   = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
 
-      const deleteBunnyVideo = async (videoId: string) => {
-        if (!bunnyStreamApiKey || !videoId) return;
+      type BunnyResult = { kind: "stream" | "storage"; ref: string; ok: boolean; status: number; error?: string };
+      const bunnyResults: BunnyResult[] = [];
+
+      const deleteBunnyVideo = async (videoId: string): Promise<BunnyResult> => {
+        if (!bunnyStreamApiKey || !videoId) {
+          return { kind: "stream", ref: videoId, ok: false, status: 0, error: "missing_stream_credentials" };
+        }
         try {
-          await fetch(`https://video.bunnycdn.com/library/${bunnyStreamLibrary}/videos/${videoId}`, {
+          const res = await fetch(`https://video.bunnycdn.com/library/${bunnyStreamLibrary}/videos/${videoId}`, {
             method: "DELETE",
             headers: { AccessKey: bunnyStreamApiKey, Accept: "application/json" },
           });
-        } catch (err) { console.warn("[delete_teacher:bunny_stream]", videoId, err); }
+          return { kind: "stream", ref: videoId, ok: res.ok || res.status === 404, status: res.status };
+        } catch (err) {
+          return { kind: "stream", ref: videoId, ok: false, status: 0, error: String(err) };
+        }
       };
-      const deleteBunnyFile = async (path: string) => {
-        if (!bunnyStorageApiKey || !bunnyStorageZone || !path) return;
+      const deleteBunnyFile = async (path: string): Promise<BunnyResult> => {
+        if (!bunnyStorageApiKey || !bunnyStorageZone || !path) {
+          return { kind: "storage", ref: path, ok: false, status: 0, error: "missing_storage_credentials" };
+        }
         try {
-          await fetch(`https://${bunnyStorageHost}/${bunnyStorageZone}/${path}`, {
+          const res = await fetch(`https://${bunnyStorageHost}/${bunnyStorageZone}/${path}`, {
             method: "DELETE",
             headers: { AccessKey: bunnyStorageApiKey },
           });
-        } catch (err) { console.warn("[delete_teacher:bunny_storage]", path, err); }
+          return { kind: "storage", ref: path, ok: res.ok || res.status === 404, status: res.status };
+        } catch (err) {
+          return { kind: "storage", ref: path, ok: false, status: 0, error: String(err) };
+        }
       };
-      const cleanupUrl = async (url: string | null | undefined) => {
-        if (!url) return;
-        if (url.startsWith("bunny://"))    await deleteBunnyVideo(url.slice("bunny://".length));
-        else if (url.startsWith("bstorage://")) await deleteBunnyFile(url.slice("bstorage://".length));
+      const cleanupUrl = async (url: string): Promise<BunnyResult | null> => {
+        if (url.startsWith("bunny://"))    return deleteBunnyVideo(url.slice("bunny://".length));
+        if (url.startsWith("bstorage://")) return deleteBunnyFile(url.slice("bstorage://".length));
+        return null;
       };
 
-      // Gather every asset URL owned by the teacher.
       const assetUrls: string[] = [];
       try {
-        const { data: contentRows } = await admin
-          .from("content")
-          .select("file_url, thumbnail_url")
-          .eq("uploaded_by", teacher_id);
+        const { data: contentRows } = await admin.from("content").select("file_url, thumbnail_url").eq("uploaded_by", teacher_id);
         for (const row of contentRows ?? []) {
           if (row.file_url) assetUrls.push(row.file_url as string);
           if (row.thumbnail_url) assetUrls.push(row.thumbnail_url as string);
         }
       } catch (err) { console.warn("[delete_teacher:collect_content_urls]", err); }
       try {
-        const { data: bookRows } = await admin
-          .from("library_books")
-          .select("pdf_path, cover_url")
-          .eq("created_by", teacher_id);
+        const { data: bookRows } = await admin.from("library_books").select("pdf_path, cover_url").eq("created_by", teacher_id);
         for (const row of bookRows ?? []) {
           if (row.pdf_path) assetUrls.push(row.pdf_path as string);
           if (row.cover_url) assetUrls.push(row.cover_url as string);
         }
       } catch (err) { console.warn("[delete_teacher:collect_book_urls]", err); }
       try {
-        const { data: storageAssets } = await admin
-          .from("storage_assets")
-          .select("object_path, storage_provider")
-          .eq("uploaded_by", teacher_id);
+        const { data: storageAssets } = await admin.from("storage_assets").select("object_path, storage_provider").eq("uploaded_by", teacher_id);
         for (const row of storageAssets ?? []) {
           if (row.storage_provider === "bunny" && row.object_path) {
             assetUrls.push(`bstorage://${row.object_path}`);
           }
         }
       } catch (err) { console.warn("[delete_teacher:collect_storage_assets]", err); }
-      // Teacher intro video / avatar stored on Bunny
       try {
-        const { data: prof } = await admin
-          .from("teacher_profiles")
-          .select("intro_video_url, avatar_url")
-          .eq("teacher_id", teacher_id)
-          .maybeSingle();
+        const { data: prof } = await admin.from("teacher_profiles").select("intro_video_url, avatar_url").eq("teacher_id", teacher_id).maybeSingle();
         if (prof?.intro_video_url) assetUrls.push(prof.intro_video_url as string);
         if (prof?.avatar_url)      assetUrls.push(prof.avatar_url as string);
       } catch (err) { console.warn("[delete_teacher:collect_teacher_profile]", err); }
 
-      // Run deletions with limited concurrency so we don't overwhelm Bunny.
       const uniqueUrls = Array.from(new Set(assetUrls));
       console.info(`[delete_teacher] cleaning ${uniqueUrls.length} bunny assets for teacher ${teacher_id}`);
       const batchSize = 8;
       for (let i = 0; i < uniqueUrls.length; i += batchSize) {
-        await Promise.all(uniqueUrls.slice(i, i + batchSize).map(cleanupUrl));
+        const chunk = await Promise.all(uniqueUrls.slice(i, i + batchSize).map(cleanupUrl));
+        for (const r of chunk) if (r) bunnyResults.push(r);
       }
       // ──────────────────────────────────────────────────────────────────
 
+      try {
+        // Tables keyed by teacher_id (profiles.id / auth.users.id)
+        const byTeacherId = [
+          "teacher_activity_logs","teacher_wallet_transactions","teacher_withdrawal_requests",
+          "teacher_payment_methods","teacher_assignments","teacher_wallets","teacher_monthly_archives",
+          "teacher_commission_history","teacher_earning_records","teacher_messages","teacher_schedules",
+          "teacher_visibility_diagnostics","teacher_profiles","price_change_requests",
+          "student_teacher_choices","student_group_purchases","teacher_requests","subscription_requests",
+          "subscriptions","subscription_messages","automated_messages","content_groups","bundled_packages",
+          "live_sessions","live_session_messages","live_session_recordings","exams","ads",
+        ];
+        for (const t of byTeacherId) {
+          await swallow(`t/${t}`, () => admin.from(t).delete().eq("teacher_id", teacher_id));
+        }
 
-      // Tables keyed by teacher_id (profiles.id / auth.users.id)
-      const byTeacherId = [
-        "teacher_activity_logs",
-        "teacher_wallet_transactions",
-        "teacher_withdrawal_requests",
-        "teacher_payment_methods",
-        "teacher_assignments",
-        "teacher_wallets",
-        "teacher_monthly_archives",
-        "teacher_commission_history",
-        "teacher_earning_records",
-        "teacher_messages",
-        "teacher_schedules",
-        "teacher_visibility_diagnostics",
-        "teacher_profiles",
-        "price_change_requests",
-        "student_teacher_choices",
-        "student_group_purchases",
-        "teacher_requests",
-        "subscription_requests",
-        "subscriptions",
-        "subscription_messages",
-        "automated_messages",
-        "content_groups",
-        "bundled_packages",
-        "live_sessions",
-        "live_session_messages",
-        "live_session_recordings",
-        "exams",
-        "ads",
-      ];
-      for (const t of byTeacherId) {
-        await swallow(`t/${t}`, () => admin.from(t).delete().eq("teacher_id", teacher_id));
+        await swallow("content.uploaded_by",           () => admin.from("content").delete().eq("uploaded_by", teacher_id));
+        await swallow("ai_sources.uploaded_by",        () => admin.from("ai_sources").delete().eq("uploaded_by", teacher_id));
+        await swallow("storage_assets.uploaded_by",    () => admin.from("storage_assets").delete().eq("uploaded_by", teacher_id));
+        await swallow("notifications.created_by",      () => admin.from("notifications").delete().eq("created_by", teacher_id));
+        await swallow("subscriptions.created_by",      () => admin.from("subscriptions").delete().eq("created_by", teacher_id));
+        await swallow("subscription_messages.created_by", () => admin.from("subscription_messages").delete().eq("created_by", teacher_id));
+        await swallow("automated_messages.created_by", () => admin.from("automated_messages").delete().eq("created_by", teacher_id));
+        await swallow("knowledge_sources.created_by",  () => admin.from("knowledge_sources").delete().eq("created_by", teacher_id));
+        await swallow("knowledge_source_versions.created_by", () => admin.from("knowledge_source_versions").delete().eq("created_by", teacher_id));
+        await swallow("library_books.created_by",      () => admin.from("library_books").delete().eq("created_by", teacher_id));
+        await swallow("library_section_explanations.created_by", () => admin.from("library_section_explanations").delete().eq("created_by", teacher_id));
+        await swallow("voice_answers.created_by",      () => admin.from("voice_answers").delete().eq("created_by", teacher_id));
+        await swallow("teacher_requests.reviewed_by",  () => admin.from("teacher_requests").delete().eq("reviewed_by", teacher_id));
+        await swallow("notifications.user_id",         () => admin.from("notifications").delete().eq("user_id", teacher_id));
+        await swallow("device_push_tokens.user_id",    () => admin.from("device_push_tokens").delete().eq("user_id", teacher_id));
+
+        await swallow("user_roles", () => admin.from("user_roles").delete().eq("user_id", teacher_id));
+        await swallow("profiles",   () => admin.from("profiles").delete().eq("id", teacher_id));
+
+        const { error: e4 } = await admin.auth.admin.deleteUser(teacher_id);
+        if (e4) throw e4;
+      } catch (err) {
+        teacherAuditError = (err as Error).message || String(err);
       }
 
-      // Uploaded / created_by references
-      await swallow("content.uploaded_by",           () => admin.from("content").delete().eq("uploaded_by", teacher_id));
-      await swallow("ai_sources.uploaded_by",        () => admin.from("ai_sources").delete().eq("uploaded_by", teacher_id));
-      await swallow("storage_assets.uploaded_by",    () => admin.from("storage_assets").delete().eq("uploaded_by", teacher_id));
-      await swallow("notifications.created_by",      () => admin.from("notifications").delete().eq("created_by", teacher_id));
-      await swallow("subscriptions.created_by",      () => admin.from("subscriptions").delete().eq("created_by", teacher_id));
-      await swallow("subscription_messages.created_by", () => admin.from("subscription_messages").delete().eq("created_by", teacher_id));
-      await swallow("automated_messages.created_by", () => admin.from("automated_messages").delete().eq("created_by", teacher_id));
-      await swallow("knowledge_sources.created_by",  () => admin.from("knowledge_sources").delete().eq("created_by", teacher_id));
-      await swallow("knowledge_source_versions.created_by", () => admin.from("knowledge_source_versions").delete().eq("created_by", teacher_id));
-      await swallow("library_books.created_by",      () => admin.from("library_books").delete().eq("created_by", teacher_id));
-      await swallow("library_section_explanations.created_by", () => admin.from("library_section_explanations").delete().eq("created_by", teacher_id));
-      await swallow("voice_answers.created_by",      () => admin.from("voice_answers").delete().eq("created_by", teacher_id));
-      await swallow("teacher_requests.reviewed_by",  () => admin.from("teacher_requests").delete().eq("reviewed_by", teacher_id));
-      await swallow("notifications.user_id",         () => admin.from("notifications").delete().eq("user_id", teacher_id));
-      await swallow("device_push_tokens.user_id",    () => admin.from("device_push_tokens").delete().eq("user_id", teacher_id));
+      // Persist audit row (best-effort).
+      try {
+        const total = bunnyResults.length;
+        const success = bunnyResults.filter((r) => r.ok).length;
+        const failed = total - success;
+        await admin.from("deletion_audit_logs").insert({
+          actor_id: callerId,
+          actor_email: userData.user.email ?? null,
+          action_type: "teacher_delete",
+          target_id: teacher_id,
+          target_label: teacherLabel,
+          target_meta: { email: teacherEmail },
+          bunny_total: total,
+          bunny_success: success,
+          bunny_failed: failed,
+          bunny_details: bunnyResults,
+          duration_ms: Date.now() - teacherDeleteStart,
+          status: teacherAuditError ? "error" : failed > 0 ? "partial" : "success",
+          error: teacherAuditError,
+        });
+      } catch (err) {
+        console.warn("[delete_teacher:audit]", err);
+      }
 
-      await swallow("user_roles", () => admin.from("user_roles").delete().eq("user_id", teacher_id));
-      await swallow("profiles",   () => admin.from("profiles").delete().eq("id", teacher_id));
-
-      const { error: e4 } = await admin.auth.admin.deleteUser(teacher_id);
-      if (e4) throw e4;
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (teacherAuditError) {
+        return new Response(JSON.stringify({ error: teacherAuditError }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({
+        success: true,
+        bunny: {
+          total: bunnyResults.length,
+          success: bunnyResults.filter((r) => r.ok).length,
+          failed: bunnyResults.filter((r) => !r.ok).length,
+        },
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     return new Response(JSON.stringify({ error: "إجراء غير معروف" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
