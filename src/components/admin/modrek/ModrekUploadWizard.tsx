@@ -1245,10 +1245,29 @@ const PIPE = [
   { key: "completed", label: "جاهز", icon: CheckCircle2, desc: "المصدر جاهز للاستخدام" },
 ];
 
-function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker }: any) {
+function formatDiagnosticData(data: Record<string, any> | null | undefined) {
+  if (!data) return null;
+  const useful = {
+    category: data.category,
+    file: data.file,
+    function: data.function,
+    line: data.line,
+    rawMessage: data.rawMessage,
+    next_run_at: data.next_run_at,
+    attempts: data.attempts,
+    max_attempts: data.max_attempts,
+  };
+  return Object.fromEntries(Object.entries(useful).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+}
+
+function ProcessingView({ stage, pct, files, onOpen, canOpen, error, jobs = [], events = [], onRunWorker }: any) {
   const idx = Math.max(0, PIPE.findIndex((p) => p.key === stage));
   const done = stage === "completed";
   const failed = stage === "failed";
+  const visibleJobs = [...jobs].reverse().slice(0, 8).reverse();
+  const problemJobs = jobs.filter((job: ProcessingJobRow) => ["failed", "retrying", "running"].includes(job.status)).slice(-6);
+  const latestProblemEvent = events.find((event: ProcessingEventRow) => event.level === "error" || event.level === "warn") ?? null;
+  const latestData = formatDiagnosticData(latestProblemEvent?.data);
   return (
     <div className="space-y-5">
       <div className={cn(
@@ -1292,6 +1311,54 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker
         </div>
       )}
 
+      {(problemJobs.length > 0 || latestProblemEvent) && (
+        <ModrekCard className="border-[#FDE68A] bg-gradient-to-br from-[#FFFBEB] to-white">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-[#FEF3C7] text-[#B45309]">
+              <Gauge className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-[13px] font-extrabold text-[#92400E]">تشخيص الفشل المباشر</div>
+              <div className="text-[11px] font-semibold text-[#B45309]">يعرض المرحلة، الملف، المحاولة، وسبب مزود الذكاء أو المهلة بدقة.</div>
+            </div>
+          </div>
+
+          {latestProblemEvent && (
+            <div className="mb-3 rounded-[12px] border border-[#FDE68A] bg-white p-3">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-extrabold text-[#92400E]">
+                <ModrekPill tone={latestProblemEvent.level === "error" ? "red" : "amber"} size="sm">{latestProblemEvent.level}</ModrekPill>
+                <span>{latestProblemEvent.message}</span>
+                <span className="mr-auto text-[#94A3B8]" dir="ltr">{new Date(latestProblemEvent.created_at).toLocaleTimeString("ar-EG")}</span>
+              </div>
+              {latestData && Object.keys(latestData).length > 0 && (
+                <pre className="mt-2 max-h-40 overflow-auto rounded-[10px] bg-[#0F172A] p-3 text-left text-[10px] leading-5 text-white" dir="ltr">
+                  {JSON.stringify(latestData, null, 2)}
+                </pre>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {problemJobs.map((job: ProcessingJobRow) => (
+              <div key={job.id} className="rounded-[12px] border border-[#F1F5F9] bg-white p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ModrekPill tone={job.status === "failed" ? "red" : job.status === "retrying" ? "amber" : "blue"} size="sm">{job.status}</ModrekPill>
+                  <span className="text-[12px] font-extrabold text-[#0F172A]">{job.kind}</span>
+                  {job.input?.page_from && <span className="text-[11px] font-bold text-[#475569]">صفحات {job.input.page_from}-{job.input.page_to ?? job.input.page_from}</span>}
+                  <span className="mr-auto text-[10px] font-bold text-[#94A3B8]">محاولة {job.attempts ?? 0}/{job.max_attempts ?? 3}</span>
+                </div>
+                {job.error && <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#FEF2F2] p-2 text-left text-[10px] leading-5 text-[#991B1B]" dir="ltr">{job.error}</pre>}
+                {job.next_run_at && job.status === "retrying" && (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#B45309]">
+                    <Clock className="h-3.5 w-3.5" /> إعادة تلقائية: {new Date(job.next_run_at).toLocaleTimeString("ar-EG")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </ModrekCard>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <ModrekButton variant="warning" size="md" icon={RefreshCw} onClick={onRunWorker}>
           تشغيل عامل المعالجة الآن
@@ -1306,6 +1373,21 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker
       </div>
 
       <ModrekCard>
+        {visibleJobs.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+            {visibleJobs.map((job: ProcessingJobRow) => (
+              <div key={job.id} className="rounded-[12px] border border-[#F1F5F9] bg-white p-2">
+                <div className="truncate text-[10px] font-extrabold text-[#475569]">{job.kind}</div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <ModrekPill tone={job.status === "failed" ? "red" : job.status === "retrying" ? "amber" : job.status === "succeeded" ? "emerald" : job.status === "running" ? "blue" : "slate"} size="sm">
+                    {job.status}
+                  </ModrekPill>
+                  <span className="text-[10px] font-bold text-[#94A3B8]">{job.progress_pct ?? 0}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">مراحل المعالجة</div>
         <div className="space-y-1">
           {PIPE.map((p, i) => {
