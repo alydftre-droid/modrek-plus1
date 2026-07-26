@@ -37,12 +37,17 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // invocation past the platform budget.
 const STAGE_TIMEOUT_MS = 90_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
+// PDF page extraction via Gemini File API can legitimately take longer than a
+// normal chat completion when a batch contains many pages or when the pages
+// are scanned images that require OCR. Keep this under the ~150s edge runtime
+// budget so the worker can still return cleanly on timeout and requeue.
+const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
 const FILE_API_TIMEOUT_MS = 80_000;
 const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
-const PDF_TEXT_BATCH_PAGES = 6;
+const PDF_TEXT_BATCH_PAGES = 4;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 
@@ -202,7 +207,29 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
       page_to: pageTo,
       page_count: pageCount,
     });
-    batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+    try {
+      batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+    } catch (err: any) {
+      // Auto-split: if a multi-page batch fails (timeout / partial output),
+      // requeue smaller sub-batches instead of hard-failing the whole book.
+      const rangeSize = pageTo - pageFrom + 1;
+      const alreadySplit = Number(input.__split_depth ?? 0);
+      if (rangeSize > 1 && alreadySplit < 4) {
+        const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
+        await log(admin, job.id, "warn", "extract_page auto-splitting after Gemini failure", {
+          page_from: pageFrom, page_to: pageTo, error: String(err?.message ?? err).slice(0, 300),
+        });
+        await enqueue(admin, job.version_id, "extract_page", 21, {
+          ...input, page_from: pageFrom, page_to: mid, __split_depth: alreadySplit + 1,
+        }, job.asset_id);
+        await enqueue(admin, job.version_id, "extract_page", 21, {
+          ...input, page_from: mid + 1, page_to: pageTo, __split_depth: alreadySplit + 1,
+        }, job.asset_id);
+        await succeedJob(admin, job, { mode: "split", page_from: pageFrom, page_to: pageTo, split_at: mid });
+        return;
+      }
+      throw err;
+    }
   } else {
     const bytes = await fetchAssetBytes(admin, asset);
     const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
@@ -988,7 +1015,7 @@ async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: Ge
   const prompt = `استخرج النص الكامل حرفياً من ملف PDF للصفحات من ${pageFrom} إلى ${pageTo} فقط.
 لا تختصر، لا تلخص، لا تضف شرحاً، لا تتخطى الجداول أو الأسئلة أو الاختيارات أو المعادلات.
 إذا كانت الصفحات صوراً، نفّذ OCR كامل. أعد النص الخام فقط مع فواصل صفحات واضحة.`;
-  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535);
+  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535, PDF_PAGE_EXTRACT_TIMEOUT_MS);
   const out = String(text ?? "").trim();
   if (out.length < Math.max(20, (pageTo - pageFrom + 1) * 10)) {
     throw new Error(`Gemini OCR/text extraction returned too little text for pages ${pageFrom}-${pageTo}`);
@@ -996,7 +1023,7 @@ async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: Ge
   return out;
 }
 
-async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number): Promise<any> {
+async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number, timeoutMs: number = AI_REQUEST_TIMEOUT_MS): Promise<any> {
   const apiKey = resolveGoogleGeminiApiKey();
   if (!apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
   const model = STRUCTURE_MODEL.replace(/^google\//, "");
@@ -1017,7 +1044,7 @@ async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef
         ...(jsonMode ? { responseMimeType: "application/json" } : {}),
       },
     }),
-  }, AI_REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
   if (!response.ok) throw new Error(`Gemini file generation failed ${response.status}: ${(await response.text()).slice(0, 300)}`);
   const payload = await response.json();
   const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
