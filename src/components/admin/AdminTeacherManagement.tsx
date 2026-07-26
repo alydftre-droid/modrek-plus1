@@ -89,78 +89,118 @@ const AdminTeacherManagement = () => {
   const fetchTeachers = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch teacher requests
-      const { data: requests, error } = await supabase
-        .from("teacher_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Union all possible teacher identities so the admin never misses anyone:
+      // 1) user_roles.role='teacher'  2) any teacher_requests row  3) profiles.role='teacher'  4) any teacher_profiles row
+      const [rolesRes, requestsRes, teacherProfilesRes, profilesRoleRes] = await Promise.all([
+        supabase.from("user_roles").select("user_id").eq("role", "teacher"),
+        supabase.from("teacher_requests").select("*").order("created_at", { ascending: false }),
+        supabase.from("teacher_profiles").select("*"),
+        supabase.from("profiles").select("id").eq("role", "teacher"),
+      ]);
 
-      if (error) throw error;
+      if (requestsRes.error) throw requestsRes.error;
 
-      if (!requests || requests.length === 0) {
+      const teacherIdSet = new Set<string>();
+      (rolesRes.data || []).forEach((r: any) => r.user_id && teacherIdSet.add(r.user_id));
+      (requestsRes.data || []).forEach((r: any) => r.user_id && teacherIdSet.add(r.user_id));
+      (teacherProfilesRes.data || []).forEach((p: any) => p.teacher_id && teacherIdSet.add(p.teacher_id));
+      (profilesRoleRes.data || []).forEach((p: any) => p.id && teacherIdSet.add(p.id));
+
+      const teacherIds = Array.from(teacherIdSet);
+      if (teacherIds.length === 0) {
         setTeachers([]);
         setLoading(false);
         return;
       }
 
-      const teacherIds = requests.map(r => r.user_id);
-
-      // Fetch profiles, teacher_profiles, content stats, student counts in parallel
-      const [profilesRes, teacherProfilesRes, contentRes, choicesRes, bannedRes] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, is_banned").in("id", teacherIds),
-        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, is_approved").in("teacher_id", teacherIds),
-        supabase.from("content").select("uploaded_by, type").in("uploaded_by", teacherIds).eq("is_active", true),
+      const [profilesRes, contentRes, choicesRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, email, phone, role, is_banned")
+          .in("id", teacherIds),
+        supabase
+          .from("content")
+          .select("uploaded_by, type")
+          .in("uploaded_by", teacherIds)
+          .eq("is_active", true),
         supabase.from("student_teacher_choices").select("teacher_id").in("teacher_id", teacherIds),
-        supabase.from("profiles").select("id, is_banned").in("id", teacherIds),
       ]);
 
-      const profileMap = new Map(profilesRes.data?.map(p => [p.id, p]) || []);
-      const teacherProfileMap = new Map(teacherProfilesRes.data?.map(p => [p.teacher_id, p]) || []);
-      const bannedMap = new Map(bannedRes.data?.map(p => [p.id, p.is_banned]) || []);
+      const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
+      const requestMap = new Map<string, any>();
+      (requestsRes.data || []).forEach((r: any) => {
+        // Keep the most recent request per user (list is sorted DESC)
+        if (!requestMap.has(r.user_id)) requestMap.set(r.user_id, r);
+      });
+      const teacherProfileMap = new Map((teacherProfilesRes.data || []).map((p: any) => [p.teacher_id, p]));
 
-      // Count content per teacher
       const contentCounts = new Map<string, { videos: number; pdfs: number }>();
-      contentRes.data?.forEach(c => {
+      (contentRes.data || []).forEach((c: any) => {
         if (!c.uploaded_by) return;
-        const existing = contentCounts.get(c.uploaded_by) || { videos: 0, pdfs: 0 };
-        if (c.type === "video") existing.videos++;
-        else existing.pdfs++;
-        contentCounts.set(c.uploaded_by, existing);
+        const e = contentCounts.get(c.uploaded_by) || { videos: 0, pdfs: 0 };
+        if (c.type === "video") e.videos++;
+        else e.pdfs++;
+        contentCounts.set(c.uploaded_by, e);
       });
 
-      // Count students per teacher
       const studentCounts = new Map<string, number>();
-      choicesRes.data?.forEach(c => {
+      (choicesRes.data || []).forEach((c: any) => {
         studentCounts.set(c.teacher_id, (studentCounts.get(c.teacher_id) || 0) + 1);
       });
 
-      const enriched: TeacherData[] = requests.map(req => {
-        const profile = profileMap.get(req.user_id);
-        const tProfile = teacherProfileMap.get(req.user_id);
-        const counts = contentCounts.get(req.user_id) || { videos: 0, pdfs: 0 };
+      const hasTeacherRole = new Set<string>();
+      (rolesRes.data || []).forEach((r: any) => hasTeacherRole.add(r.user_id));
+      (profilesRoleRes.data || []).forEach((p: any) => hasTeacherRole.add(p.id));
+
+      const enriched: TeacherData[] = teacherIds.map((uid) => {
+        const profile: any = profileMap.get(uid) || {};
+        const req: any = requestMap.get(uid) || {};
+        const tp: any = teacherProfileMap.get(uid) || {};
+        const counts = contentCounts.get(uid) || { videos: 0, pdfs: 0 };
+
+        // Normalize status. A teacher with role='teacher' but no request row is approved.
+        // Any unknown/null status on a non-role user shows up as pending so the admin can act.
+        let status: "pending" | "approved" | "rejected";
+        if (req.status === "approved" || req.status === "rejected" || req.status === "pending") {
+          status = req.status;
+        } else if (hasTeacherRole.has(uid)) {
+          status = "approved";
+        } else {
+          status = "pending";
+        }
+
         return {
-          id: req.id,
-          user_id: req.user_id,
-          full_name: req.full_name,
-          email: req.email,
-          phone: req.phone,
-          school_name: req.school_name,
-          employee_id: req.employee_id,
-          status: req.status as "pending" | "approved" | "rejected",
-          rejection_reason: req.rejection_reason,
-          created_at: req.created_at,
-          assigned_stages: req.assigned_stages,
-          assigned_grades: req.assigned_grades,
-          assigned_category: req.assigned_category,
-          bio: tProfile?.bio || null,
-          photo_url: tProfile?.photo_url || null,
-          video_url: tProfile?.video_url || null,
-          is_profile_approved: tProfile?.is_approved ?? null,
+          id: req.id || uid,
+          user_id: uid,
+          full_name: req.full_name || profile.full_name || "معلم",
+          email: req.email || profile.email || "",
+          phone: req.phone ?? profile.phone ?? null,
+          school_name: req.school_name ?? null,
+          employee_id: req.employee_id ?? null,
+          status,
+          rejection_reason: req.rejection_reason ?? null,
+          created_at: req.created_at ?? null,
+          assigned_stages: req.assigned_stages ?? null,
+          assigned_grades: req.assigned_grades ?? null,
+          assigned_category: req.assigned_category ?? null,
+          education_type: req.education_type ?? null,
+          bio: tp.bio ?? null,
+          photo_url: tp.photo_url ?? null,
+          video_url: tp.video_url ?? null,
+          is_profile_approved: tp.is_approved ?? null,
           video_count: counts.videos,
           pdf_count: counts.pdfs,
-          student_count: studentCounts.get(req.user_id) || 0,
-          is_banned: bannedMap.get(req.user_id) || false,
+          student_count: studentCounts.get(uid) || 0,
+          is_banned: !!profile.is_banned,
         };
+      });
+
+      // Sort: pending first (newest), then approved, then rejected
+      const order: Record<string, number> = { pending: 0, approved: 1, rejected: 2 };
+      enriched.sort((a, b) => {
+        const so = (order[a.status] ?? 3) - (order[b.status] ?? 3);
+        if (so !== 0) return so;
+        return (b.created_at || "").localeCompare(a.created_at || "");
       });
 
       setTeachers(enriched);
@@ -174,6 +214,24 @@ const AdminTeacherManagement = () => {
 
   useEffect(() => {
     fetchTeachers();
+
+    // Realtime: new join requests, CV submissions, or role changes reflect instantly
+    const channel = supabase
+      .channel("admin-teacher-management")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_requests" }, () => {
+        fetchTeachers();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_profiles" }, () => {
+        fetchTeachers();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles" }, () => {
+        fetchTeachers();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchTeachers]);
 
   const handleApproveRequest = async (teacher: TeacherData) => {
