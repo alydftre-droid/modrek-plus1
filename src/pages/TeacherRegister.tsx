@@ -363,11 +363,48 @@ const TeacherRegister = () => {
               />
             </div>
 
+            {/* اتفاقية استخدام المعلمين */}
+            <div className="pt-2 border-t space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-primary" />
+                <Link
+                  to="/teacher/terms"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-primary hover:underline font-medium"
+                >
+                  قراءة اتفاقية استخدام المعلمين الكاملة
+                </Link>
+                <span className="text-muted-foreground">(الإصدار {CURRENT_TEACHER_TERMS_VERSION})</span>
+              </div>
+              <label
+                className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                  acceptedTerms ? "border-primary bg-primary/5" : "border-input"
+                }`}
+              >
+                <Checkbox
+                  checked={acceptedTerms}
+                  onCheckedChange={(v) => setAcceptedTerms(!!v)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm leading-6">
+                  لقد قرأتُ وفهمتُ ووافقتُ على جميع بنود وشروط{" "}
+                  <Link to="/teacher/terms" target="_blank" rel="noopener" className="text-primary hover:underline">
+                    اتفاقية استخدام المعلمين
+                  </Link>{" "}
+                  الخاصة بمنصة Modrek Plus.
+                </span>
+              </label>
+              {errors.terms && (
+                <p className="text-sm text-destructive">{errors.terms}</p>
+              )}
+            </div>
+
             <Button
               className="w-full"
               size="lg"
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || !acceptedTerms}
             >
               {loading ? (
                 <>
