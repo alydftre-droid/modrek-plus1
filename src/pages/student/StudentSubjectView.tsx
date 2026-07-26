@@ -449,7 +449,7 @@ const StudentSubjectView = () => {
         const [{ data: tProfile }, { data: fallbackProfile }, { data: tPhoto }] = await Promise.all([
           supabase.from("public_teacher_profiles" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
           supabase.from("teacher_directory" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
-          supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).maybeSingle(),
+          supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).eq("is_approved", true).maybeSingle(),
         ]);
         const teacherName = normalizeTeacherDisplayName((tProfile as any)?.full_name) || normalizeTeacherDisplayName((fallbackProfile as any)?.full_name);
         setChosenTeacherName(teacherName || "اسم المعلم غير متاح");
@@ -537,7 +537,7 @@ const StudentSubjectView = () => {
     let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
     const [{ data: profileRows }, { data: names }, { data: fallbackNames }, { data: schedules }] = await Promise.all([
-      supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
+      supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds).eq("is_approved", true),
       supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
       supabase.from("teacher_directory" as any).select("id, full_name").in("id", teacherIds),
       supabase.from("teacher_schedules").select("teacher_id, day_of_week, time_slot").in("teacher_id", teacherIds),
