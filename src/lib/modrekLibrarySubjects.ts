@@ -57,8 +57,9 @@ export function subjectScopeMatches(
   return subjectTrackMatches(subject, scope.selectedTrackCode);
 }
 
-function subjectPreferenceScore(subject: ModrekSubjectLike, selectedTrackCode: string | null | undefined) {
+function subjectPreferenceScore(subject: ModrekSubjectLike, selectedTrackCode: string | null | undefined, selectedSectionId?: string | null) {
   let score = 0;
+  if (selectedSectionId && subject.section_id === selectedSectionId) score += 120;
   if (!subject.curriculum_track) score += 100;
   if (selectedTrackCode === "literary" && subject.curriculum_track === "literary") score += 80;
   if (MODREK_SCIENTIFIC_TRACK_CODES.has(selectedTrackCode || "") && subject.curriculum_track === "scientific") score += 80;
@@ -67,14 +68,15 @@ function subjectPreferenceScore(subject: ModrekSubjectLike, selectedTrackCode: s
   return score;
 }
 
-export function dedupeModrekSubjects<T extends ModrekSubjectLike>(list: T[], selectedTrackCode?: string | null): T[] {
+export function dedupeModrekSubjects<T extends ModrekSubjectLike>(list: T[], selectedTrackCode?: string | null, selectedSectionId?: string | null): T[] {
   const byName = new Map<string, T>();
   const scores = new Map<string, number>();
 
   for (const subject of list) {
     const nameKey = normalizeModrekSubjectLabel(subject.name_ar);
-    const scopeKey = [subject.stage_id || "", subject.grade_id || "", subject.section_id || "", nameKey].join("|");
-    const score = subjectPreferenceScore(subject, selectedTrackCode);
+    const sectionKey = selectedSectionId || subject.section_id || "";
+    const scopeKey = [subject.stage_id || "", subject.grade_id || "", sectionKey, nameKey].join("|");
+    const score = subjectPreferenceScore(subject, selectedTrackCode, selectedSectionId);
     const previousScore = scores.get(scopeKey);
     if (!byName.has(scopeKey) || previousScore === undefined || score > previousScore) {
       byName.set(scopeKey, subject);
