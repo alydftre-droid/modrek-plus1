@@ -6359,14 +6359,6 @@ export type Database = {
             }
             Returns: boolean
           }
-        | {
-            Args: {
-              _student_id: string
-              _target_education_type: string
-              _target_section: string
-            }
-            Returns: boolean
-          }
       exam_text_feedback:
         | {
             Args: {
