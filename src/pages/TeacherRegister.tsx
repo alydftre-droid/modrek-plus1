@@ -201,12 +201,14 @@ const TeacherRegister = () => {
 
       // For fresh signup, the backend trigger already creates the pending request
       // before email verification. Update it only if the session is available.
-      const requestOperation = createdBySignup
+      // For existing users with a rejected request, update it back to pending
+      // (allows re-submission after admin rejection).
+      const shouldUpdateExisting = createdBySignup || existingRequest?.status === "rejected";
+      const requestOperation = shouldUpdateExisting
         ? supabase
           .from("teacher_requests")
-          .update(requestPayload)
+          .update({ ...requestPayload, rejection_reason: null, reviewed_at: null, reviewed_by: null })
           .eq("user_id", userId)
-          .eq("status", "pending")
         : supabase.from("teacher_requests").insert({ user_id: userId, ...requestPayload } as any);
 
       const { error: requestError } = await requestOperation;

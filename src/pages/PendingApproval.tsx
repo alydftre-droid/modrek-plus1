@@ -201,6 +201,13 @@ const PendingApproval = () => {
                 </Button>
               )}
 
+              {status === "rejected" && (
+                <Button className="w-full" onClick={() => navigate("/teacher-register")}>
+                  <RefreshCw className="h-5 w-5 ml-2" />
+                  إعادة تقديم الطلب
+                </Button>
+              )}
+
               <Button variant="secondary" className="w-full" asChild>
                 <Link to="/auth">
                   <Mail className="h-5 w-5 ml-2" />
