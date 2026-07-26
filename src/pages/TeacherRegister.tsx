@@ -11,8 +11,11 @@ import { toast } from "@/hooks/use-toast";
 import TeacherRegistrationForm, {
   TeacherFormData,
 } from "@/components/auth/TeacherRegistrationForm";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, ArrowRight, UserPlus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, ArrowRight, UserPlus, FileText } from "lucide-react";
+import { CURRENT_TEACHER_TERMS_VERSION } from "@/lib/teacherTerms";
 
 const initialForm: TeacherFormData = {
   school: "",
@@ -42,6 +45,7 @@ const TeacherRegister = () => {
     rejection_reason?: string;
   } | null>(null);
   const [checkingRequest, setCheckingRequest] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // تحقق من وجود طلب سابق
   useEffect(() => {
@@ -98,6 +102,7 @@ const TeacherRegister = () => {
       e.educationType = "حدد نوع التعليم";
     }
     if (!formData.subject) e.subject = "اختر المادة";
+    if (!acceptedTerms) e.terms = "يجب الموافقة على اتفاقية استخدام المعلمين للمتابعة";
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -178,6 +183,8 @@ const TeacherRegister = () => {
           ? "أزهر"
           : formData.educationType || null,
         teaches_integrated_science: !!formData.teachesIntegratedScience,
+        terms_version: CURRENT_TEACHER_TERMS_VERSION,
+        terms_accepted_at: new Date().toISOString(),
       } as any);
 
       if (requestError) {
@@ -189,6 +196,19 @@ const TeacherRegister = () => {
         });
         setLoading(false);
         return;
+      }
+
+      // Best-effort mirror onto profile so the dashboard guard can re-check version
+      try {
+        await supabase
+          .from("profiles")
+          .update({
+            teacher_terms_version: CURRENT_TEACHER_TERMS_VERSION,
+            teacher_terms_accepted_at: new Date().toISOString(),
+          } as any)
+          .eq("id", userId);
+      } catch (_) {
+        // ignore, will retry on dashboard load
       }
 
       toast({
@@ -343,11 +363,48 @@ const TeacherRegister = () => {
               />
             </div>
 
+            {/* اتفاقية استخدام المعلمين */}
+            <div className="pt-2 border-t space-y-3">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4 text-primary" />
+                <Link
+                  to="/teacher/terms"
+                  target="_blank"
+                  rel="noopener"
+                  className="text-primary hover:underline font-medium"
+                >
+                  قراءة اتفاقية استخدام المعلمين الكاملة
+                </Link>
+                <span className="text-muted-foreground">(الإصدار {CURRENT_TEACHER_TERMS_VERSION})</span>
+              </div>
+              <label
+                className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                  acceptedTerms ? "border-primary bg-primary/5" : "border-input"
+                }`}
+              >
+                <Checkbox
+                  checked={acceptedTerms}
+                  onCheckedChange={(v) => setAcceptedTerms(!!v)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm leading-6">
+                  لقد قرأتُ وفهمتُ ووافقتُ على جميع بنود وشروط{" "}
+                  <Link to="/teacher/terms" target="_blank" rel="noopener" className="text-primary hover:underline">
+                    اتفاقية استخدام المعلمين
+                  </Link>{" "}
+                  الخاصة بمنصة Modrek Plus.
+                </span>
+              </label>
+              {errors.terms && (
+                <p className="text-sm text-destructive">{errors.terms}</p>
+              )}
+            </div>
+
             <Button
               className="w-full"
               size="lg"
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || !acceptedTerms}
             >
               {loading ? (
                 <>

@@ -4129,6 +4129,8 @@ export type Database = {
           stage: string | null
           student_code: string | null
           teacher_code: string | null
+          teacher_terms_accepted_at: string | null
+          teacher_terms_version: string | null
           test_account_code: string | null
           updated_at: string | null
         }
@@ -4151,6 +4153,8 @@ export type Database = {
           stage?: string | null
           student_code?: string | null
           teacher_code?: string | null
+          teacher_terms_accepted_at?: string | null
+          teacher_terms_version?: string | null
           test_account_code?: string | null
           updated_at?: string | null
         }
@@ -4173,6 +4177,8 @@ export type Database = {
           stage?: string | null
           student_code?: string | null
           teacher_code?: string | null
+          teacher_terms_accepted_at?: string | null
+          teacher_terms_version?: string | null
           test_account_code?: string | null
           updated_at?: string | null
         }
@@ -5223,6 +5229,8 @@ export type Database = {
           school_name: string | null
           status: Database["public"]["Enums"]["approval_status"] | null
           teaches_integrated_science: boolean
+          terms_accepted_at: string | null
+          terms_version: string | null
           updated_at: string | null
           user_id: string
         }
@@ -5245,6 +5253,8 @@ export type Database = {
           school_name?: string | null
           status?: Database["public"]["Enums"]["approval_status"] | null
           teaches_integrated_science?: boolean
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -5267,6 +5277,8 @@ export type Database = {
           school_name?: string | null
           status?: Database["public"]["Enums"]["approval_status"] | null
           teaches_integrated_science?: boolean
+          terms_accepted_at?: string | null
+          terms_version?: string | null
           updated_at?: string | null
           user_id?: string
         }
