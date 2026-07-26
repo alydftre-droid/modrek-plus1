@@ -31,6 +31,7 @@ Deno.serve(async (req) => {
         status: "pending", error: null, attempts: 0, next_run_at: new Date().toISOString(),
         started_at: null, finished_at: null, progress_pct: 0,
       }).eq("id", job_id);
+      scheduleWorker();
       return json({ ok: true, retried: job_id });
     }
     if (version_id && from_stage) {
@@ -49,6 +50,7 @@ Deno.serve(async (req) => {
       await admin.from("knowledge_source_versions").update({
         pipeline_stage: "queued", error_message: null,
       }).eq("id", version_id);
+      scheduleWorker();
       return json({ ok: true, restarted: from_stage });
     }
     return json({ error: "job_id or (version_id, from_stage) required" }, 400);
@@ -61,4 +63,17 @@ function json(body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function scheduleWorker() {
+  const run = fetch(`${SUPABASE_URL}/functions/v1/modrek-worker`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SERVICE_ROLE}`,
+    },
+    body: "{}",
+  }).catch((e) => console.warn("modrek retry worker dispatch failed", e?.message ?? e));
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(run);
 }
