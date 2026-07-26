@@ -391,10 +391,11 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
 async function stageMergeText(admin: SupabaseClient, job: any) {
   const input = job.input ?? {};
   const expectedPages = Number(input.page_count ?? 0);
+  const mergeAttempt = Number(input.__merge_attempt ?? 0);
 
   const [{ data: failedPages }, { data: waitingPages }, { data: units }] = await Promise.all([
     admin.from("processing_jobs")
-      .select("id, error, input")
+      .select("id, error, input, attempts, max_attempts")
       .eq("version_id", job.version_id)
       .eq("kind", "extract_page")
       .eq("status", "failed"),
@@ -422,8 +423,36 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     return;
   }
 
+  // Auto-recover: re-enqueue failed page batches with the alternate extractor
+  // once before hard-failing the whole book. Large PDFs often lose 1–2 batches
+  // to transient AI/network errors; a targeted retry avoids failing an entire
+  // multi-hundred-page book because of a single transient hiccup.
+  if (failedPages?.length && mergeAttempt < 1) {
+    for (const fp of failedPages) {
+      const fpInput = (fp as any).input ?? {};
+      const wasGemini = fpInput.extractor === "gemini_file" || !!fpInput.gemini_file?.uri;
+      await enqueue(admin, job.version_id, "extract_page", 21, {
+        ...fpInput,
+        extractor: wasGemini ? "local_pdfjs" : "gemini_file",
+        gemini_file: wasGemini ? null : fpInput.gemini_file ?? null,
+        __retry_of: (fp as any).id,
+      }, job.asset_id);
+    }
+    await log(admin, job.id, "warn", "merge_text auto-retrying failed page batches with alternate extractor", {
+      retried: failedPages.length,
+    });
+    await admin.from("processing_jobs").update({
+      status: "pending",
+      input: { ...input, __merge_attempt: mergeAttempt + 1 },
+      attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
+      next_run_at: new Date(Date.now() + 20_000).toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.id);
+    return;
+  }
+
   if (failedPages?.length) {
-    throw new Error(`فشل استخراج ${failedPages.length} جزء من PDF؛ لن يتم اعتماد كتاب ناقص.`);
+    throw new Error(`فشل استخراج ${failedPages.length} جزء من PDF بعد إعادة المحاولة؛ يرجى إعادة رفع نسخة PDF نصية أوضح.`);
   }
 
   const text = (units ?? [])
