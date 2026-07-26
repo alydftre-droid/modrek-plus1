@@ -3,7 +3,7 @@
 // Claims pending jobs one at a time using modrek_claim_next_job (SKIP LOCKED)
 // and runs the appropriate pipeline stage. Chains the next stage on success.
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
-import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -217,7 +217,18 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
   let batchText = "";
-  if (input.extractor === "gemini_file" || input.gemini_file?.uri) {
+  const assetBytes = Number(asset.byte_size ?? 0);
+  const requestedGeminiFile = input.extractor === "gemini_file" || !!input.gemini_file?.uri;
+  const useGeminiFile = requestedGeminiFile && assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES;
+  if (requestedGeminiFile && !useGeminiFile) {
+    await log(admin, job.id, "warn", "stale Gemini File extractor ignored for medium PDF; using local/OpenRouter path", {
+      page_from: pageFrom,
+      page_to: pageTo,
+      bytes: assetBytes,
+      local_fallback_limit_bytes: PDF_LOCAL_FALLBACK_LIMIT_BYTES,
+    });
+  }
+  if (useGeminiFile) {
     await respectProviderCooldown(admin, job);
     const fileRef = input.gemini_file?.uri ? input.gemini_file : await ensureGeminiFileForAsset(admin, asset, job.id);
     await updateJobProgress(admin, job, 15, {
@@ -318,8 +329,38 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
         `تعذر تجهيز صفحات OCR ${pageFrom}-${pageTo} خلال المهلة`,
       );
       if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
-        const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
-        batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+        if (assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+          const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
+          batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+        } else if (pageFrom < pageTo) {
+          const rangeSize = pageTo - pageFrom + 1;
+          const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
+          await log(admin, job.id, "warn", "PDF OCR subset too large for direct OpenRouter; splitting local batch", {
+            page_from: pageFrom,
+            page_to: pageTo,
+            subset_bytes: subset.byteLength,
+          });
+          await enqueue(admin, job.version_id, "extract_page", 21, {
+            ...input,
+            extractor: "local_pdfjs",
+            gemini_file: null,
+            page_from: pageFrom,
+            page_to: mid,
+            __split_depth: Number(input.__split_depth ?? 0) + 1,
+          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+          await enqueue(admin, job.version_id, "extract_page", 21, {
+            ...input,
+            extractor: "local_pdfjs",
+            gemini_file: null,
+            page_from: mid + 1,
+            page_to: pageTo,
+            __split_depth: Number(input.__split_depth ?? 0) + 1,
+          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+          await succeedJob(admin, job, { mode: "split_large_openrouter_subset", page_from: pageFrom, page_to: pageTo, split_at: mid });
+          return;
+        } else {
+          throw new Error(`صفحة PDF ${pageFrom} كبيرة جداً لإرسالها مباشرة إلى OpenRouter (${subset.byteLength} bytes). أعد ضغط ملف PDF أو ارفع نسخة نصية أوضح.`);
+        }
       } else {
         await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
           page_from: pageFrom,
@@ -796,7 +837,13 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   let bytes: Uint8Array | null = null;
   let pageCount = 0;
-  let geminiFile: any = asset?.metadata?.gemini_file ?? null;
+  let geminiFile: any = byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES ? asset?.metadata?.gemini_file ?? null : null;
+  if (asset?.metadata?.gemini_file?.uri && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+    await log(admin, job.id, "warn", "ignoring stale Gemini File metadata for medium PDF; OpenRouter/local extraction is primary", {
+      bytes: byteSize,
+      local_fallback_limit_bytes: PDF_LOCAL_FALLBACK_LIMIT_BYTES,
+    });
+  }
 
   if (byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     try {
