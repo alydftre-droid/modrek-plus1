@@ -326,7 +326,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
             <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.exams_count)}</span>
           </IconRow>
           <IconRow icon={Users} color="text-emerald-500">
-            <span className="text-slate-700">معلمون مختارون:</span>{" "}
+            <span className="text-slate-700">معلمون مشترك معهم:</span>{" "}
             <span className="font-bold text-slate-900 tabular-nums">{fmt(stats.teachers_count)}</span>
           </IconRow>
         </ul>
