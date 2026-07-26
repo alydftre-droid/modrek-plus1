@@ -176,8 +176,27 @@ export default function WithdrawalSettings() {
       await loadOverview();
       setLoading(false);
     })();
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const clockTimer = setInterval(() => setNow(new Date()), 1000);
+    // Auto-refresh financial data every 20s so the page always mirrors reality
+    const refreshTimer = setInterval(() => { loadOverview().catch(() => {}); }, 20_000);
+    // Refresh when tab becomes visible again
+    const onVisible = () => { if (document.visibilityState === "visible") loadOverview().catch(() => {}); };
+    document.addEventListener("visibilitychange", onVisible);
+    // Live realtime: instant refresh on any wallet / withdrawal / earnings change
+    const channel = supabase
+      .channel("admin-financial-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallets" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_earning_records" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallet_transactions" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_monthly_archives" }, () => loadOverview().catch(() => {}))
+      .subscribe();
+    return () => {
+      clearInterval(clockTimer);
+      clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const cairoTime = now.toLocaleString("ar-EG", {
@@ -1227,6 +1246,25 @@ function TeachersTab() {
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [search]);
 
+  // Auto refresh every 20s + on visibility + realtime updates for accurate live balances
+  useEffect(() => {
+    const timer = setInterval(() => { load(); }, 20_000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    const channel = supabase
+      .channel("admin-teacher-wallets-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallets" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallet_transactions" }, () => load())
+      .subscribe();
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   return (
     <div className="space-y-3">
       <div className="relative">
@@ -1276,7 +1314,7 @@ function TeachersTab() {
                   <div className="grid grid-cols-3 gap-2 text-[11px] mb-2">
                     <MiniStat label="متاح" value={`${fmt(r.balance)} ج`} tone="emerald" />
                     <MiniStat label="مجمّد" value={`${fmt(r.frozen_balance)} ج`} tone="cyan" />
-                    <MiniStat label="إجمالي" value={`${fmt(r.total_earned)} ج`} tone="violet" />
+                    <MiniStat label="إجمالي المحفظة" value={`${fmt(Number(r.balance || 0) + Number(r.frozen_balance || 0))} ج`} tone="violet" />
                   </div>
                   <div className="flex gap-1.5">
                     <Button size="sm" className="flex-1 h-9 text-[11px] gap-1 bg-blue-700 text-white hover:bg-blue-800 border-0 shadow-md font-black"
