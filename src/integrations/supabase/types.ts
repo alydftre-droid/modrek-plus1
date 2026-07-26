@@ -7007,6 +7007,7 @@ export type Database = {
           p_asset_id?: string
           p_input?: Json
           p_kind: Database["public"]["Enums"]["processing_job_kind"]
+          p_max_attempts?: number
           p_stage_order: number
           p_version_id: string
         }

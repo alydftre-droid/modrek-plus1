@@ -821,8 +821,10 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }
 
   if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+    await respectProviderCooldown(admin, job);
     pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
       await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
+      if (isRateLimitError(e)) throw e;
       return 0;
     });
   }
@@ -1354,7 +1356,19 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 
 function isRateLimitError(error: unknown): boolean {
   const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
-  return ["429", "quota", "rate limit", "rate-limit", "resource_exhausted", "resource exhausted", "too many requests"].some((token) => msg.includes(token));
+  return [
+    "429",
+    "quota",
+    "rate limit",
+    "rate-limit",
+    "resource_exhausted",
+    "resource exhausted",
+    "too many requests",
+    "too many",
+    "requests per minute",
+    "requests per day",
+    "quota exceeded",
+  ].some((token) => msg.includes(token));
 }
 
 function isQuotaExhaustedError(error: unknown): boolean {
@@ -1367,6 +1381,12 @@ function isQuotaExhaustedError(error: unknown): boolean {
     "resource_exhausted",
     "resource exhausted",
     "billing details",
+    "quota exceeded",
+    "quotaexceeded",
+    "requests per day",
+    "free quota",
+    "daily quota",
+    "current quota",
   ].some((token) => msg.includes(token));
 }
 
@@ -1426,7 +1446,7 @@ function failureMessage(diagnostic: FailureDiagnostic): string {
 
 function retryDelayMs(diagnostic: FailureDiagnostic, attempts: number): number {
   if (diagnostic.category === "quota_exhausted") {
-    const exponent = Math.min(1, Math.max(0, attempts - 1));
+    const exponent = Math.min(3, Math.max(0, attempts - 1));
     const base = QUOTA_EXHAUSTED_MIN_BACKOFF_MS * (2 ** exponent);
     return Math.min(QUOTA_EXHAUSTED_MAX_BACKOFF_MS, base) + Math.floor(Math.random() * 5 * 60_000);
   }
@@ -1480,8 +1500,7 @@ async function applyProviderCooldown(admin: SupabaseClient, job: any, diagnostic
       error: message,
     })
     .eq("kind", "extract_page")
-    .in("status", ["pending", "retrying"] as any)
-    .lt("next_run_at", cooldownUntil);
+    .in("status", ["pending", "retrying"] as any);
 
   await admin.rpc("modrek_log_event", {
     p_job_id: job.id,
@@ -1560,14 +1579,47 @@ function base64Encode(bytes: Uint8Array): string {
 }
 
 async function enqueue(admin: SupabaseClient, versionId: string, kind: string, stageOrder: number, input: any, assetId?: string, maxAttempts?: number) {
-  const { data, error } = await admin.rpc("modrek_enqueue_stage", {
+  const params: Record<string, any> = {
     p_version_id: versionId, p_kind: kind, p_stage_order: stageOrder,
-    p_input: input, p_asset_id: assetId ?? null, p_max_attempts: maxAttempts ?? null,
+    p_input: input, p_asset_id: assetId ?? null,
+  };
+  const { data, error } = await admin.rpc("modrek_enqueue_stage", {
+    ...params,
+    p_max_attempts: maxAttempts ?? null,
   });
-  if (error) {
+  if (!error) return data;
+
+  const errorMessage = String(error.message || "");
+  const canUseLegacySignature = Boolean(maxAttempts) && (
+    errorMessage.includes("modrek_enqueue_stage") ||
+    errorMessage.includes("function") ||
+    errorMessage.includes("schema cache") ||
+    errorMessage.includes("Could not find") ||
+    errorMessage.includes("not found")
+  );
+
+  if (canUseLegacySignature) {
+    const fallback = await admin.rpc("modrek_enqueue_stage", params);
+    if (!fallback.error) {
+      if (fallback.data && maxAttempts) {
+        await admin.from("processing_jobs").update({
+          max_attempts: maxAttempts,
+          updated_at: new Date().toISOString(),
+        }).eq("id", fallback.data);
+      }
+      await log(admin, fallback.data ?? null, "warn", "modrek_enqueue_stage legacy signature fallback used", {
+        kind,
+        version_id: versionId,
+        original_error: errorMessage.slice(0, 500),
+        max_attempts: maxAttempts ?? null,
+      });
+      return fallback.data;
+    }
+  }
+
+  {
     throw new Error(`failed to enqueue ${kind}: ${error.message}`);
   }
-  return data;
 }
 
 async function succeedJob(admin: SupabaseClient, job: any, output: any) {
