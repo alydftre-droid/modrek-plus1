@@ -44,7 +44,14 @@ type Source = {
 };
 type Taxo = { id: string; name_ar: string; code: string };
 type Grade = Taxo & { stage_id: string };
-type Subject = Taxo & { stage_id: string | null; section_id: string | null };
+type Subject = Taxo & {
+  stage_id: string | null;
+  grade_id?: string | null;
+  section_id: string | null;
+  curriculum_track?: string | null;
+  source_subject_id?: string | null;
+  source_category?: string | null;
+};
 type SubSubject = Taxo & { subject_id: string };
 
 const ICON_BY_CODE: Record<string, any> = {
@@ -112,7 +119,7 @@ export default function ModrekLibraryPage() {
       supabase.from("library_grades").select("id,name_ar,code,stage_id").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("library_sections").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("library_tracks").select("id,name_ar,code").eq("is_active", true).order("sort_order", { ascending: true }),
-      supabase.from("library_subjects").select("id,name_ar,code,stage_id,section_id").eq("is_active", true).order("sort_order", { ascending: true }),
+      supabase.from("library_subjects").select("id,name_ar,code,stage_id,grade_id,section_id,curriculum_track,source_subject_id,source_category").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("library_sub_subjects").select("id,name_ar,code,subject_id").eq("is_active", true).order("sort_order", { ascending: true }),
       supabase.from("knowledge_sources").select("*").order("created_at", { ascending: false }),
     ]);
@@ -148,13 +155,20 @@ export default function ModrekLibraryPage() {
   const filteredGrades = useMemo(() => grades.filter((g) => !f.stage || g.stage_id === f.stage), [grades, f.stage]);
   const filteredSubjects = useMemo(() => subjects.filter((s) => {
     const selectedSectionCode = sections.find((sec) => sec.id === f.section)?.code;
+    const selectedTrackCode = tracks.find((track) => track.id === f.track)?.code;
+    const shouldFilterByTrack = !!selectedTrackCode && selectedTrackCode !== "none";
     if (f.stage && s.stage_id && s.stage_id !== f.stage) return false;
+    if (f.grade && s.grade_id && s.grade_id !== f.grade) return false;
     if (f.section && s.section_id && s.section_id !== f.section) {
       const subjectSectionCode = sections.find((sec) => sec.id === s.section_id)?.code;
       if (subjectSectionCode !== "shared" && selectedSectionCode !== "shared") return false;
     }
+    if (shouldFilterByTrack && s.curriculum_track) {
+      if (selectedTrackCode === "literary" && s.curriculum_track !== "literary") return false;
+      if (["scientific", "sci_science", "sci_math"].includes(selectedTrackCode) && s.curriculum_track !== "scientific") return false;
+    }
     return true;
-  }), [subjects, sections, f.stage, f.section]);
+  }), [subjects, sections, tracks, f.stage, f.grade, f.section, f.track]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
 
   const filtered = useMemo(() => {
@@ -163,7 +177,10 @@ export default function ModrekLibraryPage() {
       if (f.stage && s.stage_id !== f.stage) return false;
       if (f.grade && s.grade_id !== f.grade) return false;
       if (f.section && s.section_id !== f.section) return false;
-      if (f.track && s.track_id !== f.track) return false;
+      if (f.track && s.track_id !== f.track) {
+        const selectedTrackCode = tracks.find((track) => track.id === f.track)?.code;
+        if (selectedTrackCode !== "none" || s.track_id) return false;
+      }
       if (f.subject && s.subject_id !== f.subject) return false;
       if (f.sub && s.sub_subject_id !== f.sub) return false;
       if (q && !s.title.toLowerCase().includes(q.toLowerCase())) return false;
@@ -172,7 +189,7 @@ export default function ModrekLibraryPage() {
     if (sort === "old") list = [...list].sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (sort === "title") list = [...list].sort((a, b) => a.title.localeCompare(b.title, "ar"));
     return list;
-  }, [sources, q, fType, f, sort]);
+  }, [sources, q, fType, f, sort, tracks]);
 
   const typeById = (id: string) => types.find((t) => t.id === id);
   const nameById = <T extends { id: string; name_ar: string }>(list: T[], id: string | null) =>
