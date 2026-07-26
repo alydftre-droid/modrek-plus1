@@ -1089,15 +1089,17 @@ const ContentTab = () => {
   };
 
   const handleDelete = async (id: string) => {
-    try {
-      // Get content to delete file from storage
-      const contentToDelete = contents.find((c) => c.id === id);
+    const contentToDelete = contents.find((c) => c.id === id);
+    const { deleteContentBunnyAssets, writeDeletionAudit } = await import("@/lib/bunnyCleanup");
+    const startedAt = performance.now();
+    let bunnyResults: Awaited<ReturnType<typeof deleteContentBunnyAssets>> = [];
+    let auditError: string | null = null;
 
+    try {
       // 1) Delete Bunny.net media (Stream + Storage) BEFORE the DB row is
       //    removed — the bunny-* edge functions verify ownership by row lookup.
       if (contentToDelete) {
-        const { deleteContentBunnyAssets } = await import("@/lib/bunnyCleanup");
-        await deleteContentBunnyAssets({
+        bunnyResults = await deleteContentBunnyAssets({
           file_url: contentToDelete.file_url,
           thumbnail_url: (contentToDelete as unknown as { thumbnail_url?: string | null }).thumbnail_url,
         });
@@ -1122,10 +1124,25 @@ const ContentTab = () => {
       toast.success("تم حذف المحتوى");
       fetchData();
     } catch (error) {
+      auditError = error instanceof Error ? error.message : String(error);
       console.error("Error deleting content:", error);
       toast.error("خطأ في حذف المحتوى");
+    } finally {
+      await writeDeletionAudit({
+        actionType: "content_delete",
+        targetId: id,
+        targetLabel: contentToDelete?.title ?? null,
+        targetMeta: {
+          type: (contentToDelete as unknown as { type?: string })?.type,
+          file_url: contentToDelete?.file_url,
+        },
+        bunnyResults,
+        startedAt,
+        error: auditError,
+      });
     }
   };
+
 
 
   // Reset file when type changes
