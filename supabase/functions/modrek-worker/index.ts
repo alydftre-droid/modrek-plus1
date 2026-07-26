@@ -993,7 +993,7 @@ async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: Ge
   const prompt = `استخرج النص الكامل حرفياً من ملف PDF للصفحات من ${pageFrom} إلى ${pageTo} فقط.
 لا تختصر، لا تلخص، لا تضف شرحاً، لا تتخطى الجداول أو الأسئلة أو الاختيارات أو المعادلات.
 إذا كانت الصفحات صوراً، نفّذ OCR كامل. أعد النص الخام فقط مع فواصل صفحات واضحة.`;
-  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535);
+  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535, PDF_PAGE_EXTRACT_TIMEOUT_MS);
   const out = String(text ?? "").trim();
   if (out.length < Math.max(20, (pageTo - pageFrom + 1) * 10)) {
     throw new Error(`Gemini OCR/text extraction returned too little text for pages ${pageFrom}-${pageTo}`);
@@ -1001,7 +1001,7 @@ async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: Ge
   return out;
 }
 
-async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number): Promise<any> {
+async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number, timeoutMs: number = AI_REQUEST_TIMEOUT_MS): Promise<any> {
   const apiKey = resolveGoogleGeminiApiKey();
   if (!apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
   const model = STRUCTURE_MODEL.replace(/^google\//, "");
@@ -1022,7 +1022,7 @@ async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef
         ...(jsonMode ? { responseMimeType: "application/json" } : {}),
       },
     }),
-  }, AI_REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
   if (!response.ok) throw new Error(`Gemini file generation failed ${response.status}: ${(await response.text()).slice(0, 300)}`);
   const payload = await response.json();
   const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
