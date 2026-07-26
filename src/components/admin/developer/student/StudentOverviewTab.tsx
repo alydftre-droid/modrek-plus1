@@ -332,19 +332,19 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         </ul>
       </Card>
 
-      {/* المعلمون المختارون */}
-      <Card title="المعلمون الذين اختارهم الطالب">
+      {/* المعلمون المشترك معهم فعلياً */}
+      <Card title="المعلمون الذين اشترك معهم الطالب فعلياً">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
           <span className="inline-flex items-center gap-2 text-[11px] font-bold text-emerald-700">
             <span className={`h-2 w-2 rounded-full bg-emerald-500 ${teachersFetching ? "animate-pulse" : ""}`} />
-            يعرض المختارين سواء تم الاشتراك معهم أو لا · آخر تحديث {teachersLastSync}
+            يعرض فقط المعلمين الذين دفع الطالب اشتراكهم · آخر تحديث {teachersLastSync}
           </span>
           <button onClick={() => refetchTeachers()} className="text-[11px] font-bold text-emerald-700 underline-offset-4 hover:underline">
             تحديث الآن
           </button>
         </div>
         {teachers.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-2">لا توجد اختيارات معلمين بعد.</p>
+          <p className="text-xs text-slate-500 text-center py-2">لم يشترك الطالب مع أي معلم بعد.</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-slate-200">
             <table className="w-full text-sm text-right border-collapse">
