@@ -147,6 +147,94 @@ Deno.serve(async (req) => {
         try { await fn(); } catch (err) { console.warn(`[delete_teacher:${label}]`, err); }
       };
 
+      // ── Bunny.net cleanup ─────────────────────────────────────────────
+      // Delete every video (Bunny Stream) and file/thumbnail (Bunny Storage)
+      // owned by this teacher BEFORE removing the DB rows, so nothing is left
+      // orphaned on Bunny after the cascade.
+      const bunnyStreamApiKey  = Deno.env.get("BUNNY_STREAM_API_KEY") || Deno.env.get("BUNNY_API_KEY") || "";
+      const bunnyStreamLibrary = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || "686928";
+      const bunnyStorageApiKey = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
+      const bunnyStorageZone   = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
+      const bunnyStorageHost   = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
+
+      const deleteBunnyVideo = async (videoId: string) => {
+        if (!bunnyStreamApiKey || !videoId) return;
+        try {
+          await fetch(`https://video.bunnycdn.com/library/${bunnyStreamLibrary}/videos/${videoId}`, {
+            method: "DELETE",
+            headers: { AccessKey: bunnyStreamApiKey, Accept: "application/json" },
+          });
+        } catch (err) { console.warn("[delete_teacher:bunny_stream]", videoId, err); }
+      };
+      const deleteBunnyFile = async (path: string) => {
+        if (!bunnyStorageApiKey || !bunnyStorageZone || !path) return;
+        try {
+          await fetch(`https://${bunnyStorageHost}/${bunnyStorageZone}/${path}`, {
+            method: "DELETE",
+            headers: { AccessKey: bunnyStorageApiKey },
+          });
+        } catch (err) { console.warn("[delete_teacher:bunny_storage]", path, err); }
+      };
+      const cleanupUrl = async (url: string | null | undefined) => {
+        if (!url) return;
+        if (url.startsWith("bunny://"))    await deleteBunnyVideo(url.slice("bunny://".length));
+        else if (url.startsWith("bstorage://")) await deleteBunnyFile(url.slice("bstorage://".length));
+      };
+
+      // Gather every asset URL owned by the teacher.
+      const assetUrls: string[] = [];
+      try {
+        const { data: contentRows } = await admin
+          .from("content")
+          .select("file_url, thumbnail_url")
+          .eq("uploaded_by", teacher_id);
+        for (const row of contentRows ?? []) {
+          if (row.file_url) assetUrls.push(row.file_url as string);
+          if (row.thumbnail_url) assetUrls.push(row.thumbnail_url as string);
+        }
+      } catch (err) { console.warn("[delete_teacher:collect_content_urls]", err); }
+      try {
+        const { data: bookRows } = await admin
+          .from("library_books")
+          .select("pdf_path, cover_url")
+          .eq("created_by", teacher_id);
+        for (const row of bookRows ?? []) {
+          if (row.pdf_path) assetUrls.push(row.pdf_path as string);
+          if (row.cover_url) assetUrls.push(row.cover_url as string);
+        }
+      } catch (err) { console.warn("[delete_teacher:collect_book_urls]", err); }
+      try {
+        const { data: storageAssets } = await admin
+          .from("storage_assets")
+          .select("object_path, storage_provider")
+          .eq("uploaded_by", teacher_id);
+        for (const row of storageAssets ?? []) {
+          if (row.storage_provider === "bunny" && row.object_path) {
+            assetUrls.push(`bstorage://${row.object_path}`);
+          }
+        }
+      } catch (err) { console.warn("[delete_teacher:collect_storage_assets]", err); }
+      // Teacher intro video / avatar stored on Bunny
+      try {
+        const { data: prof } = await admin
+          .from("teacher_profiles")
+          .select("intro_video_url, avatar_url")
+          .eq("teacher_id", teacher_id)
+          .maybeSingle();
+        if (prof?.intro_video_url) assetUrls.push(prof.intro_video_url as string);
+        if (prof?.avatar_url)      assetUrls.push(prof.avatar_url as string);
+      } catch (err) { console.warn("[delete_teacher:collect_teacher_profile]", err); }
+
+      // Run deletions with limited concurrency so we don't overwhelm Bunny.
+      const uniqueUrls = Array.from(new Set(assetUrls));
+      console.info(`[delete_teacher] cleaning ${uniqueUrls.length} bunny assets for teacher ${teacher_id}`);
+      const batchSize = 8;
+      for (let i = 0; i < uniqueUrls.length; i += batchSize) {
+        await Promise.all(uniqueUrls.slice(i, i + batchSize).map(cleanupUrl));
+      }
+      // ──────────────────────────────────────────────────────────────────
+
+
       // Tables keyed by teacher_id (profiles.id / auth.users.id)
       const byTeacherId = [
         "teacher_activity_logs",
