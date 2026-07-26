@@ -614,6 +614,7 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
             <Button onClick={() => setEditOpen(true)} className="sm-action-btn sm-action-btn--blue"><Edit3 className="h-4 w-4" /> تعديل البيانات</Button>
             <Button onClick={exportPdf} disabled={exportLoading} className="sm-action-btn sm-action-btn--purple">{exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} تحميل PDF</Button>
             <Button onClick={toggleBan} disabled={banLoading} className={`sm-action-btn ${student.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}>{banLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
+            <Button onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }} className="sm-action-btn sm-action-btn--red"><Trash2 className="h-4 w-4" /> حذف الحساب نهائيًا</Button>
           </div>
         </div>
       </div>
