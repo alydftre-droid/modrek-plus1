@@ -37,12 +37,17 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // invocation past the platform budget.
 const STAGE_TIMEOUT_MS = 90_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
+// PDF page extraction via Gemini File API can legitimately take longer than a
+// normal chat completion when a batch contains many pages or when the pages
+// are scanned images that require OCR. Keep this under the ~150s edge runtime
+// budget so the worker can still return cleanly on timeout and requeue.
+const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
 const FILE_API_TIMEOUT_MS = 80_000;
 const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
-const PDF_TEXT_BATCH_PAGES = 6;
+const PDF_TEXT_BATCH_PAGES = 4;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 
