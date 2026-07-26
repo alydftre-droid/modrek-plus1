@@ -863,7 +863,11 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     }
   }
 
-  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && !geminiFile?.uri) {
+  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+    throw new Error("تعذر قراءة عدد صفحات PDF محلياً لملف متوسط الحجم. لن يتم تحويله إلى Gemini لتجنب حصة المزود القديمة؛ أعد رفع نسخة PDF نصية/مضغوطة أو قسّم الملف ثم أعد المحاولة.");
+  }
+
+  if (!pageCount && byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES && !geminiFile?.uri) {
     await startGeminiChunkedUpload(admin, job, asset);
     await admin.from("knowledge_source_versions").update({
       page_count: null,
@@ -886,7 +890,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     return;
   }
 
-  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+  if (!pageCount && byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     await respectProviderCooldown(admin, job);
     pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
       await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
@@ -905,7 +909,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }
 
   if (!pageCount) {
-    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+    if (byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
       throw new Error("تعذر تحديد عدد صفحات PDF الكبير محلياً أو عبر Gemini File API؛ تم إيقاف هذه المرحلة برسالة تشخيص واضحة بدلاً من تعليق العامل");
     }
     bytes = bytes ?? await fetchAssetBytes(admin, asset);
