@@ -672,7 +672,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           terms_version: data.termsVersion || null,
           terms_accepted_at: data.termsAcceptedAt || null,
         } as any);
-        if (requestError) console.error("Error creating teacher request:", requestError);
+        if (requestError) {
+          console.error("Error creating teacher request:", requestError);
+          return {
+            error:
+              "تم إنشاء الحساب لكن تعذر إرسال طلب الانضمام. يرجى إعادة المحاولة من صفحة تسجيل الدخول أو التواصل مع الدعم.",
+          };
+        }
         // Best-effort mirror to profile for future version checks
         if (data.termsVersion) {
           try {
