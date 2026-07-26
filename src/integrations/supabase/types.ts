@@ -6340,25 +6340,16 @@ export type Database = {
         Returns: string
       }
       exam_meaningful_tokens: { Args: { _value: string }; Returns: string[] }
-      exam_target_matches_student:
-        | {
-            Args: {
-              _student_id: string
-              _target_education_type: string
-              _target_section: string
-            }
-            Returns: boolean
-          }
-        | {
-            Args: {
-              _group_id?: string
-              _student_id: string
-              _subject_id?: string
-              _target_education_type: string
-              _target_section: string
-            }
-            Returns: boolean
-          }
+      exam_target_matches_student: {
+        Args: {
+          _group_id?: string
+          _student_id: string
+          _subject_id?: string
+          _target_education_type: string
+          _target_section: string
+        }
+        Returns: boolean
+      }
       exam_text_feedback:
         | {
             Args: {
