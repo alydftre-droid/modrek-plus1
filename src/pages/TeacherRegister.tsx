@@ -45,6 +45,7 @@ const TeacherRegister = () => {
     rejection_reason?: string;
   } | null>(null);
   const [checkingRequest, setCheckingRequest] = useState(true);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // تحقق من وجود طلب سابق
   useEffect(() => {
@@ -101,6 +102,7 @@ const TeacherRegister = () => {
       e.educationType = "حدد نوع التعليم";
     }
     if (!formData.subject) e.subject = "اختر المادة";
+    if (!acceptedTerms) e.terms = "يجب الموافقة على اتفاقية استخدام المعلمين للمتابعة";
 
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -181,7 +183,22 @@ const TeacherRegister = () => {
           ? "أزهر"
           : formData.educationType || null,
         teaches_integrated_science: !!formData.teachesIntegratedScience,
+        terms_version: CURRENT_TEACHER_TERMS_VERSION,
+        terms_accepted_at: new Date().toISOString(),
       } as any);
+
+      // Best-effort mirror onto profile so the dashboard guard can re-check version
+      try {
+        await supabase
+          .from("profiles")
+          .update({
+            teacher_terms_version: CURRENT_TEACHER_TERMS_VERSION,
+            teacher_terms_accepted_at: new Date().toISOString(),
+          } as any)
+          .eq("id", userId);
+      } catch (_) {
+        // ignore, will retry on dashboard load
+      }
 
       if (requestError) {
         console.error("Error creating teacher request:", requestError);
