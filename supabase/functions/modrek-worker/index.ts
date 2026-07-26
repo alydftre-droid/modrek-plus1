@@ -1245,73 +1245,21 @@ async function runChatCompletion(admin: SupabaseClient, body: Record<string, unk
   const requestedModel = String(body.model ?? STRUCTURE_MODEL);
   const openRouterKey = String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
 
-  // PRIMARY: OpenRouter (paid account, no free-tier quota issues).
-  if (openRouterKey) {
-    const orModel = requestedModel.includes("/") ? requestedModel : `google/${requestedModel.replace(/^google\//, "")}`;
-    const orBody = { ...body, model: orModel };
-    const orResult = await callGeminiWithFallback({
-      apiKey: openRouterKey,
-      models: [orModel, STRUCTURE_MODEL, "google/gemini-2.5-flash-lite"],
-      body: orBody,
-      timeoutMs: 90_000,
-    });
-    if (orResult.ok) return await orResult.response.json();
-    console.warn("openrouter primary failed; trying fallbacks", orResult.status, String(orResult.lastError ?? "").slice(0, 300));
-    // Auth/billing failures on OpenRouter: skip fallbacks and surface immediately.
-    if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403) {
-      throw new Error(`openrouter failed ${orResult.status}: ${(orResult.lastError ?? "").slice(0, 300)}`);
-    }
+  if (!openRouterKey) {
+    throw new Error("OPENROUTER_API_KEY_MISSING: لا يوجد مفتاح OpenRouter مفعّل لمعالجة مكتبة Modrek AI");
   }
 
-  // SECONDARY: Lovable AI Gateway (managed key, may share quota).
-  if (LOVABLE_API_KEY) {
-    const gatewayResponse = await fetchWithTimeout(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-      body: JSON.stringify(body),
-    }, AI_REQUEST_TIMEOUT_MS);
-    if (gatewayResponse.ok) return await gatewayResponse.json();
-    const errorText = await gatewayResponse.text().catch(() => "");
-    console.warn("lovable gateway failed; falling back to direct gemini", gatewayResponse.status, errorText.slice(0, 300));
-  }
+  const orModel = requestedModel.includes("/") ? requestedModel : `google/${requestedModel.replace(/^google\//, "")}`;
+  const orBody = { ...body, model: orModel };
+  const orResult = await callGeminiWithFallback({
+    apiKey: openRouterKey,
+    models: [orModel, STRUCTURE_MODEL, "google/gemini-2.5-flash-lite"],
+    body: orBody,
+    timeoutMs: 90_000,
+  });
+  if (orResult.ok) return await orResult.response.json();
 
-  // LAST RESORT: direct Gemini (only if a Gemini API key exists).
-  const geminiKey = resolveGoogleGeminiApiKey();
-  if (!geminiKey) {
-    throw new Error("no AI provider available: OPENROUTER_API_KEY and GEMINI_API_KEY are both missing or failed");
-  }
-  const model = requestedModel.replace(/^google\//, "");
-  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: (body as any).messages?.flatMap((m: any) => {
-        if (typeof m.content === "string") return [{ text: m.content }];
-        return (m.content ?? []).map((p: any) => {
-          if (p.type === "text") return { text: p.text };
-          if (p.type === "image_url") {
-            const url = String(p.image_url?.url ?? "");
-            const match = url.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
-          }
-          if (p.type === "file") {
-            const data = String(p.file?.file_data ?? "");
-            const match = data.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
-          }
-          return null;
-        }).filter(Boolean);
-      }) ?? [] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 8192, ...((body as any).response_format?.type === "json_object" ? { responseMimeType: "application/json" } : {}) },
-    }),
-  }, 90_000);
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    throw new Error(`gemini direct failed ${response.status}: ${errorText.slice(0, 300)}`);
-  }
-  const payload = await response.json();
-  const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
-  return { choices: [{ message: { content: text } }] };
+  throw new Error(`openrouter failed ${orResult.status}: ${(orResult.lastError ?? "").slice(0, 700)}`);
 }
 
 async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
