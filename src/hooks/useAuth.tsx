@@ -669,8 +669,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           assigned_category: data.subject,
           education_type: data.educationType || null,
           teaches_integrated_science: !!data.teachesIntegratedScience,
+          terms_version: data.termsVersion || null,
+          terms_accepted_at: data.termsAcceptedAt || null,
         } as any);
         if (requestError) console.error("Error creating teacher request:", requestError);
+        // Best-effort mirror to profile for future version checks
+        if (data.termsVersion) {
+          try {
+            await supabase.from("profiles").update({
+              teacher_terms_version: data.termsVersion,
+              teacher_terms_accepted_at: data.termsAcceptedAt || new Date().toISOString(),
+            } as any).eq("id", authData.user.id);
+          } catch (e) {
+            console.warn("Could not mirror teacher terms to profile:", e);
+          }
+        }
       }
       queueExternalSync(["auth", "tables"], true);
       return { error: null };
