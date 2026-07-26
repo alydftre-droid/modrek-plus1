@@ -481,6 +481,9 @@ const Auth = () => {
       if (formData.subject === "المواد العربية" && !formData.educationType) {
         newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
+      if (!formData.acceptedTerms) {
+        newErrors.acceptedTerms = "يجب الموافقة على اتفاقية استخدام المعلمين للمتابعة";
+      }
     }
 
     setErrors(newErrors);
