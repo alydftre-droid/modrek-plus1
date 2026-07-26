@@ -197,6 +197,10 @@ export default function ModrekUploadWizard({
     () => subSubjects.filter((s) => !tax.subject_id || s.subject_id === tax.subject_id),
     [subSubjects, tax.subject_id],
   );
+  const selectedTrackCode = useMemo(
+    () => tracks.find((track) => track.id === tax.track_id)?.code,
+    [tracks, tax.track_id],
+  );
 
   const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.file.size, 0), [files]);
 
@@ -382,7 +386,7 @@ export default function ModrekUploadWizard({
         publication_year: tax.year ? parseInt(tax.year) : null,
         language: meta.language || "ar", source_type_id: typeId,
         stage_id: tax.stage_id || null, grade_id: tax.grade_id || null,
-        section_id: tax.section_id || null, track_id: tax.track_id || null,
+        section_id: tax.section_id || null, track_id: selectedTrackCode === "none" ? null : (tax.track_id || null),
         subject_id: tax.subject_id || null, sub_subject_id: tax.sub_subject_id || null,
         term: tax.term ? parseInt(tax.term) : null, status: "draft",
         metadata: { keywords: meta.keywords ? meta.keywords.split(",").map((k) => k.trim()).filter(Boolean) : [] },
