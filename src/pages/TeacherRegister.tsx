@@ -11,8 +11,11 @@ import { toast } from "@/hooks/use-toast";
 import TeacherRegistrationForm, {
   TeacherFormData,
 } from "@/components/auth/TeacherRegistrationForm";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2, ArrowRight, UserPlus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Loader2, ArrowRight, UserPlus, FileText } from "lucide-react";
+import { CURRENT_TEACHER_TERMS_VERSION } from "@/lib/teacherTerms";
 
 const initialForm: TeacherFormData = {
   school: "",
