@@ -370,7 +370,12 @@ const AdminTeacherManagement = () => {
 
   const pendingRequests = filteredTeachers.filter(t => t.status === "pending");
   const approvedTeachers = filteredTeachers.filter(t => t.status === "approved");
-  const pendingProfiles = approvedTeachers.filter(t => t.bio && t.is_profile_approved === false);
+  // A CV is "awaiting review" whenever the teacher provided ANY profile content
+  // (bio / photo / intro video) but it hasn't been approved yet. Include any teacher
+  // (not just approved) so the admin never misses a submission.
+  const pendingProfiles = filteredTeachers.filter(
+    t => t.is_profile_approved === false && (t.bio || t.photo_url || t.video_url),
+  );
 
   const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString("ar-EG", { year: "numeric", month: "long", day: "numeric" }) : "-";
 
