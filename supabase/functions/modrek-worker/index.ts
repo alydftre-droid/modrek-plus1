@@ -315,8 +315,13 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
     await updateJobProgress(admin, job, 90, { stage: "gemini_file_finalize_wait", file_name: uploadState.file.name });
     const active = await waitForGeminiFileActive(apiKey, uploadState.file);
     const geminiFile = buildGeminiFileRef(active, asset.mime_type || "application/pdf");
-    const updatedAsset = await storeGeminiFileRef(admin, asset, geminiFile);
-    await queuePdfTextBatches(admin, job, updatedAsset);
+    await storeGeminiFileRef(admin, asset, geminiFile);
+    await succeedJob(admin, job, { mode: "gemini_file_ready", file_name: geminiFile.name, state: geminiFile.state });
+    await enqueue(admin, job.version_id, "extract_text", 20, {
+      asset_id: asset.id,
+      mime: asset.mime_type || "application/pdf",
+      resumed_from_gemini_file: true,
+    }, asset.id);
     return;
   }
 
@@ -370,20 +375,6 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
   const uploaded = await upload.json();
   const file = uploaded.file ?? uploaded;
   if (!file?.name) throw new Error("Gemini final upload response missing file name");
-  await admin.from("storage_assets").update({
-    metadata: {
-      ...metadata,
-      gemini_upload: {
-        ...uploadState,
-        offset: size,
-        status: "finalizing",
-        file,
-        finalized_at: new Date().toISOString(),
-      },
-    },
-    updated_at: new Date().toISOString(),
-  }).eq("id", asset.id);
-
   await admin.from("storage_assets").update({
     metadata: {
       ...metadata,
@@ -1001,7 +992,7 @@ async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef
         role: "user",
         parts: [
           { text: prompt },
-          { file_data: { mime_type: file.mime_type ?? asset.mime_type ?? "application/pdf", file_uri: file.uri } },
+          { fileData: { mimeType: file.mime_type ?? asset.mime_type ?? "application/pdf", fileUri: file.uri } },
         ],
       }],
       generationConfig: {
