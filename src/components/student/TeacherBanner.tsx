@@ -169,7 +169,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
       const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
       const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
-        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
+        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds).eq("is_approved", true),
         supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
         supabase.from("teacher_directory" as any).select("id, full_name").in("id", teacherIds),
       ]);
