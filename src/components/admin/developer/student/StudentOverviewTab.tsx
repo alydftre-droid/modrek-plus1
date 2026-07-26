@@ -217,6 +217,57 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     gcTime: 0,
   });
 
+  const { data: chosenOnlyTeachers = [] } = useQuery({
+    queryKey: ["dev-student-chosen-only-teachers", studentId, teachers.map((t) => t.teacher_id).join(",")],
+    queryFn: async (): Promise<TeacherRow[]> => {
+      const { data: choices } = await supabase
+        .from("student_teacher_choices")
+        .select("teacher_id, subject_id")
+        .eq("student_id", studentId);
+      const subscribedIds = new Set(teachers.map((t) => t.teacher_id));
+      const chosen = (choices ?? []).filter((c: any) => c.teacher_id && !subscribedIds.has(c.teacher_id));
+      if (!chosen.length) return [];
+      const teacherIds = [...new Set(chosen.map((c: any) => c.teacher_id))] as string[];
+      const subjectIds = [...new Set(chosen.map((c: any) => c.subject_id).filter(Boolean))] as string[];
+      const [{ data: profs }, { data: subjs }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+        subjectIds.length
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      const sMap = new Map((subjs ?? []).map((s: any) => [s.id, s.name]));
+      const byT = new Map<string, TeacherRow & { subjectSet: Set<string> }>();
+      chosen.forEach((c: any) => {
+        const row = byT.get(c.teacher_id) ?? {
+          teacher_id: c.teacher_id,
+          teacher_name: pMap.get(c.teacher_id) ?? "معلم",
+          specialty: null,
+          courses_count: 0,
+          status: "chosen" as const,
+          subjectSet: new Set<string>(),
+        };
+        const sn = normalizeSubject(sMap.get(c.subject_id));
+        if (sn && sn !== "—") row.subjectSet.add(sn);
+        byT.set(c.teacher_id, row);
+      });
+      return [...byT.values()].map((r) => ({
+        teacher_id: r.teacher_id,
+        teacher_name: r.teacher_name,
+        specialty: [...r.subjectSet].join("، ") || "—",
+        courses_count: 0,
+        status: "chosen",
+      }));
+    },
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+
+
 
   if (isLoading) {
     return (
