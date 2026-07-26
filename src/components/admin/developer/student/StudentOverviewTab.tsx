@@ -232,30 +232,68 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       const chosen = (choices ?? []).filter((c: any) => c.teacher_id && !subscribedIds.has(c.teacher_id));
       if (!chosen.length) return [];
       const teacherIds = [...new Set(chosen.map((c: any) => c.teacher_id))] as string[];
-      const { data: profs } = await supabase
+      const { data: profs, error: profsErr } = await supabase
         .from("profiles")
-        .select("id, full_name, specialty, subject_specialties")
+        .select("id, full_name")
         .in("id", teacherIds);
+      if (profsErr) console.warn("[chosen-teachers] profiles fetch failed", profsErr);
       const pMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
+
+      // Map English category slugs & grade slugs to Arabic labels.
+      const CATEGORY_AR: Record<string, string> = {
+        math: "الرياضيات",
+        arabic: "اللغة العربية",
+        english: "اللغة الإنجليزية",
+        science: "العلوم",
+        scientific: "علمي",
+        literary: "أدبي",
+        religious: "التربية الدينية",
+        physics: "الفيزياء",
+        chemistry: "الكيمياء",
+        biology: "الأحياء",
+        geology: "الجيولوجيا",
+        history: "التاريخ",
+        geography: "الجغرافيا",
+        philosophy: "الفلسفة",
+        psychology: "علم النفس",
+        statistics: "الإحصاء",
+        economics: "الاقتصاد",
+        french: "اللغة الفرنسية",
+        german: "اللغة الألمانية",
+        italian: "اللغة الإيطالية",
+      };
+      const GRADE_AR: Record<string, string> = {
+        first: "الصف الأول",
+        second: "الصف الثاني",
+        third: "الصف الثالث",
+      };
+      const toArabic = (v?: string | null, map?: Record<string, string>) => {
+        if (!v) return "";
+        const key = String(v).trim().toLowerCase();
+        return (map && map[key]) || v;
+      };
+
       const byT = new Map<string, TeacherRow & { catSet: Set<string> }>();
       chosen.forEach((c: any) => {
         const p: any = pMap.get(c.teacher_id) ?? {};
         const row = byT.get(c.teacher_id) ?? {
           teacher_id: c.teacher_id,
           teacher_name: p.full_name ?? "معلم",
-          specialty: p.specialty ?? (Array.isArray(p.subject_specialties) ? p.subject_specialties.join("، ") : null),
+          specialty: null,
           courses_count: 0,
           status: "chosen" as const,
           catSet: new Set<string>(),
         };
-        const label = [c.category, c.grade].filter(Boolean).join(" - ");
+        const subjAr = toArabic(c.category, CATEGORY_AR);
+        const gradeAr = toArabic(c.grade, GRADE_AR);
+        const label = [subjAr, gradeAr].filter(Boolean).join(" - ");
         if (label) row.catSet.add(label);
         byT.set(c.teacher_id, row);
       });
       return [...byT.values()].map((r) => ({
         teacher_id: r.teacher_id,
         teacher_name: r.teacher_name,
-        specialty: r.specialty || [...r.catSet].join("، ") || "—",
+        specialty: [...r.catSet].join("، ") || "—",
         courses_count: 0,
         status: "chosen",
       }));
