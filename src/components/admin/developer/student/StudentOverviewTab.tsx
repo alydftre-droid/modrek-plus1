@@ -159,27 +159,20 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
   const { data: teachers = [], isFetching: teachersFetching, dataUpdatedAt: teachersUpdatedAt, refetch: refetchTeachers } = useQuery({
     queryKey: ["dev-student-teachers-with-subject", studentId],
     queryFn: async (): Promise<TeacherRow[]> => {
-      const [{ data: choices }, { data: purchases }] = await Promise.all([
-        supabase
-          .from("student_teacher_choices")
-          .select("teacher_id, category, stage, grade")
-          .eq("student_id", studentId),
-        supabase
+      // Only show teachers the student is actually subscribed with (paid).
+      // Chosen-but-not-subscribed teachers are intentionally excluded so the
+      // developer view reflects reality, not intent.
+      const { data: purchases } = await supabase
         .from("student_group_purchases")
         .select("group_id")
-          .eq("student_id", studentId),
-      ]);
+        .eq("student_id", studentId);
       const groupIds = [...new Set((purchases ?? []).map((p: any) => p.group_id).filter(Boolean))] as string[];
-      const { data: groups } = groupIds.length
-        ? await supabase
-            .from("content_groups")
-            .select("id, teacher_id, created_by, subject_id")
-            .in("id", groupIds)
-        : { data: [] as any[] };
-      const teacherIds = [...new Set([
-        ...((choices ?? []).map((c: any) => c.teacher_id).filter(Boolean)),
-        ...((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean)),
-      ])] as string[];
+      if (!groupIds.length) return [];
+      const { data: groups } = await supabase
+        .from("content_groups")
+        .select("id, teacher_id, created_by, subject_id")
+        .in("id", groupIds);
+      const teacherIds = [...new Set((groups ?? []).map((g: any) => g.teacher_id ?? g.created_by).filter(Boolean))] as string[];
       const subjectIds = [...new Set((groups ?? []).map((g: any) => g.subject_id).filter(Boolean))] as string[];
       const [{ data: profs }, { data: subjs }] = await Promise.all([
         teacherIds.length
@@ -192,21 +185,6 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
       const sMap = new Map((subjs ?? []).map((s: any) => [s.id, s.name]));
       const byT = new Map<string, TeacherRow & { subjectSet: Set<string> }>();
-      (choices ?? []).forEach((choice: any) => {
-        const tid = choice.teacher_id;
-        if (!tid) return;
-        const row = byT.get(tid) ?? {
-          teacher_id: tid,
-          teacher_name: pMap.get(tid) ?? "معلم",
-          specialty: null,
-          courses_count: 0,
-          status: "chosen",
-          subjectSet: new Set<string>(),
-        };
-        const label = [choice.category, choice.stage, choice.grade].filter(Boolean).join(" · ");
-        if (label) row.subjectSet.add(label);
-        byT.set(tid, row);
-      });
       (groups ?? []).forEach((g: any) => {
         const tid = g.teacher_id ?? g.created_by;
         if (!tid) return;
@@ -215,7 +193,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           teacher_name: pMap.get(tid) ?? "معلم",
           specialty: null,
           courses_count: 0,
-          status: "chosen",
+          status: "subscribed",
           subjectSet: new Set<string>(),
         };
         row.courses_count += 1;
