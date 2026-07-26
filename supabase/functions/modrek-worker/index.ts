@@ -313,7 +313,17 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
 
   if (uploadState.file?.name) {
     await updateJobProgress(admin, job, 90, { stage: "gemini_file_finalize_wait", file_name: uploadState.file.name });
-    const active = await waitForGeminiFileActive(apiKey, uploadState.file);
+    const active = await waitForGeminiFileActiveSlice(apiKey, uploadState.file, 55_000);
+    if (!active) {
+      await succeedJob(admin, job, { mode: "gemini_file_still_processing", file_name: uploadState.file.name });
+      await enqueue(admin, job.version_id, "upload_pdf_chunk", 20, {
+        asset_id: asset.id,
+        offset: Number(uploadState.offset ?? asset.byte_size ?? 0),
+        size: Number(uploadState.size ?? asset.byte_size ?? 0),
+        status: "finalizing",
+      }, asset.id);
+      return;
+    }
     const geminiFile = buildGeminiFileRef(active, asset.mime_type || "application/pdf");
     await storeGeminiFileRef(admin, asset, geminiFile);
     await succeedJob(admin, job, { mode: "gemini_file_ready", file_name: geminiFile.name, state: geminiFile.state });
@@ -941,10 +951,16 @@ async function storeGeminiFileRef(admin: SupabaseClient, asset: any, geminiFile:
 }
 
 async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
+  const active = await waitForGeminiFileActiveSlice(apiKey, file, 95_000);
+  if (active) return active;
+  throw new Error("انتهت مهلة تجهيز ملف PDF لدى Gemini File API");
+}
+
+async function waitForGeminiFileActiveSlice(apiKey: string, file: any, timeoutMs: number): Promise<any | null> {
   let current = file;
   const name = String(file?.name ?? "");
   if (!name) throw new Error("Gemini file response missing name");
-  const deadline = Date.now() + 95_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (current.state === "ACTIVE" || !current.state) return current;
     if (current.state === "FAILED") throw new Error("Gemini failed to process uploaded PDF file");
@@ -953,7 +969,7 @@ async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> 
     if (!res.ok) throw new Error(`Gemini file status failed ${res.status}: ${(await res.text()).slice(0, 200)}`);
     current = await res.json();
   }
-  throw new Error("انتهت مهلة تجهيز ملف PDF لدى Gemini File API");
+  return null;
 }
 
 async function getPdfPageCountFromGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any): Promise<number> {
