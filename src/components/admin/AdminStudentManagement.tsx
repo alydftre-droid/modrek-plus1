@@ -847,6 +847,40 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Permanent Delete Confirmation */}
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleteLoading) setDeleteOpen(o); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> حذف حساب الطالب نهائيًا
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm leading-7">
+            <p className="text-muted-foreground">
+              سيتم حذف الحساب <span className="font-semibold text-foreground">{student.full_name}</span> ({student.email}) وجميع بياناته المرتبطة بشكل نهائي: المحفظة، الاشتراكات، المشتريات، الامتحانات، السجلات، والمحادثات.
+            </p>
+            <p className="text-destructive font-medium">
+              هذا الإجراء لا يمكن التراجع عنه. بعد الحذف يستطيع الطالب التسجيل من جديد بنفس البريد.
+            </p>
+            <div>
+              <Label className="text-xs">للتأكيد، اكتب: <span className="font-mono text-destructive">حذف</span></Label>
+              <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="حذف" dir="rtl" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteLoading} className="flex-1">إلغاء</Button>
+            <Button
+              onClick={handleDeleteStudent}
+              disabled={deleteLoading || deleteConfirmText.trim() !== "حذف"}
+              className="flex-1 sm-action-btn sm-action-btn--red"
+            >
+              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              حذف نهائي
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
