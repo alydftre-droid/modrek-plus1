@@ -283,20 +283,31 @@ export default function ModrekSourceDetailPage() {
           <TabsContent value="jobs" className="space-y-2 mt-4">
             {jobs.length === 0 && <EmptyText>لا توجد مهام بعد. ابدأ برفع ملف.</EmptyText>}
             {jobs.map((j) => (
-              <div key={j.id} className="rounded-[14px] bg-white border border-[#E5E7EB] p-3.5 flex items-center gap-3 hover:border-[#93C5FD] transition-colors">
-                <StatusDot s={j.status} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm text-[#0F172A]">{j.kind}</span>
-                    <ModrekPill tone="blue" size="sm">order {j.stage_order}</ModrekPill>
-                    <ModrekPill tone="slate" size="sm">محاولة {j.attempts}/{j.max_attempts ?? 3}</ModrekPill>
+              <div key={j.id} className="rounded-[14px] bg-white border border-[#E5E7EB] p-3.5 hover:border-[#93C5FD] transition-colors">
+                <div className="flex items-center gap-3">
+                  <StatusDot s={j.status} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-[#0F172A]">{j.kind}</span>
+                      <ModrekPill tone="blue" size="sm">order {j.stage_order}</ModrekPill>
+                      <ModrekPill tone="slate" size="sm">محاولة {j.attempts}/{j.max_attempts ?? 3}</ModrekPill>
+                      {j.input?.page_from && <ModrekPill tone="cyan" size="sm">صفحات {j.input.page_from}-{j.input.page_to ?? j.input.page_from}</ModrekPill>}
+                    </div>
+                    {j.status === "running" && <Progress value={j.progress_pct} className="h-1 mt-2" />}
                   </div>
-                  {j.error && <div className="text-[11px] text-[#DC2626] mt-1 truncate">{j.error}</div>}
-                  {j.status === "running" && <Progress value={j.progress_pct} className="h-1 mt-2" />}
+                  <div className="text-[11px] text-[#94A3B8] tabular-nums">{j.finished_at ? new Date(j.finished_at).toLocaleTimeString("ar-EG") : "—"}</div>
+                  {(j.status === "failed" || j.status === "retrying") && (
+                    <ModrekButton size="sm" variant="warning" icon={RefreshCw} onClick={() => retryJob(j.id)}>إعادة</ModrekButton>
+                  )}
                 </div>
-                <div className="text-[11px] text-[#94A3B8] tabular-nums">{j.finished_at ? new Date(j.finished_at).toLocaleTimeString("ar-EG") : "—"}</div>
-                {(j.status === "failed" || j.status === "retrying") && (
-                  <ModrekButton size="sm" variant="warning" icon={RefreshCw} onClick={() => retryJob(j.id)}>إعادة</ModrekButton>
+                {j.error && (
+                  <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-[12px] bg-[#FEF2F2] p-3 text-left text-[11px] leading-5 text-[#991B1B]" dir="ltr">{j.error}</pre>
+                )}
+                {j.output?.heartbeat && (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-[10px] font-extrabold text-[#64748B]">آخر نبض / تفاصيل تقنية</summary>
+                    <pre className="mt-2 max-h-36 overflow-auto rounded-[10px] bg-[#0F172A] p-3 text-left text-[10px] text-white" dir="ltr">{JSON.stringify(j.output.heartbeat, null, 2)}</pre>
+                  </details>
                 )}
               </div>
             ))}
@@ -341,7 +352,15 @@ export default function ModrekSourceDetailPage() {
                 )}
               >
                 <span className="tabular-nums text-[10px] opacity-70 shrink-0">{new Date(e.created_at).toLocaleTimeString("ar-EG")}</span>
-                <span className="flex-1">{e.message}</span>
+                <span className="flex-1">
+                  {e.message}
+                  {e.data && Object.keys(e.data).length > 0 && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-[10px] font-extrabold opacity-80">تفاصيل</summary>
+                      <pre className="mt-1 max-h-40 overflow-auto rounded-[8px] bg-[#0F172A] p-2 text-left text-[10px] leading-5 text-white" dir="ltr">{JSON.stringify(e.data, null, 2)}</pre>
+                    </details>
+                  )}
+                </span>
               </div>
             ))}
           </TabsContent>
