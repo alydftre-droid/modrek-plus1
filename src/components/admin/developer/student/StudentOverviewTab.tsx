@@ -96,29 +96,23 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
       // Always enrich with fresh wallet / spend / watch numbers directly from the DB.
       // The RPC may be an older deployed version on the mirrored database and lack
       // wallet_balance / total_spent / watch_minutes, which would render as zeros.
-      const [walletRes, purchRes, videoRes, choicesRes, activityRes, usageRes] = await Promise.all([
+      // Only enrich fields that are outside the "paid subscription" scope
+      // (wallet balance & platform activity). All content/exam/video/teacher
+      // stats come strictly from the RPC and are already scoped to paid groups.
+      const [walletRes, activityRes, usageRes] = await Promise.all([
         supabase.from("wallets").select("balance").eq("user_id", studentId).maybeSingle(),
-        supabase.from("student_group_purchases").select("amount_paid").eq("student_id", studentId),
-        supabase.from("video_progress").select("progress_seconds").eq("user_id", studentId),
-        supabase.from("student_teacher_choices").select("teacher_id").eq("student_id", studentId),
         supabase.from("student_activity_logs").select("duration_seconds").eq("student_id", studentId),
         supabase.from("usage_logs").select("duration_minutes").eq("user_id", studentId),
       ]);
       const liveWallet = Number((walletRes.data as any)?.balance || 0);
-      const liveSpent = ((purchRes.data as any[]) ?? []).reduce((s, p) => s + Number(p.amount_paid || 0), 0);
-      const liveWatchMin = Math.round(((videoRes.data as any[]) ?? []).reduce((s, v) => s + Number(v.progress_seconds || 0), 0) / 60);
       const platformSeconds = ((activityRes.data as any[]) ?? []).reduce((s, row) => s + Number(row.duration_seconds || 0), 0);
       const legacyPlatformSeconds = ((usageRes.data as any[]) ?? []).reduce((s, row) => s + Number(row.duration_minutes || 0) * 60, 0);
-      const chosenTeacherIds = ((choicesRes.data as any[]) ?? []).map((row) => row.teacher_id).filter(Boolean);
 
       return {
         ...overview,
         stats: {
           ...overview.stats,
-          teachers_count: Math.max(Number(overview.stats.teachers_count || 0), new Set(chosenTeacherIds).size),
           wallet_balance: liveWallet,
-          total_spent: liveSpent,
-          watch_minutes: liveWatchMin,
           platform_minutes: Math.round(Math.max(platformSeconds, legacyPlatformSeconds) / 60),
         },
       } as Overview;
