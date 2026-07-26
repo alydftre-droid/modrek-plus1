@@ -107,6 +107,30 @@ type UploadFile = {
   etaSec?: number;
 };
 
+type ProcessingJobRow = {
+  id: string;
+  kind: string;
+  status: string;
+  attempts: number | null;
+  max_attempts: number | null;
+  progress_pct: number | null;
+  error: string | null;
+  input: Record<string, any> | null;
+  output: Record<string, any> | null;
+  next_run_at: string | null;
+  updated_at: string | null;
+  created_at: string;
+};
+
+type ProcessingEventRow = {
+  id: string;
+  job_id: string | null;
+  level: string;
+  message: string;
+  data: Record<string, any> | null;
+  created_at: string;
+};
+
 const STEPS = [
   { n: 1, label: "نوع المصدر", icon: Layers },
   { n: 2, label: "التصنيف", icon: GraduationCap },
@@ -135,6 +159,8 @@ export default function ModrekUploadWizard({
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processingJobs, setProcessingJobs] = useState<ProcessingJobRow[]>([]);
+  const [processingEvents, setProcessingEvents] = useState<ProcessingEventRow[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map());
@@ -162,7 +188,7 @@ export default function ModrekUploadWizard({
     setTax({ stage_id: "", grade_id: "", section_id: "", track_id: "", subject_id: "", sub_subject_id: "", term: "", year: "" });
     setFiles([]);
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
-    setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0); setProcessingError(null);
+    setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0); setProcessingError(null); setProcessingJobs([]); setProcessingEvents([]);
     setVersionIdRef(null); setQueuePausedBoth(false);
     xhrRefs.current.forEach((x) => { try { x.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } }); xhrRefs.current.clear();
   }, [open, presetTypeCode, types]);
@@ -270,6 +296,26 @@ export default function ModrekUploadWizard({
         setPipelineStage(data.pipeline_stage);
         setProgressPct(data.progress_pct ?? 0);
         setProcessingError(data.error_message ?? null);
+        const { data: jobsData } = await supabase
+          .from("processing_jobs")
+          .select("id, kind, status, attempts, max_attempts, progress_pct, error, input, output, next_run_at, updated_at, created_at")
+          .eq("version_id", data.id)
+          .order("stage_order", { ascending: true })
+          .order("created_at", { ascending: true })
+          .limit(80);
+        const jobs = (jobsData ?? []) as ProcessingJobRow[];
+        setProcessingJobs(jobs);
+        if (jobs.length) {
+          const { data: eventsData } = await supabase
+            .from("processing_events")
+            .select("id, job_id, level, message, data, created_at")
+            .in("job_id", jobs.map((job) => job.id))
+            .order("created_at", { ascending: false })
+            .limit(60);
+          setProcessingEvents((eventsData ?? []) as ProcessingEventRow[]);
+        } else {
+          setProcessingEvents([]);
+        }
         const shouldKickWorker = allFilesUploaded && !["completed", "failed"].includes(data.pipeline_stage) && !data.pipeline_completed_at;
         if (shouldKickWorker && Date.now() - lastWorkerKickRef.current > 12_000) {
           lastWorkerKickRef.current = Date.now();
@@ -751,7 +797,7 @@ export default function ModrekUploadWizard({
                   ) : (
                       <ProcessingView
                         stage={pipelineStage} pct={progressPct} files={files} canOpen={allFilesUploaded}
-                        error={processingError} onRunWorker={runWorkerNow}
+                        error={processingError} jobs={processingJobs} events={processingEvents} onRunWorker={runWorkerNow}
                       onOpen={() => { onCreated(createdSourceId); onClose(); }}
                     />
                   )}
