@@ -423,9 +423,48 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           </div>
         )}
       </Card>
+
+      {/* المعلمون المختارون بدون اشتراك */}
+      <Card title="المعلمون الذين اختارهم الطالب ولم يشترك معهم بعد">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2">
+          <span className="inline-flex items-center gap-2 text-[11px] font-bold text-amber-700">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            معلمون اختارهم الطالب ولكن لم يدفع اشتراكهم
+          </span>
+        </div>
+        {chosenOnlyTeachers.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون مختارون بدون اشتراك.</p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full text-sm text-right border-collapse">
+              <thead>
+                <tr className="bg-gradient-to-l from-amber-50 to-orange-50 text-slate-700">
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">اسم المعلم</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">التخصص</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200 text-center">الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chosenOnlyTeachers.map((t, i) => (
+                  <tr key={t.teacher_id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 text-[13px]">{t.teacher_name || "معلم"}</td>
+                    <td className="py-2.5 px-3 text-slate-600 text-[13px]">{normalizeSubject(t.specialty)}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className="inline-flex items-center justify-center min-w-[76px] h-6 px-2 rounded-full font-bold text-[12px] bg-amber-100 text-amber-700">
+                        مختار فقط
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
+
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
