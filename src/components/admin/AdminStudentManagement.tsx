@@ -15,7 +15,7 @@ import {
   Activity, Ban, BookOpen, CreditCard, Download, Edit3, Eye, FileText,
   GraduationCap, Loader2, Mail, Phone, Search, ShoppingCart,
   User, Users, Video, Wallet, Clock3, CheckCircle2, XCircle,
-  Calendar, Hash, ChevronRight,
+  Calendar, Hash, ChevronRight, Trash2, AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
@@ -77,7 +77,7 @@ const AdminStudentManagement = () => {
         {view === "stage" && stageKey && <motion.div key="stage" initial={fadeInitial} animate={fadeAnimate}><StageView stageKey={stageKey} onGrade={(s, g) => { setStageKey(s); setGradeKey(g); setView("grade"); }} /></motion.div>}
         {view === "grade" && stageKey && gradeKey && <motion.div key="grade" initial={fadeInitial} animate={fadeAnimate}><GradeView stageKey={stageKey} grade={gradeKey} onStudent={s => openStudent(s, "grade")} /></motion.div>}
         {view === "recent" && <motion.div key="recent" initial={fadeInitial} animate={fadeAnimate}><RecentView onStudent={s => openStudent(s, "recent")} /></motion.div>}
-        {view === "detail" && student && <motion.div key="detail" initial={fadeInitial} animate={fadeAnimate}><DetailView student={student} onUpdate={setStudent} /></motion.div>}
+        {view === "detail" && student && <motion.div key="detail" initial={fadeInitial} animate={fadeAnimate}><DetailView student={student} onUpdate={setStudent} onDeleted={() => { setStudent(null); setView(backTarget); }} /></motion.div>}
       </AnimatePresence>
     </div>
   );
@@ -353,7 +353,7 @@ const RecentView = ({ onStudent }: { onStudent: (s: StudentProfile) => void }) =
 /* ═══════════════════════════════════════════════════════════════ */
 /*  DETAIL VIEW (CV)                                               */
 /* ═══════════════════════════════════════════════════════════════ */
-const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: (s: StudentProfile) => void }) => {
+const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile; onUpdate: (s: StudentProfile) => void; onDeleted: () => void }) => {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("overview");
   const [editOpen, setEditOpen] = useState(false);
@@ -364,6 +364,9 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
   const [adjustLoading, setAdjustLoading] = useState(false);
   const [banLoading, setBanLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [editForm, setEditForm] = useState({ full_name: student.full_name, phone: student.phone || "", stage: student.stage || "", grade: student.grade || "", section: student.section || "" });
 
   const [wallet, setWallet] = useState(0);
@@ -483,6 +486,25 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
     } catch { toast.error("تعذر تحديث الحالة"); } finally { setBanLoading(false); }
   };
 
+  const handleDeleteStudent = async () => {
+    setDeleteLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-student", {
+        body: { student_id: student.id },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "تعذر حذف الحساب");
+      }
+      toast.success("تم حذف حساب الطالب نهائيًا — أصبح البريد متاحًا للتسجيل من جديد");
+      setDeleteOpen(false);
+      onDeleted();
+    } catch (err: any) {
+      toast.error(err?.message || "تعذر حذف الحساب");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const saveEdit = async () => {
     try {
       await supabase.from("profiles").update(editForm).eq("id", student.id);
@@ -592,6 +614,7 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
             <Button onClick={() => setEditOpen(true)} className="sm-action-btn sm-action-btn--blue"><Edit3 className="h-4 w-4" /> تعديل البيانات</Button>
             <Button onClick={exportPdf} disabled={exportLoading} className="sm-action-btn sm-action-btn--purple">{exportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} تحميل PDF</Button>
             <Button onClick={toggleBan} disabled={banLoading} className={`sm-action-btn ${student.is_banned ? "sm-action-btn--green" : "sm-action-btn--red"}`}>{banLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} {student.is_banned ? "فك الحظر" : "حظر الطالب"}</Button>
+            <Button onClick={() => { setDeleteConfirmText(""); setDeleteOpen(true); }} className="sm-action-btn sm-action-btn--red"><Trash2 className="h-4 w-4" /> حذف الحساب نهائيًا</Button>
           </div>
         </div>
       </div>
@@ -820,6 +843,40 @@ const DetailView = ({ student, onUpdate }: { student: StudentProfile; onUpdate: 
             <Button onClick={handleWalletAdjust} disabled={adjustLoading} className={`w-full ${adjustType === "add" ? "sm-action-btn sm-action-btn--green" : "sm-action-btn sm-action-btn--red"}`}>
               {adjustLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {adjustType === "add" ? "إضافة المبلغ" : "خصم المبلغ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Confirmation */}
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleteLoading) setDeleteOpen(o); }}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" /> حذف حساب الطالب نهائيًا
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm leading-7">
+            <p className="text-muted-foreground">
+              سيتم حذف الحساب <span className="font-semibold text-foreground">{student.full_name}</span> ({student.email}) وجميع بياناته المرتبطة بشكل نهائي: المحفظة، الاشتراكات، المشتريات، الامتحانات، السجلات، والمحادثات.
+            </p>
+            <p className="text-destructive font-medium">
+              هذا الإجراء لا يمكن التراجع عنه. بعد الحذف يستطيع الطالب التسجيل من جديد بنفس البريد.
+            </p>
+            <div>
+              <Label className="text-xs">للتأكيد، اكتب: <span className="font-mono text-destructive">حذف</span></Label>
+              <Input value={deleteConfirmText} onChange={(e) => setDeleteConfirmText(e.target.value)} placeholder="حذف" dir="rtl" />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleteLoading} className="flex-1">إلغاء</Button>
+            <Button
+              onClick={handleDeleteStudent}
+              disabled={deleteLoading || deleteConfirmText.trim() !== "حذف"}
+              className="flex-1 sm-action-btn sm-action-btn--red"
+            >
+              {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              حذف نهائي
             </Button>
           </DialogFooter>
         </DialogContent>
