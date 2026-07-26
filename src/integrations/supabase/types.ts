@@ -7002,28 +7002,17 @@ export type Database = {
           isSetofReturn: true
         }
       }
-      modrek_enqueue_stage:
-        | {
-            Args: {
-              p_asset_id?: string
-              p_input?: Json
-              p_kind: Database["public"]["Enums"]["processing_job_kind"]
-              p_stage_order: number
-              p_version_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_asset_id?: string
-              p_input?: Json
-              p_kind: Database["public"]["Enums"]["processing_job_kind"]
-              p_max_attempts?: number
-              p_stage_order: number
-              p_version_id: string
-            }
-            Returns: string
-          }
+      modrek_enqueue_stage: {
+        Args: {
+          p_asset_id?: string
+          p_input?: Json
+          p_kind: Database["public"]["Enums"]["processing_job_kind"]
+          p_max_attempts?: number
+          p_stage_order: number
+          p_version_id: string
+        }
+        Returns: string
+      }
       modrek_extract_text_fallback: {
         Args: { p_asset_id: string }
         Returns: string
