@@ -452,7 +452,7 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
       "X-Goog-Upload-Offset": String(offset),
       "X-Goog-Upload-Command": isFinal ? "upload, finalize" : "upload",
     },
-    body: chunk,
+    body: chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength),
   }, FILE_API_TIMEOUT_MS);
   if (!upload.ok) throw new Error(`Gemini chunk upload failed ${upload.status}: ${(await upload.text()).slice(0, 300)}`);
 
@@ -1233,8 +1233,8 @@ async function extractTextFromPdfBytes(bytes: Uint8Array): Promise<string> {
     const pdf: any = await withTimeout(loadPdfProxy(bytes), 30_000, "pdf document load timeout");
     const pages: string[] = [];
     for (let pageNo = 1; pageNo <= pdf.numPages; pageNo += 1) {
-      const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf page ${pageNo} load timeout`);
-      const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf page ${pageNo} text timeout`);
+      const page: any = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf page ${pageNo} load timeout`);
+      const content: any = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf page ${pageNo} text timeout`);
       const lines = (content.items ?? [])
         .map((item: any) => String(item?.str ?? "").trim())
         .filter(Boolean)
@@ -1295,8 +1295,8 @@ async function extractPdfPagesFromBytes(
   const pages: { pageNo: number; text: string }[] = [];
   const lastPage = Math.min(Number(pdf.numPages ?? pageTo), pageTo);
   for (let pageNo = pageFrom; pageNo <= lastPage; pageNo += 1) {
-    const page = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf page ${pageNo} load timeout`);
-    const content = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf page ${pageNo} text timeout`);
+    const page: any = await withTimeout(pdf.getPage(pageNo), 12_000, `pdf page ${pageNo} load timeout`);
+    const content: any = await withTimeout(page.getTextContent({ includeMarkedContent: false }), 12_000, `pdf page ${pageNo} text timeout`);
     const text = (content.items ?? [])
       .map((item: any) => String(item?.str ?? "").trim())
       .filter(Boolean)
@@ -1327,8 +1327,9 @@ async function createPdfPageSubset(bytes: Uint8Array, pageFrom: number, pageTo: 
 
 function decodePdfLiteral(token: string): string {
   const body = token.startsWith("(") && token.endsWith(")") ? token.slice(1, -1) : token;
+  const escapes: Record<string, string> = { n: "\n", r: "\r", t: "\t", b: "\b", f: "\f", "(": "(", ")": ")", "\\": "\\" };
   return body
-    .replace(/\\([nrtbf()\\])/g, (_m, ch) => ({ n: "\n", r: "\r", t: "\t", b: "\b", f: "\f", "(": "(", ")": ")", "\\": "\\" }[ch] ?? ch))
+    .replace(/\\([nrtbf()\\])/g, (_m, ch: string) => escapes[ch] ?? ch)
     .replace(/\\([0-7]{1,3})/g, (_m, oct) => String.fromCharCode(parseInt(oct, 8)))
     .replace(/\\\r?\n/g, "");
 }
