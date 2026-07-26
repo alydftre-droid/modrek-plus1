@@ -123,9 +123,9 @@ Deno.serve(async (req) => {
         else storageRefs.push(full);
       }
     };
-    for (const root of ["content", "library", "profiles", "teachers", "books", "videos"]) {
-      try { await listStorage(root); } catch (err) { console.warn("[orphan:list_storage]", root, err); }
-    }
+    // Scan from the storage zone ROOT so we catch every file regardless of folder layout
+    // (older teacher deletions left files in various top-level folders, some outside our known list).
+    try { await listStorage(""); } catch (err) { console.warn("[orphan:list_storage:root]", err); }
 
     // ── Compute orphans ──────────────────────────────────────────────
     const streamOrphans  = streamRefs.filter((v) => !referencedVideoIds.has(v));
