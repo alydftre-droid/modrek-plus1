@@ -486,6 +486,25 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
     } catch { toast.error("تعذر تحديث الحالة"); } finally { setBanLoading(false); }
   };
 
+  const handleDeleteStudent = async () => {
+    setDeleteLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-student", {
+        body: { student_id: student.id },
+      });
+      if (error || (data as any)?.error) {
+        throw new Error((data as any)?.error || error?.message || "تعذر حذف الحساب");
+      }
+      toast.success("تم حذف حساب الطالب نهائيًا — أصبح البريد متاحًا للتسجيل من جديد");
+      setDeleteOpen(false);
+      onDeleted();
+    } catch (err: any) {
+      toast.error(err?.message || "تعذر حذف الحساب");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const saveEdit = async () => {
     try {
       await supabase.from("profiles").update(editForm).eq("id", student.id);
