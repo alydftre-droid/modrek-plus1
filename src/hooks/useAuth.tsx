@@ -99,6 +99,8 @@ interface TeacherSignUpData {
   subject: string;
   educationType?: string;
   teachesIntegratedScience?: boolean;
+  termsVersion?: string;
+  termsAcceptedAt?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
