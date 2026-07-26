@@ -115,33 +115,93 @@ Deno.serve(async (req) => {
     }
 
     if (action === "ban_teacher") {
+      // 1) Mark banned in profile (used by frontend ProtectedRoute)
       await admin.from("profiles").update({ is_banned: true, updated_at: new Date().toISOString() }).eq("id", teacher_id);
+      // 2) Block auth login at Supabase Auth level (100 years) & revoke sessions
+      try {
+        await admin.auth.admin.updateUserById(teacher_id, { ban_duration: "876000h" } as unknown as { ban_duration: string });
+      } catch (err) { console.warn("[ban] auth ban failed", err); }
+      try { await admin.auth.admin.signOut(teacher_id, "global" as unknown as never); } catch (err) { console.warn("[ban] signOut failed", err); }
+      await admin.from("notifications").insert({
+        user_id: teacher_id,
+        title: "تم إيقاف حسابك",
+        message: "قام المطور بإيقاف حسابك مؤقتاً. تواصل مع الدعم لمزيد من التفاصيل.",
+        notification_type: "account",
+        is_read: false,
+        is_sent: true,
+      }).then(() => {}, () => {});
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "unban_teacher") {
       await admin.from("profiles").update({ is_banned: false, updated_at: new Date().toISOString() }).eq("id", teacher_id);
+      try {
+        await admin.auth.admin.updateUserById(teacher_id, { ban_duration: "none" } as unknown as { ban_duration: string });
+      } catch (err) { console.warn("[unban] auth unban failed", err); }
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     if (action === "delete_teacher") {
-      // Cascade-like cleanup of teacher data (best-effort, ignore errors per table)
-      const tables = [
+      // Full cascade cleanup of every teacher-owned row so no FK blocks auth.users deletion.
+      const swallow = async (label: string, fn: () => Promise<unknown>) => {
+        try { await fn(); } catch (err) { console.warn(`[delete_teacher:${label}]`, err); }
+      };
+
+      // Tables keyed by teacher_id (profiles.id / auth.users.id)
+      const byTeacherId = [
         "teacher_activity_logs",
         "teacher_wallet_transactions",
         "teacher_withdrawal_requests",
         "teacher_payment_methods",
         "teacher_assignments",
         "teacher_wallets",
+        "teacher_monthly_archives",
+        "teacher_commission_history",
+        "teacher_earning_records",
+        "teacher_messages",
+        "teacher_schedules",
+        "teacher_visibility_diagnostics",
+        "teacher_profiles",
         "price_change_requests",
+        "student_teacher_choices",
+        "student_group_purchases",
+        "teacher_requests",
+        "subscription_requests",
+        "subscriptions",
+        "subscription_messages",
+        "automated_messages",
+        "content_groups",
+        "bundled_packages",
+        "live_sessions",
+        "live_session_messages",
+        "live_session_recordings",
+        "exams",
+        "ads",
       ];
-      for (const t of tables) {
-        try { await admin.from(t).delete().eq("teacher_id", teacher_id); } catch (_) { /* ignore */ }
+      for (const t of byTeacherId) {
+        await swallow(`t/${t}`, () => admin.from(t).delete().eq("teacher_id", teacher_id));
       }
-      try { await admin.from("content").delete().eq("uploaded_by", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
-      try { await admin.from("content_groups").delete().eq("teacher_id", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
-      try { await admin.from("user_roles").delete().eq("user_id", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
-      try { await admin.from("profiles").delete().eq("id", teacher_id); } catch (_) { /* non-fatal */ console.debug("[swallowed]", _); }
+
+      // Uploaded / created_by references
+      await swallow("content.uploaded_by",           () => admin.from("content").delete().eq("uploaded_by", teacher_id));
+      await swallow("ai_sources.uploaded_by",        () => admin.from("ai_sources").delete().eq("uploaded_by", teacher_id));
+      await swallow("storage_assets.uploaded_by",    () => admin.from("storage_assets").delete().eq("uploaded_by", teacher_id));
+      await swallow("notifications.created_by",      () => admin.from("notifications").delete().eq("created_by", teacher_id));
+      await swallow("subscriptions.created_by",      () => admin.from("subscriptions").delete().eq("created_by", teacher_id));
+      await swallow("subscription_messages.created_by", () => admin.from("subscription_messages").delete().eq("created_by", teacher_id));
+      await swallow("automated_messages.created_by", () => admin.from("automated_messages").delete().eq("created_by", teacher_id));
+      await swallow("knowledge_sources.created_by",  () => admin.from("knowledge_sources").delete().eq("created_by", teacher_id));
+      await swallow("knowledge_source_versions.created_by", () => admin.from("knowledge_source_versions").delete().eq("created_by", teacher_id));
+      await swallow("library_books.created_by",      () => admin.from("library_books").delete().eq("created_by", teacher_id));
+      await swallow("library_section_explanations.created_by", () => admin.from("library_section_explanations").delete().eq("created_by", teacher_id));
+      await swallow("voice_answers.created_by",      () => admin.from("voice_answers").delete().eq("created_by", teacher_id));
+      await swallow("teacher_requests.reviewed_by",  () => admin.from("teacher_requests").delete().eq("reviewed_by", teacher_id));
+      await swallow("notifications.user_id",         () => admin.from("notifications").delete().eq("user_id", teacher_id));
+      await swallow("device_push_tokens.user_id",    () => admin.from("device_push_tokens").delete().eq("user_id", teacher_id));
+
+      await swallow("user_roles", () => admin.from("user_roles").delete().eq("user_id", teacher_id));
+      await swallow("profiles",   () => admin.from("profiles").delete().eq("id", teacher_id));
+
       const { error: e4 } = await admin.auth.admin.deleteUser(teacher_id);
       if (e4) throw e4;
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
