@@ -434,6 +434,8 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
 
   const end = Math.min(size - 1, offset + chunkSize - 1);
   const chunk = await fetchBunnyRange(asset, offset, end);
+  const uploadBody = new ArrayBuffer(chunk.byteLength);
+  new Uint8Array(uploadBody).set(chunk);
   const isFinal = end + 1 >= size;
   const pct = 25 + Math.floor((Math.min(size, end + 1) / Math.max(1, size)) * 10);
   await updateJobProgress(admin, job, pct, {
@@ -452,7 +454,7 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
       "X-Goog-Upload-Offset": String(offset),
       "X-Goog-Upload-Command": isFinal ? "upload, finalize" : "upload",
     },
-    body: chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength),
+    body: uploadBody,
   }, FILE_API_TIMEOUT_MS);
   if (!upload.ok) throw new Error(`Gemini chunk upload failed ${upload.status}: ${(await upload.text()).slice(0, 300)}`);
 
