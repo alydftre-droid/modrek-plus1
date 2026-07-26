@@ -259,6 +259,7 @@ const Auth = () => {
     subject: "",
     educationType: "" as "عام" | "أزهر" | "",
     teachesIntegratedScience: false,
+    acceptedTerms: false,
   });
 
   // Redirect if already logged in
