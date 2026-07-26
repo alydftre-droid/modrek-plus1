@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.exam_target_matches_student(text, text, uuid) CASCADE;
