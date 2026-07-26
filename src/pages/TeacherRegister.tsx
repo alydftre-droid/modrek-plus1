@@ -187,6 +187,17 @@ const TeacherRegister = () => {
         terms_accepted_at: new Date().toISOString(),
       } as any);
 
+      if (requestError) {
+        console.error("Error creating teacher request:", requestError);
+        toast({
+          title: "خطأ",
+          description: "فشل إرسال الطلب. حاول مرة أخرى.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
       // Best-effort mirror onto profile so the dashboard guard can re-check version
       try {
         await supabase
@@ -198,17 +209,6 @@ const TeacherRegister = () => {
           .eq("id", userId);
       } catch (_) {
         // ignore, will retry on dashboard load
-      }
-
-      if (requestError) {
-        console.error("Error creating teacher request:", requestError);
-        toast({
-          title: "خطأ",
-          description: "فشل إرسال الطلب. حاول مرة أخرى.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
       }
 
       toast({
