@@ -11,6 +11,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  areEquivalentModrekSubjects,
+  dedupeModrekSubjects,
+  isNoTrackCode,
+  subjectScopeMatches,
+} from "@/lib/modrekLibrarySubjects";
 import ModrekUploadWizard from "@/components/admin/modrek/ModrekUploadWizard";
 import {
   AlertDialog,
@@ -153,23 +159,22 @@ export default function ModrekLibraryPage() {
   useEffect(() => { loadAll(); }, []);
 
   const filteredGrades = useMemo(() => grades.filter((g) => !f.stage || g.stage_id === f.stage), [grades, f.stage]);
-  const filteredSubjects = useMemo(() => subjects.filter((s) => {
+  const filteredSubjects = useMemo(() => {
+    const sectionCodeById = new Map(sections.map((section) => [section.id, section.code]));
     const selectedSectionCode = sections.find((sec) => sec.id === f.section)?.code;
     const selectedTrackCode = tracks.find((track) => track.id === f.track)?.code;
-    const shouldFilterByTrack = !!selectedTrackCode && selectedTrackCode !== "none";
-    if (f.stage && s.stage_id && s.stage_id !== f.stage) return false;
-    if (f.grade && s.grade_id && s.grade_id !== f.grade) return false;
-    if (f.section && s.section_id && s.section_id !== f.section) {
-      const subjectSectionCode = sections.find((sec) => sec.id === s.section_id)?.code;
-      if (subjectSectionCode !== "shared" && selectedSectionCode !== "shared") return false;
-    }
-    if (shouldFilterByTrack && s.curriculum_track) {
-      if (selectedTrackCode === "literary" && s.curriculum_track !== "literary") return false;
-      if (["scientific", "sci_science", "sci_math"].includes(selectedTrackCode) && s.curriculum_track !== "scientific") return false;
-    }
-    return true;
-  }), [subjects, sections, tracks, f.stage, f.grade, f.section, f.track]);
+    const visibleSubjects = subjects.filter((subject) => subjectScopeMatches(subject, {
+      stageId: f.stage,
+      gradeId: f.grade,
+      sectionId: f.section,
+      selectedSectionCode,
+      selectedTrackCode,
+      sectionCodeById,
+    }));
+    return dedupeModrekSubjects(visibleSubjects, selectedTrackCode);
+  }, [subjects, sections, tracks, f.stage, f.grade, f.section, f.track]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
+  const subjectById = useMemo(() => new Map(subjects.map((subject) => [subject.id, subject])), [subjects]);
 
   const filtered = useMemo(() => {
     let list = sources.filter((s) => {
@@ -177,11 +182,17 @@ export default function ModrekLibraryPage() {
       if (f.stage && s.stage_id !== f.stage) return false;
       if (f.grade && s.grade_id !== f.grade) return false;
       if (f.section && s.section_id !== f.section) return false;
-      if (f.track && s.track_id !== f.track) {
+      if (f.track) {
         const selectedTrackCode = tracks.find((track) => track.id === f.track)?.code;
-        if (selectedTrackCode !== "none" || s.track_id) return false;
+        if (isNoTrackCode(selectedTrackCode)) {
+          if (s.track_id) return false;
+        } else if (s.track_id && s.track_id !== f.track) return false;
       }
-      if (f.subject && s.subject_id !== f.subject) return false;
+      if (f.subject && s.subject_id !== f.subject) {
+        const selectedSubject = subjectById.get(f.subject);
+        const sourceSubject = subjectById.get(s.subject_id || "");
+        if (!areEquivalentModrekSubjects(selectedSubject, sourceSubject)) return false;
+      }
       if (f.sub && s.sub_subject_id !== f.sub) return false;
       if (q && !s.title.toLowerCase().includes(q.toLowerCase())) return false;
       return true;
@@ -189,7 +200,7 @@ export default function ModrekLibraryPage() {
     if (sort === "old") list = [...list].sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (sort === "title") list = [...list].sort((a, b) => a.title.localeCompare(b.title, "ar"));
     return list;
-  }, [sources, q, fType, f, sort, tracks]);
+  }, [sources, q, fType, f, sort, tracks, subjectById]);
 
   const typeById = (id: string) => types.find((t) => t.id === id);
   const nameById = <T extends { id: string; name_ar: string }>(list: T[], id: string | null) =>
@@ -367,9 +378,9 @@ export default function ModrekLibraryPage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <ModrekSelect label="المرحلة" placeholder="كل المراحل" value={f.stage} onChange={(v) => setF((x) => ({ ...x, stage: v, grade: "", subject: "", sub: "" }))} options={stages} />
-            <ModrekSelect label="الصف" placeholder={f.stage ? "كل الصفوف" : "اختر المرحلة أولاً"} value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v }))} options={filteredGrades} disabled={!f.stage} />
+            <ModrekSelect label="الصف" placeholder={f.stage ? "كل الصفوف" : "اختر المرحلة أولاً"} value={f.grade} onChange={(v) => setF((x) => ({ ...x, grade: v, subject: "", sub: "" }))} options={filteredGrades} disabled={!f.stage} />
             <ModrekSelect label="النظام" placeholder="عام / أزهر" value={f.section} onChange={(v) => setF((x) => ({ ...x, section: v, subject: "", sub: "" }))} options={sections} />
-            <ModrekSelect label="الشعبة" placeholder="كل الشعب" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v }))} options={tracks} />
+            <ModrekSelect label="الشعبة" placeholder="كل الشعب" value={f.track} onChange={(v) => setF((x) => ({ ...x, track: v, subject: "", sub: "" }))} options={tracks} />
           </div>
         </div>
 

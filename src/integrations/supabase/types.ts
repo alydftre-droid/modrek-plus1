@@ -7076,6 +7076,10 @@ export type Database = {
         Returns: Json
       }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
+      modrek_subjects_equivalent: {
+        Args: { _left: string; _right: string }
+        Returns: boolean
+      }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
       normalize_content_education_type: {
         Args: { _value: string }
