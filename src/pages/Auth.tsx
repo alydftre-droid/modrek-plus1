@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
+import { CURRENT_TEACHER_TERMS_VERSION } from "@/lib/teacherTerms";
 import {
   buildGoogleOAuthWebRedirectUri,
   finalizeGoogleOAuthAttempt,
