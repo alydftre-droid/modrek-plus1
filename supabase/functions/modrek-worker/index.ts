@@ -121,6 +121,7 @@ Deno.serve(async (req) => {
 
   const results: any[] = [];
   try {
+    await recoverTransientModrekJobs(admin);
     for (let i = 0; i < MAX_JOBS_PER_INVOCATION; i++) {
       const { data: rows, error } = await admin.rpc("modrek_claim_next_job");
       if (error) { results.push({ error: error.message }); break; }
@@ -797,7 +798,25 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   let pageCount = 0;
   let geminiFile: any = asset?.metadata?.gemini_file ?? null;
 
-  if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && !geminiFile?.uri) {
+  if (byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+    try {
+      bytes = await fetchAssetBytes(admin, asset);
+      pageCount = await withTimeout(getPdfPageCount(bytes), 35_000, "تعذر قراءة عدد صفحات PDF محلياً خلال المهلة");
+      await log(admin, job.id, "info", "PDF page count resolved locally before provider fallback", {
+        bytes: byteSize,
+        page_count: pageCount,
+      });
+    } catch (e: any) {
+      await log(admin, job.id, "warn", "local PDF page-count detection failed; provider fallback may be needed", {
+        bytes: byteSize,
+        error: String(e?.message ?? e).slice(0, 500),
+      });
+      bytes = null;
+      pageCount = 0;
+    }
+  }
+
+  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && !geminiFile?.uri) {
     await startGeminiChunkedUpload(admin, job, asset);
     await admin.from("knowledge_source_versions").update({
       page_count: null,
@@ -820,10 +839,19 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     return;
   }
 
-  if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
     await respectProviderCooldown(admin, job);
     pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
       await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
+      if (bytes) {
+        try {
+          return await withTimeout(getPdfPageCount(bytes), 35_000, "تعذر قراءة عدد صفحات PDF محلياً بعد فشل المزود");
+        } catch (localErr: any) {
+          await log(admin, job.id, "warn", "local PDF page-count fallback also failed", {
+            error: String(localErr?.message ?? localErr).slice(0, 500),
+          });
+        }
+      }
       if (isRateLimitError(e)) throw e;
       return 0;
     });
@@ -831,13 +859,10 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
 
   if (!pageCount) {
     if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
-      throw new Error("تعذر تحديد عدد صفحات PDF الكبير عبر Gemini File API؛ تم إيقاف المعالجة برسالة واضحة بدلاً من تحميل الملف كاملاً وتعليق العامل");
+      throw new Error("تعذر تحديد عدد صفحات PDF الكبير محلياً أو عبر Gemini File API؛ تم إيقاف هذه المرحلة برسالة تشخيص واضحة بدلاً من تعليق العامل");
     }
-    bytes = await fetchAssetBytes(admin, asset);
+    bytes = bytes ?? await fetchAssetBytes(admin, asset);
     pageCount = await withTimeout(getPdfPageCount(bytes), 30_000, "تعذر قراءة عدد صفحات PDF خلال المهلة");
-    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES || pageCount > 120) {
-      geminiFile = geminiFile ?? await ensureGeminiFileForAsset(admin, asset, job.id);
-    }
   }
   if (!pageCount || pageCount < 1) throw new Error("تعذر قراءة عدد صفحات PDF");
 
@@ -1354,6 +1379,56 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+async function recoverTransientModrekJobs(admin: SupabaseClient) {
+  const { data: jobs } = await admin
+    .from("processing_jobs")
+    .select("id, source_id, version_id, error, kind")
+    .in("status", ["failed", "retrying"] as any)
+    .or("error.ilike.%modrek_enqueue_stage%,error.ilike.%تعذر تحديد عدد صفحات PDF الكبير%")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  const ids = (jobs ?? []).map((job: any) => job.id).filter(Boolean);
+  if (!ids.length) return;
+
+  const now = new Date().toISOString();
+  await admin.from("processing_jobs").update({
+    status: "pending",
+    error: null,
+    attempts: 0,
+    next_run_at: now,
+    started_at: null,
+    finished_at: null,
+    updated_at: now,
+  }).in("id", ids);
+
+  const versionIds = Array.from(new Set((jobs ?? []).map((job: any) => job.version_id).filter(Boolean)));
+  const sourceIds = Array.from(new Set((jobs ?? []).map((job: any) => job.source_id).filter(Boolean)));
+  if (versionIds.length) {
+    await admin.from("knowledge_source_versions").update({
+      pipeline_stage: "queued",
+      error_message: null,
+      updated_at: now,
+    }).in("id", versionIds);
+  }
+  if (sourceIds.length) {
+    await admin.from("knowledge_sources").update({ status: "processing" }).in("id", sourceIds);
+  }
+
+  await admin.rpc("modrek_log_event", {
+    p_job_id: ids[0],
+    p_level: "warn",
+    p_message: "auto-recovered transient Modrek processing jobs",
+    p_data: {
+      recovered_jobs: ids.length,
+      reason: "function signature/page-count transient failure after deployment",
+      job_ids: ids.slice(0, 20),
+      memory: memorySnapshot(),
+      at: now,
+    },
+  });
+}
+
 function isRateLimitError(error: unknown): boolean {
   const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
   return [
@@ -1583,14 +1658,19 @@ async function enqueue(admin: SupabaseClient, versionId: string, kind: string, s
     p_version_id: versionId, p_kind: kind, p_stage_order: stageOrder,
     p_input: input, p_asset_id: assetId ?? null,
   };
-  const { data, error } = await admin.rpc("modrek_enqueue_stage", {
-    ...params,
-    p_max_attempts: maxAttempts ?? null,
-  });
-  if (!error) return data;
+  const primary = await admin.rpc("modrek_enqueue_stage", params);
+  if (!primary.error) {
+    if (primary.data && maxAttempts) {
+      await admin.from("processing_jobs").update({
+        max_attempts: maxAttempts,
+        updated_at: new Date().toISOString(),
+      }).eq("id", primary.data);
+    }
+    return primary.data;
+  }
 
-  const errorMessage = String(error.message || "");
-  const canUseLegacySignature = Boolean(maxAttempts) && (
+  const errorMessage = String(primary.error.message || "");
+  const canUseExtendedSignature = (
     errorMessage.includes("modrek_enqueue_stage") ||
     errorMessage.includes("function") ||
     errorMessage.includes("schema cache") ||
@@ -1598,8 +1678,11 @@ async function enqueue(admin: SupabaseClient, versionId: string, kind: string, s
     errorMessage.includes("not found")
   );
 
-  if (canUseLegacySignature) {
-    const fallback = await admin.rpc("modrek_enqueue_stage", params);
+  if (canUseExtendedSignature) {
+    const fallback = await admin.rpc("modrek_enqueue_stage", {
+      ...params,
+      p_max_attempts: maxAttempts ?? null,
+    });
     if (!fallback.error) {
       if (fallback.data && maxAttempts) {
         await admin.from("processing_jobs").update({
@@ -1607,7 +1690,7 @@ async function enqueue(admin: SupabaseClient, versionId: string, kind: string, s
           updated_at: new Date().toISOString(),
         }).eq("id", fallback.data);
       }
-      await log(admin, fallback.data ?? null, "warn", "modrek_enqueue_stage legacy signature fallback used", {
+      await log(admin, fallback.data ?? null, "warn", "modrek_enqueue_stage extended signature fallback used", {
         kind,
         version_id: versionId,
         original_error: errorMessage.slice(0, 500),
@@ -1618,7 +1701,7 @@ async function enqueue(admin: SupabaseClient, versionId: string, kind: string, s
   }
 
   {
-    throw new Error(`failed to enqueue ${kind}: ${error.message}`);
+    throw new Error(`failed to enqueue ${kind}: ${primary.error.message}`);
   }
 }
 
