@@ -189,7 +189,7 @@ export default function ModrekLibraryPage() {
     if (sort === "old") list = [...list].sort((a, b) => a.created_at.localeCompare(b.created_at));
     if (sort === "title") list = [...list].sort((a, b) => a.title.localeCompare(b.title, "ar"));
     return list;
-  }, [sources, q, fType, f, sort]);
+  }, [sources, q, fType, f, sort, tracks]);
 
   const typeById = (id: string) => types.find((t) => t.id === id);
   const nameById = <T extends { id: string; name_ar: string }>(list: T[], id: string | null) =>
