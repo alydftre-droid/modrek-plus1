@@ -50,6 +50,7 @@ const TeacherSubjectPage = lazy(() => import("@/pages/TeacherSubjectPage"));
 const TeacherUploadContent = lazy(() => import("@/pages/teacher/TeacherUploadContent"));
 const TeacherSubSubjectView = lazy(() => import("@/pages/teacher/TeacherSubSubjectView"));
 const TeacherRegister = lazy(() => import("@/pages/TeacherRegister"));
+const TeacherTerms = lazy(() => import("@/pages/teacher/TeacherTerms"));
 const PendingApproval = lazy(() => import("@/pages/PendingApproval"));
 const ProfileSettings = lazy(() => import("@/pages/ProfileSettings"));
 const AiChat = lazy(() => import("@/pages/AiChat"));
@@ -205,6 +206,8 @@ function AnimatedRoutes() {
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
               <Route path="/teacher-register" element={<TeacherRegister />} />
+              <Route path="/teacher/terms" element={<TeacherTerms />} />
+              <Route path="/teacher-terms" element={<Navigate to="/teacher/terms" replace />} />
               <Route path="/pending-approval" element={<PendingApproval />} />
               <Route path="/select-education-type" element={<ProtectedRoute allowedRoles={["student"]}><EducationTypeSelection /></ProtectedRoute>} />
 
