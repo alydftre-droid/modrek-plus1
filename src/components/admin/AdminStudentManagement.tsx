@@ -77,7 +77,7 @@ const AdminStudentManagement = () => {
         {view === "stage" && stageKey && <motion.div key="stage" initial={fadeInitial} animate={fadeAnimate}><StageView stageKey={stageKey} onGrade={(s, g) => { setStageKey(s); setGradeKey(g); setView("grade"); }} /></motion.div>}
         {view === "grade" && stageKey && gradeKey && <motion.div key="grade" initial={fadeInitial} animate={fadeAnimate}><GradeView stageKey={stageKey} grade={gradeKey} onStudent={s => openStudent(s, "grade")} /></motion.div>}
         {view === "recent" && <motion.div key="recent" initial={fadeInitial} animate={fadeAnimate}><RecentView onStudent={s => openStudent(s, "recent")} /></motion.div>}
-        {view === "detail" && student && <motion.div key="detail" initial={fadeInitial} animate={fadeAnimate}><DetailView student={student} onUpdate={setStudent} /></motion.div>}
+        {view === "detail" && student && <motion.div key="detail" initial={fadeInitial} animate={fadeAnimate}><DetailView student={student} onUpdate={setStudent} onDeleted={() => { setStudent(null); setView(backTarget); }} /></motion.div>}
       </AnimatePresence>
     </div>
   );
