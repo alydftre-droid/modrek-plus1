@@ -50,6 +50,20 @@ const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 4;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
+const RATE_LIMIT_MIN_BACKOFF_MS = 2 * 60_000;
+const RATE_LIMIT_MAX_BACKOFF_MS = 20 * 60_000;
+
+type FailureDiagnostic = {
+  category: "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
+  userMessage: string;
+  rawMessage: string;
+  retryable: boolean;
+  file: string;
+  function: string;
+  line: number | null;
+  stack: string | null;
+};
 
 const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.get("LIBRARY_WORKER_SHARED_KEY") || "").trim();
 
@@ -117,7 +131,7 @@ Deno.serve(async (req) => {
         );
         results.push({ job_id: job.id, kind: job.kind, ok: true });
       } catch (e: any) {
-        await failJob(admin, job, e?.message ?? String(e));
+        await failJob(admin, job, e);
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
@@ -214,17 +228,17 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
       // requeue smaller sub-batches instead of hard-failing the whole book.
       const rangeSize = pageTo - pageFrom + 1;
       const alreadySplit = Number(input.__split_depth ?? 0);
-      if (rangeSize > 1 && alreadySplit < 4) {
+      if (!isRateLimitError(err) && rangeSize > 1 && alreadySplit < 4) {
         const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
         await log(admin, job.id, "warn", "extract_page auto-splitting after Gemini failure", {
           page_from: pageFrom, page_to: pageTo, error: String(err?.message ?? err).slice(0, 300),
         });
         await enqueue(admin, job.version_id, "extract_page", 21, {
           ...input, page_from: pageFrom, page_to: mid, __split_depth: alreadySplit + 1,
-        }, job.asset_id);
+        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
         await enqueue(admin, job.version_id, "extract_page", 21, {
           ...input, page_from: mid + 1, page_to: pageTo, __split_depth: alreadySplit + 1,
-        }, job.asset_id);
+        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
         await succeedJob(admin, job, { mode: "split", page_from: pageFrom, page_to: pageTo, split_at: mid });
         return;
       }
@@ -479,12 +493,12 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     for (const fp of failedPages) {
       const fpInput = (fp as any).input ?? {};
       const wasGemini = fpInput.extractor === "gemini_file" || !!fpInput.gemini_file?.uri;
-      await enqueue(admin, job.version_id, "extract_page", 21, {
+        await enqueue(admin, job.version_id, "extract_page", 21, {
         ...fpInput,
         extractor: wasGemini ? "local_pdfjs" : "gemini_file",
         gemini_file: wasGemini ? null : fpInput.gemini_file ?? null,
         __retry_of: (fp as any).id,
-      }, job.asset_id);
+      }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
     }
     await log(admin, job.id, "warn", "merge_text auto-retrying failed page batches with alternate extractor", {
       retried: failedPages.length,
@@ -790,7 +804,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const estimatedBytesPerPage = byteSize / Math.max(1, pageCount);
   const dynamicBatchPages = Math.max(
     1,
-    geminiFile ? Math.min(8, PDF_TEXT_BATCH_PAGES) : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
+    geminiFile ? 1 : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
   );
 
   for (let pageFrom = 1; pageFrom <= pageCount; pageFrom += dynamicBatchPages) {
@@ -804,7 +818,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
       extractor: geminiFile ? "gemini_file" : "local_pdfjs",
       gemini_file: geminiFile,
       filename: asset.original_filename,
-    }, asset.id);
+    }, asset.id, EXTRACT_PAGE_MAX_ATTEMPTS);
     batchCount++;
   }
 
@@ -1279,6 +1293,74 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+function isRateLimitError(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return ["429", "quota", "rate limit", "rate-limit", "resource_exhausted", "resource exhausted", "too many requests"].some((token) => msg.includes(token));
+}
+
+function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
+  const err = error instanceof Error ? error : new Error(String(error ?? "unknown error"));
+  const rawMessage = String(err.message || "unknown error");
+  const lower = rawMessage.toLowerCase();
+  const stack = String(err.stack || "");
+  const frame = stack.split("\n").find((line) => line.includes("index.ts:")) || "";
+  const lineMatch = frame.match(/index\.ts:(\d+):(\d+)/);
+  const fnMatch = frame.match(/at\s+([^\s(]+)/);
+  const functionName = fnMatch?.[1]?.replace(/^async\s+/, "") || String(job?.kind || "modrek-worker");
+  const lineNumber = lineMatch?.[1] ? Number(lineMatch[1]) : null;
+
+  let category: FailureDiagnostic["category"] = "unknown";
+  if (isRateLimitError(err)) category = "rate_limit";
+  else if (lower.includes("timeout") || lower.includes("مهلة")) category = "timeout";
+  else if (lower.includes("gemini") || lower.includes("openrouter") || lower.includes("ai gateway") || lower.includes("generation failed")) category = "provider";
+  else if (lower.includes("bunny") || lower.includes("storage")) category = "storage";
+  else if (lower.includes("database") || lower.includes("violates") || lower.includes("sql") || lower.includes("rpc")) category = "database";
+
+  const input = job?.input ?? {};
+  const file = String(input.filename || input.file_name || input.asset_id || job?.asset_id || "unknown-file");
+  const pageRange = input.page_from ? ` — الصفحات ${input.page_from}-${input.page_to ?? input.page_from}` : "";
+  const retryable = category === "rate_limit" || category === "timeout" || category === "provider";
+  const userMessage = category === "rate_limit"
+    ? `تم الوصول لحد الحصة/الطلبات لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب؛ ستتم إعادة المحاولة تلقائياً بتهدئة أبطأ.`
+    : category === "timeout"
+      ? `انتهت مهلة المعالجة أثناء معالجة ${file}${pageRange}. سيحاول النظام مرة أخرى تلقائياً إذا كانت هناك محاولات متبقية.`
+      : category === "provider"
+        ? `فشل مزود الذكاء أثناء معالجة ${file}${pageRange}. السبب الخام ظاهر أدناه لتحديد المشكلة بدقة.`
+        : category === "storage"
+          ? `تعذر قراءة الملف من التخزين أثناء معالجة ${file}${pageRange}. تحقق من وجود الملف ومساره.`
+          : category === "database"
+            ? `تعذر حفظ نتيجة المعالجة في قاعدة البيانات أثناء معالجة ${file}${pageRange}.`
+            : `فشلت مرحلة ${job?.kind ?? "غير معروفة"} أثناء معالجة ${file}${pageRange}.`;
+
+  return {
+    category,
+    userMessage,
+    rawMessage,
+    retryable,
+    file,
+    function: functionName,
+    line: lineNumber,
+    stack: stack || null,
+  };
+}
+
+function failureMessage(diagnostic: FailureDiagnostic): string {
+  const location = diagnostic.line ? `${diagnostic.file} | ${diagnostic.function}:${diagnostic.line}` : `${diagnostic.file} | ${diagnostic.function}`;
+  return `${diagnostic.userMessage}\n\nالسبب الخام: ${diagnostic.rawMessage}\nالموقع: ${location}`;
+}
+
+function retryDelayMs(diagnostic: FailureDiagnostic, attempts: number): number {
+  if (diagnostic.category === "rate_limit") {
+    const exponent = Math.min(4, Math.max(0, attempts - 1));
+    const base = RATE_LIMIT_MIN_BACKOFF_MS * (2 ** exponent);
+    return Math.min(RATE_LIMIT_MAX_BACKOFF_MS, base) + Math.floor(Math.random() * 20_000);
+  }
+  if (diagnostic.category === "timeout" || diagnostic.category === "provider") {
+    return Math.min(10 * 60_000, Math.max(30_000, 45_000 * Math.max(1, attempts)));
+  }
+  return Math.max(5_000, 20_000 * Math.max(1, attempts));
+}
+
 async function fetchBunnyRange(asset: any, start: number, end: number): Promise<Uint8Array> {
   if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
   const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
@@ -1338,10 +1420,10 @@ function base64Encode(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-async function enqueue(admin: SupabaseClient, versionId: string, kind: string, stageOrder: number, input: any, assetId?: string) {
+async function enqueue(admin: SupabaseClient, versionId: string, kind: string, stageOrder: number, input: any, assetId?: string, maxAttempts?: number) {
   const { data, error } = await admin.rpc("modrek_enqueue_stage", {
     p_version_id: versionId, p_kind: kind, p_stage_order: stageOrder,
-    p_input: input, p_asset_id: assetId ?? null,
+    p_input: input, p_asset_id: assetId ?? null, p_max_attempts: maxAttempts ?? null,
   });
   if (error) {
     throw new Error(`failed to enqueue ${kind}: ${error.message}`);
@@ -1356,20 +1438,38 @@ async function succeedJob(admin: SupabaseClient, job: any, output: any) {
   await log(admin, job.id, "info", `stage succeeded: ${job.kind}`, output);
 }
 
-async function failJob(admin: SupabaseClient, job: any, err: string) {
+async function failJob(admin: SupabaseClient, job: any, err: unknown) {
   const attempts = (job.attempts ?? 0);
-  const canRetry = attempts < (job.max_attempts ?? 3);
-  const nextRunAt = canRetry ? new Date(Date.now() + Math.max(5_000, 20_000 * attempts)).toISOString() : null;
+  const diagnostic = buildFailureDiagnostic(err, job);
+  const effectiveMaxAttempts = job.kind === "extract_page"
+    ? Math.max(Number(job.max_attempts ?? 0), EXTRACT_PAGE_MAX_ATTEMPTS)
+    : Number(job.max_attempts ?? 3);
+  const canRetry = diagnostic.retryable && attempts < effectiveMaxAttempts;
+  const nextRunAt = canRetry ? new Date(Date.now() + retryDelayMs(diagnostic, attempts)).toISOString() : null;
+  const message = failureMessage(diagnostic);
   await admin.from("processing_jobs").update({
     status: canRetry ? "retrying" : "failed",
-    finished_at: new Date().toISOString(), error: err,
+    finished_at: new Date().toISOString(), error: message,
+    max_attempts: effectiveMaxAttempts,
     next_run_at: nextRunAt,
     updated_at: new Date().toISOString(),
   }).eq("id", job.id);
-  await log(admin, job.id, "error", `stage failed: ${job.kind} (attempt ${attempts})`, { err });
+  await log(admin, job.id, canRetry ? "warn" : "error", `stage failed: ${job.kind} (attempt ${attempts})`, {
+    ...diagnostic,
+    attempts,
+    max_attempts: effectiveMaxAttempts,
+    next_run_at: nextRunAt,
+  });
+  if (canRetry) {
+    await admin.from("knowledge_source_versions").update({
+      error_message: message,
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.version_id);
+    return;
+  }
   if (!canRetry) {
     await admin.from("knowledge_source_versions").update({
-      pipeline_stage: "failed", error_message: err,
+      pipeline_stage: "failed", error_message: message,
     }).eq("id", job.version_id);
     const { data: v } = await admin.from("knowledge_source_versions")
       .select("source_id").eq("id", job.version_id).single();

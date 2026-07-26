@@ -107,6 +107,30 @@ type UploadFile = {
   etaSec?: number;
 };
 
+type ProcessingJobRow = {
+  id: string;
+  kind: string;
+  status: string;
+  attempts: number | null;
+  max_attempts: number | null;
+  progress_pct: number | null;
+  error: string | null;
+  input: Record<string, any> | null;
+  output: Record<string, any> | null;
+  next_run_at: string | null;
+  updated_at: string | null;
+  created_at: string;
+};
+
+type ProcessingEventRow = {
+  id: string;
+  job_id: string | null;
+  level: string;
+  message: string;
+  data: Record<string, any> | null;
+  created_at: string;
+};
+
 const STEPS = [
   { n: 1, label: "نوع المصدر", icon: Layers },
   { n: 2, label: "التصنيف", icon: GraduationCap },
@@ -135,6 +159,8 @@ export default function ModrekUploadWizard({
   const [pipelineStage, setPipelineStage] = useState<string>("uploaded");
   const [progressPct, setProgressPct] = useState<number>(0);
   const [processingError, setProcessingError] = useState<string | null>(null);
+  const [processingJobs, setProcessingJobs] = useState<ProcessingJobRow[]>([]);
+  const [processingEvents, setProcessingEvents] = useState<ProcessingEventRow[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const folderInput = useRef<HTMLInputElement>(null);
   const xhrRefs = useRef<Map<string, XMLHttpRequest>>(new Map());
@@ -162,7 +188,7 @@ export default function ModrekUploadWizard({
     setTax({ stage_id: "", grade_id: "", section_id: "", track_id: "", subject_id: "", sub_subject_id: "", term: "", year: "" });
     setFiles([]);
     setMeta({ title: "", description: "", author: "", publisher: "", language: "ar", keywords: "" });
-    setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0); setProcessingError(null);
+    setCreatedSourceId(null); setPipelineStage("uploaded"); setProgressPct(0); setProcessingError(null); setProcessingJobs([]); setProcessingEvents([]);
     setVersionIdRef(null); setQueuePausedBoth(false);
     xhrRefs.current.forEach((x) => { try { x.abort(); } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); } }); xhrRefs.current.clear();
   }, [open, presetTypeCode, types]);
@@ -270,6 +296,26 @@ export default function ModrekUploadWizard({
         setPipelineStage(data.pipeline_stage);
         setProgressPct(data.progress_pct ?? 0);
         setProcessingError(data.error_message ?? null);
+        const { data: jobsData } = await supabase
+          .from("processing_jobs")
+          .select("id, kind, status, attempts, max_attempts, progress_pct, error, input, output, next_run_at, updated_at, created_at")
+          .eq("version_id", data.id)
+          .order("stage_order", { ascending: true })
+          .order("created_at", { ascending: true })
+          .limit(80);
+        const jobs = (jobsData ?? []) as ProcessingJobRow[];
+        setProcessingJobs(jobs);
+        if (jobs.length) {
+          const { data: eventsData } = await supabase
+            .from("processing_events")
+            .select("id, job_id, level, message, data, created_at")
+            .in("job_id", jobs.map((job) => job.id))
+            .order("created_at", { ascending: false })
+            .limit(60);
+          setProcessingEvents((eventsData ?? []) as ProcessingEventRow[]);
+        } else {
+          setProcessingEvents([]);
+        }
         const shouldKickWorker = allFilesUploaded && !["completed", "failed"].includes(data.pipeline_stage) && !data.pipeline_completed_at;
         if (shouldKickWorker && Date.now() - lastWorkerKickRef.current > 12_000) {
           lastWorkerKickRef.current = Date.now();
@@ -751,7 +797,7 @@ export default function ModrekUploadWizard({
                   ) : (
                       <ProcessingView
                         stage={pipelineStage} pct={progressPct} files={files} canOpen={allFilesUploaded}
-                        error={processingError} onRunWorker={runWorkerNow}
+                        error={processingError} jobs={processingJobs} events={processingEvents} onRunWorker={runWorkerNow}
                       onOpen={() => { onCreated(createdSourceId); onClose(); }}
                     />
                   )}
@@ -1199,10 +1245,29 @@ const PIPE = [
   { key: "completed", label: "جاهز", icon: CheckCircle2, desc: "المصدر جاهز للاستخدام" },
 ];
 
-function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker }: any) {
+function formatDiagnosticData(data: Record<string, any> | null | undefined) {
+  if (!data) return null;
+  const useful = {
+    category: data.category,
+    file: data.file,
+    function: data.function,
+    line: data.line,
+    rawMessage: data.rawMessage,
+    next_run_at: data.next_run_at,
+    attempts: data.attempts,
+    max_attempts: data.max_attempts,
+  };
+  return Object.fromEntries(Object.entries(useful).filter(([, value]) => value !== undefined && value !== null && value !== ""));
+}
+
+function ProcessingView({ stage, pct, files, onOpen, canOpen, error, jobs = [], events = [], onRunWorker }: any) {
   const idx = Math.max(0, PIPE.findIndex((p) => p.key === stage));
   const done = stage === "completed";
   const failed = stage === "failed";
+  const visibleJobs = [...jobs].reverse().slice(0, 8).reverse();
+  const problemJobs = jobs.filter((job: ProcessingJobRow) => ["failed", "retrying", "running"].includes(job.status)).slice(-6);
+  const latestProblemEvent = events.find((event: ProcessingEventRow) => event.level === "error" || event.level === "warn") ?? null;
+  const latestData = formatDiagnosticData(latestProblemEvent?.data);
   return (
     <div className="space-y-5">
       <div className={cn(
@@ -1246,6 +1311,54 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker
         </div>
       )}
 
+      {(problemJobs.length > 0 || latestProblemEvent) && (
+        <ModrekCard className="border-[#FDE68A] bg-gradient-to-br from-[#FFFBEB] to-white">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-[#FEF3C7] text-[#B45309]">
+              <Gauge className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-[13px] font-extrabold text-[#92400E]">تشخيص الفشل المباشر</div>
+              <div className="text-[11px] font-semibold text-[#B45309]">يعرض المرحلة، الملف، المحاولة، وسبب مزود الذكاء أو المهلة بدقة.</div>
+            </div>
+          </div>
+
+          {latestProblemEvent && (
+            <div className="mb-3 rounded-[12px] border border-[#FDE68A] bg-white p-3">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-extrabold text-[#92400E]">
+                <ModrekPill tone={latestProblemEvent.level === "error" ? "red" : "amber"} size="sm">{latestProblemEvent.level}</ModrekPill>
+                <span>{latestProblemEvent.message}</span>
+                <span className="mr-auto text-[#94A3B8]" dir="ltr">{new Date(latestProblemEvent.created_at).toLocaleTimeString("ar-EG")}</span>
+              </div>
+              {latestData && Object.keys(latestData).length > 0 && (
+                <pre className="mt-2 max-h-40 overflow-auto rounded-[10px] bg-[#0F172A] p-3 text-left text-[10px] leading-5 text-white" dir="ltr">
+                  {JSON.stringify(latestData, null, 2)}
+                </pre>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {problemJobs.map((job: ProcessingJobRow) => (
+              <div key={job.id} className="rounded-[12px] border border-[#F1F5F9] bg-white p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <ModrekPill tone={job.status === "failed" ? "red" : job.status === "retrying" ? "amber" : "blue"} size="sm">{job.status}</ModrekPill>
+                  <span className="text-[12px] font-extrabold text-[#0F172A]">{job.kind}</span>
+                  {job.input?.page_from && <span className="text-[11px] font-bold text-[#475569]">صفحات {job.input.page_from}-{job.input.page_to ?? job.input.page_from}</span>}
+                  <span className="mr-auto text-[10px] font-bold text-[#94A3B8]">محاولة {job.attempts ?? 0}/{job.max_attempts ?? 3}</span>
+                </div>
+                {job.error && <pre className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap rounded-[10px] bg-[#FEF2F2] p-2 text-left text-[10px] leading-5 text-[#991B1B]" dir="ltr">{job.error}</pre>}
+                {job.next_run_at && job.status === "retrying" && (
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-bold text-[#B45309]">
+                    <Clock className="h-3.5 w-3.5" /> إعادة تلقائية: {new Date(job.next_run_at).toLocaleTimeString("ar-EG")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </ModrekCard>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <ModrekButton variant="warning" size="md" icon={RefreshCw} onClick={onRunWorker}>
           تشغيل عامل المعالجة الآن
@@ -1260,6 +1373,21 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, onRunWorker
       </div>
 
       <ModrekCard>
+        {visibleJobs.length > 0 && (
+          <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+            {visibleJobs.map((job: ProcessingJobRow) => (
+              <div key={job.id} className="rounded-[12px] border border-[#F1F5F9] bg-white p-2">
+                <div className="truncate text-[10px] font-extrabold text-[#475569]">{job.kind}</div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  <ModrekPill tone={job.status === "failed" ? "red" : job.status === "retrying" ? "amber" : job.status === "succeeded" ? "emerald" : job.status === "running" ? "blue" : "slate"} size="sm">
+                    {job.status}
+                  </ModrekPill>
+                  <span className="text-[10px] font-bold text-[#94A3B8]">{job.progress_pct ?? 0}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">مراحل المعالجة</div>
         <div className="space-y-1">
           {PIPE.map((p, i) => {
