@@ -217,6 +217,57 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
     gcTime: 0,
   });
 
+  const { data: chosenOnlyTeachers = [] } = useQuery({
+    queryKey: ["dev-student-chosen-only-teachers", studentId, teachers.map((t) => t.teacher_id).join(",")],
+    queryFn: async (): Promise<TeacherRow[]> => {
+      const { data: choices } = await supabase
+        .from("student_teacher_choices")
+        .select("teacher_id, subject_id")
+        .eq("student_id", studentId);
+      const subscribedIds = new Set(teachers.map((t) => t.teacher_id));
+      const chosen = (choices ?? []).filter((c: any) => c.teacher_id && !subscribedIds.has(c.teacher_id));
+      if (!chosen.length) return [];
+      const teacherIds = [...new Set(chosen.map((c: any) => c.teacher_id))] as string[];
+      const subjectIds = [...new Set(chosen.map((c: any) => c.subject_id).filter(Boolean))] as string[];
+      const [{ data: profs }, { data: subjs }] = await Promise.all([
+        supabase.from("profiles").select("id, full_name").in("id", teacherIds),
+        subjectIds.length
+          ? supabase.from("subjects").select("id, name").in("id", subjectIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const pMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
+      const sMap = new Map((subjs ?? []).map((s: any) => [s.id, s.name]));
+      const byT = new Map<string, TeacherRow & { subjectSet: Set<string> }>();
+      chosen.forEach((c: any) => {
+        const row = byT.get(c.teacher_id) ?? {
+          teacher_id: c.teacher_id,
+          teacher_name: pMap.get(c.teacher_id) ?? "معلم",
+          specialty: null,
+          courses_count: 0,
+          status: "chosen" as const,
+          subjectSet: new Set<string>(),
+        };
+        const sn = normalizeSubject(sMap.get(c.subject_id));
+        if (sn && sn !== "—") row.subjectSet.add(sn);
+        byT.set(c.teacher_id, row);
+      });
+      return [...byT.values()].map((r) => ({
+        teacher_id: r.teacher_id,
+        teacher_name: r.teacher_name,
+        specialty: [...r.subjectSet].join("، ") || "—",
+        courses_count: 0,
+        status: "chosen",
+      }));
+    },
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+
+
 
   if (isLoading) {
     return (
@@ -372,9 +423,48 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
           </div>
         )}
       </Card>
+
+      {/* المعلمون المختارون بدون اشتراك */}
+      <Card title="المعلمون الذين اختارهم الطالب ولم يشترك معهم بعد">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2">
+          <span className="inline-flex items-center gap-2 text-[11px] font-bold text-amber-700">
+            <span className="h-2 w-2 rounded-full bg-amber-500" />
+            معلمون اختارهم الطالب ولكن لم يدفع اشتراكهم
+          </span>
+        </div>
+        {chosenOnlyTeachers.length === 0 ? (
+          <p className="text-xs text-slate-500 text-center py-2">لا يوجد معلمون مختارون بدون اشتراك.</p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <table className="w-full text-sm text-right border-collapse">
+              <thead>
+                <tr className="bg-gradient-to-l from-amber-50 to-orange-50 text-slate-700">
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">اسم المعلم</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200">التخصص</th>
+                  <th className="py-2.5 px-3 font-bold text-[12px] border-b border-slate-200 text-center">الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chosenOnlyTeachers.map((t, i) => (
+                  <tr key={t.teacher_id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                    <td className="py-2.5 px-3 font-semibold text-slate-900 text-[13px]">{t.teacher_name || "معلم"}</td>
+                    <td className="py-2.5 px-3 text-slate-600 text-[13px]">{normalizeSubject(t.specialty)}</td>
+                    <td className="py-2.5 px-3 text-center">
+                      <span className="inline-flex items-center justify-center min-w-[76px] h-6 px-2 rounded-full font-bold text-[12px] bg-amber-100 text-amber-700">
+                        مختار فقط
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
+
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
