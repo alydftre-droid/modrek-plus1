@@ -44,7 +44,14 @@ type Source = {
 };
 type Taxo = { id: string; name_ar: string; code: string };
 type Grade = Taxo & { stage_id: string };
-type Subject = Taxo & { stage_id: string | null; section_id: string | null };
+type Subject = Taxo & {
+  stage_id: string | null;
+  grade_id?: string | null;
+  section_id: string | null;
+  curriculum_track?: string | null;
+  source_subject_id?: string | null;
+  source_category?: string | null;
+};
 type SubSubject = Taxo & { subject_id: string };
 
 const ICON_BY_CODE: Record<string, any> = {
@@ -148,13 +155,20 @@ export default function ModrekLibraryPage() {
   const filteredGrades = useMemo(() => grades.filter((g) => !f.stage || g.stage_id === f.stage), [grades, f.stage]);
   const filteredSubjects = useMemo(() => subjects.filter((s) => {
     const selectedSectionCode = sections.find((sec) => sec.id === f.section)?.code;
+    const selectedTrackCode = tracks.find((track) => track.id === f.track)?.code;
+    const shouldFilterByTrack = !!selectedTrackCode && selectedTrackCode !== "none";
     if (f.stage && s.stage_id && s.stage_id !== f.stage) return false;
+    if (f.grade && s.grade_id && s.grade_id !== f.grade) return false;
     if (f.section && s.section_id && s.section_id !== f.section) {
       const subjectSectionCode = sections.find((sec) => sec.id === s.section_id)?.code;
       if (subjectSectionCode !== "shared" && selectedSectionCode !== "shared") return false;
     }
+    if (shouldFilterByTrack && s.curriculum_track) {
+      if (selectedTrackCode === "literary" && s.curriculum_track !== "literary") return false;
+      if (["scientific", "sci_science", "sci_math"].includes(selectedTrackCode) && s.curriculum_track !== "scientific") return false;
+    }
     return true;
-  }), [subjects, sections, f.stage, f.section]);
+  }), [subjects, sections, tracks, f.stage, f.grade, f.section, f.track]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
 
   const filtered = useMemo(() => {
