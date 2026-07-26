@@ -1092,16 +1092,29 @@ const ContentTab = () => {
     try {
       // Get content to delete file from storage
       const contentToDelete = contents.find((c) => c.id === id);
-      
-      if (contentToDelete?.file_url) {
-        // Extract file path from URL and delete from storage
-        const url = new URL(contentToDelete.file_url);
-        const pathParts = url.pathname.split("/storage/v1/object/public/");
-        if (pathParts.length > 1) {
-          const [bucket, ...filePathParts] = pathParts[1].split("/");
-          const filePath = filePathParts.join("/");
-          await supabase.storage.from(bucket).remove([filePath]);
-        }
+
+      // 1) Delete Bunny.net media (Stream + Storage) BEFORE the DB row is
+      //    removed — the bunny-* edge functions verify ownership by row lookup.
+      if (contentToDelete) {
+        const { deleteContentBunnyAssets } = await import("@/lib/bunnyCleanup");
+        await deleteContentBunnyAssets({
+          file_url: contentToDelete.file_url,
+          thumbnail_url: (contentToDelete as unknown as { thumbnail_url?: string | null }).thumbnail_url,
+        });
+      }
+
+      // 2) Legacy Supabase Storage cleanup for non-Bunny URLs.
+      const legacyUrl = contentToDelete?.file_url;
+      if (legacyUrl && !legacyUrl.startsWith("bunny://") && !legacyUrl.startsWith("bstorage://")) {
+        try {
+          const url = new URL(legacyUrl);
+          const pathParts = url.pathname.split("/storage/v1/object/public/");
+          if (pathParts.length > 1) {
+            const [bucket, ...filePathParts] = pathParts[1].split("/");
+            const filePath = filePathParts.join("/");
+            await supabase.storage.from(bucket).remove([filePath]);
+          }
+        } catch { /* ignore malformed URLs */ }
       }
 
       const { error } = await supabase.from("content").delete().eq("id", id);
@@ -1113,6 +1126,7 @@ const ContentTab = () => {
       toast.error("خطأ في حذف المحتوى");
     }
   };
+
 
   // Reset file when type changes
   useEffect(() => {
