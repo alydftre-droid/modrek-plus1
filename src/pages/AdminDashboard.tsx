@@ -286,15 +286,18 @@ const AdminDashboard = () => {
     try {
       const [
         { count: pendingDeposits },
-        { count: pendingTeachers },
         { count: pendingPriceChanges },
         { count: unreadSupport },
+        teacherManagement,
       ] = await Promise.all([
         supabase.from("deposit_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("teacher_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
+        supabase.rpc("admin_get_teacher_management" as any),
       ]);
+      const teacherPayload = (teacherManagement.data || {}) as { pending?: number; pending_profiles?: number };
+      const pendingTeachers = teacherPayload.pending || 0;
+      const pendingProfiles = teacherPayload.pending_profiles || 0;
       const { count: pendingWithdrawals } = await supabase
         .from("teacher_withdrawal_requests")
         .select("*", { count: "exact", head: true })
@@ -302,7 +305,7 @@ const AdminDashboard = () => {
 
       setSidebarBadges({
         deposits: pendingDeposits || 0,
-        "teacher-affairs": (pendingTeachers || 0) + (pendingPriceChanges || 0),
+        "teacher-affairs": pendingTeachers + pendingProfiles + (pendingPriceChanges || 0),
         "teacher-withdrawals": pendingWithdrawals || 0,
         support: unreadSupport || 0,
       });
@@ -605,19 +608,18 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
       try {
         const [
           { count: studentsCount },
-          { count: teachersCount },
-          { count: pendingCount },
           { count: unreadCount },
           { count: depositsCount },
           { count: priceChangesCount },
+          teacherManagement,
         ] = await Promise.all([
           supabase.from("profiles").select("*", { count: "exact", head: true }),
-          supabase.from("user_roles").select("*", { count: "exact", head: true }).eq("role", "teacher"),
-          supabase.from("teacher_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
           supabase.from("support_messages").select("*", { count: "exact", head: true }).eq("is_from_admin", false).eq("is_read", false),
           supabase.from("deposit_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
           supabase.from("price_change_requests").select("*", { count: "exact", head: true }).eq("status", "pending"),
+          supabase.rpc("admin_get_teacher_management" as any),
         ]);
+        const teacherPayload = (teacherManagement.data || {}) as { total?: number; pending?: number };
 
         const now = new Date();
         const { data: activeSubs } = await supabase
@@ -629,8 +631,8 @@ const OverviewTab = ({ onNavigate }: { onNavigate: (tab: string) => void }) => {
 
         setStats({
           totalStudents: studentsCount || 0,
-          totalTeachers: teachersCount || 0,
-          pendingTeachers: pendingCount || 0,
+          totalTeachers: teacherPayload.total || 0,
+          pendingTeachers: teacherPayload.pending || 0,
           subscribedStudents,
           unreadSupport: unreadCount || 0,
           pendingDeposits: depositsCount || 0,

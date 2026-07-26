@@ -645,6 +645,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             phone: data.phone,
             school_name: data.schoolName,
             employee_id: data.employeeId,
+            stages: data.stages,
+            grades: data.grades,
+            subject: data.subject,
+            education_type: data.educationType || null,
+            teachesIntegratedScience: !!data.teachesIntegratedScience,
+            teaches_integrated_science: !!data.teachesIntegratedScience,
+            terms_version: data.termsVersion || null,
+            terms_accepted_at: data.termsAcceptedAt || new Date().toISOString(),
             role: "teacher",
           },
         },
@@ -656,8 +664,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: authError.message };
       }
       if (authData.user) {
-        const { error: requestError } = await supabase.from("teacher_requests").insert({
-          user_id: authData.user.id,
+        const requestPayload = {
           full_name: data.fullName,
           email: data.email.trim(),
           phone: data.phone || null,
@@ -671,13 +678,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           teaches_integrated_science: !!data.teachesIntegratedScience,
           terms_version: data.termsVersion || null,
           terms_accepted_at: data.termsAcceptedAt || null,
-        } as any);
-        if (requestError) {
-          console.error("Error creating teacher request:", requestError);
-          return {
-            error:
-              "تم إنشاء الحساب لكن تعذر إرسال طلب الانضمام. يرجى إعادة المحاولة من صفحة تسجيل الدخول أو التواصل مع الدعم.",
-          };
+        } as any;
+
+        // The backend trigger creates the pending teacher request during signup,
+        // even before email verification/session hydration. If a session exists,
+        // mirror the latest form details; otherwise do not fail the user flow.
+        if (authData.session) {
+          const { error: requestError } = await supabase
+            .from("teacher_requests")
+            .update(requestPayload)
+            .eq("user_id", authData.user.id)
+            .eq("status", "pending");
+          if (requestError) {
+            console.warn("Could not refresh teacher request after signup:", requestError);
+          }
         }
         // Best-effort mirror to profile for future version checks
         if (data.termsVersion) {

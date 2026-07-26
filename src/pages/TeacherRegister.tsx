@@ -117,6 +117,7 @@ const TeacherRegister = () => {
       let userId = user?.id;
       let userEmail = user?.email || normalizeEmail(email);
       let userName = fullName;
+      let createdBySignup = false;
 
       // إذا لم يكن المستخدم مسجلاً، قم بإنشاء حساب جديد
       if (!user) {
@@ -127,6 +128,18 @@ const TeacherRegister = () => {
             data: {
               full_name: fullName,
               phone: formData.phone,
+              school_name: formData.school,
+              employee_id: formData.employeeId,
+              stages: formData.stages,
+              grades: formData.grades,
+              subject: formData.subject,
+              education_type: formData.subject === "المواد الشرعية"
+                ? "أزهر"
+                : formData.educationType || null,
+              teachesIntegratedScience: !!formData.teachesIntegratedScience,
+              teaches_integrated_science: !!formData.teachesIntegratedScience,
+              terms_version: CURRENT_TEACHER_TERMS_VERSION,
+              terms_accepted_at: new Date().toISOString(),
               role: "teacher",
             },
           },
@@ -146,6 +159,7 @@ const TeacherRegister = () => {
 
         userId = signUpData.user?.id;
         userEmail = normalizeEmail(email);
+        createdBySignup = true;
       } else {
         // جلب اسم المستخدم من الملف الشخصي
         const { data: profile } = await supabase
@@ -167,9 +181,7 @@ const TeacherRegister = () => {
         return;
       }
 
-      // إنشاء طلب المعلم
-      const { error: requestError } = await supabase.from("teacher_requests").insert({
-        user_id: userId,
+      const requestPayload = {
         full_name: userName || fullName,
         email: userEmail,
         phone: formData.phone,
@@ -185,9 +197,21 @@ const TeacherRegister = () => {
         teaches_integrated_science: !!formData.teachesIntegratedScience,
         terms_version: CURRENT_TEACHER_TERMS_VERSION,
         terms_accepted_at: new Date().toISOString(),
-      } as any);
+      } as any;
 
-      if (requestError) {
+      // For fresh signup, the backend trigger already creates the pending request
+      // before email verification. Update it only if the session is available.
+      const requestOperation = createdBySignup
+        ? supabase
+          .from("teacher_requests")
+          .update(requestPayload)
+          .eq("user_id", userId)
+          .eq("status", "pending")
+        : supabase.from("teacher_requests").insert({ user_id: userId, ...requestPayload } as any);
+
+      const { error: requestError } = await requestOperation;
+
+      if (requestError && !createdBySignup) {
         console.error("Error creating teacher request:", requestError);
         toast({
           title: "خطأ",
@@ -196,6 +220,8 @@ const TeacherRegister = () => {
         });
         setLoading(false);
         return;
+      } else if (requestError) {
+        console.warn("Teacher request was created by signup trigger; refresh skipped:", requestError);
       }
 
       // Best-effort mirror onto profile so the dashboard guard can re-check version
