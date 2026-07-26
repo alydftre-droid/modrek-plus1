@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { computeModrekFileFingerprint, registerModrekUpload } from "@/lib/modrekUpload";
+import { dedupeModrekSubjects, isNoTrackCode, subjectScopeMatches } from "@/lib/modrekLibrarySubjects";
 import {
   ModrekButton, ModrekPill, ModrekCard,
 } from "@/features/modrek/premium";
@@ -174,24 +175,18 @@ export default function ModrekUploadWizard({
     [grades, tax.stage_id],
   );
   const filteredSubjects = useMemo(() => {
+    const sectionCodeById = new Map(sections.map((section) => [section.id, section.code]));
     const selectedSectionCode = sections.find((s) => s.id === tax.section_id)?.code;
     const selectedTrackCode = tracks.find((t) => t.id === tax.track_id)?.code;
-    const shouldFilterByTrack = !!selectedTrackCode && selectedTrackCode !== "none";
-    return subjects.filter((s) => {
-      if (tax.stage_id && s.stage_id && s.stage_id !== tax.stage_id) return false;
-      if (tax.grade_id && s.grade_id && s.grade_id !== tax.grade_id) return false;
-      if (tax.section_id && s.section_id && s.section_id !== tax.section_id) {
-        // "shared" education-system subjects belong to every section (عام + أزهر).
-        // Likewise, if the admin picked "shared", subjects tagged عام/أزهر are still valid.
-        const subjectSectionCode = sections.find((x) => x.id === s.section_id)?.code;
-        if (subjectSectionCode !== "shared" && selectedSectionCode !== "shared") return false;
-      }
-      if (shouldFilterByTrack && s.curriculum_track) {
-        if (selectedTrackCode === "literary" && s.curriculum_track !== "literary") return false;
-        if (["scientific", "sci_science", "sci_math"].includes(selectedTrackCode) && s.curriculum_track !== "scientific") return false;
-      }
-      return true;
-    });
+    const visibleSubjects = subjects.filter((subject) => subjectScopeMatches(subject, {
+      stageId: tax.stage_id,
+      gradeId: tax.grade_id,
+      sectionId: tax.section_id,
+      selectedSectionCode,
+      selectedTrackCode,
+      sectionCodeById,
+    }));
+    return dedupeModrekSubjects(visibleSubjects, selectedTrackCode, tax.section_id);
   }, [subjects, sections, tracks, tax.stage_id, tax.grade_id, tax.section_id, tax.track_id]);
   const filteredSubSubjects = useMemo(
     () => subSubjects.filter((s) => !tax.subject_id || s.subject_id === tax.subject_id),
@@ -386,7 +381,7 @@ export default function ModrekUploadWizard({
         publication_year: tax.year ? parseInt(tax.year) : null,
         language: meta.language || "ar", source_type_id: typeId,
         stage_id: tax.stage_id || null, grade_id: tax.grade_id || null,
-        section_id: tax.section_id || null, track_id: selectedTrackCode === "none" ? null : (tax.track_id || null),
+        section_id: tax.section_id || null, track_id: isNoTrackCode(selectedTrackCode) ? null : (tax.track_id || null),
         subject_id: tax.subject_id || null, sub_subject_id: tax.sub_subject_id || null,
         term: tax.term ? parseInt(tax.term) : null, status: "draft",
         metadata: { keywords: meta.keywords ? meta.keywords.split(",").map((k) => k.trim()).filter(Boolean) : [] },
@@ -558,7 +553,7 @@ export default function ModrekUploadWizard({
                           placeholder="اختر المرحلة" options={stages} />
                       </Field>
                       <Field label="الصف">
-                        <SearchSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v }))}
+                        <SearchSelect value={tax.grade_id} onChange={(v) => setTax((t) => ({ ...t, grade_id: v, subject_id: "", sub_subject_id: "" }))}
                           placeholder={tax.stage_id ? "اختر الصف" : "اختر المرحلة أولاً"}
                           options={filteredGrades} disabled={!tax.stage_id} />
                       </Field>

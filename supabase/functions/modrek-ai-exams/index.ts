@@ -39,6 +39,7 @@ type ExamDiagnostics = {
   fallbackUsed?: boolean;
   rag: {
     subjectId?: string;
+    librarySubjectIds?: string[];
     subjectName?: string;
     keywords?: string[];
     contentRows?: number;
@@ -1122,6 +1123,37 @@ function keywordsFrom(text: string, subject: string | null, chapter: string | nu
   return [...new Set(words)].slice(0, 8);
 }
 
+async function resolveEquivalentLibrarySubjectIds(admin: any, publicSubjectId: string, subjectName: string | null) {
+  const normalizedName = normalizeArabic(subjectName || "");
+
+  const { data: linkedRows } = await admin
+    .from("library_subjects")
+    .select("id, name_ar, source_subject_id")
+    .eq("is_active", true)
+    .eq("source_subject_id", publicSubjectId)
+    .limit(80);
+
+  const ids = new Set<string>((linkedRows || []).map((row: any) => row.id).filter(Boolean));
+  const anchorName = normalizedName || normalizeArabic((linkedRows || [])[0]?.name_ar || "");
+
+  if (anchorName) {
+    const { data: nameRows } = await admin
+      .from("library_subjects")
+      .select("id, name_ar")
+      .eq("is_active", true)
+      .limit(1200);
+
+    for (const row of nameRows || []) {
+      const rowName = normalizeArabic(row.name_ar || "");
+      if (rowName && (rowName === anchorName || rowName.includes(anchorName) || anchorName.includes(rowName))) {
+        ids.add(row.id);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
 async function retrieveStudyContext(admin: any, subjectId: string, query: string, subject: string | null, chapter: string | null, traceId: string, diagnostics: ExamDiagnostics) {
   const keys = keywordsFrom(query, subject, chapter);
   diagnostics.rag.subjectId = subjectId;
@@ -1129,19 +1161,31 @@ async function retrieveStudyContext(admin: any, subjectId: string, query: string
   const like = keys.length ? `%${keys[0]}%` : `%${String(subject || "").slice(0, 20)}%`;
   const snippets: string[] = [];
   try {
+    const librarySubjectIds = await resolveEquivalentLibrarySubjectIds(admin, subjectId, subject);
+    diagnostics.rag.librarySubjectIds = librarySubjectIds.slice(0, 20);
+
+    const contentQuery = admin
+      .from("content")
+      .select("title, description, sub_subject, term")
+      .eq("subject_id", subjectId)
+      .or(`title.ilike.${like},description.ilike.${like},sub_subject.ilike.${like}`)
+      .limit(5);
+
+    let unitQuery = admin
+      .from("knowledge_units")
+      .select("title, content_text, page_from, page_to, knowledge_source_versions!inner(source_id, knowledge_sources!inner(title, subject_id))")
+      .or(`title.ilike.${like},content_text.ilike.${like}`)
+      .limit(5);
+
+    if (librarySubjectIds.length > 0) {
+      unitQuery = unitQuery.in("knowledge_source_versions.knowledge_sources.subject_id", librarySubjectIds);
+    } else {
+      unitQuery = unitQuery.eq("knowledge_source_versions.knowledge_sources.subject_id", subjectId);
+    }
+
     const [{ data: contentRows }, { data: unitRows }, { data: chunkRows }] = await Promise.all([
-      admin
-        .from("content")
-        .select("title, description, sub_subject, term")
-        .eq("subject_id", subjectId)
-        .or(`title.ilike.${like},description.ilike.${like},sub_subject.ilike.${like}`)
-        .limit(5),
-      admin
-        .from("knowledge_units")
-        .select("title, content_text, page_from, page_to, knowledge_source_versions!inner(source_id, knowledge_sources!inner(title, subject_id))")
-        .eq("knowledge_source_versions.knowledge_sources.subject_id", subjectId)
-        .or(`title.ilike.${like},content_text.ilike.${like}`)
-        .limit(5),
+      contentQuery,
+      unitQuery,
       admin
         .from("content_chunks")
         .select("content, metadata")
