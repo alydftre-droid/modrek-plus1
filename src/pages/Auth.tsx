@@ -608,6 +608,8 @@ const Auth = () => {
             ? "أزهر"
             : formData.educationType || undefined,
           teachesIntegratedScience: formData.teachesIntegratedScience,
+          termsVersion: CURRENT_TEACHER_TERMS_VERSION,
+          termsAcceptedAt: new Date().toISOString(),
         });
         if (error) {
           toast({ title: "فشل إرسال الطلب", description: error, variant: "destructive" });
