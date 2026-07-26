@@ -1314,7 +1314,7 @@ function TeachersTab() {
                   <div className="grid grid-cols-3 gap-2 text-[11px] mb-2">
                     <MiniStat label="متاح" value={`${fmt(r.balance)} ج`} tone="emerald" />
                     <MiniStat label="مجمّد" value={`${fmt(r.frozen_balance)} ج`} tone="cyan" />
-                    <MiniStat label="إجمالي" value={`${fmt(r.total_earned)} ج`} tone="violet" />
+                    <MiniStat label="إجمالي المحفظة" value={`${fmt(Number(r.balance || 0) + Number(r.frozen_balance || 0))} ج`} tone="violet" />
                   </div>
                   <div className="flex gap-1.5">
                     <Button size="sm" className="flex-1 h-9 text-[11px] gap-1 bg-blue-700 text-white hover:bg-blue-800 border-0 shadow-md font-black"
