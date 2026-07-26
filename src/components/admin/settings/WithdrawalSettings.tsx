@@ -176,8 +176,27 @@ export default function WithdrawalSettings() {
       await loadOverview();
       setLoading(false);
     })();
-    const t = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(t);
+    const clockTimer = setInterval(() => setNow(new Date()), 1000);
+    // Auto-refresh financial data every 20s so the page always mirrors reality
+    const refreshTimer = setInterval(() => { loadOverview().catch(() => {}); }, 20_000);
+    // Refresh when tab becomes visible again
+    const onVisible = () => { if (document.visibilityState === "visible") loadOverview().catch(() => {}); };
+    document.addEventListener("visibilitychange", onVisible);
+    // Live realtime: instant refresh on any wallet / withdrawal / earnings change
+    const channel = supabase
+      .channel("admin-financial-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallets" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_earning_records" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallet_transactions" }, () => loadOverview().catch(() => {}))
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_monthly_archives" }, () => loadOverview().catch(() => {}))
+      .subscribe();
+    return () => {
+      clearInterval(clockTimer);
+      clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const cairoTime = now.toLocaleString("ar-EG", {
