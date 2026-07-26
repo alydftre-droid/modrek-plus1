@@ -1246,6 +1246,25 @@ function TeachersTab() {
 
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t); }, [search]);
 
+  // Auto refresh every 20s + on visibility + realtime updates for accurate live balances
+  useEffect(() => {
+    const timer = setInterval(() => { load(); }, 20_000);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    const channel = supabase
+      .channel("admin-teacher-wallets-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallets" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "teacher_wallet_transactions" }, () => load())
+      .subscribe();
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
   return (
     <div className="space-y-3">
       <div className="relative">
