@@ -48,6 +48,10 @@ const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 
 const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.get("LIBRARY_WORKER_SHARED_KEY") || "").trim();
 
+function resolveGoogleGeminiApiKey(): string {
+  return String(Deno.env.get("GEMINI_API_KEY") || GEMINI_API_KEY || Deno.env.get("GOOGLE_API_KEY") || "").trim();
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -304,15 +308,30 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
     throw new Error("Gemini chunked upload state is missing; restart text extraction for this source");
   }
 
-  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
+  const apiKey = resolveGoogleGeminiApiKey();
+  if (!apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
 
   if (uploadState.file?.name) {
     await updateJobProgress(admin, job, 90, { stage: "gemini_file_finalize_wait", file_name: uploadState.file.name });
-    const active = await waitForGeminiFileActive(resolved.apiKey, uploadState.file);
+    const active = await waitForGeminiFileActiveSlice(apiKey, uploadState.file, 55_000);
+    if (!active) {
+      await succeedJob(admin, job, { mode: "gemini_file_still_processing", file_name: uploadState.file.name });
+      await enqueue(admin, job.version_id, "upload_pdf_chunk", 20, {
+        asset_id: asset.id,
+        offset: Number(uploadState.offset ?? asset.byte_size ?? 0),
+        size: Number(uploadState.size ?? asset.byte_size ?? 0),
+        status: "finalizing",
+      }, asset.id);
+      return;
+    }
     const geminiFile = buildGeminiFileRef(active, asset.mime_type || "application/pdf");
-    const updatedAsset = await storeGeminiFileRef(admin, asset, geminiFile);
-    await queuePdfTextBatches(admin, job, updatedAsset);
+    await storeGeminiFileRef(admin, asset, geminiFile);
+    await succeedJob(admin, job, { mode: "gemini_file_ready", file_name: geminiFile.name, state: geminiFile.state });
+    await enqueue(admin, job.version_id, "extract_text", 20, {
+      asset_id: asset.id,
+      mime: asset.mime_type || "application/pdf",
+      resumed_from_gemini_file: true,
+    }, asset.id);
     return;
   }
 
@@ -380,11 +399,13 @@ async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
     updated_at: new Date().toISOString(),
   }).eq("id", asset.id);
 
-  await updateJobProgress(admin, job, 90, { stage: "gemini_file_finalize_wait", file_name: file.name });
-  const active = await waitForGeminiFileActive(resolved.apiKey, file);
-  const geminiFile = buildGeminiFileRef(active, asset.mime_type || "application/pdf");
-  const updatedAsset = await storeGeminiFileRef(admin, asset, geminiFile);
-  await queuePdfTextBatches(admin, job, updatedAsset);
+  await succeedJob(admin, job, { mode: "gemini_upload_finalized", size, file_name: file.name });
+  await enqueue(admin, job.version_id, "upload_pdf_chunk", 20, {
+    asset_id: asset.id,
+    offset: size,
+    size,
+    status: "finalizing",
+  }, asset.id);
 }
 
 // -------- Stage 2a.2: merge all PDF text batches ----------------------------
@@ -805,15 +826,15 @@ async function startGeminiChunkedUpload(admin: SupabaseClient, job: any, asset: 
     return;
   }
 
-  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) {
+  const apiKey = resolveGoogleGeminiApiKey();
+  if (!apiKey) {
     throw new Error("لا يوجد مفتاح Gemini مفعّل في الخادم لمعالجة ملفات PDF الكبيرة/المصورة دون تحميلها بالكامل في الذاكرة");
   }
   if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
 
   const mime = asset.mime_type || "application/pdf";
   const size = Number(asset.byte_size ?? 0);
-  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${resolved.apiKey}`, {
+  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -855,8 +876,8 @@ async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId
   const existing = asset?.metadata?.gemini_file;
   if (existing?.uri && existing?.name) return existing;
 
-  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) {
+  const apiKey = resolveGoogleGeminiApiKey();
+  if (!apiKey) {
     throw new Error("لا يوجد مفتاح Gemini مفعّل في الخادم لمعالجة ملفات PDF الكبيرة/المصورة دون تحميلها بالكامل في الذاكرة");
   }
   if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
@@ -870,7 +891,7 @@ async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId
 
   const mime = asset.mime_type || "application/pdf";
   const size = Number(asset.byte_size ?? 0);
-  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${resolved.apiKey}`, {
+  const start = await fetchWithTimeout(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -901,7 +922,7 @@ async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId
   if (!upload.ok) throw new Error(`Gemini file upload failed ${upload.status}: ${(await upload.text()).slice(0, 300)}`);
   const uploaded = await upload.json();
   const file = uploaded.file ?? uploaded;
-  const active = await waitForGeminiFileActive(resolved.apiKey, file);
+  const active = await waitForGeminiFileActive(apiKey, file);
   const geminiFile = buildGeminiFileRef(active, mime);
 
   await storeGeminiFileRef(admin, asset, geminiFile);
@@ -930,10 +951,16 @@ async function storeGeminiFileRef(admin: SupabaseClient, asset: any, geminiFile:
 }
 
 async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> {
+  const active = await waitForGeminiFileActiveSlice(apiKey, file, 95_000);
+  if (active) return active;
+  throw new Error("انتهت مهلة تجهيز ملف PDF لدى Gemini File API");
+}
+
+async function waitForGeminiFileActiveSlice(apiKey: string, file: any, timeoutMs: number): Promise<any | null> {
   let current = file;
   const name = String(file?.name ?? "");
   if (!name) throw new Error("Gemini file response missing name");
-  const deadline = Date.now() + 95_000;
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (current.state === "ACTIVE" || !current.state) return current;
     if (current.state === "FAILED") throw new Error("Gemini failed to process uploaded PDF file");
@@ -942,7 +969,7 @@ async function waitForGeminiFileActive(apiKey: string, file: any): Promise<any> 
     if (!res.ok) throw new Error(`Gemini file status failed ${res.status}: ${(await res.text()).slice(0, 200)}`);
     current = await res.json();
   }
-  throw new Error("انتهت مهلة تجهيز ملف PDF لدى Gemini File API");
+  return null;
 }
 
 async function getPdfPageCountFromGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any): Promise<number> {
@@ -970,10 +997,10 @@ async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: Ge
 }
 
 async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef, asset: any, prompt: string, jsonMode: boolean, maxOutputTokens: number): Promise<any> {
-  const resolved = await resolveGeminiApiKey(admin, GEMINI_API_KEY);
-  if (!resolved.apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
+  const apiKey = resolveGoogleGeminiApiKey();
+  if (!apiKey) throw new Error("GEMINI_API_KEY_MISSING_FOR_FILE_PROCESSING");
   const model = STRUCTURE_MODEL.replace(/^google\//, "");
-  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${resolved.apiKey}`, {
+  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -981,7 +1008,7 @@ async function generateWithGeminiFile(admin: SupabaseClient, file: GeminiFileRef
         role: "user",
         parts: [
           { text: prompt },
-          { file_data: { mime_type: file.mime_type ?? asset.mime_type ?? "application/pdf", file_uri: file.uri } },
+          { fileData: { mimeType: file.mime_type ?? asset.mime_type ?? "application/pdf", fileUri: file.uri } },
         ],
       }],
       generationConfig: {

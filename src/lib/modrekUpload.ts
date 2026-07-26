@@ -36,6 +36,10 @@ export async function registerModrekUpload(payload: ModrekUploadRegistration) {
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("جلسة غير صالحة، سجّل الدخول من جديد");
 
+  const kickWorker = async () => {
+    await supabase.functions.invoke("modrek-worker", { body: {} }).catch(() => undefined);
+  };
+
   const rpc = await supabase.rpc("modrek_register_bunny_upload" as any, {
     p_version_id: payload.version_id,
     p_bunny_path: payload.bunny_path,
@@ -44,7 +48,10 @@ export async function registerModrekUpload(payload: ModrekUploadRegistration) {
     p_size: payload.size,
     p_sha256: payload.sha256,
   });
-  if (!rpc.error && rpc.data) return rpc.data;
+  if (!rpc.error && rpc.data) {
+    await kickWorker();
+    return rpc.data;
+  }
 
   const rpcError = rpc.error?.message || "";
   const rpcMissing = rpcError.toLowerCase().includes("schema cache")
@@ -75,6 +82,8 @@ export async function registerModrekUpload(payload: ModrekUploadRegistration) {
   if (!response.ok || json?.error) {
     throw new Error(json?.error || `فشل تسجيل الملف بعد الرفع (${response.status})`);
   }
+
+  await kickWorker();
 
   return json;
 }
