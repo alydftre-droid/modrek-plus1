@@ -3,7 +3,7 @@
 // Claims pending jobs one at a time using modrek_claim_next_job (SKIP LOCKED)
 // and runs the appropriate pipeline stage. Chains the next stage on success.
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
-import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -217,7 +217,18 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
   let batchText = "";
-  if (input.extractor === "gemini_file" || input.gemini_file?.uri) {
+  const assetBytes = Number(asset.byte_size ?? 0);
+  const requestedGeminiFile = input.extractor === "gemini_file" || !!input.gemini_file?.uri;
+  const useGeminiFile = requestedGeminiFile && assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES;
+  if (requestedGeminiFile && !useGeminiFile) {
+    await log(admin, job.id, "warn", "stale Gemini File extractor ignored for medium PDF; using local/OpenRouter path", {
+      page_from: pageFrom,
+      page_to: pageTo,
+      bytes: assetBytes,
+      local_fallback_limit_bytes: PDF_LOCAL_FALLBACK_LIMIT_BYTES,
+    });
+  }
+  if (useGeminiFile) {
     await respectProviderCooldown(admin, job);
     const fileRef = input.gemini_file?.uri ? input.gemini_file : await ensureGeminiFileForAsset(admin, asset, job.id);
     await updateJobProgress(admin, job, 15, {
@@ -318,8 +329,38 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
         `تعذر تجهيز صفحات OCR ${pageFrom}-${pageTo} خلال المهلة`,
       );
       if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
-        const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
-        batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+        if (assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+          const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
+          batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+        } else if (pageFrom < pageTo) {
+          const rangeSize = pageTo - pageFrom + 1;
+          const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
+          await log(admin, job.id, "warn", "PDF OCR subset too large for direct OpenRouter; splitting local batch", {
+            page_from: pageFrom,
+            page_to: pageTo,
+            subset_bytes: subset.byteLength,
+          });
+          await enqueue(admin, job.version_id, "extract_page", 21, {
+            ...input,
+            extractor: "local_pdfjs",
+            gemini_file: null,
+            page_from: pageFrom,
+            page_to: mid,
+            __split_depth: Number(input.__split_depth ?? 0) + 1,
+          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+          await enqueue(admin, job.version_id, "extract_page", 21, {
+            ...input,
+            extractor: "local_pdfjs",
+            gemini_file: null,
+            page_from: mid + 1,
+            page_to: pageTo,
+            __split_depth: Number(input.__split_depth ?? 0) + 1,
+          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+          await succeedJob(admin, job, { mode: "split_large_openrouter_subset", page_from: pageFrom, page_to: pageTo, split_at: mid });
+          return;
+        } else {
+          throw new Error(`صفحة PDF ${pageFrom} كبيرة جداً لإرسالها مباشرة إلى OpenRouter (${subset.byteLength} bytes). أعد ضغط ملف PDF أو ارفع نسخة نصية أوضح.`);
+        }
       } else {
         await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
           page_from: pageFrom,
@@ -796,7 +837,13 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   let bytes: Uint8Array | null = null;
   let pageCount = 0;
-  let geminiFile: any = asset?.metadata?.gemini_file ?? null;
+  let geminiFile: any = byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES ? asset?.metadata?.gemini_file ?? null : null;
+  if (asset?.metadata?.gemini_file?.uri && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+    await log(admin, job.id, "warn", "ignoring stale Gemini File metadata for medium PDF; OpenRouter/local extraction is primary", {
+      bytes: byteSize,
+      local_fallback_limit_bytes: PDF_LOCAL_FALLBACK_LIMIT_BYTES,
+    });
+  }
 
   if (byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     try {
@@ -816,7 +863,11 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     }
   }
 
-  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && !geminiFile?.uri) {
+  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+    throw new Error("تعذر قراءة عدد صفحات PDF محلياً لملف متوسط الحجم. لن يتم تحويله إلى Gemini لتجنب حصة المزود القديمة؛ أعد رفع نسخة PDF نصية/مضغوطة أو قسّم الملف ثم أعد المحاولة.");
+  }
+
+  if (!pageCount && byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES && !geminiFile?.uri) {
     await startGeminiChunkedUpload(admin, job, asset);
     await admin.from("knowledge_source_versions").update({
       page_count: null,
@@ -839,7 +890,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     return;
   }
 
-  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+  if (!pageCount && byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     await respectProviderCooldown(admin, job);
     pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
       await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
@@ -858,7 +909,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }
 
   if (!pageCount) {
-    if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+    if (byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
       throw new Error("تعذر تحديد عدد صفحات PDF الكبير محلياً أو عبر Gemini File API؛ تم إيقاف هذه المرحلة برسالة تشخيص واضحة بدلاً من تعليق العامل");
     }
     bytes = bytes ?? await fetchAssetBytes(admin, asset);
@@ -1194,73 +1245,21 @@ async function runChatCompletion(admin: SupabaseClient, body: Record<string, unk
   const requestedModel = String(body.model ?? STRUCTURE_MODEL);
   const openRouterKey = String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
 
-  // PRIMARY: OpenRouter (paid account, no free-tier quota issues).
-  if (openRouterKey) {
-    const orModel = requestedModel.includes("/") ? requestedModel : `google/${requestedModel.replace(/^google\//, "")}`;
-    const orBody = { ...body, model: orModel };
-    const orResult = await callGeminiWithFallback({
-      apiKey: openRouterKey,
-      models: [orModel, STRUCTURE_MODEL, "google/gemini-2.5-flash-lite"],
-      body: orBody,
-      timeoutMs: 90_000,
-    });
-    if (orResult.ok) return await orResult.response.json();
-    console.warn("openrouter primary failed; trying fallbacks", orResult.status, String(orResult.lastError ?? "").slice(0, 300));
-    // Auth/billing failures on OpenRouter: skip fallbacks and surface immediately.
-    if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403) {
-      throw new Error(`openrouter failed ${orResult.status}: ${(orResult.lastError ?? "").slice(0, 300)}`);
-    }
+  if (!openRouterKey) {
+    throw new Error("OPENROUTER_API_KEY_MISSING: لا يوجد مفتاح OpenRouter مفعّل لمعالجة مكتبة Modrek AI");
   }
 
-  // SECONDARY: Lovable AI Gateway (managed key, may share quota).
-  if (LOVABLE_API_KEY) {
-    const gatewayResponse = await fetchWithTimeout(`${GATEWAY}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Lovable-API-Key": LOVABLE_API_KEY },
-      body: JSON.stringify(body),
-    }, AI_REQUEST_TIMEOUT_MS);
-    if (gatewayResponse.ok) return await gatewayResponse.json();
-    const errorText = await gatewayResponse.text().catch(() => "");
-    console.warn("lovable gateway failed; falling back to direct gemini", gatewayResponse.status, errorText.slice(0, 300));
-  }
+  const orModel = requestedModel.includes("/") ? requestedModel : `google/${requestedModel.replace(/^google\//, "")}`;
+  const orBody = { ...body, model: orModel };
+  const orResult = await callGeminiWithFallback({
+    apiKey: openRouterKey,
+    models: [orModel, STRUCTURE_MODEL, "google/gemini-2.5-flash-lite"],
+    body: orBody,
+    timeoutMs: 90_000,
+  });
+  if (orResult.ok) return await orResult.response.json();
 
-  // LAST RESORT: direct Gemini (only if a Gemini API key exists).
-  const geminiKey = resolveGoogleGeminiApiKey();
-  if (!geminiKey) {
-    throw new Error("no AI provider available: OPENROUTER_API_KEY and GEMINI_API_KEY are both missing or failed");
-  }
-  const model = requestedModel.replace(/^google\//, "");
-  const response = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: (body as any).messages?.flatMap((m: any) => {
-        if (typeof m.content === "string") return [{ text: m.content }];
-        return (m.content ?? []).map((p: any) => {
-          if (p.type === "text") return { text: p.text };
-          if (p.type === "image_url") {
-            const url = String(p.image_url?.url ?? "");
-            const match = url.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
-          }
-          if (p.type === "file") {
-            const data = String(p.file?.file_data ?? "");
-            const match = data.match(/^data:([^;]+);base64,(.+)$/);
-            if (match) return { inlineData: { mimeType: match[1], data: match[2] } };
-          }
-          return null;
-        }).filter(Boolean);
-      }) ?? [] }],
-      generationConfig: { temperature: 0, maxOutputTokens: 8192, ...((body as any).response_format?.type === "json_object" ? { responseMimeType: "application/json" } : {}) },
-    }),
-  }, 90_000);
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => "");
-    throw new Error(`gemini direct failed ${response.status}: ${errorText.slice(0, 300)}`);
-  }
-  const payload = await response.json();
-  const text = payload?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? "").join("") ?? "";
-  return { choices: [{ message: { content: text } }] };
+  throw new Error(`openrouter failed ${orResult.status}: ${(orResult.lastError ?? "").slice(0, 700)}`);
 }
 
 async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
