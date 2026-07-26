@@ -186,7 +186,7 @@ export default function ModrekUploadWizard({
       selectedTrackCode,
       sectionCodeById,
     }));
-    return dedupeModrekSubjects(visibleSubjects, selectedTrackCode);
+    return dedupeModrekSubjects(visibleSubjects, selectedTrackCode, tax.section_id);
   }, [subjects, sections, tracks, tax.stage_id, tax.grade_id, tax.section_id, tax.track_id]);
   const filteredSubSubjects = useMemo(
     () => subSubjects.filter((s) => !tax.subject_id || s.subject_id === tax.subject_id),

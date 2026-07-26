@@ -171,7 +171,7 @@ export default function ModrekLibraryPage() {
       selectedTrackCode,
       sectionCodeById,
     }));
-    return dedupeModrekSubjects(visibleSubjects, selectedTrackCode);
+    return dedupeModrekSubjects(visibleSubjects, selectedTrackCode, f.section);
   }, [subjects, sections, tracks, f.stage, f.grade, f.section, f.track]);
   const filteredSubs = useMemo(() => subSubjects.filter((s) => !f.subject || s.subject_id === f.subject), [subSubjects, f.subject]);
   const subjectById = useMemo(() => new Map(subjects.map((subject) => [subject.id, subject])), [subjects]);
