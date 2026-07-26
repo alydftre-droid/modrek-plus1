@@ -821,8 +821,10 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   }
 
   if (byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES) {
+    await respectProviderCooldown(admin, job);
     pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
       await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
+      if (isRateLimitError(e)) throw e;
       return 0;
     });
   }
@@ -1560,14 +1562,47 @@ function base64Encode(bytes: Uint8Array): string {
 }
 
 async function enqueue(admin: SupabaseClient, versionId: string, kind: string, stageOrder: number, input: any, assetId?: string, maxAttempts?: number) {
-  const { data, error } = await admin.rpc("modrek_enqueue_stage", {
+  const params: Record<string, any> = {
     p_version_id: versionId, p_kind: kind, p_stage_order: stageOrder,
-    p_input: input, p_asset_id: assetId ?? null, p_max_attempts: maxAttempts ?? null,
+    p_input: input, p_asset_id: assetId ?? null,
+  };
+  const { data, error } = await admin.rpc("modrek_enqueue_stage", {
+    ...params,
+    p_max_attempts: maxAttempts ?? null,
   });
-  if (error) {
+  if (!error) return data;
+
+  const errorMessage = String(error.message || "");
+  const canUseLegacySignature = Boolean(maxAttempts) && (
+    errorMessage.includes("modrek_enqueue_stage") ||
+    errorMessage.includes("function") ||
+    errorMessage.includes("schema cache") ||
+    errorMessage.includes("Could not find") ||
+    errorMessage.includes("not found")
+  );
+
+  if (canUseLegacySignature) {
+    const fallback = await admin.rpc("modrek_enqueue_stage", params);
+    if (!fallback.error) {
+      if (fallback.data && maxAttempts) {
+        await admin.from("processing_jobs").update({
+          max_attempts: maxAttempts,
+          updated_at: new Date().toISOString(),
+        }).eq("id", fallback.data);
+      }
+      await log(admin, fallback.data ?? null, "warn", "modrek_enqueue_stage legacy signature fallback used", {
+        kind,
+        version_id: versionId,
+        original_error: errorMessage.slice(0, 500),
+        max_attempts: maxAttempts ?? null,
+      });
+      return fallback.data;
+    }
+  }
+
+  {
     throw new Error(`failed to enqueue ${kind}: ${error.message}`);
   }
-  return data;
 }
 
 async function succeedJob(admin: SupabaseClient, job: any, output: any) {
