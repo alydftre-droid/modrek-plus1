@@ -1055,8 +1055,52 @@ const Auth = () => {
                 </div>
               )}
 
+              {/* اتفاقية استخدام المعلمين - إلزامية قبل التقديم */}
+              {mode === "register-teacher" && (
+                <div className="space-y-2 pt-2 border-t">
+                  <label
+                    className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition ${
+                      formData.acceptedTerms ? "border-primary bg-primary/5" : "border-input"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={formData.acceptedTerms}
+                      onCheckedChange={(v) => {
+                        setFormData((prev) => ({ ...prev, acceptedTerms: !!v }));
+                        if (errors.acceptedTerms) setErrors((prev) => ({ ...prev, acceptedTerms: "" }));
+                      }}
+                      className="mt-0.5"
+                    />
+                    <span className="text-sm leading-6">
+                      لقد قرأتُ وفهمتُ ووافقتُ على جميع بنود{" "}
+                      <Link
+                        to="/teacher/terms"
+                        target="_blank"
+                        rel="noopener"
+                        className="text-primary hover:underline font-medium"
+                      >
+                        اتفاقية استخدام المعلمين
+                      </Link>{" "}
+                      الخاصة بمنصة مدرك Plus (الإصدار {CURRENT_TEACHER_TERMS_VERSION}).
+                    </span>
+                  </label>
+                  {errors.acceptedTerms && (
+                    <p className="text-xs text-destructive">{errors.acceptedTerms}</p>
+                  )}
+                </div>
+              )}
+
               {/* زر الإرسال */}
-              <Button type="submit" className="auth2026-primary-button w-full" size="lg" disabled={isLoading || authFormDisabled}>
+              <Button
+                type="submit"
+                className="auth2026-primary-button w-full"
+                size="lg"
+                disabled={
+                  isLoading ||
+                  authFormDisabled ||
+                  (mode === "register-teacher" && !formData.acceptedTerms)
+                }
+              >
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
@@ -1068,6 +1112,7 @@ const Auth = () => {
                   </>
                 )}
               </Button>
+
 
               {/* تسجيل الدخول بـ Google */}
               <div className="relative my-4">
