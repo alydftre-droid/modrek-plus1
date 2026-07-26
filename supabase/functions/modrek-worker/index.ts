@@ -207,7 +207,29 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
       page_to: pageTo,
       page_count: pageCount,
     });
-    batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+    try {
+      batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
+    } catch (err: any) {
+      // Auto-split: if a multi-page batch fails (timeout / partial output),
+      // requeue smaller sub-batches instead of hard-failing the whole book.
+      const rangeSize = pageTo - pageFrom + 1;
+      const alreadySplit = Number(input.__split_depth ?? 0);
+      if (rangeSize > 1 && alreadySplit < 4) {
+        const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
+        await log(admin, job.id, "warn", "extract_page auto-splitting after Gemini failure", {
+          page_from: pageFrom, page_to: pageTo, error: String(err?.message ?? err).slice(0, 300),
+        });
+        await enqueue(admin, job.version_id, "extract_page", 21, {
+          ...input, page_from: pageFrom, page_to: mid, __split_depth: alreadySplit + 1,
+        }, job.asset_id);
+        await enqueue(admin, job.version_id, "extract_page", 21, {
+          ...input, page_from: mid + 1, page_to: pageTo, __split_depth: alreadySplit + 1,
+        }, job.asset_id);
+        await succeedJob(admin, job, { mode: "split", page_from: pageFrom, page_to: pageTo, split_at: mid });
+        return;
+      }
+      throw err;
+    }
   } else {
     const bytes = await fetchAssetBytes(admin, asset);
     const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
