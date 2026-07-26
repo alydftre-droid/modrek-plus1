@@ -142,14 +142,24 @@ const ContentPage = () => {
     if (!confirm("هل أنت متأكد من حذف هذا المحتوى؟")) return;
 
     try {
-      // Delete from storage
-      const bucket = content.type === "video" ? "videos" : content.type === "book" ? "books" : "exams";
-      const fileName = content.file_url.split("/").pop();
-      if (fileName) {
-        await supabase.storage.from(bucket).remove([fileName]);
+      // 1) Delete media from Bunny (Stream + Storage) BEFORE removing the DB row,
+      //    because bunny-* edge functions authorize deletion by row lookup.
+      const { deleteContentBunnyAssets } = await import("@/lib/bunnyCleanup");
+      await deleteContentBunnyAssets({
+        file_url: content.file_url,
+        thumbnail_url: (content as unknown as { thumbnail_url?: string | null }).thumbnail_url,
+      });
+
+      // 2) Best-effort cleanup of any legacy Supabase Storage object.
+      if (content.file_url && !content.file_url.startsWith("bunny://") && !content.file_url.startsWith("bstorage://")) {
+        const bucket = content.type === "video" ? "videos" : content.type === "book" ? "books" : "exams";
+        const fileName = content.file_url.split("/").pop();
+        if (fileName) {
+          await supabase.storage.from(bucket).remove([fileName]);
+        }
       }
 
-      // Delete from database
+      // 3) Delete from database
       const { error } = await supabase.from("content").delete().eq("id", content.id);
       if (error) throw error;
 
