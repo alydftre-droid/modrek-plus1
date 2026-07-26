@@ -50,6 +50,20 @@ const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 4;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
+const RATE_LIMIT_MIN_BACKOFF_MS = 2 * 60_000;
+const RATE_LIMIT_MAX_BACKOFF_MS = 20 * 60_000;
+
+type FailureDiagnostic = {
+  category: "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
+  userMessage: string;
+  rawMessage: string;
+  retryable: boolean;
+  file: string;
+  function: string;
+  line: number | null;
+  stack: string | null;
+};
 
 const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.get("LIBRARY_WORKER_SHARED_KEY") || "").trim();
 
@@ -117,7 +131,7 @@ Deno.serve(async (req) => {
         );
         results.push({ job_id: job.id, kind: job.kind, ok: true });
       } catch (e: any) {
-        await failJob(admin, job, e?.message ?? String(e));
+        await failJob(admin, job, e);
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
@@ -214,17 +228,17 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
       // requeue smaller sub-batches instead of hard-failing the whole book.
       const rangeSize = pageTo - pageFrom + 1;
       const alreadySplit = Number(input.__split_depth ?? 0);
-      if (rangeSize > 1 && alreadySplit < 4) {
+      if (!isRateLimitError(err) && rangeSize > 1 && alreadySplit < 4) {
         const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
         await log(admin, job.id, "warn", "extract_page auto-splitting after Gemini failure", {
           page_from: pageFrom, page_to: pageTo, error: String(err?.message ?? err).slice(0, 300),
         });
         await enqueue(admin, job.version_id, "extract_page", 21, {
           ...input, page_from: pageFrom, page_to: mid, __split_depth: alreadySplit + 1,
-        }, job.asset_id);
+        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
         await enqueue(admin, job.version_id, "extract_page", 21, {
           ...input, page_from: mid + 1, page_to: pageTo, __split_depth: alreadySplit + 1,
-        }, job.asset_id);
+        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
         await succeedJob(admin, job, { mode: "split", page_from: pageFrom, page_to: pageTo, split_at: mid });
         return;
       }
@@ -479,12 +493,12 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     for (const fp of failedPages) {
       const fpInput = (fp as any).input ?? {};
       const wasGemini = fpInput.extractor === "gemini_file" || !!fpInput.gemini_file?.uri;
-      await enqueue(admin, job.version_id, "extract_page", 21, {
+        await enqueue(admin, job.version_id, "extract_page", 21, {
         ...fpInput,
         extractor: wasGemini ? "local_pdfjs" : "gemini_file",
         gemini_file: wasGemini ? null : fpInput.gemini_file ?? null,
         __retry_of: (fp as any).id,
-      }, job.asset_id);
+      }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
     }
     await log(admin, job.id, "warn", "merge_text auto-retrying failed page batches with alternate extractor", {
       retried: failedPages.length,
@@ -790,7 +804,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const estimatedBytesPerPage = byteSize / Math.max(1, pageCount);
   const dynamicBatchPages = Math.max(
     1,
-    geminiFile ? Math.min(8, PDF_TEXT_BATCH_PAGES) : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
+    geminiFile ? 1 : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
   );
 
   for (let pageFrom = 1; pageFrom <= pageCount; pageFrom += dynamicBatchPages) {
@@ -804,7 +818,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
       extractor: geminiFile ? "gemini_file" : "local_pdfjs",
       gemini_file: geminiFile,
       filename: asset.original_filename,
-    }, asset.id);
+    }, asset.id, EXTRACT_PAGE_MAX_ATTEMPTS);
     batchCount++;
   }
 
