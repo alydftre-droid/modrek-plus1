@@ -97,6 +97,7 @@ interface TeacherSignUpData {
   stages: ("preparatory" | "secondary")[];
   grades: string[];
   subject: string;
+  subjects?: string[];
   educationType?: string;
   teachesIntegratedScience?: boolean;
   termsVersion?: string;
