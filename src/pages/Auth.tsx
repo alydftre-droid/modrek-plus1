@@ -518,15 +518,41 @@ const Auth = () => {
   if (formData.stages.includes("preparatory")) PREPARATORY_SUBJECTS.forEach(s => subjectsSet.add(s));
   if (formData.stages.includes("secondary")) SECONDARY_SUBJECTS.forEach(s => subjectsSet.add(s));
   const availableSubjects = Array.from(subjectsSet);
-  const canOfferIntegratedScience = ["أحياء", "فيزياء", "كيمياء"].includes(formData.subject)
+  const selectedSubjectsArr: string[] = (formData.subjects && formData.subjects.length > 0)
+    ? formData.subjects
+    : (formData.subject ? [formData.subject] : []);
+  const canOfferIntegratedScience = selectedSubjectsArr.some((s) => ["أحياء", "فيزياء", "كيمياء"].includes(s))
     && formData.grades.includes("الصف الأول الثانوي");
+
+  const toggleSubject = (s: string) => {
+    setFormData((prev) => {
+      const current: string[] = (prev.subjects && prev.subjects.length > 0)
+        ? prev.subjects
+        : (prev.subject ? [prev.subject] : []);
+      const next = current.includes(s) ? current.filter((x) => x !== s) : [...current, s];
+      const hasArabic = next.includes("المواد العربية");
+      const hasSharia = next.includes("المواد الشرعية");
+      return {
+        ...prev,
+        subjects: next,
+        subject: next[0] || "",
+        educationType: hasSharia && !hasArabic
+          ? "أزهر"
+          : hasArabic ? (prev.educationType || "") : "",
+        teachesIntegratedScience: next.some((x) => ["أحياء", "فيزياء", "كيمياء"].includes(x))
+          ? prev.teachesIntegratedScience
+          : false,
+      };
+    });
+    if (errors.subject) setErrors((prev) => ({ ...prev, subject: "" }));
+  };
 
   const toggleStage = (stage: "preparatory" | "secondary") => {
     setFormData((prev) => {
       const newStages = prev.stages.includes(stage)
         ? prev.stages.filter(s => s !== stage)
         : [...prev.stages, stage];
-      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "", teachesIntegratedScience: false };
+      return { ...prev, stages: newStages, grades: [], subject: "", subjects: [], educationType: "", teachesIntegratedScience: false };
     });
     if (errors.stages) setErrors((prev) => ({ ...prev, stages: "" }));
   };
