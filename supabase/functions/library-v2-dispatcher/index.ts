@@ -230,8 +230,8 @@ async function tick(): Promise<{ claimed: number; dispatched: number; recovered:
   // head:true returns no rows but .count via response; simplest: fire ping unconditionally when we claimed nothing OR when legacy jobs exist
   try {
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 3_000);
-    await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
+    const t = setTimeout(() => controller.abort(), 150_000);
+    const legacyRes = await fetch(`${SUPABASE_URL}/functions/v1/library-worker`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -243,7 +243,23 @@ async function tick(): Promise<{ claimed: number; dispatched: number; recovered:
       signal: controller.signal,
     }).catch(() => null);
     clearTimeout(t);
-  } catch (_e) { /* fire-and-forget */ }
+    if (legacyRes && !legacyRes.ok && list[0]?.book_id) {
+      await logEvent(admin, list[0].book_id, null, "legacy_worker_kick_failed", "فشل تشغيل عامل الصفحات القديم من موزع V2", "warning", null, {
+        function: "tick",
+        line: 224,
+        status: legacyRes.status,
+        body: (await legacyRes.text().catch(() => "")).slice(0, 500),
+      });
+    }
+  } catch (e) {
+    if (list[0]?.book_id) {
+      await logEvent(admin, list[0].book_id, null, "legacy_worker_kick_exception", "تعذر تشغيل عامل الصفحات القديم من موزع V2", "warning", null, {
+        function: "tick",
+        line: 234,
+        error: String((e as any)?.message || e),
+      });
+    }
+  }
 
   return { claimed: list.length, dispatched, recovered, errors };
 }
