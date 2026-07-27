@@ -166,7 +166,7 @@ const TeacherSelection = () => {
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
 
       const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
-        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds).eq("is_approved", true),
+        supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds),
         supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
         supabase.from("teacher_directory" as any).select("id, full_name").in("id", teacherIds),
       ]);
