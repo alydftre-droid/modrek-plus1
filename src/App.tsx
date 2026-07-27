@@ -196,6 +196,7 @@ const RouteFallback = () => (
 function AnimatedRoutes() {
   return (
     <PageTransition>
+      <LazyRouteBoundary>
       <Suspense fallback={<RouteFallback />}>
       <Routes>
               {/* Public */}
