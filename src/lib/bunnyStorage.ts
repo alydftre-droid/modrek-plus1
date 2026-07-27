@@ -249,41 +249,131 @@ export async function uploadToBunnyStorage(
     throw new Error("تعذر تجهيز جلسة الحساب. أغلق نافذة الرفع وافتحها مرة أخرى ثم حاول مجددًا");
   }
 
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const timeoutMs = Math.max(120_000, Math.min(900_000, file.size > 0 ? Math.ceil(file.size / 1024 / 1024) * 45_000 : 120_000));
-    xhr.timeout = timeoutMs;
+  // Files larger than 5MB go through the chunked pipeline (create-upload-session
+  // → upload-chunk × N → finalize-upload). Single-shot PUTs through the edge
+  // function silently stall for larger PDFs (Supabase gateway/body limits),
+  // which is what made Modrek AI uploads "load forever" without any error.
+  const CHUNK_THRESHOLD = 5 * 1024 * 1024;
+  const useChunked = file.size > CHUNK_THRESHOLD;
 
-    if (onProgress) {
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) onProgress(e.loaded, e.total);
+  if (!useChunked) {
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const timeoutMs = Math.max(120_000, Math.min(900_000, file.size > 0 ? Math.ceil(file.size / 1024 / 1024) * 45_000 : 120_000));
+      xhr.timeout = timeoutMs;
+
+      if (onProgress) {
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) onProgress(e.loaded, e.total);
+        });
+      }
+
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve();
+        else {
+          let message = `فشل رفع الملف (${xhr.status})`;
+          try {
+            const parsed = JSON.parse(xhr.responseText || "{}");
+            if (parsed?.error) message = String(parsed.error);
+          } catch {
+            if (xhr.responseText) message = xhr.responseText.slice(0, 200);
+          }
+          reject(new Error(message));
+        }
       });
+      xhr.addEventListener("error", () => reject(new Error("تعذر الاتصال بخدمة رفع الملفات")));
+      xhr.addEventListener("timeout", () => reject(new Error("انتهت مهلة رفع الملف. تحقق من الاتصال ثم أعد المحاولة")));
+      xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
+
+      xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(storagePath)}`);
+      xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+      xhr.setRequestHeader("apikey", supabaseKey);
+      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+      if (onXhrReady) onXhrReady(xhr);
+      xhr.send(file);
+    });
+    return `bstorage://${storagePath}`;
+  }
+
+  // ---- Chunked path ----
+  const controller = new AbortController();
+  if (onXhrReady) {
+    // Expose an XHR-shaped shim so existing callers (ModrekUploadWizard) can
+    // still call `.abort()` to cancel uploads mid-flight.
+    onXhrReady({ abort: () => controller.abort() } as unknown as XMLHttpRequest);
+  }
+
+  const CHUNK_SIZE = 4 * 1024 * 1024;
+  const total = Math.ceil(file.size / CHUNK_SIZE);
+  const contentType = file.type || "application/octet-stream";
+  const authHeaders = {
+    Authorization: `Bearer ${accessToken}`,
+    apikey: supabaseKey,
+  } as const;
+
+  const parseErr = async (res: Response, fallback: string): Promise<string> => {
+    const text = await res.text().catch(() => "");
+    try {
+      const parsed = JSON.parse(text || "{}");
+      if (parsed?.error) return String(parsed.error);
+    } catch { /* ignore */ }
+    return fallback;
+  };
+
+  const sessionRes = await fetch(
+    `${supabaseUrl}/functions/v1/bunny-storage?action=create-upload-session&path=${encodeURIComponent(storagePath)}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(contentType)}`,
+    { method: "POST", headers: authHeaders, signal: controller.signal },
+  );
+  if (!sessionRes.ok) {
+    throw new Error(await parseErr(sessionRes, `فشل إنشاء جلسة الرفع (${sessionRes.status})`));
+  }
+  const sessionJson = await sessionRes.json().catch(() => ({} as any));
+  const uploadId = typeof sessionJson?.uploadId === "string" ? sessionJson.uploadId : "";
+  if (!uploadId) throw new Error("جلسة رفع غير صالحة");
+
+  let uploaded = 0;
+  for (let i = 0; i < total; i++) {
+    if (controller.signal.aborted) throw new Error("UPLOAD_ABORTED");
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(file.size, start + CHUNK_SIZE);
+    const chunk = file.slice(start, end);
+
+    let attempt = 0;
+    const maxAttempts = 4;
+    while (true) {
+      try {
+        const res = await fetch(
+          `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&index=${i}`,
+          {
+            method: "POST",
+            headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
+            body: chunk,
+            signal: controller.signal,
+          },
+        );
+        if (!res.ok) {
+          throw new Error(await parseErr(res, `فشل رفع الجزء ${i + 1}/${total} (${res.status})`));
+        }
+        break;
+      } catch (err) {
+        if (controller.signal.aborted) throw new Error("UPLOAD_ABORTED");
+        attempt++;
+        if (attempt >= maxAttempts) throw err;
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
     }
 
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else {
-        let message = `فشل رفع الملف (${xhr.status})`;
-        try {
-          const parsed = JSON.parse(xhr.responseText || "{}");
-          if (parsed?.error) message = String(parsed.error);
-        } catch {
-          if (xhr.responseText) message = xhr.responseText.slice(0, 200);
-        }
-        reject(new Error(message));
-      }
-    });
-    xhr.addEventListener("error", () => reject(new Error("تعذر الاتصال بخدمة رفع الملفات")));
-    xhr.addEventListener("timeout", () => reject(new Error("انتهت مهلة رفع الملف. تحقق من الاتصال ثم أعد المحاولة")));
-    xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
+    uploaded = end;
+    onProgress?.(uploaded, file.size);
+  }
 
-    xhr.open("PUT", `${supabaseUrl}/functions/v1/bunny-storage?action=upload&path=${encodeURIComponent(storagePath)}`);
-    xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
-    xhr.setRequestHeader("apikey", supabaseKey);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    if (onXhrReady) onXhrReady(xhr);
-    xhr.send(file);
-  });
+  const finalizeRes = await fetch(
+    `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(contentType)}`,
+    { method: "POST", headers: authHeaders, signal: controller.signal },
+  );
+  if (!finalizeRes.ok) {
+    throw new Error(await parseErr(finalizeRes, `فشل إنهاء الرفع (${finalizeRes.status})`));
+  }
 
   return `bstorage://${storagePath}`;
 }
