@@ -98,11 +98,13 @@ const TeacherRegister = () => {
     if (!formData.phone) e.phone = "رقم الهاتف مطلوب";
     if (formData.stages.length === 0) e.stages = "اختر المرحلة";
     if (formData.grades.length === 0) e.grades = "اختر صف واحد على الأقل";
-    if (!formData.subject) e.subject = "اختر المادة";
-    if (formData.subject === "المواد العربية" && !formData.educationType) {
-      e.educationType = "حدد نوع التعليم";
+    const chosenSubjects = formData.subjects && formData.subjects.length > 0
+      ? formData.subjects
+      : (formData.subject ? [formData.subject] : []);
+    if (chosenSubjects.length === 0) e.subject = "اختر مادة واحدة على الأقل";
+    if (chosenSubjects.includes("المواد العربية") && !formData.educationType) {
+      e.educationType = "حدد نوع التعليم للمواد العربية";
     }
-    if (!formData.subject) e.subject = "اختر المادة";
     if (!acceptedTerms) e.terms = "يجب الموافقة على اتفاقية استخدام المعلمين للمتابعة";
 
     setErrors(e);
