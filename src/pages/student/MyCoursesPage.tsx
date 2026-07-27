@@ -75,7 +75,7 @@ export default function MyCoursesPage() {
             ? await Promise.all([
                 supabase.from("public_teacher_profiles" as any).select("id, full_name, avatar_url").in("id", teacherIds),
                 supabase.from("teacher_directory" as any).select("id, full_name, avatar_url").in("id", teacherIds),
-                supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds).eq("is_approved", true),
+                supabase.from("teacher_profiles").select("teacher_id, photo_url").in("teacher_id", teacherIds),
                 supabase.rpc("get_student_purchased_group_teacher_details" as any, { _student_id: user.id, _group_ids: groupIds }),
               ])
             : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
