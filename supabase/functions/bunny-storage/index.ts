@@ -67,9 +67,9 @@ async function verifyFinalPdfObject(config: ReturnType<typeof getBunnyStorageCon
   }
   const firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
   const header = bytesToAscii(firstBytes);
-  const totalSize = parseContentRangeTotal(verifyRes.headers.get("content-range"))
-    ?? Number.parseInt(verifyRes.headers.get("content-length") || "0", 10)
-    || null;
+  const rangeTotal = parseContentRangeTotal(verifyRes.headers.get("content-range"));
+  const lengthTotal = Number.parseInt(verifyRes.headers.get("content-length") || "0", 10) || null;
+  const totalSize = rangeTotal ?? lengthTotal;
   if (!header.startsWith("%PDF-")) {
     return { ok: false, reason: "final_object_is_not_pdf", header, totalSize };
   }
