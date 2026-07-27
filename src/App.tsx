@@ -156,6 +156,13 @@ const queryClient = new QueryClient({
       refetchOnMount: false,
       refetchOnReconnect: "always",
       retry: 1,
+      // Serve cached data instantly even without network (Stale-While-Revalidate).
+      // When connection returns, `refetchOnReconnect: "always"` triggers a
+      // background refresh and the UI updates seamlessly.
+      networkMode: "offlineFirst",
+    },
+    mutations: {
+      networkMode: "online",
     },
   },
 });
