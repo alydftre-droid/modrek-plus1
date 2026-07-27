@@ -479,8 +479,11 @@ const Auth = () => {
       if (!phoneResult.success) newErrors.phone = phoneResult.error.errors[0].message;
       if (formData.stages.length === 0) newErrors.stages = "اختر مرحلة واحدة على الأقل";
       if (formData.grades.length === 0) newErrors.grades = "اختر صف واحد على الأقل";
-      if (!formData.subject) newErrors.subject = "اختر المادة التي تدرّسها";
-      if (formData.subject === "المواد العربية" && !formData.educationType) {
+      const chosen = (formData.subjects && formData.subjects.length > 0)
+        ? formData.subjects
+        : (formData.subject ? [formData.subject] : []);
+      if (chosen.length === 0) newErrors.subject = "اختر مادة واحدة على الأقل";
+      if (chosen.includes("المواد العربية") && !formData.educationType) {
         newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
       if (!formData.acceptedTerms) {
