@@ -56,7 +56,8 @@ export interface TeacherFormData {
   phone: string;
   stages: ("preparatory" | "secondary")[];
   grades: string[];
-  subject: string;
+  subject: string; // primary subject — kept for backward compatibility (= subjects[0])
+  subjects: string[]; // all subjects the teacher teaches (multi-select)
   educationType: "عام" | "أزهر" | "";
   teachesIntegratedScience?: boolean;
 }
