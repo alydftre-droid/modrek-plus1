@@ -95,11 +95,12 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
     const newStages = formData.stages.includes(stage)
       ? formData.stages.filter((s) => s !== stage)
       : [...formData.stages, stage];
-    // Reset grades and subject when stages change
+    // Reset grades and subjects when stages change
     onChange({
       stages: newStages,
       grades: [],
       subject: "",
+      subjects: [],
       educationType: "",
     });
   };
@@ -112,13 +113,37 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
     });
   };
 
+  const selectedSubjects = formData.subjects ?? (formData.subject ? [formData.subject] : []);
+
+  const toggleSubject = (s: string) => {
+    const isSelected = selectedSubjects.includes(s);
+    const next = isSelected
+      ? selectedSubjects.filter((x) => x !== s)
+      : [...selectedSubjects, s];
+    const stillHasArabic = next.includes("المواد العربية");
+    const stillHasSharia = next.includes("المواد الشرعية");
+    onChange({
+      subjects: next,
+      subject: next[0] || "",
+      educationType: stillHasSharia && !stillHasArabic
+        ? "أزهر"
+        : stillHasArabic
+          ? (formData.educationType || "")
+          : "",
+      teachesIntegratedScience:
+        next.some((x) => SCIENCE_SUBJECTS_FOR_INTEGRATED.includes(x))
+          ? formData.teachesIntegratedScience
+          : false,
+    });
+  };
+
   // المواد العربية need education type selection
-  const needsEducationType = formData.subject === "المواد العربية";
+  const needsEducationType = selectedSubjects.includes("المواد العربية");
   // المواد الشرعية is automatically أزهر
-  const isSharia = formData.subject === "المواد الشرعية";
+  const isSharia = selectedSubjects.includes("المواد الشرعية");
   // السماح لمعلمي المواد العلمية بإضافة العلوم المتكاملة مع مادتهم الأصلية
   const canOfferIntegratedScience =
-    SCIENCE_SUBJECTS_FOR_INTEGRATED.includes(formData.subject) &&
+    selectedSubjects.some((s) => SCIENCE_SUBJECTS_FOR_INTEGRATED.includes(s)) &&
     formData.grades.includes(FIRST_SECONDARY_GRADE);
 
   return (
