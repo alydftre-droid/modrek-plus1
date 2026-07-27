@@ -160,6 +160,9 @@ export async function callGeminiWithFallback(opts: {
   body: Record<string, unknown>;
   fallbackDelayMs?: number;
   timeoutMs?: number;
+  functionName?: string;
+  task?: string;
+  purpose?: "chat" | "exam" | "vision" | "tts" | "background" | "ocr" | "rag" | "grade" | "summarize" | "extract";
 }): Promise<GeminiCallResult> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
   const openRouterKey = String(opts.apiKey || "").trim() || getOpenRouterApiKey();
@@ -167,32 +170,52 @@ export async function callGeminiWithFallback(opts: {
     return { ok: false, status: 401, lastError: "OPENROUTER_API_KEY_MISSING" };
   }
 
-  const models = withGlobalGeminiFallbacks(opts.models);
+  const fnName = opts.functionName || "unknown";
+  // Enforce Flash/Pro policy at call time as the last line of defence, so a
+  // stale caller cannot slip a Pro model into a non-exam surface.
+  const models = enforceModelPolicy(fnName, withGlobalGeminiFallbacks(opts.models));
   let lastStatus = 0;
   let lastError = "";
 
   for (let i = 0; i < models.length; i++) {
     const orModel = toOpenRouterModelId(models[i]);
+    const startedAt = Date.now();
     const orResult = await openRouterChat({
       apiKey: openRouterKey,
       model: orModel,
       body: opts.body,
       timeoutMs,
     });
+    const durationMs = Date.now() - startedAt;
     if (orResult.ok) {
-      console.log("AI provider success", JSON.stringify({ provider: "openrouter", model: orModel }));
+      logAiCall({
+        function: fnName,
+        task: opts.task,
+        model: orModel,
+        purpose: opts.purpose,
+        durationMs,
+        status: 200,
+        ok: true,
+      });
       return { ok: true, response: orResult.response, model: orModel, provider: "openrouter" };
     }
     lastStatus = orResult.status;
     lastError = orResult.lastError;
-    console.error(
-      "OpenRouter chat error",
-      JSON.stringify({ model: orModel, status: orResult.status, error: summarizeUpstreamError(orResult.lastError).slice(0, 500) }),
-    );
+    logAiCall({
+      function: fnName,
+      task: opts.task,
+      model: orModel,
+      purpose: opts.purpose,
+      durationMs,
+      status: orResult.status,
+      ok: false,
+      error: summarizeUpstreamError(orResult.lastError).slice(0, 500),
+    });
     // Hard failures — retrying more models won't help.
     if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403) break;
     if (i < models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
       await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
+
     }
   }
 
