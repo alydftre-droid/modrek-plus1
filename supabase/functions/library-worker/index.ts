@@ -27,6 +27,7 @@ import {
   OPENROUTER_DEFAULT_EMBED_MODEL,
   OPENROUTER_DEFAULT_TTS_MODEL,
   OPENROUTER_DEFAULT_TTS_VOICE,
+  toOpenRouterTtsModelId,
 } from "../_shared/openrouter.ts";
 
 const corsHeaders = {
@@ -715,7 +716,7 @@ async function processGenerateExplanations(admin: any, job: any): Promise<boolea
   const { apiKey } = await resolveOpenRouterApiKey(admin);
   const settings = apiKey ? await loadAiSettings(admin, "library-explain") : null;
   const ttsSettings = apiKey ? await loadAiSettings(admin, "library-explain-tts") : null;
-  const ttsModel = ttsSettings?.models_to_try?.[0] || OPENROUTER_DEFAULT_TTS_MODEL;
+  const ttsModel = toOpenRouterTtsModelId(ttsSettings?.models_to_try?.[0] || OPENROUTER_DEFAULT_TTS_MODEL);
   const ttsVoice = OPENROUTER_DEFAULT_TTS_VOICE;
   let generated = 0;
   let fallback = 0;
