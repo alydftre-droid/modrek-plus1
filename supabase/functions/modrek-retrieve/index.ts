@@ -23,7 +23,9 @@ const EMBED_MODEL = "openai/text-embedding-3-small";
 const GEMINI_EMBED_MODEL = "text-embedding-004";
 const EMBED_DIMS = 768;
 const INTENT_MODEL = "google/gemini-2.5-flash";
-const VISION_MODEL = "google/gemini-2.5-pro";
+// RAG vision path MUST use Flash (see _shared/aiModels.ts policy).
+const VISION_MODEL = "google/gemini-2.5-flash";
+
 
 // Enforced source-type search order (from knowledge_source_types.sort_order)
 const TIER_ORDER = [

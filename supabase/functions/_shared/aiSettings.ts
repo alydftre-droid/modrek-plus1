@@ -2,6 +2,14 @@
 // from the public.ai_function_settings table. Falls back to safe defaults
 // if the row is missing or DB read fails.
 import { getOpenRouterApiKey, openRouterChat, toOpenRouterModelId } from "./openrouter.ts";
+import {
+  DEFAULT_CHAT_MODELS,
+  DEFAULT_TTS_MODELS as POLICY_TTS_MODELS,
+  EXAM_MODELS,
+  enforceModelPolicy,
+  isExamFunction,
+  logAiCall,
+} from "./aiModels.ts";
 
 export type AiFunctionSettings = {
   function_name: string;
@@ -27,23 +35,24 @@ export function sanitizeForbiddenPlatformNames(content: string): string {
     .replace(new RegExp(["Azhary", "on"].join(""), "gi"), OFFICIAL_PLATFORM_NAME_EN);
 }
 
-// All AI chat/generation calls route through OpenRouter only. Model IDs
-// listed here are OpenRouter model identifiers (already vendor-prefixed like
-// `google/gemini-2.5-flash`). Bare Gemini names still work — `openrouter.ts`
-// normalizes them.
-const DEFAULT_MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
-const DEFAULT_TTS_MODELS = ["google/gemini-3.1-flash-tts-preview"];
+// Model selection is fully centralised in _shared/aiModels.ts. Every
+// entry here defers to that policy — Flash is the platform default and
+// Pro is reserved for formal exam generation only.
+const DEFAULT_MODELS = DEFAULT_CHAT_MODELS;
+const DEFAULT_TTS_MODELS = POLICY_TTS_MODELS;
 
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat":            { function_name: "ai-chat",            models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "support-assistant":  { function_name: "support-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "teacher-assistant":  { function_name: "teacher-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
-  "modrek-ai-exams":    { function_name: "modrek-ai-exams",    models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
+  // Formal exams are the only surface allowed to use Gemini 2.5 Pro.
+  "modrek-ai-exams":    { function_name: "modrek-ai-exams",    models_to_try: EXAM_MODELS,    max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
   "grade-essay":        { function_name: "grade-essay",        models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
   "library-explain-tts": { function_name: "library-explain-tts", models_to_try: DEFAULT_TTS_MODELS, max_retries: 2, fallback_delay_ms: 0, enable_streaming: false },
 };
 
 const GLOBAL_MODEL_FALLBACKS = DEFAULT_MODELS;
+
 
 /**
  * Kept for compatibility with existing edge functions. Returns the
@@ -80,8 +89,12 @@ function withGlobalGeminiFallbacks(models: string[]) {
 
 function normalizeModelsForFunction(fnName: string, models: string[], fallback: AiFunctionSettings) {
   if (fnName.includes("tts")) return uniqueModels(models.length ? models : fallback.models_to_try);
-  return models.length ? withGlobalGeminiFallbacks(models) : withGlobalGeminiFallbacks(fallback.models_to_try);
+  const base = models.length ? models : fallback.models_to_try;
+  // Enforce the platform Flash/Pro policy — non-exam functions cannot use Pro.
+  const withFallbacks = withGlobalGeminiFallbacks(base);
+  return enforceModelPolicy(fnName, withFallbacks);
 }
+
 
 export async function loadAiSettings(
   // deno-lint-ignore no-explicit-any
@@ -147,6 +160,9 @@ export async function callGeminiWithFallback(opts: {
   body: Record<string, unknown>;
   fallbackDelayMs?: number;
   timeoutMs?: number;
+  functionName?: string;
+  task?: string;
+  purpose?: "chat" | "exam" | "vision" | "tts" | "background" | "ocr" | "rag" | "grade" | "summarize" | "extract";
 }): Promise<GeminiCallResult> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
   const openRouterKey = String(opts.apiKey || "").trim() || getOpenRouterApiKey();
@@ -154,32 +170,52 @@ export async function callGeminiWithFallback(opts: {
     return { ok: false, status: 401, lastError: "OPENROUTER_API_KEY_MISSING" };
   }
 
-  const models = withGlobalGeminiFallbacks(opts.models);
+  const fnName = opts.functionName || "unknown";
+  // Enforce Flash/Pro policy at call time as the last line of defence, so a
+  // stale caller cannot slip a Pro model into a non-exam surface.
+  const models = enforceModelPolicy(fnName, withGlobalGeminiFallbacks(opts.models));
   let lastStatus = 0;
   let lastError = "";
 
   for (let i = 0; i < models.length; i++) {
     const orModel = toOpenRouterModelId(models[i]);
+    const startedAt = Date.now();
     const orResult = await openRouterChat({
       apiKey: openRouterKey,
       model: orModel,
       body: opts.body,
       timeoutMs,
     });
+    const durationMs = Date.now() - startedAt;
     if (orResult.ok) {
-      console.log("AI provider success", JSON.stringify({ provider: "openrouter", model: orModel }));
+      logAiCall({
+        function: fnName,
+        task: opts.task,
+        model: orModel,
+        purpose: opts.purpose,
+        durationMs,
+        status: 200,
+        ok: true,
+      });
       return { ok: true, response: orResult.response, model: orModel, provider: "openrouter" };
     }
     lastStatus = orResult.status;
     lastError = orResult.lastError;
-    console.error(
-      "OpenRouter chat error",
-      JSON.stringify({ model: orModel, status: orResult.status, error: summarizeUpstreamError(orResult.lastError).slice(0, 500) }),
-    );
+    logAiCall({
+      function: fnName,
+      task: opts.task,
+      model: orModel,
+      purpose: opts.purpose,
+      durationMs,
+      status: orResult.status,
+      ok: false,
+      error: summarizeUpstreamError(orResult.lastError).slice(0, 500),
+    });
     // Hard failures — retrying more models won't help.
     if (orResult.status === 401 || orResult.status === 402 || orResult.status === 403) break;
     if (i < models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
       await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
+
     }
   }
 
