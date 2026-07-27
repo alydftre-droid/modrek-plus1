@@ -258,6 +258,7 @@ const Auth = () => {
     stages: [] as ("preparatory" | "secondary")[],
     grades: [] as string[],
     subject: "",
+    subjects: [] as string[],
     educationType: "" as "عام" | "أزهر" | "",
     teachesIntegratedScience: false,
     acceptedTerms: false,
