@@ -43,12 +43,11 @@ const AI_REQUEST_TIMEOUT_MS = 60_000;
 // budget so the worker can still return cleanly on timeout and requeue.
 const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
 const FILE_API_TIMEOUT_MS = 80_000;
-const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
 const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
-const PDF_TEXT_BATCH_PAGES = 4;
+const PDF_TEXT_BATCH_PAGES = 1;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
@@ -67,6 +66,18 @@ type FailureDiagnostic = {
   line: number | null;
   stack: string | null;
 };
+
+class RequeueStageError extends Error {
+  delayMs: number;
+  output: Record<string, unknown>;
+
+  constructor(message: string, delayMs: number, output: Record<string, unknown> = {}) {
+    super(message);
+    this.name = "RequeueStageError";
+    this.delayMs = delayMs;
+    this.output = output;
+  }
+}
 
 const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.get("LIBRARY_WORKER_SHARED_KEY") || "").trim();
 
@@ -135,6 +146,11 @@ Deno.serve(async (req) => {
         );
         results.push({ job_id: job.id, kind: job.kind, ok: true });
       } catch (e: any) {
+        if (e instanceof RequeueStageError) {
+          await requeueJob(admin, job, e.delayMs, e.output);
+          results.push({ job_id: job.id, kind: job.kind, ok: true, requeued: true, reason: e.message });
+          continue;
+        }
         await failJob(admin, job, e);
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
@@ -557,7 +573,7 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
       .eq("kind", "extract_page")
       .eq("status", "failed"),
     admin.from("processing_jobs")
-      .select("id")
+      .select("id, status, attempts, max_attempts, updated_at, next_run_at, input")
       .eq("version_id", job.version_id)
       .eq("kind", "extract_page")
       .in("status", ["pending", "running", "retrying"]),
@@ -570,14 +586,25 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
   ]);
 
   if (waitingPages?.length) {
-    await admin.from("processing_jobs").update({
-      status: "pending",
-      attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
-      next_run_at: new Date(Date.now() + 15_000).toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", job.id);
-    await log(admin, job.id, "info", "merge_text delayed until PDF page extraction finishes", { waiting: waitingPages.length });
-    return;
+    const now = Date.now();
+    const staleRunning = waitingPages.filter((page: any) =>
+      page.status === "running" && Date.parse(String(page.updated_at ?? page.next_run_at ?? "")) < now - 3 * 60_000
+    );
+    if (staleRunning.length) {
+      const staleIds = staleRunning.map((page: any) => page.id).filter(Boolean);
+      await admin.from("processing_jobs").update({
+        status: "retrying",
+        error: "انقطع نبض استخراج صفحة PDF؛ تمت إعادة الجدولة تلقائياً",
+        finished_at: new Date().toISOString(),
+        next_run_at: new Date(now + 15_000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }).in("id", staleIds);
+    }
+    throw new RequeueStageError("merge_text waiting for page extraction", 20_000, {
+      waiting: waitingPages.length,
+      stale_requeued: staleRunning.length,
+      extracted_batches: units?.length ?? 0,
+    });
   }
 
   // Auto-recover: re-enqueue failed page batches with the alternate extractor
@@ -837,7 +864,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   let bytes: Uint8Array | null = null;
   let pageCount = 0;
-  let geminiFile: any = byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES ? asset?.metadata?.gemini_file ?? null : null;
+  let geminiFile: any = null;
   if (asset?.metadata?.gemini_file?.uri && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     await log(admin, job.id, "warn", "ignoring stale Gemini File metadata for medium PDF; OpenRouter/local extraction is primary", {
       bytes: byteSize,
@@ -863,7 +890,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     }
   }
 
-  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+  if (!pageCount && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     throw new Error("تعذر قراءة عدد صفحات PDF محلياً لملف متوسط الحجم. لن يتم تحويله إلى Gemini لتجنب حصة المزود القديمة؛ أعد رفع نسخة PDF نصية/مضغوطة أو قسّم الملف ثم أعد المحاولة.");
   }
 
