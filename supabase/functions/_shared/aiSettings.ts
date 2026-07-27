@@ -89,8 +89,12 @@ function withGlobalGeminiFallbacks(models: string[]) {
 
 function normalizeModelsForFunction(fnName: string, models: string[], fallback: AiFunctionSettings) {
   if (fnName.includes("tts")) return uniqueModels(models.length ? models : fallback.models_to_try);
-  return models.length ? withGlobalGeminiFallbacks(models) : withGlobalGeminiFallbacks(fallback.models_to_try);
+  const base = models.length ? models : fallback.models_to_try;
+  // Enforce the platform Flash/Pro policy — non-exam functions cannot use Pro.
+  const withFallbacks = withGlobalGeminiFallbacks(base);
+  return enforceModelPolicy(fnName, withFallbacks);
 }
+
 
 export async function loadAiSettings(
   // deno-lint-ignore no-explicit-any
