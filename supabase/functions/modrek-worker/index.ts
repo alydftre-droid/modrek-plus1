@@ -35,12 +35,12 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // worker can always return cleanly and requeue instead of crashing with 502.
 // Previously STAGE_TIMEOUT_MS=118s + auth/RPC overhead could push a single
 // invocation past the platform budget.
-const STAGE_TIMEOUT_MS = 90_000;
+const STAGE_TIMEOUT_MS = 135_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 // PDF OCR through OpenRouter can take longer than a normal text call when a
 // page is scanned. Keep this under the edge runtime budget so the worker can
 // return cleanly and requeue instead of crashing.
-const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
+const PDF_PAGE_EXTRACT_TIMEOUT_MS = 110_000;
 const FILE_API_TIMEOUT_MS = 80_000;
 const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
