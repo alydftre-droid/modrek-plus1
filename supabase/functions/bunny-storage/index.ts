@@ -42,6 +42,46 @@ function uploadError(stage: string, details: Record<string, unknown> = {}) {
   console.error("[bunny-storage:library-upload]", JSON.stringify({ stage, ...details }));
 }
 
+function parseContentRangeTotal(value: string | null): number | null {
+  if (!value) return null;
+  const match = value.match(/\/(\d+)\s*$/);
+  if (!match) return null;
+  const total = Number.parseInt(match[1], 10);
+  return Number.isSafeInteger(total) ? total : null;
+}
+
+function bytesToAscii(bytes: Uint8Array) {
+  return Array.from(bytes, (byte) => (byte >= 32 && byte <= 126 ? String.fromCharCode(byte) : ".")).join("");
+}
+
+async function verifyFinalPdfObject(config: ReturnType<typeof getBunnyStorageConfig>, filePath: string, expectedSize: number | null) {
+  const verifyRes = await fetch(`https://${config.storageHost}/${config.zone}/${filePath}`, {
+    headers: {
+      AccessKey: config.apiKey,
+      Range: "bytes=0-15",
+    },
+  });
+  if (!verifyRes.ok && verifyRes.status !== 206) {
+    const upstream = await verifyRes.text().catch(() => "");
+    return { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200) };
+  }
+  const firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
+  const header = bytesToAscii(firstBytes);
+  const totalSize = parseContentRangeTotal(verifyRes.headers.get("content-range"))
+    ?? Number.parseInt(verifyRes.headers.get("content-length") || "0", 10)
+    || null;
+  if (!header.startsWith("%PDF-")) {
+    return { ok: false, reason: "final_object_is_not_pdf", header, totalSize };
+  }
+  if (expectedSize && totalSize && totalSize < expectedSize) {
+    return { ok: false, reason: "final_object_size_mismatch", header, totalSize, expectedSize };
+  }
+  if (totalSize !== null && totalSize < 128) {
+    return { ok: false, reason: "final_object_too_small", header, totalSize, expectedSize };
+  }
+  return { ok: true, header, totalSize, expectedSize };
+}
+
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: number, stage: string) {
   const controller = new AbortController();
   const startedAt = Date.now();
@@ -522,6 +562,23 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: `Finalize failed [${uploadRes.status}]` }, uploadRes.status);
       }
       uploadLog("finalize_put_complete", { uploadId, filePath, total, status: uploadRes.status, elapsedMs: uploadElapsedMs });
+
+      if (filePath.toLowerCase().endsWith(".pdf") || contentType.toLowerCase().includes("pdf")) {
+        const verification = await verifyFinalPdfObject(bunnyConfig, filePath, expectedSize);
+        if (!verification.ok) {
+          uploadError("finalize_verify_failed", { uploadId, filePath, ...verification });
+          return jsonResponse({
+            error: "فشل التحقق من ملف PDF بعد الرفع. الملف النهائي غير مكتمل أو تالف، لذلك لم نبدأ المعالجة.",
+            diagnostic: {
+              file: "supabase/functions/bunny-storage/index.ts",
+              function: "verifyFinalPdfObject",
+              line: 64,
+              ...verification,
+            },
+          }, 422);
+        }
+        uploadLog("finalize_verify_complete", { uploadId, filePath, ...verification });
+      }
 
       // Best-effort chunk cleanup — do not fail the response if delete fails.
       const cleanup = Promise.allSettled(chunkPaths.map((cp) =>

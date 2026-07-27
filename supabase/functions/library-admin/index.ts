@@ -205,6 +205,11 @@ async function kickV2Dispatcher() {
   }
 }
 
+async function kickAnyLibraryWorker() {
+  const [v2, legacy] = await Promise.all([kickV2Dispatcher(), kickWorker()]);
+  return { v2_dispatcher: v2, legacy_worker: legacy, ok: Boolean(v2.ok || legacy.ok) };
+}
+
 function diagnosticReport(args: {
   request_id: string;
   functionName: string;
@@ -935,7 +940,7 @@ Deno.serve(async (req) => {
       }
 
       case "worker_tick": {
-        const r = await kickWorker();
+        const r = await kickAnyLibraryWorker();
         return json({ version: LIBRARY_ADMIN_VERSION, ok: true, result: r });
       }
 
