@@ -449,7 +449,7 @@ const StudentSubjectView = () => {
         const [{ data: tProfile }, { data: fallbackProfile }, { data: tPhoto }] = await Promise.all([
           supabase.from("public_teacher_profiles" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
           supabase.from("teacher_directory" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
-          supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).eq("is_approved", true).maybeSingle(),
+          supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).maybeSingle(),
         ]);
         const teacherName = normalizeTeacherDisplayName((tProfile as any)?.full_name) || normalizeTeacherDisplayName((fallbackProfile as any)?.full_name);
         setChosenTeacherName(teacherName || "اسم المعلم غير متاح");
