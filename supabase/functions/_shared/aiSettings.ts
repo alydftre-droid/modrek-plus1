@@ -2,6 +2,14 @@
 // from the public.ai_function_settings table. Falls back to safe defaults
 // if the row is missing or DB read fails.
 import { getOpenRouterApiKey, openRouterChat, toOpenRouterModelId } from "./openrouter.ts";
+import {
+  DEFAULT_CHAT_MODELS,
+  DEFAULT_TTS_MODELS as POLICY_TTS_MODELS,
+  EXAM_MODELS,
+  enforceModelPolicy,
+  isExamFunction,
+  logAiCall,
+} from "./aiModels.ts";
 
 export type AiFunctionSettings = {
   function_name: string;
@@ -27,23 +35,24 @@ export function sanitizeForbiddenPlatformNames(content: string): string {
     .replace(new RegExp(["Azhary", "on"].join(""), "gi"), OFFICIAL_PLATFORM_NAME_EN);
 }
 
-// All AI chat/generation calls route through OpenRouter only. Model IDs
-// listed here are OpenRouter model identifiers (already vendor-prefixed like
-// `google/gemini-2.5-flash`). Bare Gemini names still work — `openrouter.ts`
-// normalizes them.
-const DEFAULT_MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
-const DEFAULT_TTS_MODELS = ["google/gemini-3.1-flash-tts-preview"];
+// Model selection is fully centralised in _shared/aiModels.ts. Every
+// entry here defers to that policy — Flash is the platform default and
+// Pro is reserved for formal exam generation only.
+const DEFAULT_MODELS = DEFAULT_CHAT_MODELS;
+const DEFAULT_TTS_MODELS = POLICY_TTS_MODELS;
 
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat":            { function_name: "ai-chat",            models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "support-assistant":  { function_name: "support-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "teacher-assistant":  { function_name: "teacher-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
-  "modrek-ai-exams":    { function_name: "modrek-ai-exams",    models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
+  // Formal exams are the only surface allowed to use Gemini 2.5 Pro.
+  "modrek-ai-exams":    { function_name: "modrek-ai-exams",    models_to_try: EXAM_MODELS,    max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
   "grade-essay":        { function_name: "grade-essay",        models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
   "library-explain-tts": { function_name: "library-explain-tts", models_to_try: DEFAULT_TTS_MODELS, max_retries: 2, fallback_delay_ms: 0, enable_streaming: false },
 };
 
 const GLOBAL_MODEL_FALLBACKS = DEFAULT_MODELS;
+
 
 /**
  * Kept for compatibility with existing edge functions. Returns the
