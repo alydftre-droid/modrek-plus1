@@ -6,10 +6,11 @@ import splashStage1 from "@/assets/splash-stage1.png";
 import splashStage2 from "@/assets/splash-stage2.jpg";
 
 /**
- * Two-stage splash:
- *  - Stage 1: white background + brand mark + name only (2 seconds)
- *  - Stage 2: full educational illustration, stays until auth bootstrap
- *    is complete (or 4.5s max as a hard cap so users are never stuck).
+ * Two-stage in-app splash:
+ *  - Stage 1: approved brand mark + name.
+ *  - Stage 2: full educational illustration, stays until auth bootstrap is complete.
+ * Android's native launch icon is disabled separately so the old low-quality
+ * logo-only frame never appears before these two approved screens.
  */
 export default function AppSplash() {
   const [stage, setStage] = useState<1 | 2>(1);
@@ -19,7 +20,7 @@ export default function AppSplash() {
   const isAuthSurface = pathname === "/auth" || pathname === "/forgot-password" || pathname === "/reset-password";
   const shouldHoldForAuthenticatedRedirect = Boolean(user && (pathname === "/" || pathname === "/auth"));
 
-  // Stage 1 -> Stage 2 after 2 seconds (per user request)
+  // Stage 1 -> Stage 2 after 2 seconds.
   useEffect(() => {
     const t = setTimeout(() => setStage(2), 2000);
     return () => clearTimeout(t);
