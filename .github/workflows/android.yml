@@ -42,7 +42,7 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Setup Android SDK 35
+      - name: Setup Android SDK 36
         uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages and accept licenses
@@ -50,8 +50,8 @@ jobs:
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager --install \
             "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+            "platforms;android-36" \
+            "build-tools;36.0.0"
 
       - name: Regenerate lockfile from package.json
         run: |
@@ -113,9 +113,12 @@ jobs:
           ]
 
           replacements = {
-              "classpath 'com.android.tools.build:gradle:8.2.1'": "classpath 'com.android.tools.build:gradle:8.6.1'",
-              "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34": "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35",
-              "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34": "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35",
+              "classpath 'com.android.tools.build:gradle:8.2.1'": "classpath 'com.android.tools.build:gradle:8.7.3'",
+              "classpath 'com.android.tools.build:gradle:8.6.1'": "classpath 'com.android.tools.build:gradle:8.7.3'",
+              "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34": "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36",
+              "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35": "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36",
+              "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34": "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 36",
+              "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35": "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 36",
           }
 
           patched = []
@@ -237,26 +240,29 @@ jobs:
           echo "Android OAuth config proof: package=com.modrek.plus, webClient=233651659157-rt9khk04uo1enfpbmfs5b1c787q7jj5n.apps.googleusercontent.com, sign_in=native_id_token, fcm=$( [ -f android/app/google-services.json ] && echo enabled || echo disabled )"
 
 
-      - name: Re-apply Android SDK 35 fixes after sync
+      - name: Re-apply Android SDK 36 fixes after sync
         run: |
           python3 <<'PY'
           from pathlib import Path
 
           path = Path('android/capacitor-cordova-android-plugins/build.gradle')
           text = path.read_text()
-          text = text.replace("classpath 'com.android.tools.build:gradle:8.2.1'", "classpath 'com.android.tools.build:gradle:8.6.1'")
-          text = text.replace("compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34", "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35")
-          text = text.replace("targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34", "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35")
+          text = text.replace("classpath 'com.android.tools.build:gradle:8.2.1'", "classpath 'com.android.tools.build:gradle:8.7.3'")
+          text = text.replace("classpath 'com.android.tools.build:gradle:8.6.1'", "classpath 'com.android.tools.build:gradle:8.7.3'")
+          text = text.replace("compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 34", "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36")
+          text = text.replace("compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 35", "compileSdk project.hasProperty('compileSdkVersion') ? rootProject.ext.compileSdkVersion : 36")
+          text = text.replace("targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 34", "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 36")
+          text = text.replace("targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 35", "targetSdkVersion project.hasProperty('targetSdkVersion') ? rootProject.ext.targetSdkVersion : 36")
           path.write_text(text)
           PY
 
       - name: Verify Android toolchain versions
         run: |
-          grep -q "com.android.tools.build:gradle:8.6.1" android/build.gradle
-          grep -q "compileSdkVersion = 35" android/variables.gradle
-          grep -q "targetSdkVersion = 35" android/variables.gradle
-          grep -q "gradle-8.7-all.zip" android/gradle/wrapper/gradle-wrapper.properties
-          grep -q "com.android.tools.build:gradle:8.6.1" android/capacitor-cordova-android-plugins/build.gradle
+          grep -q "com.android.tools.build:gradle:8.7.3" android/build.gradle
+          grep -q "compileSdkVersion = 36" android/variables.gradle
+          grep -q "targetSdkVersion = 36" android/variables.gradle
+          grep -q "gradle-8.9-all.zip" android/gradle/wrapper/gradle-wrapper.properties
+          grep -q "com.android.tools.build:gradle:8.7.3" android/capacitor-cordova-android-plugins/build.gradle
 
       - name: Resolve Android SDK path
         run: |

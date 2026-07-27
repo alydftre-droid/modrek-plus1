@@ -9,6 +9,7 @@ export const OPENROUTER_DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
 export const OPENROUTER_DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 export const OPENROUTER_DEFAULT_TTS_VOICE = "Charon";
 export const OPENROUTER_TTS_QUALITY = "openrouter-gemini-tts-egyptian-teacher-hd";
+const OPENROUTER_SAFE_MAX_OUTPUT_TOKENS = 16_384;
 const OPENROUTER_TTS_MODEL_ALLOWLIST = new Set([
   "openai/gpt-4o-mini-tts",
   "google/gemini-2.5-flash-tts",
@@ -236,11 +237,12 @@ export async function openRouterChat(opts: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
   try {
+    const body = applySafeOpenRouterTokenBudget(opts.body);
     const resp = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
       method: "POST",
       headers: buildOpenRouterHeaders(opts.apiKey),
       signal: controller.signal,
-      body: JSON.stringify({ ...opts.body, model: toOpenRouterModelId(opts.model) }),
+      body: JSON.stringify({ ...body, model: toOpenRouterModelId(opts.model) }),
     });
     clearTimeout(timer);
     if (resp.ok) return { ok: true, response: resp };
@@ -254,6 +256,17 @@ export async function openRouterChat(opts: {
     }
     return { ok: false, status: 0, lastError: msg };
   }
+}
+
+function applySafeOpenRouterTokenBudget(body: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...body };
+  const rawMaxTokens = Number(next.max_tokens ?? next.max_completion_tokens ?? 0);
+  const safeMax = Number.isFinite(rawMaxTokens) && rawMaxTokens > 0
+    ? Math.min(rawMaxTokens, OPENROUTER_SAFE_MAX_OUTPUT_TOKENS)
+    : OPENROUTER_SAFE_MAX_OUTPUT_TOKENS;
+  next.max_tokens = safeMax;
+  if ("max_completion_tokens" in next) next.max_completion_tokens = safeMax;
+  return next;
 }
 
 /**

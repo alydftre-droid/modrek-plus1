@@ -53,6 +53,7 @@ const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 1;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
+const PDF_EXTRACT_MAX_OUTPUT_TOKENS = 16_384;
 const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
 const RATE_LIMIT_MIN_BACKOFF_MS = 10 * 60_000;
 const RATE_LIMIT_MAX_BACKOFF_MS = 60 * 60_000;
@@ -1281,7 +1282,7 @@ async function extractPdfPageRangeWithGeminiFile(admin: SupabaseClient, file: Ge
   const prompt = `استخرج النص الكامل حرفياً من ملف PDF للصفحات من ${pageFrom} إلى ${pageTo} فقط.
 لا تختصر، لا تلخص، لا تضف شرحاً، لا تتخطى الجداول أو الأسئلة أو الاختيارات أو المعادلات.
 إذا كانت الصفحات صوراً، نفّذ OCR كامل. أعد النص الخام فقط مع فواصل صفحات واضحة.`;
-  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, 65535, PDF_PAGE_EXTRACT_TIMEOUT_MS);
+  const text = await generateWithGeminiFile(admin, file, asset, prompt, false, PDF_EXTRACT_MAX_OUTPUT_TOKENS, PDF_PAGE_EXTRACT_TIMEOUT_MS);
   const out = String(text ?? "").trim();
   if (out.length < Math.max(20, (pageTo - pageFrom + 1) * 10)) {
     throw new Error(`Gemini OCR/text extraction returned too little text for pages ${pageFrom}-${pageTo}`);
