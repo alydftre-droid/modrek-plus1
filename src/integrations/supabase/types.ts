@@ -5265,6 +5265,7 @@ export type Database = {
       }
       teacher_requests: {
         Row: {
+          additional_categories: string[]
           assigned_category: string | null
           assigned_grades: string[] | null
           assigned_sections: string[] | null
@@ -5289,6 +5290,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          additional_categories?: string[]
           assigned_category?: string | null
           assigned_grades?: string[] | null
           assigned_sections?: string[] | null
@@ -5313,6 +5315,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          additional_categories?: string[]
           assigned_category?: string | null
           assigned_grades?: string[] | null
           assigned_sections?: string[] | null
