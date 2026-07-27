@@ -250,35 +250,33 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         </div>
       )}
 
-      {/* المادة */}
+      {/* المواد (يمكن اختيار أكثر من مادة) */}
       {formData.grades.length > 0 && (
         <div>
-          <Label>المادة التي تدرّسها</Label>
-          <div className="relative">
-            <BookOpen className="absolute right-3 top-3 h-5 w-5 text-muted-foreground" />
-            <Select
-              value={formData.subject}
-              onValueChange={(value) =>
-                onChange({
-                  subject: value,
-                  educationType: value === "المواد الشرعية" ? "أزهر" : "",
-                  teachesIntegratedScience: value === "العلوم المتكاملة" ? false : formData.teachesIntegratedScience,
-                })
-              }
-            >
-              <SelectTrigger className="pr-10">
-                <SelectValue placeholder="اختر المادة" />
-              </SelectTrigger>
-              <SelectContent>
-                {subjects.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <Label className="mb-2 block">المواد التي تدرّسها (يمكنك اختيار أكثر من مادة)</Label>
+          <div className="flex flex-wrap gap-2">
+            {subjects.map((s) => {
+              const active = selectedSubjects.includes(s);
+              return (
+                <label
+                  key={s}
+                  className={`flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer text-sm ${
+                    active ? "border-primary bg-primary/10" : ""
+                  }`}
+                >
+                  <Checkbox checked={active} onCheckedChange={() => toggleSubject(s)} />
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                  {s}
+                </label>
+              );
+            })}
           </div>
-          {errors.subject && <p className="text-sm text-red-500">{errors.subject}</p>}
+          {selectedSubjects.length > 1 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              ✅ تم اختيار {selectedSubjects.length} مواد — ستتم إضافة تعييناتك لكل مادة بعد الموافقة.
+            </p>
+          )}
+          {errors.subject && <p className="text-sm text-red-500 mt-1">{errors.subject}</p>}
         </div>
       )}
 
