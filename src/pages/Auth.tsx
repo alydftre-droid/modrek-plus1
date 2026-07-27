@@ -258,6 +258,7 @@ const Auth = () => {
     stages: [] as ("preparatory" | "secondary")[],
     grades: [] as string[],
     subject: "",
+    subjects: [] as string[],
     educationType: "" as "عام" | "أزهر" | "",
     teachesIntegratedScience: false,
     acceptedTerms: false,
@@ -478,8 +479,11 @@ const Auth = () => {
       if (!phoneResult.success) newErrors.phone = phoneResult.error.errors[0].message;
       if (formData.stages.length === 0) newErrors.stages = "اختر مرحلة واحدة على الأقل";
       if (formData.grades.length === 0) newErrors.grades = "اختر صف واحد على الأقل";
-      if (!formData.subject) newErrors.subject = "اختر المادة التي تدرّسها";
-      if (formData.subject === "المواد العربية" && !formData.educationType) {
+      const chosen = (formData.subjects && formData.subjects.length > 0)
+        ? formData.subjects
+        : (formData.subject ? [formData.subject] : []);
+      if (chosen.length === 0) newErrors.subject = "اختر مادة واحدة على الأقل";
+      if (chosen.includes("المواد العربية") && !formData.educationType) {
         newErrors.educationType = "حدد نوع التعليم (عام أو أزهر)";
       }
       if (!formData.acceptedTerms) {
@@ -514,15 +518,41 @@ const Auth = () => {
   if (formData.stages.includes("preparatory")) PREPARATORY_SUBJECTS.forEach(s => subjectsSet.add(s));
   if (formData.stages.includes("secondary")) SECONDARY_SUBJECTS.forEach(s => subjectsSet.add(s));
   const availableSubjects = Array.from(subjectsSet);
-  const canOfferIntegratedScience = ["أحياء", "فيزياء", "كيمياء"].includes(formData.subject)
+  const selectedSubjectsArr: string[] = (formData.subjects && formData.subjects.length > 0)
+    ? formData.subjects
+    : (formData.subject ? [formData.subject] : []);
+  const canOfferIntegratedScience = selectedSubjectsArr.some((s) => ["أحياء", "فيزياء", "كيمياء"].includes(s))
     && formData.grades.includes("الصف الأول الثانوي");
+
+  const toggleSubject = (s: string) => {
+    setFormData((prev) => {
+      const current: string[] = (prev.subjects && prev.subjects.length > 0)
+        ? prev.subjects
+        : (prev.subject ? [prev.subject] : []);
+      const next = current.includes(s) ? current.filter((x) => x !== s) : [...current, s];
+      const hasArabic = next.includes("المواد العربية");
+      const hasSharia = next.includes("المواد الشرعية");
+      return {
+        ...prev,
+        subjects: next,
+        subject: next[0] || "",
+        educationType: hasSharia && !hasArabic
+          ? "أزهر"
+          : hasArabic ? (prev.educationType || "") : "",
+        teachesIntegratedScience: next.some((x) => ["أحياء", "فيزياء", "كيمياء"].includes(x))
+          ? prev.teachesIntegratedScience
+          : false,
+      };
+    });
+    if (errors.subject) setErrors((prev) => ({ ...prev, subject: "" }));
+  };
 
   const toggleStage = (stage: "preparatory" | "secondary") => {
     setFormData((prev) => {
       const newStages = prev.stages.includes(stage)
         ? prev.stages.filter(s => s !== stage)
         : [...prev.stages, stage];
-      return { ...prev, stages: newStages, grades: [], subject: "", educationType: "", teachesIntegratedScience: false };
+      return { ...prev, stages: newStages, grades: [], subject: "", subjects: [], educationType: "", teachesIntegratedScience: false };
     });
     if (errors.stages) setErrors((prev) => ({ ...prev, stages: "" }));
   };
@@ -603,8 +633,9 @@ const Auth = () => {
           employeeId: formData.employeeId,
           stages: formData.stages,
           grades: formData.grades,
-          subject: formData.subject,
-          educationType: formData.subject === "المواد الشرعية"
+          subject: selectedSubjectsArr[0] || formData.subject,
+          subjects: selectedSubjectsArr,
+          educationType: (selectedSubjectsArr.length === 1 && selectedSubjectsArr[0] === "المواد الشرعية")
             ? "أزهر"
             : formData.educationType || undefined,
           teachesIntegratedScience: formData.teachesIntegratedScience,
@@ -820,41 +851,40 @@ const Auth = () => {
                     </div>
                   )}
 
-                  {/* اختيار المادة */}
+                  {/* اختيار المواد (يمكن اختيار أكثر من مادة) */}
                   {formData.grades.length > 0 && (
                     <div className="space-y-2">
-                      <Label>المادة التي تدرّسها</Label>
-                      <Select
-                        value={formData.subject}
-                        onValueChange={(value) => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            subject: value,
-                            educationType: value === "المواد الشرعية" ? "أزهر" : "",
-                            teachesIntegratedScience: value === "العلوم المتكاملة" ? false : prev.teachesIntegratedScience,
-                          }));
-                          if (errors.subject) {
-                            setErrors((prev) => ({ ...prev, subject: "" }));
-                          }
-                        }}
-                      >
-                        <SelectTrigger className={errors.subject ? "border-destructive" : ""}>
-                          <SelectValue placeholder="اختر المادة" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableSubjects.map((subject) => (
-                            <SelectItem key={subject} value={subject}>
+                      <Label>المواد التي تدرّسها (يمكنك اختيار أكثر من مادة)</Label>
+                      <div className="flex flex-wrap gap-2" dir="rtl">
+                        {availableSubjects.map((subject) => {
+                          const active = selectedSubjectsArr.includes(subject);
+                          return (
+                            <label
+                              key={subject}
+                              className={`flex items-center gap-2 border rounded-lg px-3 py-2 cursor-pointer text-sm ${
+                                active ? "border-primary bg-primary/10" : "border-input"
+                              }`}
+                            >
+                              <Checkbox
+                                checked={active}
+                                onCheckedChange={() => toggleSubject(subject)}
+                              />
                               {subject}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {selectedSubjectsArr.length > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                          ✅ تم اختيار {selectedSubjectsArr.length} مواد — سيتم إضافة تعييناتك لكل مادة بعد الموافقة.
+                        </p>
+                      )}
                       {errors.subject && <p className="text-xs text-destructive">{errors.subject}</p>}
                     </div>
                   )}
 
                   {/* نوع التعليم - يظهر عند اختيار المواد العربية */}
-                  {formData.subject === "المواد العربية" && (
+                  {selectedSubjectsArr.includes("المواد العربية") && (
                     <div className="space-y-2">
                       <Label>أنت مدرّس مواد عربية لـ:</Label>
                       <RadioGroup
@@ -883,11 +913,12 @@ const Auth = () => {
                   )}
 
                   {/* إشعار المواد الشرعية */}
-                  {formData.subject === "المواد الشرعية" && (
+                  {selectedSubjectsArr.includes("المواد الشرعية") && (
                     <div className="auth2026-soft-note p-3 text-sm font-semibold">
                       ℹ️ المواد الشرعية مخصصة لطلاب التعليم الأزهري فقط
                     </div>
                   )}
+
 
                   {canOfferIntegratedScience && (
                     <div className="auth2026-integrated-card p-4 space-y-2">

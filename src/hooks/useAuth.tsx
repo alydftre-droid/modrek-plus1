@@ -97,6 +97,7 @@ interface TeacherSignUpData {
   stages: ("preparatory" | "secondary")[];
   grades: string[];
   subject: string;
+  subjects?: string[];
   educationType?: string;
   teachesIntegratedScience?: boolean;
   termsVersion?: string;
@@ -635,6 +636,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signUpTeacher = async (data: TeacherSignUpData): Promise<{ error: string | null }> => {
     try {
+      const allSubjects = (data.subjects && data.subjects.length > 0)
+        ? data.subjects
+        : (data.subject ? [data.subject] : []);
+      const primarySubject = allSubjects[0] || data.subject || "";
+      const additionalCategories = allSubjects.slice(1);
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -647,7 +653,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             employee_id: data.employeeId,
             stages: data.stages,
             grades: data.grades,
-            subject: data.subject,
+            subject: primarySubject,
+            subjects: allSubjects,
+            additional_categories: additionalCategories,
             education_type: data.educationType || null,
             teachesIntegratedScience: !!data.teachesIntegratedScience,
             teaches_integrated_science: !!data.teachesIntegratedScience,
@@ -673,7 +681,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           status: "pending",
           assigned_stages: data.stages,
           assigned_grades: data.grades,
-          assigned_category: data.subject,
+          assigned_category: primarySubject,
+          additional_categories: additionalCategories,
           education_type: data.educationType || null,
           teaches_integrated_science: !!data.teachesIntegratedScience,
           terms_version: data.termsVersion || null,
