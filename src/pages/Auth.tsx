@@ -633,8 +633,9 @@ const Auth = () => {
           employeeId: formData.employeeId,
           stages: formData.stages,
           grades: formData.grades,
-          subject: formData.subject,
-          educationType: formData.subject === "المواد الشرعية"
+          subject: selectedSubjectsArr[0] || formData.subject,
+          subjects: selectedSubjectsArr,
+          educationType: (selectedSubjectsArr.length === 1 && selectedSubjectsArr[0] === "المواد الشرعية")
             ? "أزهر"
             : formData.educationType || undefined,
           teachesIntegratedScience: formData.teachesIntegratedScience,
