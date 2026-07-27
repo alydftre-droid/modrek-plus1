@@ -192,6 +192,17 @@ async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
 
   for (const candidate of candidates ?? []) {
     if (Number(candidate.attempts ?? 0) >= Number(candidate.max_attempts ?? 3)) continue;
+    if (candidate.kind === "merge_text") {
+      const { data: incompleteExtraction } = await admin
+        .from("processing_jobs")
+        .select("id")
+        .eq("version_id", candidate.version_id)
+        .in("kind", ["extract_text", "extract_page"] as any)
+        .in("status", ["pending", "running", "retrying"] as any)
+        .limit(1)
+        .maybeSingle();
+      if (incompleteExtraction?.id) continue;
+    }
     if (candidate.kind === "extract_page") {
       const { data: runningPage } = await admin
         .from("processing_jobs")
