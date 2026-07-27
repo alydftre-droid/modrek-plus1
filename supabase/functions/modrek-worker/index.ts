@@ -37,10 +37,9 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // invocation past the platform budget.
 const STAGE_TIMEOUT_MS = 90_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
-// PDF page extraction via Gemini File API can legitimately take longer than a
-// normal chat completion when a batch contains many pages or when the pages
-// are scanned images that require OCR. Keep this under the ~150s edge runtime
-// budget so the worker can still return cleanly on timeout and requeue.
+// PDF OCR through OpenRouter can take longer than a normal text call when a
+// page is scanned. Keep this under the edge runtime budget so the worker can
+// return cleanly and requeue instead of crashing.
 const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
 const FILE_API_TIMEOUT_MS = 80_000;
 const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
@@ -607,19 +606,19 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     });
   }
 
-  // Auto-recover: re-enqueue failed page batches with the alternate extractor
-  // once before hard-failing the whole book. Large PDFs often lose 1–2 batches
-  // to transient AI/network errors; a targeted retry avoids failing an entire
-  // multi-hundred-page book because of a single transient hiccup.
+  // Auto-recover once before hard-failing the whole book. Never switch medium
+  // PDFs back to Gemini File API here; that was the loop that kept reintroducing
+  // quota failures after the OpenRouter migration.
   if (failedPages?.length && mergeAttempt < 1) {
     for (const fp of failedPages) {
       const fpInput = (fp as any).input ?? {};
       const wasGemini = fpInput.extractor === "gemini_file" || !!fpInput.gemini_file?.uri;
         await enqueue(admin, job.version_id, "extract_page", 21, {
         ...fpInput,
-        extractor: wasGemini ? "local_pdfjs" : "gemini_file",
-        gemini_file: wasGemini ? null : fpInput.gemini_file ?? null,
+        extractor: "local_pdfjs",
+        gemini_file: null,
         __retry_of: (fp as any).id,
+        __retry_extractor_before: wasGemini ? "gemini_file" : String(fpInput.extractor ?? "local_pdfjs"),
       }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
     }
     await log(admin, job.id, "warn", "merge_text auto-retrying failed page batches with alternate extractor", {
@@ -1784,6 +1783,19 @@ async function succeedJob(admin: SupabaseClient, job: any, output: any) {
     status: "succeeded", finished_at: new Date().toISOString(), output, progress_pct: 100, updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "info", `stage succeeded: ${job.kind}`, output);
+}
+
+async function requeueJob(admin: SupabaseClient, job: any, delayMs: number, output: Record<string, unknown> = {}) {
+  const delay = Math.max(5_000, Math.min(5 * 60_000, delayMs));
+  await admin.from("processing_jobs").update({
+    status: "pending",
+    attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
+    next_run_at: new Date(Date.now() + delay).toISOString(),
+    finished_at: null,
+    output: { ...(job.output ?? {}), waiting: { ...output, at: new Date().toISOString(), memory: memorySnapshot() } },
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.id);
+  await log(admin, job.id, "info", `stage requeued: ${job.kind}`, { delay_ms: delay, ...output });
 }
 
 async function failJob(admin: SupabaseClient, job: any, err: unknown) {
