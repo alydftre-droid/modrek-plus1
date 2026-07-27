@@ -22,9 +22,13 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
-const REASON_MODEL_PRIMARY = "google/gemini-2.5-pro";
-const REASON_MODEL_FALLBACK = "google/gemini-2.5-flash";
-const VISION_MODEL = "google/gemini-2.5-pro";
+// Modrek reasoning engine powers student chat / lesson explanation / RAG
+// responses / image analysis — all Flash per platform policy
+// (see supabase/functions/_shared/aiModels.ts). Pro is exam-only.
+const REASON_MODEL_PRIMARY = "google/gemini-2.5-flash";
+const REASON_MODEL_FALLBACK = "google/gemini-2.5-flash-lite";
+const VISION_MODEL = "google/gemini-2.5-flash";
+
 
 const CONFIDENCE_MIN = 0.55;
 const MAX_CONTEXT_CHARS = 12000;
