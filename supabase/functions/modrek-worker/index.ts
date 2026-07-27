@@ -3,6 +3,7 @@
 // Claims pending jobs one at a time using modrek_claim_next_job (SKIP LOCKED)
 // and runs the appropriate pipeline stage. Chains the next stage on success.
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
+import { getDocumentProxy } from "npm:unpdf@0.11.0";
 import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
 
@@ -1417,7 +1418,6 @@ function normalizeUnitKind(kind: string): string {
 }
 
 async function loadPdfProxy(bytes: Uint8Array): Promise<any> {
-  const { getDocumentProxy }: any = await import("https://esm.sh/unpdf@0.11.0");
   return await getDocumentProxy(bytes.slice());
 }
 
@@ -1548,7 +1548,7 @@ async function recoverTransientModrekJobs(admin: SupabaseClient) {
     .from("processing_jobs")
     .select("id, source_id, version_id, error, kind")
     .in("status", ["failed", "retrying"] as any)
-    .or("error.ilike.%modrek_enqueue_stage%,error.ilike.%تعذر تحديد عدد صفحات PDF الكبير%")
+    .or("error.ilike.%modrek_enqueue_stage%,error.ilike.%تعذر تحديد عدد صفحات PDF الكبير%,error.ilike.%Module not found%,error.ilike.%unpdf@0.11.0%,error.ilike.%esm.sh/unpdf%")
     .order("updated_at", { ascending: false })
     .limit(50);
 
@@ -1585,7 +1585,7 @@ async function recoverTransientModrekJobs(admin: SupabaseClient) {
     p_message: "auto-recovered transient Modrek processing jobs",
     p_data: {
       recovered_jobs: ids.length,
-      reason: "function signature/page-count transient failure after deployment",
+      reason: "function signature/page-count/PDF parser transient failure after deployment",
       job_ids: ids.slice(0, 20),
       memory: memorySnapshot(),
       at: now,
