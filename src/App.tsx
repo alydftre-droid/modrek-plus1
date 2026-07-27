@@ -418,6 +418,11 @@ function StudentDsScope() {
 function IntegrityGuardMount() {
   const { user } = useAuth();
   useIntegrityGuard(user?.id);
+  useEffect(() => {
+    if (!user?.id) return;
+    // Warm the offline cache once the user is authenticated
+    import("@/lib/offlinePrefetch").then((m) => m.warmOfflineCache()).catch(() => undefined);
+  }, [user?.id]);
   return null;
 }
 
