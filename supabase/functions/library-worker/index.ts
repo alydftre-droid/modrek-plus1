@@ -12,8 +12,8 @@
 //
 // All AI/embeddings go through OpenRouter exclusively.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getDocumentProxy, extractText } from "https://esm.sh/unpdf@0.11.0";
+import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { getDocumentProxy, extractText } from "npm:unpdf@0.11.0";
 import {
   loadAiSettings,
   resolveOpenRouterApiKey,
