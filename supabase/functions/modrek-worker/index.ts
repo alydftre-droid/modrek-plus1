@@ -184,8 +184,8 @@ async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
     .select("*")
     .in("status", ["pending", "retrying"] as any)
     .lte("next_run_at", nowIso)
-    .order("priority", { ascending: false })
     .order("stage_order", { ascending: true })
+    .order("priority", { ascending: false })
     .order("created_at", { ascending: true })
     .limit(25);
   if (listError) throw new Error(`fallback claim list failed: ${listError.message}`);
