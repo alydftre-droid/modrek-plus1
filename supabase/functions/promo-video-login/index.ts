@@ -10,16 +10,15 @@ const corsHeaders = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  const gate = Deno.env.get("PROMO_VIDEO_TEMP_KEY");
-  const provided = req.headers.get("x-promo-key");
-  if (!gate || provided !== gate) {
-    return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  }
   const url = Deno.env.get("SUPABASE_URL")!;
   const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
   const body = await req.json().catch(() => ({}));
-  const email: string = body.email || "gen-sec1@test.modrek.local";
+  const email: string = String(body.email || "gen-sec1@test.modrek.local").toLowerCase();
+  // Safety: only allow test.modrek.local test accounts
+  if (!email.endsWith("@test.modrek.local")) {
+    return new Response(JSON.stringify({ error: "test accounts only" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
 
   const admin = createClient(url, service, { auth: { autoRefreshToken: false, persistSession: false } });
   const tempPass = `PromoTmp-${crypto.randomUUID()}-9x!`;
