@@ -15,6 +15,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import LazyRouteBoundary from "@/components/LazyRouteBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
 import { DATA_SCHEMA_VERSION } from "@/lib/dataIntegrity/cacheVersion";
 import { useIntegrityGuard } from "@/lib/dataIntegrity/useIntegrityGuard";
