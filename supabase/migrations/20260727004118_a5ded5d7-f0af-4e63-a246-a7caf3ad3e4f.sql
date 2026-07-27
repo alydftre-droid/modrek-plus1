@@ -1,0 +1,1 @@
+update profiles set section = 'علمي علوم' where id = '4db6e1a1-0dfb-45e9-ad77-ef0aba452d55' and section is null;
