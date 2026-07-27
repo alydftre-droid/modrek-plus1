@@ -149,78 +149,121 @@ function syncNativeViewportMetrics() {
   root.style.setProperty('--status-bar-offset', `${topInset}px`);
 }
 
-function toggleOfflineOverlay(show: boolean) {
-  let overlay = document.getElementById('offline-overlay');
-  if (show && !overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'offline-overlay';
-    overlay.innerHTML = `
-      <div style="
-        position:fixed;right:14px;left:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:99999;
-        display:flex;align-items:center;gap:14px;
-        background:rgba(15,23,42,.94);backdrop-filter:blur(14px);
-        color:#fff;font-family:Cairo,sans-serif;text-align:right;padding:14px 16px;border-radius:20px;
-        box-shadow:0 24px 50px -20px rgba(15,23,42,.65);border:1px solid rgba(255,255,255,.08);
-      ">
-        <div style="
-          width:56px;height:56px;border-radius:18px;background:#0B1224;
-          display:flex;align-items:center;justify-content:center;margin-bottom:24px;
-          box-shadow:0 24px 60px -20px rgba(34,197,94,0.45),inset 0 0 0 1px rgba(255,255,255,0.06);
-          position:relative;overflow:hidden;
-          flex-shrink:0;margin-bottom:0;
-        ">
-          <div style="
-            position:absolute;inset:-30%;border-radius:50%;
-            background:radial-gradient(circle,rgba(34,197,94,0.25) 0%,transparent 65%);
-            filter:blur(8px);
-          "></div>
-          <img src="/modrek-brand-symbol.png" alt="مدرك Plus"
-            style="width:36px;height:36px;object-fit:contain;position:relative;z-index:1;"
-            onerror="this.style.display='none'" />
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;">
-          <div style="display:flex;align-items:center;gap:8px;color:#FCA5A5;font-size:.8rem;font-weight:700;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="1" y1="1" x2="23" y2="23"/>
-              <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
-              <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
-              <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
-              <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
-              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-              <line x1="12" y1="20" x2="12.01" y2="20"/>
-            </svg>
-            غير متصل بالإنترنت
-          </div>
-          <div style="font-size:.92rem;font-weight:800;line-height:1.4;">التطبيق سيظل يعمل بالبيانات المحفوظة مؤقتاً</div>
-          <div style="color:#94A3B8;font-size:.78rem;line-height:1.6;">بمجرد عودة الاتصال سنحدّث البيانات تلقائياً بدون إعادة تحميل مزعجة.</div>
-        </div>
-        <button id="offline-retry-btn" style="
-          padding:.8rem 1rem;border-radius:14px;border:none;
-          background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff;
-          font-size:.85rem;font-weight:800;font-family:Cairo,sans-serif;cursor:pointer;
-          box-shadow:0 14px 30px -10px rgba(34,197,94,0.55);flex-shrink:0;
-        ">تحديث</button>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-    const retryBtn = overlay.querySelector('#offline-retry-btn') as HTMLButtonElement | null;
-    if (retryBtn) {
-      retryBtn.addEventListener('click', async () => {
-        try {
-          const { Network } = await import('@capacitor/network');
-          const status = await Network.getStatus();
-          if (status.connected) {
-            window.dispatchEvent(new CustomEvent('modrek:network-restored'));
-            toggleOfflineOverlay(false);
-          }
-        } catch {
-          window.dispatchEvent(new CustomEvent('modrek:network-restored'));
-          toggleOfflineOverlay(false);
-        }
-      });
+const OFFLINE_DISMISS_KEY = 'modrek:offline-banner-dismissed-at';
+
+function ensureBannerStyles() {
+  if (document.getElementById('offline-banner-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'offline-banner-styles';
+  style.textContent = `
+    #offline-banner, #online-toast {
+      position: fixed; left: 12px; right: 12px; z-index: 99999;
+      font-family: Cairo, system-ui, sans-serif; direction: rtl;
+      border-radius: 14px; padding: 8px 14px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 10px 30px -12px rgba(0,0,0,.45);
+      backdrop-filter: blur(14px);
+      transform: translateY(-120%); opacity: 0;
+      transition: transform .35s cubic-bezier(.2,.9,.3,1), opacity .35s;
+      pointer-events: auto;
     }
-  } else if (!show && overlay) {
-    overlay.remove();
+    #offline-banner { top: calc(env(safe-area-inset-top, 0px) + 8px);
+      background: rgba(15,23,42,.92); color: #fff;
+      border: 1px solid rgba(255,255,255,.08); }
+    #online-toast { top: calc(env(safe-area-inset-top, 0px) + 8px);
+      background: rgba(22,163,74,.95); color: #fff;
+      border: 1px solid rgba(255,255,255,.15); justify-content: center;
+      font-weight: 700; font-size: .82rem; }
+    #offline-banner.visible, #online-toast.visible { transform: translateY(0); opacity: 1; }
+    #offline-banner .ob-text { flex: 1; font-size: .78rem; line-height: 1.35; font-weight: 700; }
+    #offline-banner .ob-text small { display:block; font-weight: 500; opacity: .75; font-size: .7rem; margin-top: 2px; }
+    #offline-banner .ob-close {
+      background: transparent; border: none; color: rgba(255,255,255,.7);
+      width: 28px; height: 28px; border-radius: 8px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    #offline-banner .ob-close:hover { background: rgba(255,255,255,.08); color:#fff; }
+    #offline-banner .ob-icon {
+      width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+      background: rgba(239,68,68,.15); color: #fca5a5;
+      display:flex; align-items:center; justify-content:center;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function showOnlineToast() {
+  ensureBannerStyles();
+  const existing = document.getElementById('online-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'online-toast';
+  toast.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    <span>تمت إعادة الاتصال</span>`;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('visible'));
+  setTimeout(() => {
+    toast.classList.remove('visible');
+    setTimeout(() => toast.remove(), 400);
+  }, 2200);
+}
+
+function toggleOfflineOverlay(show: boolean) {
+  ensureBannerStyles();
+  const existing = document.getElementById('offline-banner');
+
+  if (show) {
+    // Respect recent dismissal (10 min) so it doesn't nag the user
+    try {
+      const dismissedAt = Number(sessionStorage.getItem(OFFLINE_DISMISS_KEY) || '0');
+      if (Date.now() - dismissedAt < 10 * 60 * 1000) return;
+    } catch { /* ignore */ }
+
+    if (existing) return;
+    const banner = document.createElement('div');
+    banner.id = 'offline-banner';
+    banner.innerHTML = `
+      <div class="ob-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="1" y1="1" x2="23" y2="23"/>
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+          <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+          <line x1="12" y1="20" x2="12.01" y2="20"/>
+        </svg>
+      </div>
+      <div class="ob-text">أنت غير متصل بالإنترنت<small>يتم استخدام البيانات المحفوظة</small></div>
+      <button class="ob-close" aria-label="إغلاق">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    `;
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add('visible'));
+
+    const dismiss = () => {
+      try { sessionStorage.setItem(OFFLINE_DISMISS_KEY, String(Date.now())); } catch { /* ignore */ }
+      banner.classList.remove('visible');
+      setTimeout(() => banner.remove(), 400);
+    };
+
+    banner.querySelector('.ob-close')?.addEventListener('click', dismiss);
+
+    // Swipe up to dismiss
+    let startY = 0;
+    banner.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; }, { passive: true });
+    banner.addEventListener('touchmove', (e) => {
+      const dy = e.touches[0].clientY - startY;
+      if (dy < -30) dismiss();
+    }, { passive: true });
+  } else if (existing) {
+    existing.classList.remove('visible');
+    setTimeout(() => existing.remove(), 400);
+    try { sessionStorage.removeItem(OFFLINE_DISMISS_KEY); } catch { /* ignore */ }
+    showOnlineToast();
+    window.dispatchEvent(new CustomEvent('modrek:network-restored'));
   }
 }
 
