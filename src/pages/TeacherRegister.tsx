@@ -24,6 +24,7 @@ const initialForm: TeacherFormData = {
   stages: [],
   grades: [],
   subject: "",
+  subjects: [],
   educationType: "",
   teachesIntegratedScience: false,
 };
