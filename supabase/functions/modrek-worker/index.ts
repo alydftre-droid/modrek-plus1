@@ -35,20 +35,18 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // worker can always return cleanly and requeue instead of crashing with 502.
 // Previously STAGE_TIMEOUT_MS=118s + auth/RPC overhead could push a single
 // invocation past the platform budget.
-const STAGE_TIMEOUT_MS = 90_000;
+const STAGE_TIMEOUT_MS = 135_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
-// PDF page extraction via Gemini File API can legitimately take longer than a
-// normal chat completion when a batch contains many pages or when the pages
-// are scanned images that require OCR. Keep this under the ~150s edge runtime
-// budget so the worker can still return cleanly on timeout and requeue.
-const PDF_PAGE_EXTRACT_TIMEOUT_MS = 120_000;
+// PDF OCR through OpenRouter can take longer than a normal text call when a
+// page is scanned. Keep this under the edge runtime budget so the worker can
+// return cleanly and requeue instead of crashing.
+const PDF_PAGE_EXTRACT_TIMEOUT_MS = 110_000;
 const FILE_API_TIMEOUT_MS = 80_000;
-const PDF_LOCAL_TEXT_LIMIT_BYTES = 10 * 1024 * 1024;
 const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
-const PDF_TEXT_BATCH_PAGES = 4;
+const PDF_TEXT_BATCH_PAGES = 1;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
@@ -67,6 +65,18 @@ type FailureDiagnostic = {
   line: number | null;
   stack: string | null;
 };
+
+class RequeueStageError extends Error {
+  delayMs: number;
+  output: Record<string, unknown>;
+
+  constructor(message: string, delayMs: number, output: Record<string, unknown> = {}) {
+    super(message);
+    this.name = "RequeueStageError";
+    this.delayMs = delayMs;
+    this.output = output;
+  }
+}
 
 const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.get("LIBRARY_WORKER_SHARED_KEY") || "").trim();
 
@@ -123,9 +133,7 @@ Deno.serve(async (req) => {
   try {
     await recoverTransientModrekJobs(admin);
     for (let i = 0; i < MAX_JOBS_PER_INVOCATION; i++) {
-      const { data: rows, error } = await admin.rpc("modrek_claim_next_job");
-      if (error) { results.push({ error: error.message }); break; }
-      const job = Array.isArray(rows) ? rows[0] : rows;
+      const job = await claimNextJob(admin);
       if (!job) break;
       try {
         await withTimeout(
@@ -135,6 +143,11 @@ Deno.serve(async (req) => {
         );
         results.push({ job_id: job.id, kind: job.kind, ok: true });
       } catch (e: any) {
+        if (e instanceof RequeueStageError) {
+          await requeueJob(admin, job, e.delayMs, e.output);
+          results.push({ job_id: job.id, kind: job.kind, ok: true, requeued: true, reason: e.message });
+          continue;
+        }
         await failJob(admin, job, e);
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
@@ -147,6 +160,99 @@ Deno.serve(async (req) => {
     return json({ error: e?.message ?? String(e) }, 500);
   }
 });
+
+async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
+  const rpc = await admin.rpc("modrek_claim_next_job");
+  if (!rpc.error) {
+    const rows = rpc.data;
+    return Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
+  }
+
+  const errorMessage = String(rpc.error.message || "");
+  const canFallback = errorMessage.includes("FOR UPDATE cannot be applied")
+    || errorMessage.includes("modrek_claim_next_job")
+    || errorMessage.includes("schema cache")
+    || errorMessage.includes("Could not find");
+  if (!canFallback) throw new Error(errorMessage);
+
+  console.warn("modrek_claim_next_job failed; using direct claim fallback", errorMessage);
+  await recoverStaleRunningJobs(admin);
+
+  const nowIso = new Date().toISOString();
+  const { data: candidates, error: listError } = await admin
+    .from("processing_jobs")
+    .select("*")
+    .in("status", ["pending", "retrying"] as any)
+    .lte("next_run_at", nowIso)
+    .order("stage_order", { ascending: true })
+    .order("priority", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(25);
+  if (listError) throw new Error(`fallback claim list failed: ${listError.message}`);
+
+  for (const candidate of candidates ?? []) {
+    if (Number(candidate.attempts ?? 0) >= Number(candidate.max_attempts ?? 3)) continue;
+    if (candidate.kind === "merge_text") {
+      const { data: incompleteExtraction } = await admin
+        .from("processing_jobs")
+        .select("id")
+        .eq("version_id", candidate.version_id)
+        .in("kind", ["extract_text", "extract_page"] as any)
+        .in("status", ["pending", "running", "retrying"] as any)
+        .limit(1)
+        .maybeSingle();
+      if (incompleteExtraction?.id) continue;
+    }
+    if (candidate.kind === "extract_page") {
+      const { data: runningPage } = await admin
+        .from("processing_jobs")
+        .select("id")
+        .eq("kind", "extract_page")
+        .eq("status", "running")
+        .gt("updated_at", new Date(Date.now() - 3 * 60_000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (runningPage?.id) continue;
+    }
+
+    const { data: claimed, error: claimError } = await admin
+      .from("processing_jobs")
+      .update({
+        status: "running",
+        started_at: nowIso,
+        finished_at: null,
+        attempts: Number(candidate.attempts ?? 0) + 1,
+        error: null,
+        updated_at: nowIso,
+      })
+      .eq("id", candidate.id)
+      .in("status", ["pending", "retrying"] as any)
+      .select("*")
+      .maybeSingle();
+    if (claimError) throw new Error(`fallback claim update failed: ${claimError.message}`);
+    if (claimed?.id) {
+      await log(admin, claimed.id, "warn", "worker used direct claim fallback", { original_error: errorMessage.slice(0, 500) });
+      return claimed;
+    }
+  }
+
+  return null;
+}
+
+async function recoverStaleRunningJobs(admin: SupabaseClient) {
+  const staleBefore = new Date(Date.now() - 3 * 60_000).toISOString();
+  await admin
+    .from("processing_jobs")
+    .update({
+      status: "retrying",
+      error: "انقطع نبض العامل أو انتهت مهلة المرحلة؛ تمت إعادة الجدولة تلقائياً",
+      finished_at: new Date().toISOString(),
+      next_run_at: new Date(Date.now() + 30_000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("status", "running")
+    .lt("updated_at", staleBefore);
+}
 
 async function runStage(admin: SupabaseClient, job: any) {
   await admin.from("processing_jobs").update({
@@ -557,7 +663,7 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
       .eq("kind", "extract_page")
       .eq("status", "failed"),
     admin.from("processing_jobs")
-      .select("id")
+      .select("id, status, attempts, max_attempts, updated_at, next_run_at, input")
       .eq("version_id", job.version_id)
       .eq("kind", "extract_page")
       .in("status", ["pending", "running", "retrying"]),
@@ -570,29 +676,40 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
   ]);
 
   if (waitingPages?.length) {
-    await admin.from("processing_jobs").update({
-      status: "pending",
-      attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
-      next_run_at: new Date(Date.now() + 15_000).toISOString(),
-      updated_at: new Date().toISOString(),
-    }).eq("id", job.id);
-    await log(admin, job.id, "info", "merge_text delayed until PDF page extraction finishes", { waiting: waitingPages.length });
-    return;
+    const now = Date.now();
+    const staleRunning = waitingPages.filter((page: any) =>
+      page.status === "running" && Date.parse(String(page.updated_at ?? page.next_run_at ?? "")) < now - 3 * 60_000
+    );
+    if (staleRunning.length) {
+      const staleIds = staleRunning.map((page: any) => page.id).filter(Boolean);
+      await admin.from("processing_jobs").update({
+        status: "retrying",
+        error: "انقطع نبض استخراج صفحة PDF؛ تمت إعادة الجدولة تلقائياً",
+        finished_at: new Date().toISOString(),
+        next_run_at: new Date(now + 15_000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }).in("id", staleIds);
+    }
+    throw new RequeueStageError("merge_text waiting for page extraction", 20_000, {
+      waiting: waitingPages.length,
+      stale_requeued: staleRunning.length,
+      extracted_batches: units?.length ?? 0,
+    });
   }
 
-  // Auto-recover: re-enqueue failed page batches with the alternate extractor
-  // once before hard-failing the whole book. Large PDFs often lose 1–2 batches
-  // to transient AI/network errors; a targeted retry avoids failing an entire
-  // multi-hundred-page book because of a single transient hiccup.
+  // Auto-recover once before hard-failing the whole book. Never switch medium
+  // PDFs back to Gemini File API here; that was the loop that kept reintroducing
+  // quota failures after the OpenRouter migration.
   if (failedPages?.length && mergeAttempt < 1) {
     for (const fp of failedPages) {
       const fpInput = (fp as any).input ?? {};
       const wasGemini = fpInput.extractor === "gemini_file" || !!fpInput.gemini_file?.uri;
         await enqueue(admin, job.version_id, "extract_page", 21, {
         ...fpInput,
-        extractor: wasGemini ? "local_pdfjs" : "gemini_file",
-        gemini_file: wasGemini ? null : fpInput.gemini_file ?? null,
+        extractor: "local_pdfjs",
+        gemini_file: null,
         __retry_of: (fp as any).id,
+        __retry_extractor_before: wasGemini ? "gemini_file" : String(fpInput.extractor ?? "local_pdfjs"),
       }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
     }
     await log(admin, job.id, "warn", "merge_text auto-retrying failed page batches with alternate extractor", {
@@ -837,7 +954,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   let bytes: Uint8Array | null = null;
   let pageCount = 0;
-  let geminiFile: any = byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES ? asset?.metadata?.gemini_file ?? null : null;
+  let geminiFile: any = null;
   if (asset?.metadata?.gemini_file?.uri && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     await log(admin, job.id, "warn", "ignoring stale Gemini File metadata for medium PDF; OpenRouter/local extraction is primary", {
       bytes: byteSize,
@@ -863,7 +980,7 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     }
   }
 
-  if (!pageCount && byteSize > PDF_LOCAL_TEXT_LIMIT_BYTES && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
+  if (!pageCount && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
     throw new Error("تعذر قراءة عدد صفحات PDF محلياً لملف متوسط الحجم. لن يتم تحويله إلى Gemini لتجنب حصة المزود القديمة؛ أعد رفع نسخة PDF نصية/مضغوطة أو قسّم الملف ثم أعد المحاولة.");
   }
 
@@ -1757,6 +1874,19 @@ async function succeedJob(admin: SupabaseClient, job: any, output: any) {
     status: "succeeded", finished_at: new Date().toISOString(), output, progress_pct: 100, updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "info", `stage succeeded: ${job.kind}`, output);
+}
+
+async function requeueJob(admin: SupabaseClient, job: any, delayMs: number, output: Record<string, unknown> = {}) {
+  const delay = Math.max(5_000, Math.min(5 * 60_000, delayMs));
+  await admin.from("processing_jobs").update({
+    status: "pending",
+    attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
+    next_run_at: new Date(Date.now() + delay).toISOString(),
+    finished_at: null,
+    output: { ...(job.output ?? {}), waiting: { ...output, at: new Date().toISOString(), memory: memorySnapshot() } },
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.id);
+  await log(admin, job.id, "info", `stage requeued: ${job.kind}`, { delay_ms: delay, ...output });
 }
 
 async function failJob(admin: SupabaseClient, job: any, err: unknown) {
