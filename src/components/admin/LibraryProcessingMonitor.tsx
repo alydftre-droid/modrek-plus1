@@ -23,6 +23,11 @@ type JobRow = {
   max_attempts: number | null;
   page_number: number | null;
   last_error: string | null;
+  last_stack?: string | null;
+  locked_at?: string | null;
+  locked_by?: string | null;
+  worker_id?: string | null;
+  next_run_at?: string | null;
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
@@ -204,6 +209,15 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
   const failed = book?.status === "failed" || (!completed && sortedEvents.some((event) => event.level === "error"));
   const progress = Math.max(0, Math.min(100, book?.processing_progress ?? sortedEvents.find((event) => event.progress !== null)?.progress ?? 0));
   const latestError = sortedEvents.find((event) => event.level === "error") || null;
+  const latestJobError = jobs.find((job) => job.last_error || job.last_stack) || null;
+  const parsedJobStack = useMemo(() => {
+    const stack = latestJobError?.last_stack || "";
+    const line = stack.split("\n").find((item) => item.includes("at ") || item.includes("File:")) || stack.split("\n")[0] || "";
+    const file = line.match(/(supabase\/functions\/[^\s:)]+)/)?.[1] || line.match(/file:\/\/[^:)]+/)?.[0] || null;
+    const lineNo = line.match(/:(\d+):\d+\)?$/)?.[1] || stack.match(/Line:\s*(\d+)/)?.[1] || null;
+    const fn = line.match(/at\s+([^\s(]+)/)?.[1] || stack.match(/Function:\s*([^\n]+)/)?.[1] || null;
+    return { file, line: lineNo, function: fn, raw: stack };
+  }, [latestJobError?.last_stack]);
 
   return (
     <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" dir="rtl">
@@ -269,16 +283,29 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
             })}
           </div>
 
-          {(book?.processing_error || latestError) && (
+          {(book?.processing_error || latestError || latestJobError) && (
             <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
               <div className="mb-2 flex items-center gap-2 font-extrabold"><AlertTriangle className="h-4 w-4" /> سبب التوقف الحقيقي</div>
-              <pre className="whitespace-pre-wrap rounded-lg bg-white/70 p-2 text-left text-[11px]" dir="ltr">{book?.processing_error || asText(latestError?.data?.error_message || latestError?.data?.error || latestError?.message)}</pre>
+              <pre className="whitespace-pre-wrap rounded-lg bg-white/70 p-2 text-left text-[11px]" dir="ltr">{book?.processing_error || latestJobError?.last_error || asText(latestError?.data?.error_message || latestError?.data?.error || latestError?.message)}</pre>
               {latestError?.data && (
                 <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
                   <DiagnosticCell label="File" value={latestError.data.file} />
                   <DiagnosticCell label="Function" value={latestError.data.function} />
                   <DiagnosticCell label="Line" value={latestError.data.line} />
                 </div>
+              )}
+              {latestJobError?.last_stack && (
+                <>
+                  <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+                    <DiagnosticCell label="File" value={parsedJobStack.file} />
+                    <DiagnosticCell label="Function" value={parsedJobStack.function} />
+                    <DiagnosticCell label="Line" value={parsedJobStack.line} />
+                  </div>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer font-bold">Stack trace الكامل</summary>
+                    <pre className="mt-1 max-h-44 overflow-auto rounded-lg bg-slate-950 p-2 text-left text-[10px] text-slate-50" dir="ltr">{latestJobError.last_stack}</pre>
+                  </details>
+                </>
               )}
             </div>
           )}
@@ -340,7 +367,20 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
                       <span>صفحة: {job.page_number ?? "—"}</span>
                       <span dir="ltr">{formatTime(job.created_at)}</span>
                     </div>
+                    {(job.locked_by || job.worker_id || job.next_run_at) && (
+                      <div className="mt-2 grid grid-cols-1 gap-1 rounded-lg bg-slate-50 p-2 font-mono text-[10px] text-slate-500" dir="ltr">
+                        <span>worker: {job.worker_id || job.locked_by || "—"}</span>
+                        <span>locked_at: {job.locked_at || "—"}</span>
+                        <span>next_run_at: {job.next_run_at || "—"}</span>
+                      </div>
+                    )}
                     {job.last_error && <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-rose-50 p-2 text-left text-[10px] text-rose-700" dir="ltr">{job.last_error}</pre>}
+                    {job.last_stack && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-[10px] font-bold text-slate-500">Stack trace</summary>
+                        <pre className="mt-1 max-h-40 overflow-auto rounded-lg bg-slate-950 p-2 text-left text-[10px] text-slate-50" dir="ltr">{job.last_stack}</pre>
+                      </details>
+                    )}
                   </div>
                 ))}
               </div>

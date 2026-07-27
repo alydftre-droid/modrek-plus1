@@ -38,6 +38,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WORKER_KEY = Deno.env.get("LIBRARY_WORKER_KEY") || "";
 const WORKER_ID = `v2_worker_${crypto.randomUUID().slice(0, 8)}`;
+const EDGE_FILE = "supabase/functions/library-v2-worker/index.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -68,10 +69,33 @@ async function logEvent(
       level,
       message,
       progress,
-      data: { worker: WORKER_ID, ...data },
+      data: { worker: WORKER_ID, file: EDGE_FILE, ...data },
     });
   } catch (e) {
     console.warn("[v2-worker] log failed", e);
+  }
+}
+
+function parseFirstUsefulStackFrame(stack: string) {
+  const lines = stack.split("\n").map((line) => line.trim()).filter(Boolean);
+  const preferred = lines.find((line) => line.includes("library-v2-worker/index.ts")) || lines.find((line) => line.startsWith("at ")) || "";
+  const match = preferred.match(/at\s+(.*?)\s+\((.*?):(\d+):(\d+)\)/) || preferred.match(/at\s+(.*?):(\d+):(\d+)/);
+  if (!match) return { file: EDGE_FILE, function: "unknown", line: null as number | null, raw: preferred };
+  if (match.length === 5) {
+    return { file: String(match[2] || EDGE_FILE), function: String(match[1] || "unknown"), line: Number(match[3]) || null, raw: preferred };
+  }
+  return { file: String(match[1] || EDGE_FILE), function: "anonymous", line: Number(match[2]) || null, raw: preferred };
+}
+
+function pdfHeader(bytes: Uint8Array) {
+  return new TextDecoder().decode(bytes.slice(0, Math.min(bytes.byteLength, 16)));
+}
+
+function assertLooksLikePdf(bytes: Uint8Array, source: string) {
+  const header = pdfHeader(bytes);
+  if (bytes.byteLength < 128 || !header.startsWith("%PDF-")) {
+    const printable = header.replace(/[^\x20-\x7E]/g, ".");
+    throw new Error(`invalid_pdf_upload: ملف PDF غير مكتمل أو تالف من التخزين (${bytes.byteLength} bytes, header=${JSON.stringify(printable)}, source=${source})`);
   }
 }
 
@@ -84,16 +108,22 @@ async function fetchPdfBytes(db: any, pdfPath: string): Promise<Uint8Array> {
     if (!apiKey || !zone) throw new Error("bunny_storage_not_configured");
     const res = await fetch(`https://${host}/${zone}/${path}`, { headers: { AccessKey: apiKey } });
     if (!res.ok) throw new Error(`bunny_download_failed:${res.status}`);
-    return new Uint8Array(await res.arrayBuffer());
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    assertLooksLikePdf(bytes, `bstorage://${path}`);
+    return bytes;
   }
   if (/^https?:\/\//i.test(pdfPath)) {
     const res = await fetch(pdfPath);
     if (!res.ok) throw new Error(`fetch_pdf_failed:${res.status}`);
-    return new Uint8Array(await res.arrayBuffer());
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    assertLooksLikePdf(bytes, pdfPath);
+    return bytes;
   }
   const { data, error } = await db.storage.from("library-books").download(pdfPath);
   if (error) throw new Error(`storage_download_failed:${error.message}`);
-  return new Uint8Array(await data.arrayBuffer());
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  assertLooksLikePdf(bytes, pdfPath);
+  return bytes;
 }
 
 // ─── Enqueue helpers ────────────────────────────────────────────────
@@ -409,10 +439,22 @@ Deno.serve(async (req) => {
 
   const bookId = job.book_id;
   try {
+    const startedAt = Date.now();
+    await logEvent(db, bookId, jobId, "v2_worker_received", `وصلت المهمة إلى عامل V2: ${job.kind}`, "info", null, {
+      function: "Deno.serve",
+      line: 437,
+      kind: job.kind,
+      attempts: job.attempts,
+      max_attempts: job.max_attempts,
+    });
     const result = await runStage(db, job);
     if (!(result as any)?.requeued) {
       await db.rpc("library_complete_job", { p_job_id: jobId, p_progress: 100 });
-      await logEvent(db, bookId, jobId, `${job.kind}_completed`, `اكتملت المرحلة ${job.kind}`, "success", 100);
+      await logEvent(db, bookId, jobId, `${job.kind}_completed`, `اكتملت المرحلة ${job.kind}`, "success", 100, {
+        function: "Deno.serve",
+        line: 448,
+        runtime_ms: Date.now() - startedAt,
+      });
     }
     // Ping dispatcher so any newly-enqueued jobs get picked up quickly
     await pingDispatcher();
@@ -420,19 +462,30 @@ Deno.serve(async (req) => {
   } catch (e: any) {
     const errMsg = String(e?.message || e);
     const errStack = String(e?.stack || "").slice(0, 6000);
+    const frame = parseFirstUsefulStackFrame(errStack);
     const nextState = await db.rpc("library_fail_job", {
       p_job_id: jobId,
       p_error: errMsg,
       p_stack: errStack,
       p_backoff_seconds: null,
     });
+    const attemptsAfterThisRun = Number(job.attempts || 0);
+    await db.from("library_books").update({
+      status: nextState.data === "dead_letter" ? "failed" : "processing",
+      processing_stage: `${job.kind}_failed`,
+      processing_error: `${errMsg}\nFile: ${frame.file}\nFunction: ${frame.function}\nLine: ${frame.line ?? "unknown"}\nAttempt: ${attemptsAfterThisRun}/${job.max_attempts ?? 3}`,
+    }).eq("id", bookId);
     await logEvent(db, bookId, jobId, `${job.kind}_failed`, `فشل ${job.kind}: ${errMsg}`, "error", null, {
       next_state: nextState.data,
       error: errMsg,
       stack: errStack,
+      file: frame.file,
+      function: frame.function,
+      line: frame.line,
+      stack_frame: frame.raw,
       attempts: job.attempts,
       max_attempts: job.max_attempts,
     });
-    return json({ ok: false, kind: job.kind, error: errMsg, next_state: nextState.data }, 200);
+    return json({ ok: false, kind: job.kind, error: errMsg, next_state: nextState.data, diagnostic: frame }, 200);
   }
 });
