@@ -129,7 +129,7 @@ export function logAiCall(entry: AiCallLog): void {
     tokens: {
       prompt: entry.promptTokens ?? null,
       completion: entry.completionTokens ?? null,
-      total: entry.totalTokens ?? (entry.promptTokens ?? 0) + (entry.completionTokens ?? 0) || null,
+      total: entry.totalTokens ?? (((entry.promptTokens ?? 0) + (entry.completionTokens ?? 0)) || null),
     },
     duration_ms: entry.durationMs ?? null,
     status: entry.status ?? null,
