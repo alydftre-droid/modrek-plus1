@@ -342,6 +342,7 @@ function AnimatedRoutes() {
               <Route path="*" element={<NotFound />} />
             </Routes>
       </Suspense>
+      </LazyRouteBoundary>
         </PageTransition>
   );
 }
