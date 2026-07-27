@@ -133,9 +133,7 @@ Deno.serve(async (req) => {
   try {
     await recoverTransientModrekJobs(admin);
     for (let i = 0; i < MAX_JOBS_PER_INVOCATION; i++) {
-      const { data: rows, error } = await admin.rpc("modrek_claim_next_job");
-      if (error) { results.push({ error: error.message }); break; }
-      const job = Array.isArray(rows) ? rows[0] : rows;
+      const job = await claimNextJob(admin);
       if (!job) break;
       try {
         await withTimeout(
@@ -162,6 +160,88 @@ Deno.serve(async (req) => {
     return json({ error: e?.message ?? String(e) }, 500);
   }
 });
+
+async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
+  const rpc = await admin.rpc("modrek_claim_next_job");
+  if (!rpc.error) {
+    const rows = rpc.data;
+    return Array.isArray(rows) ? rows[0] ?? null : rows ?? null;
+  }
+
+  const errorMessage = String(rpc.error.message || "");
+  const canFallback = errorMessage.includes("FOR UPDATE cannot be applied")
+    || errorMessage.includes("modrek_claim_next_job")
+    || errorMessage.includes("schema cache")
+    || errorMessage.includes("Could not find");
+  if (!canFallback) throw new Error(errorMessage);
+
+  console.warn("modrek_claim_next_job failed; using direct claim fallback", errorMessage);
+  await recoverStaleRunningJobs(admin);
+
+  const nowIso = new Date().toISOString();
+  const { data: candidates, error: listError } = await admin
+    .from("processing_jobs")
+    .select("*")
+    .in("status", ["pending", "retrying"] as any)
+    .lte("next_run_at", nowIso)
+    .order("priority", { ascending: false })
+    .order("stage_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .limit(25);
+  if (listError) throw new Error(`fallback claim list failed: ${listError.message}`);
+
+  for (const candidate of candidates ?? []) {
+    if (Number(candidate.attempts ?? 0) >= Number(candidate.max_attempts ?? 3)) continue;
+    if (candidate.kind === "extract_page") {
+      const { data: runningPage } = await admin
+        .from("processing_jobs")
+        .select("id")
+        .eq("kind", "extract_page")
+        .eq("status", "running")
+        .gt("updated_at", new Date(Date.now() - 3 * 60_000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (runningPage?.id) continue;
+    }
+
+    const { data: claimed, error: claimError } = await admin
+      .from("processing_jobs")
+      .update({
+        status: "running",
+        started_at: nowIso,
+        finished_at: null,
+        attempts: Number(candidate.attempts ?? 0) + 1,
+        error: null,
+        updated_at: nowIso,
+      })
+      .eq("id", candidate.id)
+      .in("status", ["pending", "retrying"] as any)
+      .select("*")
+      .maybeSingle();
+    if (claimError) throw new Error(`fallback claim update failed: ${claimError.message}`);
+    if (claimed?.id) {
+      await log(admin, claimed.id, "warn", "worker used direct claim fallback", { original_error: errorMessage.slice(0, 500) });
+      return claimed;
+    }
+  }
+
+  return null;
+}
+
+async function recoverStaleRunningJobs(admin: SupabaseClient) {
+  const staleBefore = new Date(Date.now() - 3 * 60_000).toISOString();
+  await admin
+    .from("processing_jobs")
+    .update({
+      status: "retrying",
+      error: "انقطع نبض العامل أو انتهت مهلة المرحلة؛ تمت إعادة الجدولة تلقائياً",
+      finished_at: new Date().toISOString(),
+      next_run_at: new Date(Date.now() + 30_000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("status", "running")
+    .lt("updated_at", staleBefore);
+}
 
 async function runStage(admin: SupabaseClient, job: any) {
   await admin.from("processing_jobs").update({
