@@ -32,6 +32,7 @@ export function sanitizeForbiddenPlatformNames(content: string): string {
 // `google/gemini-2.5-flash`). Bare Gemini names still work — `openrouter.ts`
 // normalizes them.
 const DEFAULT_MODELS = ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"];
+const DEFAULT_TTS_MODELS = ["google/gemini-3.1-flash-tts-preview"];
 
 const DEFAULTS: Record<string, AiFunctionSettings> = {
   "ai-chat":            { function_name: "ai-chat",            models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
@@ -39,6 +40,7 @@ const DEFAULTS: Record<string, AiFunctionSettings> = {
   "teacher-assistant":  { function_name: "teacher-assistant",  models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: true },
   "modrek-ai-exams":    { function_name: "modrek-ai-exams",    models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
   "grade-essay":        { function_name: "grade-essay",        models_to_try: DEFAULT_MODELS, max_retries: 3, fallback_delay_ms: 0, enable_streaming: false },
+  "library-explain-tts": { function_name: "library-explain-tts", models_to_try: DEFAULT_TTS_MODELS, max_retries: 2, fallback_delay_ms: 0, enable_streaming: false },
 };
 
 const GLOBAL_MODEL_FALLBACKS = DEFAULT_MODELS;
@@ -76,6 +78,11 @@ function withGlobalGeminiFallbacks(models: string[]) {
   return uniqueModels([...models, ...GLOBAL_MODEL_FALLBACKS]);
 }
 
+function normalizeModelsForFunction(fnName: string, models: string[], fallback: AiFunctionSettings) {
+  if (fnName.includes("tts")) return uniqueModels(models.length ? models : fallback.models_to_try);
+  return models.length ? withGlobalGeminiFallbacks(models) : withGlobalGeminiFallbacks(fallback.models_to_try);
+}
+
 export async function loadAiSettings(
   // deno-lint-ignore no-explicit-any
   sb: any,
@@ -97,9 +104,11 @@ export async function loadAiSettings(
     if (error || !data) return fallback;
     return {
       function_name: data.function_name,
-      models_to_try: Array.isArray(data.models_to_try) && data.models_to_try.length > 0
-        ? withGlobalGeminiFallbacks(data.models_to_try)
-        : withGlobalGeminiFallbacks(fallback.models_to_try),
+      models_to_try: normalizeModelsForFunction(
+        fnName,
+        Array.isArray(data.models_to_try) ? data.models_to_try : [],
+        fallback,
+      ),
       max_retries: typeof data.max_retries === "number" ? data.max_retries : fallback.max_retries,
       fallback_delay_ms: typeof data.fallback_delay_ms === "number" ? data.fallback_delay_ms : fallback.fallback_delay_ms,
       enable_streaming: typeof data.enable_streaming === "boolean" ? data.enable_streaming : fallback.enable_streaming,
