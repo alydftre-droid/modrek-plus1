@@ -9,6 +9,13 @@ export const OPENROUTER_DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
 export const OPENROUTER_DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 export const OPENROUTER_DEFAULT_TTS_VOICE = "Charon";
 export const OPENROUTER_TTS_QUALITY = "openrouter-gemini-tts-egyptian-teacher-hd";
+const OPENROUTER_TTS_MODEL_ALLOWLIST = new Set([
+  "openai/gpt-4o-mini-tts",
+  "google/gemini-2.5-flash-tts",
+  "google/gemini-2.5-pro-tts",
+  "google/gemini-2.5-flash-lite-preview-tts",
+  "google/gemini-3.1-flash-tts-preview",
+]);
 
 export const EGYPTIAN_TEACHER_TTS_INSTRUCTIONS = [
   "تحدث بالعربية بلهجة مصرية طبيعية خفيفة ومفهومة، كمعلم مصري محترف يشرح لطالب أمامه.",
@@ -32,6 +39,13 @@ export function toOpenRouterModelId(model: string): string {
   if (raw.includes("/")) return raw;
   if (raw.startsWith("gemini-")) return `google/${raw}`;
   return raw;
+}
+
+export function toOpenRouterTtsModelId(model?: string): string {
+  const normalized = toOpenRouterModelId(model || OPENROUTER_DEFAULT_TTS_MODEL);
+  if (OPENROUTER_TTS_MODEL_ALLOWLIST.has(normalized)) return normalized;
+  console.warn("[openrouter-tts] non_tts_model_replaced", JSON.stringify({ requested: normalized, replacement: OPENROUTER_DEFAULT_TTS_MODEL }));
+  return OPENROUTER_DEFAULT_TTS_MODEL;
 }
 
 export function getOpenRouterApiKey(): string {
@@ -264,7 +278,7 @@ export async function openRouterTts(opts: {
   const requestUrl = `${OPENROUTER_BASE_URL}/audio/speech`;
   const started = performance.now();
   try {
-    const model = toOpenRouterModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
+    const model = toOpenRouterTtsModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
     const requested = opts.format || "pcm";
     const isGeminiTts = model.toLowerCase().includes("gemini");
     const format = isGeminiTts ? "pcm" : requested === "pcm" ? "pcm" : "mp3";
