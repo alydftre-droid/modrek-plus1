@@ -28,8 +28,11 @@ const GATEWAY = "https://ai.gateway.lovable.dev/v1";
 const EMBED_MODEL = "openai/text-embedding-3-small";
 const GEMINI_EMBED_MODEL = "text-embedding-004";
 const EMBED_DIMS = 768;
-const VISION_MODEL = "google/gemini-2.5-pro";
+// Book upload / OCR / structure extraction MUST use Flash per platform policy
+// (see supabase/functions/_shared/aiModels.ts). Pro is reserved for exams.
+const VISION_MODEL = "google/gemini-2.5-flash";
 const STRUCTURE_MODEL = "google/gemini-2.5-flash";
+
 
 const MAX_JOBS_PER_INVOCATION = 1;
 // Keep the total wall-time safely below the edge runtime cap (~150s) so the
