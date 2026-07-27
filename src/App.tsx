@@ -15,6 +15,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import LazyRouteBoundary from "@/components/LazyRouteBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
 import { DATA_SCHEMA_VERSION } from "@/lib/dataIntegrity/cacheVersion";
 import { useIntegrityGuard } from "@/lib/dataIntegrity/useIntegrityGuard";
@@ -156,6 +157,13 @@ const queryClient = new QueryClient({
       refetchOnMount: false,
       refetchOnReconnect: "always",
       retry: 1,
+      // Serve cached data instantly even without network (Stale-While-Revalidate).
+      // When connection returns, `refetchOnReconnect: "always"` triggers a
+      // background refresh and the UI updates seamlessly.
+      networkMode: "offlineFirst",
+    },
+    mutations: {
+      networkMode: "online",
     },
   },
 });
@@ -189,6 +197,7 @@ const RouteFallback = () => (
 function AnimatedRoutes() {
   return (
     <PageTransition>
+      <LazyRouteBoundary>
       <Suspense fallback={<RouteFallback />}>
       <Routes>
               {/* Public */}
@@ -334,6 +343,7 @@ function AnimatedRoutes() {
               <Route path="*" element={<NotFound />} />
             </Routes>
       </Suspense>
+      </LazyRouteBoundary>
         </PageTransition>
   );
 }
@@ -411,6 +421,11 @@ function StudentDsScope() {
 function IntegrityGuardMount() {
   const { user } = useAuth();
   useIntegrityGuard(user?.id);
+  useEffect(() => {
+    if (!user?.id) return;
+    // Warm the offline cache once the user is authenticated
+    import("@/lib/offlinePrefetch").then((m) => m.warmOfflineCache()).catch(() => undefined);
+  }, [user?.id]);
   return null;
 }
 
