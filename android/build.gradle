@@ -8,7 +8,7 @@ buildscript {
         maven { url 'https://plugins.gradle.org/m2/' }
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.6.1'
+        classpath 'com.android.tools.build:gradle:8.7.3'
         // Firebase Cloud Messaging (push notifications). Requires
         // android/app/google-services.json (added locally / gitignored).
         classpath 'com.google.gms:google-services:4.4.2'
