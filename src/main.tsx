@@ -24,6 +24,9 @@ if (typeof window !== "undefined") {
     /error loading dynamically imported module/i.test(msg);
   const tryReload = () => {
     try {
+      // Skip reload while offline — reloading with no network would blank the app.
+      // LazyRouteBoundary will render the offline fallback instead.
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
       const last = Number(window.sessionStorage.getItem(RELOAD_KEY) || "0");
       if (Date.now() - last > 30_000) {
         window.sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
