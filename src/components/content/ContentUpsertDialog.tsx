@@ -70,9 +70,26 @@ function getBucketName(type: ContentType): string {
   }
 }
 
+// Common video containers teachers actually record/export with. Some Android
+// pickers ignore "video/*" for mkv/avi/wmv, so extensions are listed too.
+export const SUPPORTED_VIDEO_EXTENSIONS = [
+  "mp4", "mov", "m4v", "webm", "mkv", "avi", "wmv", "flv", "mpeg", "mpg", "3gp", "ts", "ogv",
+];
+
+const VIDEO_ACCEPT = [
+  "video/*",
+  ...SUPPORTED_VIDEO_EXTENSIONS.map((e) => `.${e}`),
+].join(",");
+
+export function isSupportedVideoFile(file: File): boolean {
+  if (file.type?.startsWith("video/")) return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  return SUPPORTED_VIDEO_EXTENSIONS.includes(ext);
+}
+
 function getAcceptedFileTypes(type: ContentType): string {
   switch (type) {
-    case "video": return "video/*";
+    case "video": return VIDEO_ACCEPT;
     case "pdf":
     case "summary":
     case "exam": return ".pdf";
