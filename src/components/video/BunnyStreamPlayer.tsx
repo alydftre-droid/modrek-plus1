@@ -128,8 +128,20 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
     setLoading(true);
     setError(null);
     setIframeFallbackUrl(null);
+    setEncodeState(null);
 
     (async () => {
+      // 1) Ask Bunny for the real encoding state first. This is what turns the
+      //    old endless "جاري معالجة الفيديو" screen into an honest status.
+      const status = await getBunnyVideoStatus(videoId);
+      if (cancelled) return;
+      if (status && !status.isPlayable) {
+        setEncodeState(status);
+        setLoading(false);
+        return;
+      }
+      setEncodeState(null);
+
       const sp = await getSignedPlayback(videoId);
       if (cancelled) return;
       if (!sp?.playbackUrl) { setError("تعذر تحميل الفيديو"); setLoading(false); return; }
@@ -139,14 +151,24 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       const src = sp.playbackUrl;
       const fallbackToEmbed = () => {
         if (cancelled) return;
-        if (sp.embedUrl) {
-          setIframeFallbackUrl(sp.embedUrl);
-          setLoading(false);
-          setError(null);
-        } else {
-          setError("تعذر تحميل الفيديو");
-          setLoading(false);
-        }
+        // Before falling back to the Bunny iframe, re-check the encode state so
+        // a still-encoding video shows progress instead of Bunny's blank screen.
+        getBunnyVideoStatus(videoId).then((fresh) => {
+          if (cancelled) return;
+          if (fresh && !fresh.isPlayable) {
+            setEncodeState(fresh);
+            setLoading(false);
+            return;
+          }
+          if (sp.embedUrl) {
+            setIframeFallbackUrl(sp.embedUrl);
+            setLoading(false);
+            setError(null);
+          } else {
+            setError("تعذر تحميل الفيديو");
+            setLoading(false);
+          }
+        });
       };
       const attachEvents = () => {
         video.addEventListener("loadedmetadata", () => {
