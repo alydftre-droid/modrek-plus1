@@ -321,6 +321,13 @@ const ContentUpsertDialog = ({
         retryDelays: [0, 3000, 5000, 10000, 20000],
         chunkSize: 5 * 1024 * 1024,
         removeFingerprintOnSuccess: true,
+        // CRITICAL: scope the resume fingerprint to THIS Bunny video id.
+        // The default fingerprint is derived from the file only, so re-uploading
+        // the same file resumed an expired upload URL of an older video — the
+        // bytes never reached the new video, which then stayed at
+        // "processing" forever with 0 bytes stored.
+        fingerprint: async () =>
+          `bunny-${videoId}-${file.name}-${file.size}-${file.lastModified}`,
         metadata: {
           filetype: file.type || "video/mp4",
           title,
@@ -373,6 +380,20 @@ const ContentUpsertDialog = ({
         reject(new Error(error?.message || "تعذر بدء رفع الفيديو"));
       });
     });
+
+    // Verify Bunny actually received the bytes before saving the lesson.
+    // Without this, a silently-failed transfer produced a lesson that showed
+    // "جاري معالجة الفيديو" forever.
+    try {
+      const status = await getBunnyVideoStatus(videoId);
+      if (status && status.neverUploaded) {
+        throw new Error("لم تصل بيانات الفيديو إلى الخادم. برجاء المحاولة مرة أخرى من اتصال أفضل");
+      }
+    } catch (verifyError: any) {
+      if (verifyError?.message?.includes("لم تصل بيانات")) throw verifyError;
+      // Status check itself failed (network/permission) — don't block the save.
+      console.warn("bunny upload verification skipped", verifyError);
+    }
 
     return `bunny://${videoId}`;
   };
