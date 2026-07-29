@@ -580,12 +580,61 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
           </>
         )}
 
+        {/* Encoding / failure state (real Bunny status, not a blind spinner) */}
+        {encodeState && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/85 px-6 text-center text-white">
+            <div className="w-full max-w-sm">
+              {encodeState.isFailed || encodeState.neverUploaded ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15">
+                    <X className="h-7 w-7 text-red-400" />
+                  </div>
+                  <p className="mb-2 text-base font-bold">
+                    {encodeState.neverUploaded
+                      ? "لم يكتمل رفع هذا الفيديو"
+                      : "فشلت معالجة هذا الفيديو"}
+                  </p>
+                  <p className="mb-5 text-sm text-white/70">
+                    {encodeState.neverUploaded
+                      ? "لم تصل بيانات الفيديو إلى الخادم. يجب على المعلم إعادة رفع الفيديو مرة أخرى."
+                      : "حدث خطأ أثناء ترميز الفيديو. برجاء إبلاغ المعلم لإعادة رفعه."}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-white" />
+                  <p className="mb-2 text-base font-bold">جاري معالجة الفيديو</p>
+                  <p className="mb-4 text-sm text-white/70">
+                    يتم تجهيز الجودات المختلفة الآن، وسيبدأ التشغيل تلقائيًا فور الانتهاء.
+                  </p>
+                  <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-white transition-all duration-500"
+                      style={{ width: `${Math.max(3, Math.min(100, encodeState.encodeProgress || 0))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs tabular-nums text-white/60">
+                    {Math.round(encodeState.encodeProgress || 0)}%
+                  </p>
+                </>
+              )}
+              <button
+                onClick={onClose}
+                className="mt-6 rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Loading */}
-        {loading && !error && (
+        {loading && !error && !encodeState && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Loader2 className="h-12 w-12 text-white animate-spin" />
           </div>
         )}
+
 
         {/* Error */}
         {error && (
