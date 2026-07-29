@@ -118,7 +118,7 @@ export default function TeacherProfilePage() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     if (!file.type.startsWith("video/")) { toast.error("يرجى اختيار فيديو"); return; }
-    if (file.size > 50 * 1024 * 1024) { toast.error("الحد الأقصى 50 ميجابايت"); return; }
+    if (file.size > 100 * 1024 * 1024) { toast.error("الحد الأقصى 100 ميجابايت"); return; }
     setUploadingVideo(true);
     try {
       const publicUrl = await uploadTeacherProfileFile(file, user.id, "video");
@@ -390,7 +390,7 @@ export default function TeacherProfilePage() {
                   {uploadingVideo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   رفع فيديو تعريفي
                 </div>
-                <p className="text-[11px] mt-1" style={{ color: C.muted }}>الحد الأقصى: 50 ميجابايت</p>
+                <p className="text-[11px] mt-1" style={{ color: C.muted }}>الحد الأقصى: 100 ميجابايت</p>
               </button>
             )}
             <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />

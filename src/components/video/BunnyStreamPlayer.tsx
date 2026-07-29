@@ -5,7 +5,7 @@ import {
   Settings, RotateCw, Loader2, Check, ChevronRight, ChevronLeft,
 } from "lucide-react";
 import { extractBunnyVideoId, isBunnyVideo } from "@/lib/bunnyStream";
-import { getSignedPlayback } from "@/lib/bunnyPlayback";
+import { getSignedPlayback, getBunnyVideoStatus, clearPlaybackCache, type BunnyVideoStatus } from "@/lib/bunnyPlayback";
 import WatermarkOverlay from "@/components/video/WatermarkOverlay";
 import { useSecureVideoScreen } from "@/hooks/useSecureVideoScreen";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
@@ -93,6 +93,8 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
   const [resumeAt, setResumeAt] = useState(0);
   const [showCenterIcon, setShowCenterIcon] = useState<"play" | "pause" | null>(null);
   const [iframeFallbackUrl, setIframeFallbackUrl] = useState<string | null>(null);
+  const [encodeState, setEncodeState] = useState<BunnyVideoStatus | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useSecureVideoScreen();
 
@@ -126,8 +128,20 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
     setLoading(true);
     setError(null);
     setIframeFallbackUrl(null);
+    setEncodeState(null);
 
     (async () => {
+      // 1) Ask Bunny for the real encoding state first. This is what turns the
+      //    old endless "جاري معالجة الفيديو" screen into an honest status.
+      const status = await getBunnyVideoStatus(videoId);
+      if (cancelled) return;
+      if (status && !status.isPlayable) {
+        setEncodeState(status);
+        setLoading(false);
+        return;
+      }
+      setEncodeState(null);
+
       const sp = await getSignedPlayback(videoId);
       if (cancelled) return;
       if (!sp?.playbackUrl) { setError("تعذر تحميل الفيديو"); setLoading(false); return; }
@@ -137,14 +151,24 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       const src = sp.playbackUrl;
       const fallbackToEmbed = () => {
         if (cancelled) return;
-        if (sp.embedUrl) {
-          setIframeFallbackUrl(sp.embedUrl);
-          setLoading(false);
-          setError(null);
-        } else {
-          setError("تعذر تحميل الفيديو");
-          setLoading(false);
-        }
+        // Before falling back to the Bunny iframe, re-check the encode state so
+        // a still-encoding video shows progress instead of Bunny's blank screen.
+        getBunnyVideoStatus(videoId).then((fresh) => {
+          if (cancelled) return;
+          if (fresh && !fresh.isPlayable) {
+            setEncodeState(fresh);
+            setLoading(false);
+            return;
+          }
+          if (sp.embedUrl) {
+            setIframeFallbackUrl(sp.embedUrl);
+            setLoading(false);
+            setError(null);
+          } else {
+            setError("تعذر تحميل الفيديو");
+            setLoading(false);
+          }
+        });
       };
       const attachEvents = () => {
         video.addEventListener("loadedmetadata", () => {
@@ -214,7 +238,27 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [videoId, readyToLoad, resumeAt]);
+  }, [videoId, readyToLoad, resumeAt, reloadKey]);
+
+  /* ---------------- Poll encoding status while processing ---------------- */
+  useEffect(() => {
+    if (!videoId || !encodeState || !encodeState.isProcessing) return;
+    let cancelled = false;
+    const id = window.setInterval(async () => {
+      const fresh = await getBunnyVideoStatus(videoId);
+      if (cancelled || !fresh) return;
+      if (fresh.isPlayable) {
+        clearPlaybackCache(videoId);
+        setEncodeState(null);
+        setReloadKey((k) => k + 1); // re-attach and start playing automatically
+      } else {
+        setEncodeState(fresh);
+      }
+    }, 6000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [videoId, encodeState?.isProcessing, encodeState?.status]);
+
+
 
   /* ---------------- Video event bindings ---------------- */
   useEffect(() => {
@@ -536,12 +580,61 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
           </>
         )}
 
+        {/* Encoding / failure state (real Bunny status, not a blind spinner) */}
+        {encodeState && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/85 px-6 text-center text-white">
+            <div className="w-full max-w-sm">
+              {encodeState.isFailed || encodeState.neverUploaded ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/15">
+                    <X className="h-7 w-7 text-red-400" />
+                  </div>
+                  <p className="mb-2 text-base font-bold">
+                    {encodeState.neverUploaded
+                      ? "لم يكتمل رفع هذا الفيديو"
+                      : "فشلت معالجة هذا الفيديو"}
+                  </p>
+                  <p className="mb-5 text-sm text-white/70">
+                    {encodeState.neverUploaded
+                      ? "لم تصل بيانات الفيديو إلى الخادم. يجب على المعلم إعادة رفع الفيديو مرة أخرى."
+                      : "حدث خطأ أثناء ترميز الفيديو. برجاء إبلاغ المعلم لإعادة رفعه."}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-white" />
+                  <p className="mb-2 text-base font-bold">جاري معالجة الفيديو</p>
+                  <p className="mb-4 text-sm text-white/70">
+                    يتم تجهيز الجودات المختلفة الآن، وسيبدأ التشغيل تلقائيًا فور الانتهاء.
+                  </p>
+                  <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-white/15">
+                    <div
+                      className="h-full rounded-full bg-white transition-all duration-500"
+                      style={{ width: `${Math.max(3, Math.min(100, encodeState.encodeProgress || 0))}%` }}
+                    />
+                  </div>
+                  <p className="text-xs tabular-nums text-white/60">
+                    {Math.round(encodeState.encodeProgress || 0)}%
+                  </p>
+                </>
+              )}
+              <button
+                onClick={onClose}
+                className="mt-6 rounded-lg bg-white/10 px-4 py-2 text-sm hover:bg-white/20"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Loading */}
-        {loading && !error && (
+        {loading && !error && !encodeState && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <Loader2 className="h-12 w-12 text-white animate-spin" />
           </div>
         )}
+
 
         {/* Error */}
         {error && (

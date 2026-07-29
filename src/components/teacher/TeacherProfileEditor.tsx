@@ -171,8 +171,8 @@ const TeacherProfileEditor = () => {
       return;
     }
 
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error("حجم الفيديو يجب أن يكون أقل من 50 ميجا");
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("حجم الفيديو يجب أن يكون أقل من 100 ميجا");
       return;
     }
 
@@ -470,7 +470,7 @@ const TeacherProfileEditor = () => {
             onChange={handleVideoUpload}
             className="hidden"
           />
-          <p className="text-xs text-muted-foreground mt-2">MP4, MOV - حجم أقصى 50 ميجا</p>
+          <p className="text-xs text-muted-foreground mt-2">MP4, MOV, MKV, AVI, WEBM - حجم أقصى 100 ميجا</p>
         </CardContent>
       </Card>
 

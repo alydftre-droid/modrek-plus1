@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import * as tus from "tus-js-client";
+import { getBunnyVideoStatus } from "@/lib/bunnyPlayback";
 import { Loader2, Upload, FileText, Package, BookMarked, X, MoreVertical, Target, Check } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
 import { queueExternalSync } from "@/lib/externalSync";
@@ -70,9 +71,26 @@ function getBucketName(type: ContentType): string {
   }
 }
 
+// Common video containers teachers actually record/export with. Some Android
+// pickers ignore "video/*" for mkv/avi/wmv, so extensions are listed too.
+export const SUPPORTED_VIDEO_EXTENSIONS = [
+  "mp4", "mov", "m4v", "webm", "mkv", "avi", "wmv", "flv", "mpeg", "mpg", "3gp", "ts", "ogv",
+];
+
+const VIDEO_ACCEPT = [
+  "video/*",
+  ...SUPPORTED_VIDEO_EXTENSIONS.map((e) => `.${e}`),
+].join(",");
+
+export function isSupportedVideoFile(file: File): boolean {
+  if (file.type?.startsWith("video/")) return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  return SUPPORTED_VIDEO_EXTENSIONS.includes(ext);
+}
+
 function getAcceptedFileTypes(type: ContentType): string {
   switch (type) {
-    case "video": return "video/*";
+    case "video": return VIDEO_ACCEPT;
     case "pdf":
     case "summary":
     case "exam": return ".pdf";
@@ -304,6 +322,13 @@ const ContentUpsertDialog = ({
         retryDelays: [0, 3000, 5000, 10000, 20000],
         chunkSize: 5 * 1024 * 1024,
         removeFingerprintOnSuccess: true,
+        // CRITICAL: scope the resume fingerprint to THIS Bunny video id.
+        // The default fingerprint is derived from the file only, so re-uploading
+        // the same file resumed an expired upload URL of an older video — the
+        // bytes never reached the new video, which then stayed at
+        // "processing" forever with 0 bytes stored.
+        fingerprint: async () =>
+          `bunny-${videoId}-${file.name}-${file.size}-${file.lastModified}`,
         metadata: {
           filetype: file.type || "video/mp4",
           title,
@@ -356,6 +381,20 @@ const ContentUpsertDialog = ({
         reject(new Error(error?.message || "تعذر بدء رفع الفيديو"));
       });
     });
+
+    // Verify Bunny actually received the bytes before saving the lesson.
+    // Without this, a silently-failed transfer produced a lesson that showed
+    // "جاري معالجة الفيديو" forever.
+    try {
+      const status = await getBunnyVideoStatus(videoId);
+      if (status && status.neverUploaded) {
+        throw new Error("لم تصل بيانات الفيديو إلى الخادم. برجاء المحاولة مرة أخرى من اتصال أفضل");
+      }
+    } catch (verifyError: any) {
+      if (verifyError?.message?.includes("لم تصل بيانات")) throw verifyError;
+      // Status check itself failed (network/permission) — don't block the save.
+      console.warn("bunny upload verification skipped", verifyError);
+    }
 
     return `bunny://${videoId}`;
   };
@@ -1012,7 +1051,16 @@ const ContentUpsertDialog = ({
                 <Input
                   type="file"
                   accept={getAcceptedFileTypes(type)}
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const picked = e.target.files?.[0] || null;
+                    if (picked && type === "video" && !isSupportedVideoFile(picked)) {
+                      toast.error("صيغة الفيديو غير مدعومة. الصيغ المدعومة: " + SUPPORTED_VIDEO_EXTENSIONS.join("، ").toUpperCase());
+                      e.target.value = "";
+                      setFile(null);
+                      return;
+                    }
+                    setFile(picked);
+                  }}
                   className="cursor-pointer"
                 />
                 {file && (

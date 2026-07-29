@@ -94,3 +94,54 @@ export async function getSignedPlayback(fileUrlOrVideoId: string): Promise<Signe
   cache.set(videoId, sp);
   return sp;
 }
+
+/* ------------------------------------------------------------------ */
+/*  Encoding status                                                    */
+/* ------------------------------------------------------------------ */
+
+export interface BunnyVideoStatus {
+  videoId: string;
+  status: number;
+  statusLabel: string;
+  encodeProgress: number;
+  availableResolutions: string[];
+  isPlayable: boolean;
+  isProcessing: boolean;
+  isFailed: boolean;
+  neverUploaded?: boolean;
+  error?: string;
+}
+
+/**
+ * Ask the backend for the real Bunny encoding status of a video so the UI can
+ * show progress / a precise error instead of an endless "processing" screen.
+ */
+export async function getBunnyVideoStatus(fileUrlOrVideoId: string): Promise<BunnyVideoStatus | null> {
+  const videoId = isBunnyVideo(fileUrlOrVideoId)
+    ? extractBunnyVideoId(fileUrlOrVideoId)
+    : fileUrlOrVideoId;
+  if (!videoId) return null;
+  const { data, error } = await supabase.functions.invoke("bunny-stream?action=video-status", {
+    body: { videoId },
+  });
+  if (error || !data) return null;
+  return data as BunnyVideoStatus;
+}
+
+/** Teacher/admin only: ask Bunny to re-encode a stuck or failed video. */
+export async function requestBunnyReencode(fileUrlOrVideoId: string): Promise<boolean> {
+  const videoId = isBunnyVideo(fileUrlOrVideoId)
+    ? extractBunnyVideoId(fileUrlOrVideoId)
+    : fileUrlOrVideoId;
+  if (!videoId) return false;
+  const { data, error } = await supabase.functions.invoke("bunny-stream?action=reencode", {
+    body: { videoId },
+  });
+  return !error && Boolean((data as any)?.success);
+}
+
+/** Drop any cached signed URLs for a video (used after a re-encode). */
+export function clearPlaybackCache(videoId?: string) {
+  if (videoId) cache.delete(videoId);
+  else cache.clear();
+}

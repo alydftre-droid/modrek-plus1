@@ -154,6 +154,66 @@ async function canAccessVideo(sb: ReturnType<typeof createClient>, videoId: stri
   return !error && Array.isArray(data) && data.length > 0;
 }
 
+/* ---------------------------------------------------------------- */
+/*  Bunny encoding status helpers                                    */
+/* ---------------------------------------------------------------- */
+
+// Bunny Stream video.status codes
+// 0 Created · 1 Uploaded · 2 Processing · 3 Transcoding · 4 Finished
+// 5 Error   · 6 UploadFailed · 7 JitSegmenting · 8 JitPlaylistsCreated
+const BUNNY_STATUS_LABEL: Record<number, string> = {
+  0: "created",
+  1: "uploaded",
+  2: "processing",
+  3: "transcoding",
+  4: "finished",
+  5: "error",
+  6: "upload_failed",
+  7: "jit_segmenting",
+  8: "jit_playlists_created",
+};
+
+function describeBunnyVideo(data: Record<string, any>) {
+  const status = Number(data?.status ?? 0);
+  const resolutions = String(data?.availableResolutions || "")
+    .split(",")
+    .map((r) => r.trim())
+    .filter(Boolean);
+  const isFailed = status === 5 || status === 6;
+  // Playable as soon as at least one rendition is published (Bunny publishes
+  // progressively during transcoding) or the encode is fully finished.
+  const isPlayable = !isFailed && (status === 4 || status === 8 || resolutions.length > 0);
+  const isProcessing = !isFailed && !isPlayable;
+  return {
+    videoId: data?.guid,
+    title: data?.title ?? null,
+    status,
+    statusLabel: BUNNY_STATUS_LABEL[status] ?? `unknown_${status}`,
+    encodeProgress: Number(data?.encodeProgress ?? 0),
+    length: Number(data?.length ?? 0),
+    width: Number(data?.width ?? 0),
+    height: Number(data?.height ?? 0),
+    storageSize: Number(data?.storageSize ?? 0),
+    availableResolutions: resolutions,
+    isPlayable,
+    isProcessing,
+    isFailed,
+    // Bunny keeps a 0-byte record when the tus upload never finalized.
+    neverUploaded: status <= 1 && Number(data?.storageSize ?? 0) === 0,
+  };
+}
+
+async function fetchBunnyVideo(apiKey: string, libraryId: string, videoId: string) {
+  const res = await fetch(`${BUNNY_API_URL}/library/${libraryId}/videos/${videoId}`, {
+    headers: { AccessKey: apiKey, Accept: "application/json" },
+  });
+  if (!res.ok) {
+    const upstream = await res.text().catch(() => "");
+    return { ok: false as const, status: res.status, upstream: upstream.slice(0, 400) };
+  }
+  return { ok: true as const, data: await res.json() };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -179,7 +239,8 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
 
-  const serviceRoleHealthCheck = action === "health" && isServiceRoleHealthCheck(authHeader);
+  const serviceRoleCall = isServiceRoleHealthCheck(authHeader);
+  const serviceRoleHealthCheck = (action === "health" || action === "diagnose") && serviceRoleCall;
 
   const claims = serviceRoleHealthCheck ? { sub: "service-role-health-check", email: null } : await getVerifiedClaims(authHeader);
   const userId = claims?.sub;
@@ -280,6 +341,85 @@ Deno.serve(async (req) => {
         signed,
       });
     }
+
+    // Action: video-status — encoding status for the player (students + teachers).
+    // Lets the UI show real progress / a real error instead of an endless spinner.
+    if (action === "video-status") {
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      const videoId: string | undefined = body?.videoId || url.searchParams.get("videoId") || undefined;
+      if (!videoId || !/^[a-zA-Z0-9-]{8,64}$/.test(videoId)) {
+        return jsonResponse({ error: "videoId is required" }, 400);
+      }
+      const isPrivileged = await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined);
+      if (!isPrivileged && !(await canAccessVideo(userClient, videoId))) {
+        return jsonResponse({ error: "Not found or no access" }, 404);
+      }
+      if (!bunny.apiKey) {
+        return jsonResponse({ error: "BUNNY_STREAM_API_KEY_MISSING", unknown: true }, 200);
+      }
+      const result = await fetchBunnyVideo(bunny.apiKey, bunny.libraryId!, videoId);
+      if (!result.ok) {
+        console.error("bunny video-status failed", { videoId, status: result.status, upstream: result.upstream });
+        return jsonResponse({
+          error: result.status === 404 ? "VIDEO_NOT_FOUND" : `BUNNY_STATUS_${result.status}`,
+          videoId,
+          status: -1,
+          statusLabel: result.status === 404 ? "missing" : "unavailable",
+          isPlayable: false,
+          isProcessing: false,
+          isFailed: true,
+        }, 200);
+      }
+      const info = describeBunnyVideo(result.data);
+      console.log("bunny video-status", JSON.stringify({ videoId, ...info }));
+      return jsonResponse(info);
+    }
+
+    // Action: reencode — retry a failed / stuck encode (teacher + admin only).
+    if (action === "reencode") {
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      const videoId: string | undefined = body?.videoId || url.searchParams.get("videoId") || undefined;
+      if (!videoId || !/^[a-zA-Z0-9-]{8,64}$/.test(videoId)) {
+        return jsonResponse({ error: "videoId is required" }, 400);
+      }
+      if (!(await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined))) {
+        return jsonResponse({ error: "Teacher video permission required" }, 403);
+      }
+      const res = await fetch(`${BUNNY_API_URL}/library/${bunny.libraryId}/videos/${videoId}/reencode`, {
+        method: "POST",
+        headers: { AccessKey: bunny.apiKey!, Accept: "application/json" },
+      });
+      const upstream = await res.text().catch(() => "");
+      console.log("bunny reencode", JSON.stringify({ videoId, status: res.status, upstream: upstream.slice(0, 300) }));
+      if (!res.ok) {
+        return jsonResponse({ error: `Reencode failed [${res.status}]`, details: upstream.slice(0, 300) }, res.status);
+      }
+      return jsonResponse({ success: true, videoId });
+    }
+
+    // Action: diagnose — service-role only pipeline audit of the newest videos.
+    if (action === "diagnose") {
+      if (!serviceRoleCall) return jsonResponse({ error: "Service role required" }, 403);
+      const res = await fetch(
+        `${BUNNY_API_URL}/library/${bunny.libraryId}/videos?page=1&itemsPerPage=20&orderBy=date`,
+        { headers: { AccessKey: bunny.apiKey!, Accept: "application/json" } },
+      );
+      if (!res.ok) {
+        const upstream = await res.text().catch(() => "");
+        return jsonResponse({ error: `List failed [${res.status}]`, upstream: upstream.slice(0, 400) }, 502);
+      }
+      const list = await res.json();
+      return jsonResponse({
+        libraryId: bunny.libraryId,
+        cdnHostname: bunny.cdnHostname,
+        totalItems: list?.totalItems ?? 0,
+        items: (list?.items ?? []).map((v: Record<string, any>) => describeBunnyVideo(v)),
+      });
+    }
+
+
 
 
     if (action === "create-video") {
