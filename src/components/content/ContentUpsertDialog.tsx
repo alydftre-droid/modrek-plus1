@@ -1051,7 +1051,16 @@ const ContentUpsertDialog = ({
                 <Input
                   type="file"
                   accept={getAcceptedFileTypes(type)}
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const picked = e.target.files?.[0] || null;
+                    if (picked && type === "video" && !isSupportedVideoFile(picked)) {
+                      toast.error("صيغة الفيديو غير مدعومة. الصيغ المدعومة: " + SUPPORTED_VIDEO_EXTENSIONS.join("، ").toUpperCase());
+                      e.target.value = "";
+                      setFile(null);
+                      return;
+                    }
+                    setFile(picked);
+                  }}
                   className="cursor-pointer"
                 />
                 {file && (
