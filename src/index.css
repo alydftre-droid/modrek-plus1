@@ -1724,6 +1724,18 @@
 }
 
 @layer utilities {
+  /* عناوين/أوصاف الدروس الطويلة جدًا (بدون مسافات) كانت تكسر التخطيط أفقيًا.
+     نجبر الكسر داخل الكلمة لأي نص مقصوص أو مقطوع. */
+  .line-clamp-1,
+  .line-clamp-2,
+  .line-clamp-3,
+  .line-clamp-4,
+  .truncate {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    min-width: 0;
+  }
+
   /* أنيميشن الظهور */
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
