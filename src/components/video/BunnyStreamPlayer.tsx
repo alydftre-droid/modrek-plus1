@@ -5,7 +5,7 @@ import {
   Settings, RotateCw, Loader2, Check, ChevronRight, ChevronLeft,
 } from "lucide-react";
 import { extractBunnyVideoId, isBunnyVideo } from "@/lib/bunnyStream";
-import { getSignedPlayback } from "@/lib/bunnyPlayback";
+import { getSignedPlayback, getBunnyVideoStatus, clearPlaybackCache, type BunnyVideoStatus } from "@/lib/bunnyPlayback";
 import WatermarkOverlay from "@/components/video/WatermarkOverlay";
 import { useSecureVideoScreen } from "@/hooks/useSecureVideoScreen";
 import { lockOrientation, unlockOrientation } from "@/lib/screenOrientation";
