@@ -907,9 +907,9 @@ const TeacherUploadContent = () => {
                       <FileText className="h-6 w-6 text-primary" />
                     </div>
                   )}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-semibold text-foreground text-sm truncate">{item.title}</h3>
+                      <h3 className="font-semibold text-foreground text-sm line-clamp-2 min-w-0 break-words">{item.title}</h3>
                       {getSectionBadge(item)}
                       {item.is_free_preview && (
                         <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/15 text-amber-700 border border-amber-300 gap-1">
