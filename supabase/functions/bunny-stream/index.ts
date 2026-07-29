@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
   }
 
   const serviceRoleCall = isServiceRoleHealthCheck(authHeader);
-  const serviceRoleHealthCheck = (action === "health" || action === "diagnose") && (serviceRoleCall || action === "diagnose");
+  const serviceRoleHealthCheck = (action === "health" || action === "diagnose") && serviceRoleCall;
 
   const claims = serviceRoleHealthCheck ? { sub: "service-role-health-check", email: null } : await getVerifiedClaims(authHeader);
   const userId = claims?.sub;
@@ -401,7 +401,7 @@ Deno.serve(async (req) => {
 
     // Action: diagnose — service-role only pipeline audit of the newest videos.
     if (action === "diagnose") {
-      if (!serviceRoleCall && !serviceRoleHealthCheck) return jsonResponse({ error: "Service role required" }, 403);
+      if (!serviceRoleCall) return jsonResponse({ error: "Service role required" }, 403);
       const res = await fetch(
         `${BUNNY_API_URL}/library/${bunny.libraryId}/videos?page=1&itemsPerPage=20&orderBy=date`,
         { headers: { AccessKey: bunny.apiKey!, Accept: "application/json" } },
