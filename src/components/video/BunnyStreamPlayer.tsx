@@ -93,6 +93,8 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
   const [resumeAt, setResumeAt] = useState(0);
   const [showCenterIcon, setShowCenterIcon] = useState<"play" | "pause" | null>(null);
   const [iframeFallbackUrl, setIframeFallbackUrl] = useState<string | null>(null);
+  const [encodeState, setEncodeState] = useState<BunnyVideoStatus | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useSecureVideoScreen();
 
