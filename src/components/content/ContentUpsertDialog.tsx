@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import * as tus from "tus-js-client";
+import { getBunnyVideoStatus } from "@/lib/bunnyPlayback";
 import { Loader2, Upload, FileText, Package, BookMarked, X, MoreVertical, Target, Check } from "lucide-react";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
 import { queueExternalSync } from "@/lib/externalSync";
