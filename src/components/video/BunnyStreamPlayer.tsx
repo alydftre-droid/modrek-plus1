@@ -238,7 +238,27 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       hlsRef.current?.destroy();
       hlsRef.current = null;
     };
-  }, [videoId, readyToLoad, resumeAt]);
+  }, [videoId, readyToLoad, resumeAt, reloadKey]);
+
+  /* ---------------- Poll encoding status while processing ---------------- */
+  useEffect(() => {
+    if (!videoId || !encodeState || !encodeState.isProcessing) return;
+    let cancelled = false;
+    const id = window.setInterval(async () => {
+      const fresh = await getBunnyVideoStatus(videoId);
+      if (cancelled || !fresh) return;
+      if (fresh.isPlayable) {
+        clearPlaybackCache(videoId);
+        setEncodeState(null);
+        setReloadKey((k) => k + 1); // re-attach and start playing automatically
+      } else {
+        setEncodeState(fresh);
+      }
+    }, 6000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [videoId, encodeState?.isProcessing, encodeState?.status]);
+
+
 
   /* ---------------- Video event bindings ---------------- */
   useEffect(() => {
