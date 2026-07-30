@@ -4,7 +4,7 @@ import {
   X, Play, Pause, Volume2, VolumeX, Maximize, Minimize,
   Settings, RotateCw, Loader2, Check, ChevronRight, ChevronLeft,
 } from "lucide-react";
-import { extractBunnyVideoId, isBunnyVideo } from "@/lib/bunnyStream";
+import { extractBunnyVideoId, isBunnyVideo, getBunnyResolutionPlaylistUrl } from "@/lib/bunnyStream";
 import { getSignedPlayback, getBunnyVideoStatus, clearPlaybackCache, type BunnyVideoStatus } from "@/lib/bunnyPlayback";
 import WatermarkOverlay from "@/components/video/WatermarkOverlay";
 import { useSecureVideoScreen } from "@/hooks/useSecureVideoScreen";
