@@ -13,6 +13,8 @@ import { SubjectArtwork } from "@/components/teacher/SubjectArtwork";
 import { getGradeArtwork } from "@/lib/teacherGradeArtwork";
 import supportAgentImg from "@/assets/support-agent.png";
 import mudrikLogo from "@/assets/mudrik-logo.png";
+import { useDevGradeDelete } from "@/components/teacher/useDevGradeDelete";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ARABIC_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -47,6 +49,12 @@ export default function TeacherHomePage() {
   const loading = profileLoading || assignLoading;
 
   const grouped = useMemo(() => groupTeacherAssignments(assignments), [assignments]);
+  const queryClient = useQueryClient();
+  const devGrade = useDevGradeDelete({
+    assignments: assignments as any,
+    teacherId: user?.id,
+    onDeleted: () => queryClient.invalidateQueries({ queryKey: ["teacher-assignments", user?.id] }),
+  });
 
   if (loading) {
     return (
@@ -176,13 +184,17 @@ export default function TeacherHomePage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.06, duration: 0.3 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() =>
+                        {...devGrade.bindCard({ category: group.category, categoryLabel: group.category, stageLabel: group.stageLabel, grade })}
+                        onClick={() => {
+                          if (devGrade.shouldSwallowClick()) return;
                           navigate(
                             `/teacher/grade?category=${encodeURIComponent(group.category)}&grade=${encodeURIComponent(grade)}&stage=${stageKeyFromValue(group.stage) || group.stage}`,
-                          )
-                        }
+                          );
+                        }}
                         className={`group relative overflow-hidden rounded-[1.5rem] text-right shadow-lg ring-1 ${visual.ring} transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 active:translate-y-0 bg-card`}
                       >
+                        {devGrade.renderDevDeleteButton({ category: group.category, categoryLabel: group.category, stageLabel: group.stageLabel, grade })}
+
                         {/* Themed banner with custom artwork when available */}
                         <div className={`relative h-32 overflow-hidden bg-gradient-to-br ${visual.gradient}`}>
                           {artwork ? (
@@ -226,6 +238,8 @@ export default function TeacherHomePage() {
           })
         )}
       </div>
+
+      {devGrade.dialogs}
 
       {/* AI Assistant FAB */}
       <motion.button
