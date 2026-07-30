@@ -62,6 +62,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const masterSrcRef = useRef<string>("");
   const hideTimerRef = useRef<number | null>(null);
   const tapTimerRef = useRef<number | null>(null);
   const lastTapRef = useRef<{ t: number; side: "l" | "m" | "r" } | null>(null);
@@ -151,6 +152,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       if (!video) return;
 
       const src = sp.playbackUrl;
+      masterSrcRef.current = src;
       const fallbackToEmbed = () => {
         if (cancelled) return;
         // Before falling back to the Bunny iframe, re-check the encode state so
@@ -535,6 +537,32 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
   /* ---------------- Quality / speed ---------------- */
   const setQuality = (idx: number) => {
     const hls = hlsRef.current;
+    const video = videoRef.current;
+    const target = levels.find((l) => l.index === idx);
+
+    // Manual per-resolution playlist (Bunny) — swap the source in place.
+    if (target?.url || (idx === -1 && levels.some((l) => l.url))) {
+      const nextSrc = idx === -1 ? masterSrcRef.current : target!.url!;
+      const at = video?.currentTime || 0;
+      const wasPlaying = video ? !video.paused : false;
+      if (hls) {
+        hls.loadSource(nextSrc);
+      } else if (video) {
+        video.src = nextSrc;
+      }
+      if (video) {
+        const restore = () => {
+          try { video.currentTime = at; } catch { /* ignore */ }
+          if (wasPlaying) void video.play().catch(() => undefined);
+        };
+        video.addEventListener("loadedmetadata", restore, { once: true });
+      }
+      setAutoActiveHeight(idx === -1 ? 0 : target?.height || 0);
+      setCurrentLevel(idx);
+      setSettingsPane(null);
+      return;
+    }
+
     if (hls) hls.currentLevel = idx;
     setCurrentLevel(idx);
     setSettingsPane(null);
