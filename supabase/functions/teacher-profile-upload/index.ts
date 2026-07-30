@@ -68,9 +68,10 @@ Deno.serve(async (req) => {
     if (kind === "video" && !file.type.startsWith("video/") && file.type !== "application/octet-stream") {
       return jsonResponse({ error: "Invalid video file" }, 400);
     }
-    if (kind === "video" && file.size > 50 * 1024 * 1024) {
-      return jsonResponse({ error: "Video exceeds 50MB" }, 413);
+    if (kind === "video" && file.size > 100 * 1024 * 1024) {
+      return jsonResponse({ error: "Video exceeds 100MB" }, 413);
     }
+
 
     const userId = claims.sub;
     const path = normalizePath(String(form.get("path") || ""), userId, kind, file);
