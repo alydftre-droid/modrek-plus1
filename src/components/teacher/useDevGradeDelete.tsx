@@ -104,7 +104,7 @@ export function useDevGradeDelete(params: {
       onDeleted?.(confirmTarget.assignmentIds);
       setConfirmTarget(null);
       setConfirmText("");
-      toast.success("✅ تم حذف الصف من حساب المعلم بنجاح.");
+      toast.success("تم حذف الصف ومجموعاته وكل متعلقاته من حساب المعلم نهائيًا.");
     } catch (e: any) {
       toast.error(e?.message || "فشل حذف الصف من حساب المعلم");
     } finally {
@@ -135,7 +135,7 @@ export function useDevGradeDelete(params: {
               🗑️ حذف الصف من حساب المعلم
             </button>
             <p className="text-xs text-muted-foreground mt-3 leading-6">
-              هذا الخيار متاح للمطور فقط. لن يتم حذف الفيديوهات أو الملفات أو الاختبارات، سيتم فقط إزالة ربط الصف بحساب المعلم.
+              هذا الخيار متاح للمطور فقط. سيتم حذف الصف ومجموعاته ومحتواه واختباراته واشتراكاته من حساب المعلم نهائيًا.
             </p>
           </div>
         </SheetContent>

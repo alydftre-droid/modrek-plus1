@@ -6057,6 +6057,10 @@ export type Database = {
         Args: { _action: string; _message?: string; _request_id: string }
         Returns: Json
       }
+      admin_remove_teacher_grade_workspace: {
+        Args: { _assignment_ids: string[]; _teacher_id: string }
+        Returns: Json
+      }
       admin_save_withdrawal_closing_schedule: {
         Args: {
           _day: number
