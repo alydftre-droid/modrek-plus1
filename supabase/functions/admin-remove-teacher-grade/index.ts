@@ -1,8 +1,14 @@
-// Developer-only: remove a grade (teacher_assignments rows) from a teacher account.
-// Content, exams and files are NOT deleted — only the teacher <-> grade link.
+// Developer-only: atomically remove a grade workspace and all related teacher data.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+
+// Keep these explicit: the package's `/cors` subpath is not exported in every
+// Edge runtime and caused this function to fail during boot before OPTIONS ran.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
