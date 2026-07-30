@@ -31,6 +31,8 @@ interface QualityLevel {
   index: number;      // -1 = auto
   label: string;      // "1080p" | "Auto"
   height: number;     // 0 for auto
+  /** Set only for manual (per-resolution) Bunny playlists used as a fallback */
+  url?: string;
 }
 
 /* ------------------------------------------------------------------ */
