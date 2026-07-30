@@ -1,7 +1,7 @@
 // Developer-only: remove a grade (teacher_assignments rows) from a teacher account.
 // Content, exams and files are NOT deleted — only the teacher <-> grade link.
 
-import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
