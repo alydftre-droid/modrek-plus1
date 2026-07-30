@@ -3,7 +3,6 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -16,8 +15,16 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const authHeader = req.headers.get("Authorization");
-    const claims = await getJwtClaimsFromAuthHeader(authHeader);
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const authClient = createClient(SUPABASE_URL, ANON_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data: claimsData, error: claimsError } = token
+      ? await authClient.auth.getClaims(token)
+      : { data: null, error: new Error("missing token") };
+    const claims = claimsError ? null : claimsData?.claims;
     if (!claims?.sub) return json({ error: "انتهت جلسة المطور. اخرج من حساب المعلم ثم ادخل إليه مرة أخرى" }, 401);
     const callerId = claims.sub;
 
