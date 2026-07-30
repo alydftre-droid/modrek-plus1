@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 const ORIGINAL_SESSION_KEY = "dev_original_session";
 const IMPERSONATION_META_KEY = "dev_impersonation_active";
@@ -30,6 +31,30 @@ export function getOriginalDeveloperAccessToken(): string | null {
     if (!raw) return null;
     const original = JSON.parse(raw);
     return typeof original?.access_token === "string" && original.access_token ? original.access_token : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getFreshOriginalDeveloperAccessToken(): Promise<string | null> {
+  try {
+    const raw = localStorage.getItem(ORIGINAL_SESSION_KEY);
+    if (!raw) return null;
+    const original = JSON.parse(raw);
+    if (!original?.access_token || !original?.refresh_token) return null;
+
+    const authClient = createClient(
+      import.meta.env.VITE_SUPABASE_URL,
+      import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } },
+    );
+    const { data, error } = await authClient.auth.setSession({
+      access_token: original.access_token,
+      refresh_token: original.refresh_token,
+    });
+    if (error || !data.session) return null;
+    localStorage.setItem(ORIGINAL_SESSION_KEY, JSON.stringify(data.session));
+    return data.session.access_token;
   } catch {
     return null;
   }
