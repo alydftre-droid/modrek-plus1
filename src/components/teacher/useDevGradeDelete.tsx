@@ -74,7 +74,8 @@ export function useDevGradeDelete(params: {
       onPointerDown: () => {
         fired.current = false;
         clear();
-        timer.current = window.setTimeout(() => openMenu(input), 500);
+        // Developer must hold for 3 full seconds before the delete option appears.
+        timer.current = window.setTimeout(() => openMenu(input), 3000);
       },
       onPointerUp: clear,
       onPointerLeave: clear,
@@ -91,26 +92,9 @@ export function useDevGradeDelete(params: {
     return false;
   };
 
-  /** Small always-visible trash button rendered only for developers. */
-  const renderDevDeleteButton = (input: Parameters<typeof buildTarget>[0]) => {
-    if (!devMode) return null;
-    return (
-      <button
-        type="button"
-        aria-label="حذف الصف من حساب المعلم"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setConfirmTarget(buildTarget(input));
-          setConfirmText("");
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-        className="absolute top-2 left-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-lg ring-2 ring-white/70"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    );
-  };
+  /** Deprecated: delete is only reachable through the 3s long-press menu. */
+  const renderDevDeleteButton = (_input?: Parameters<typeof buildTarget>[0]) => null;
+
 
   const handleDelete = async () => {
     if (!confirmTarget || !teacherId || confirmText.trim() !== "حذف") return;
