@@ -65,3 +65,12 @@ export function resolveVideoUrl(fileUrl: string): { url: string; isBunny: boolea
   const isHls = /\.m3u8(\?|$)/i.test(fileUrl);
   return { url: fileUrl, isBunny: false, isHls };
 }
+
+/**
+ * Per-resolution HLS playlist for a Bunny video (used when the master playlist
+ * exposes a single rendition and we want to offer manual quality selection).
+ */
+export function getBunnyResolutionPlaylistUrl(videoId: string, resolution: string): string {
+  const res = resolution.endsWith("p") ? resolution : `${resolution}p`;
+  return `https://${BUNNY_CDN_HOSTNAME}/${videoId}/${res}/video.m3u8`;
+}
