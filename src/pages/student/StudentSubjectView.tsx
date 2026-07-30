@@ -1593,8 +1593,8 @@ const StudentSubjectView = () => {
             className={`transition-shadow hover:shadow-md ${openable ? "cursor-pointer" : "cursor-pointer border-border/80 bg-card"}`}
             onClick={(e) => handleContentClick(e, item)}
           >
-            <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-              <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+            <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-start sm:justify-between sm:p-4">
+              <div className="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
                 {item.type === "video" ? (
                   <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-accent">
                     <VideoThumb url={item.file_url} thumbnailUrl={item.thumbnail_url} className="h-full w-full" rounded="rounded-lg" />
@@ -1614,8 +1614,13 @@ const StudentSubjectView = () => {
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <h3 className="line-clamp-2 font-semibold text-foreground">{item.title}</h3>
+                  <div className="flex flex-wrap items-start gap-1.5">
+                    <h3
+                      dir="auto"
+                      className="line-clamp-2 min-w-0 flex-1 break-words [overflow-wrap:anywhere] font-semibold text-foreground"
+                    >
+                      {item.title}
+                    </h3>
                     {item.is_free_preview === true && (
                       <Badge className="shrink-0 gap-1 border border-primary/20 bg-primary/10 px-1.5 py-0 text-[10px] text-primary">
                         <Play className="h-2.5 w-2.5" />
@@ -1624,11 +1629,12 @@ const StudentSubjectView = () => {
                     )}
                   </div>
                   {item.description && (
-                    <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{item.description}</p>
+                    <LessonCardText text={item.description} className="mt-1 text-xs leading-5 text-muted-foreground" />
                   )}
                 </div>
               </div>
               <div className="flex shrink-0 items-center justify-end gap-2 sm:w-auto">
+
                 {openable ? (
                   <Button
                     variant="outline"
