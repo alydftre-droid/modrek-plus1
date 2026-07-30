@@ -22,6 +22,7 @@ import ExamsHomePage from "@/pages/teacher/exams/ExamsHomePage";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { getOriginalDeveloperAccessToken, isImpersonating } from "@/lib/devImpersonation";
+import LessonCardText from "@/components/content/LessonCardText";
 import {
   BookOpen,
   ChevronLeft,
@@ -898,8 +899,8 @@ const TeacherUploadContent = () => {
               key={item.id}
               className="hover:shadow-md transition-shadow"
             >
-              <CardContent className="p-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+              <CardContent className="p-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                   {type === "video" ? (
                     <VideoThumbnail url={item.file_url} />
                   ) : (
@@ -908,21 +909,29 @@ const TeacherUploadContent = () => {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h3 className="font-semibold text-foreground text-sm line-clamp-2 min-w-0 break-words">{item.title}</h3>
+                    <div className="flex items-start gap-1.5 flex-wrap">
+                      <h3
+                        dir="auto"
+                        className="font-semibold text-foreground text-sm line-clamp-2 min-w-0 flex-1 break-words [overflow-wrap:anywhere]"
+                      >
+                        {item.title}
+                      </h3>
                       {getSectionBadge(item)}
                       {item.is_free_preview && (
-                        <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/15 text-amber-700 border border-amber-300 gap-1">
+                        <Badge className="text-[10px] px-1.5 py-0 bg-amber-500/15 text-amber-700 border border-amber-300 gap-1 shrink-0">
                           <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
                           مجاني
                         </Badge>
                       )}
                     </div>
-                    {item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}
+                    {item.description && (
+                      <LessonCardText text={item.description} className="mt-1 text-xs text-muted-foreground leading-5" />
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1 shrink-0 justify-end flex-wrap">
+
                   {type === "video" ? (
                     <Button
                       type="button"

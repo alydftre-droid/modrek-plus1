@@ -76,7 +76,9 @@ export const getTeacherProfileUploadErrorMessage = (error: unknown, fallback: st
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (/bucket not found/i.test(message)) return "مخزن ملفات السيرة غير موجود أو غير مفعّل";
   if (/row-level security|unauthorized|not authorized/i.test(message)) return "لا توجد صلاحية رفع لهذا الحساب، يرجى تسجيل الدخول مرة أخرى";
-  if (/payload too large|exceeds 50mb|exceeded the maximum/i.test(message)) return "حجم الملف أكبر من الحد المسموح";
+  if (/payload too large|exceeds \d+mb|exceeded the maximum|maximum allowed size/i.test(message)) {
+    return "حجم الملف أكبر من الحد المسموح (100 ميجابايت)";
+  }
   return fallback;
 };
 
@@ -89,16 +91,81 @@ const directStorageUpload = async (file: File, path: string, contentType: string
   return data.publicUrl;
 };
 
-export const uploadTeacherProfileFile = async (file: File, userId: string, kind: TeacherProfileUploadKind) => {
+/**
+ * Resumable (TUS) upload. Required for intro videos: single-request uploads are
+ * capped by the storage API body limit, which is what kept rejecting files
+ * larger than 50MB. TUS streams the file in 6MB chunks instead.
+ */
+const resumableStorageUpload = async (
+  file: File,
+  path: string,
+  contentType: string,
+  onProgress?: (loaded: number, total: number) => void,
+) => {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  if (!token || !supabaseUrl) throw new Error("no-session");
+
+  const { Upload } = await import("tus-js-client");
+
+  await new Promise<void>((resolve, reject) => {
+    const upload = new Upload(file, {
+      endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
+      retryDelays: [0, 1000, 3000, 6000],
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-upsert": "true",
+      },
+      // Unique per target object so a previous stalled upload can never be resumed
+      // onto a different file (the bug that produced 0-byte media).
+      fingerprint: async () => `teacher-profile-${path}-${file.size}`,
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      metadata: {
+        bucketName: BUCKET,
+        objectName: path,
+        contentType,
+        cacheControl: "3600",
+      },
+      chunkSize: 6 * 1024 * 1024,
+      onError: (error) => reject(error),
+      onProgress: (bytesUploaded, bytesTotal) => onProgress?.(bytesUploaded, bytesTotal),
+      onSuccess: () => resolve(),
+    });
+
+    upload.findPreviousUploads().then((previous) => {
+      if (previous.length) upload.resumeFromPreviousUpload(previous[0]);
+      upload.start();
+    }).catch(() => upload.start());
+  });
+
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+};
+
+export const uploadTeacherProfileFile = async (
+  file: File,
+  userId: string,
+  kind: TeacherProfileUploadKind,
+  onProgress?: (loaded: number, total: number) => void,
+) => {
   const preparedFile = kind === "video" ? file : await imageFileToJpeg(file);
   const path = buildPath(preparedFile, userId, kind);
   const contentType = getUploadContentType(preparedFile, kind);
 
-  // Videos: upload directly to Storage. Routing 50MB through an edge function
-  // buffers the whole file in memory and frequently stalls or times out.
+  // Videos: always resumable so 60/80/100MB files upload reliably. Falls back to
+  // a direct upload only for small files if the resumable endpoint is unavailable.
   if (kind === "video") {
-    return await directStorageUpload(preparedFile, path, contentType);
+    try {
+      return await resumableStorageUpload(preparedFile, path, contentType, onProgress);
+    } catch (error) {
+      console.warn("teacher intro video resumable upload failed, falling back", error);
+      if (preparedFile.size > 40 * 1024 * 1024) throw error;
+      return await directStorageUpload(preparedFile, path, contentType);
+    }
   }
+
 
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;

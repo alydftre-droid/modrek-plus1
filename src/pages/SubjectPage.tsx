@@ -221,11 +221,12 @@ const SubjectPage = () => {
                   )}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-foreground truncate">{item.title}</h3>
+                  <h3 dir="auto" className="font-semibold text-foreground line-clamp-2 break-words [overflow-wrap:anywhere]">{item.title}</h3>
                   {item.description && (
-                    <p className="text-sm text-muted-foreground truncate">{item.description}</p>
+                    <p dir="auto" className="text-sm text-muted-foreground line-clamp-2 break-words [overflow-wrap:anywhere]">{item.description}</p>
                   )}
                 </div>
+
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {!hasAccess(item) ? (
