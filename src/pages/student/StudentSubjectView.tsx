@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
+import LessonCardText from "@/components/content/LessonCardText";
 import {
   ChevronLeft,
   Loader2,
