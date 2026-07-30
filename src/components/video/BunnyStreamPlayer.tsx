@@ -189,6 +189,31 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
         }, 12000);
       };
 
+      // Manual (per-resolution) fallback list built from Bunny's encoded
+      // resolutions — used when the master playlist exposes a single rendition
+      // or when the browser plays HLS natively (no hls.js level API).
+      const buildManualLevels = async () => {
+        const fresh = status || (await getBunnyVideoStatus(videoId));
+        const heights = Array.from(
+          new Set(
+            (fresh?.availableResolutions || [])
+              .map((r) => parseInt(String(r).replace(/\D/g, ""), 10))
+              .filter((h) => Number.isFinite(h) && h > 0)
+          )
+        ).sort((a, b) => b - a);
+        if (!heights.length) return;
+        const built: QualityLevel[] = [{ index: -1, label: "Auto", height: 0 }];
+        heights.forEach((h, i) =>
+          built.push({
+            index: 1000 + i,
+            label: `${h}p`,
+            height: h,
+            url: getBunnyResolutionPlaylistUrl(videoId, `${h}p`),
+          })
+        );
+        if (!cancelled) setLevels(built);
+      };
+
       if (Hls.isSupported() && !video.canPlayType("application/vnd.apple.mpegurl")) {
         let networkRetries = 0;
         const hls = new Hls({
@@ -197,19 +222,25 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
           maxBufferLength: 30,
           backBufferLength: 30,
           startLevel: -1,
-          capLevelToPlayerSize: true,
+          // Never hide higher renditions: the student must be able to pick 1080p
+          // even inside a small player box.
+          capLevelToPlayerSize: false,
         });
         hlsRef.current = hls;
         hls.loadSource(src);
         hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        const syncLevels = () => {
+          if (cancelled) return;
           const built: QualityLevel[] = [{ index: -1, label: "Auto", height: 0 }];
           hls.levels
             .map((l, i) => ({ i, h: l.height || 0 }))
             .sort((a, b) => b.h - a.h)
             .forEach(({ i, h }) => built.push({ index: i, label: h ? `${h}p` : `Level ${i + 1}`, height: h }));
-          setLevels(built);
-        });
+          if (built.length > 1) setLevels(built);
+          if (built.length <= 2) void buildManualLevels();
+        };
+        hls.on(Hls.Events.MANIFEST_PARSED, syncLevels);
+        hls.on(Hls.Events.LEVELS_UPDATED, syncLevels);
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => {
           const h = hls.levels[data.level]?.height || 0;
           setAutoActiveHeight(h);
@@ -228,8 +259,9 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
         });
         attachEvents();
       } else {
-        // native HLS (Safari / iOS)
+        // native HLS (Safari / iOS) — no level API, offer manual resolutions
         video.src = src;
+        void buildManualLevels();
         attachEvents();
       }
     })();
