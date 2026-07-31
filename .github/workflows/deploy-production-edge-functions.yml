@@ -91,7 +91,7 @@ jobs:
           # Media playback is also user-critical. Deploy bunny-storage before
           # migrations so an unrelated historical migration can never leave the
           # production player on an old access-rule build returning HTTP 404.
-          for fn in bunny-storage admin-remove-teacher-grade library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+          for fn in teacher-intro-media bunny-storage admin-remove-teacher-grade library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             echo "Pre-deploying critical Library V2 function: $fn"
             deploy_with_retry "$fn"
           done
@@ -268,7 +268,7 @@ jobs:
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
-              bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
+              teacher-intro-media|bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
                 deploy_fn_with_retry "$fn" true
                 ;;
               *)
@@ -304,7 +304,7 @@ jobs:
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in admin-remove-teacher-grade ai-chat teacher-assistant support-assistant grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
+          for fn in admin-remove-teacher-grade ai-chat teacher-assistant support-assistant grade-essay openrouter-tts bunny-stream teacher-intro-media bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
             status="$(curl -sS -D "/tmp/edge-${fn}.headers" -o "/tmp/edge-${fn}.body" -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
