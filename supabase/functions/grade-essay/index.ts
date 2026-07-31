@@ -433,6 +433,11 @@ ${caseDirective(it as unknown as FeedbackItem, classifyCase(it as unknown as Fee
       return false;
     };
 
+    // Anti-repetition guards (feedback only — never affects scores).
+    const seenOpeners = new Set<string>();
+    const seenExtras = new Set<string>();
+    const signature = (text: string) => normalizeArabicText(text).split(" ").slice(0, 8).join(" ");
+
     // Batch into small chunks to force detailed per-question reasoning instead of generic one-line notes.
     const CHUNK = 4;
     for (let i = 0; i < items.length; i += CHUNK) {
@@ -461,20 +466,35 @@ ${caseDirective(it as unknown as FeedbackItem, classifyCase(it as unknown as Fee
             if (isNonAnswer(it.studentAnswer)) finalScore = 0;
             scores[it.questionId] = Math.round(finalScore * 100) / 100;
           }
+
+          const engine = buildFallbackFeedback(it as unknown as FeedbackItem, scores[it.questionId] ?? it.currentScore ?? 0);
+          let notes = String(r.notes || "").trim();
+          let extra = String(r.extra || "").trim();
+          // If the model repeated an earlier opening line or tip, swap in the
+          // engine's case-aware variant so no two notes read the same.
+          if (seenOpeners.has(signature(notes))) notes = engine.notes;
+          if (seenExtras.has(signature(extra))) extra = engine.extra;
+          seenOpeners.add(signature(notes));
+          seenExtras.add(signature(extra));
+
           feedbackJson[it.questionId] = encodeFeedback({
-            notes: String(r.notes || "").trim(),
-            explanation: String(r.explanation || "").trim(),
-            extra: String(r.extra || "").trim(),
+            notes,
+            explanation: String(r.explanation || "").trim() || engine.explanation,
+            extra,
           });
         } else {
           // Fallback per item
           if (!it.isObjective) {
             scores[it.questionId] = writtenFallbackScore(it.studentAnswer, it.modelAnswer, it.maxPoints);
           }
-          feedbackJson[it.questionId] = localFeedback(it, scores[it.questionId] ?? 0);
+          const engine = buildFallbackFeedback(it as unknown as FeedbackItem, scores[it.questionId] ?? 0);
+          seenOpeners.add(signature(engine.notes));
+          seenExtras.add(signature(engine.extra));
+          feedbackJson[it.questionId] = encodeFeedback(engine);
         }
       }
     }
+
 
     // Persist per-answer feedback + written scores.
     for (const it of items) {
