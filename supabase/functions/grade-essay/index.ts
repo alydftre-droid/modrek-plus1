@@ -154,38 +154,15 @@ function extraInfo(item: any): string {
   return "تذكّر دائماً: لا تحفظ الإجابة وحدها؛ احفظ معها سبب صحتها وكلمة السؤال التي دلت عليها، فهكذا تثبت المعلومة.";
 }
 
-// Deterministic local feedback used only when the AI provider fails. Still
-// gives 3 rich-ish sections so the review UI always shows something useful.
+// Deterministic local feedback used only when the AI provider fails or returns
+// a weak/duplicated note. Delegates to the smart feedback engine so the note is
+// case-aware (blank / partial / concept-mix / off-topic / ...) and varied.
+// NOTE: scoring is NOT touched here — `score` is read-only input.
 function localFeedback(item: any, score: number): string {
-  const max = Number(item.maxPoints || 0);
-  const q = trimText(item.question, 240);
-  const student = trimText(item.studentAnswer, 240);
-  const model = trimText(item.modelAnswer, 320);
-  const type = item.questionType;
-  const correct = max > 0 && score >= max;
-  const partial = !correct && score > 0;
-
-  const concept = detectConcept(item);
-  let notes: string;
-  if (isNonAnswer(item.studentAnswer) && WRITTEN_TYPES.has(type)) {
-    notes = `لم تقدّم إجابة على سؤال مرتبط بـ«${concept}»، لذلك لم تظهر أي عناصر يمكن تصحيحها. حتى لو لم تكن متأكداً، اكتب الفكرة التي تتذكرها أو مثالاً قريباً؛ لأن الإجابة الجزئية قد تكشف فهماً يستحق درجة.\n\nالسؤال كان يطلب منك تحديد الفكرة المقصودة في: «${q}»، والإجابة النموذجية تدور حول: «${model}».`;
-  } else if (correct) {
-    notes = OBJECTIVE_TYPES.has(type)
-      ? `اختيارك «${student || model}» صحيح لأنه يطابق الفكرة التي يسأل عنها السؤال، وليس مجرد اختيار عشوائي من البدائل.\n\nالقيمة التعليمية هنا أنك ميّزت الكلمة المفتاحية في السؤال وربطتها بباب «${concept}». انتبه فقط إلى الاختيارات القريبة التي قد تبدو صحيحة لكنها لا تجيب عن المطلوب تحديداً.`
-      : `إجابتك توضّح أنك فهمت المطلوب في سؤال «${q}»، لأنها وصلت إلى المعنى الأساسي: «${model}».\n\nالنجاح هنا ليس في كتابة نفس ألفاظ النموذج فقط، بل في وصولك للفكرة الصحيحة وربطها بباب «${concept}». حافظ على هذه الطريقة: اقرأ المطلوب أولاً ثم اكتب العناصر مباشرة.`;
-  } else if (partial) {
-    notes = `إجابتك فيها جزء من الفهم، لكنها لم تصل إلى الصورة الكاملة المطلوبة في السؤال. ذكرت معنى قريباً أو عنصراً صحيحاً، لكن الإجابة النموذجية تتضمن: «${model}».\n\nسبب نقص الدرجة أن السؤال لا يطلب تلميحاً عاماً، بل عناصر محددة من باب «${concept}». في المرة القادمة اكتب النقاط الأساسية أولاً، ثم أضف الشرح بعد ذلك.`;
-  } else {
-    notes = OBJECTIVE_TYPES.has(type)
-      ? `اختيارك «${student || "لم تختر إجابة واضحة"}» غير مناسب لهذا السؤال، لأن السؤال يقود إلى معنى مختلف هو «${model}».\n\nغالباً حدث الخلط بسبب تشابه الألفاظ أو لأنك ركزت على جزء من السؤال وتركت الكلمة التي تحدد المطلوب. قارن دائماً بين اختيارك والاختيار الصحيح: هل يجيب عن نفس المطلوب أم عن باب قريب فقط؟`
-      : `إجابتك «${student || "فارغة"}» ابتعدت عن المطلوب في السؤال. الإجابة الصحيحة تدور حول: «${model}».\n\nالخطأ هنا ليس في الأسلوب فقط، بل في أن المعنى الذي كتبته لا يغطي عناصر باب «${concept}» المطلوبة. اقرأ السؤال مرة أخرى وحدد: ما المطلوب؟ تعريف، حكم، شرط، ركن، أم مثال؟`;
-  }
-
-  const explanation = conceptExplanation(item);
-  const extra = extraInfo(item);
-
-  return encodeFeedback({ notes, explanation, extra });
+  const built = buildFallbackFeedback(item as FeedbackItem, Number(score || 0));
+  return encodeFeedback({ notes: built.notes, explanation: built.explanation, extra: built.extra });
 }
+
 
 function pickOption(options: any[], id: string | null | undefined) {
   if (!id || !Array.isArray(options)) return null;
