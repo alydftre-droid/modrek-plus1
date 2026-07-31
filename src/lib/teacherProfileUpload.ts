@@ -172,20 +172,11 @@ export const uploadTeacherProfileFile = async (
   if (kind === "video") {
     const ext = getSafeExtension(preparedFile.name, "mp4");
     const bunnyPath = `content/teacher-intros/${userId}/intro-${Date.now()}.${ext}`;
-    try {
-      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
-      return await uploadToBunnyStorage(preparedFile, bunnyPath, onProgress, undefined, undefined, onVideoProgress);
-    } catch (bunnyError) {
-      console.warn("teacher intro video bunny upload failed, falling back", bunnyError);
-    }
-
-    try {
-      return await resumableStorageUpload(preparedFile, path, contentType, onProgress);
-    } catch (error) {
-      console.warn("teacher intro video resumable upload failed, falling back", error);
-      if (preparedFile.size > 40 * 1024 * 1024) throw error;
-      return await directStorageUpload(preparedFile, path, contentType);
-    }
+    const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
+    // Keep one authoritative backend for intro videos. Falling back silently to
+    // another bucket saved URLs with different access semantics and produced
+    // persistent 404s after an otherwise recoverable Bunny verification delay.
+    return await uploadToBunnyStorage(preparedFile, bunnyPath, onProgress, undefined, undefined, onVideoProgress);
   }
 
 

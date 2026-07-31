@@ -89,25 +89,33 @@ async function verifyFinalMediaObject(
   filePath: string,
   expectedSize: number | null,
 ) {
-  const verifyRes = await fetch(`https://${config.storageHost}/${config.zone}/${filePath}`, {
-    headers: {
-      AccessKey: config.apiKey,
-      Range: "bytes=0-1023",
-    },
-  });
-  if (!verifyRes.ok && verifyRes.status !== 206) {
-    const upstream = await verifyRes.text().catch(() => "");
-    return { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200) };
+  let lastFailure: Record<string, unknown> = { ok: false, reason: "verify_not_started" };
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const verifyRes = await fetch(`https://${config.storageHost}/${config.zone}/${filePath}`, {
+      headers: { AccessKey: config.apiKey, Range: "bytes=0-1023" },
+    });
+    if (!verifyRes.ok && verifyRes.status !== 206) {
+      const upstream = await verifyRes.text().catch(() => "");
+      lastFailure = { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200), attempt };
+    } else {
+      const rangeTotal = parseContentRangeTotal(verifyRes.headers.get("content-range"));
+      const lengthTotal = Number.parseInt(verifyRes.headers.get("content-length") || "0", 10) || null;
+      const totalSize = rangeTotal ?? lengthTotal;
+      const firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
+      if (firstBytes.byteLength > 0 && (!expectedSize || !totalSize || totalSize >= expectedSize)) {
+        return { ok: true, totalSize, expectedSize, attempt };
+      }
+      lastFailure = {
+        ok: false,
+        reason: firstBytes.byteLength === 0 ? "final_object_is_empty" : "final_object_size_mismatch",
+        totalSize,
+        expectedSize,
+        attempt,
+      };
+    }
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 750));
   }
-  const rangeTotal = parseContentRangeTotal(verifyRes.headers.get("content-range"));
-  const lengthTotal = Number.parseInt(verifyRes.headers.get("content-length") || "0", 10) || null;
-  const totalSize = rangeTotal ?? lengthTotal;
-  const firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
-  if (firstBytes.byteLength === 0) return { ok: false, reason: "final_object_is_empty", totalSize };
-  if (expectedSize && totalSize && totalSize !== expectedSize) {
-    return { ok: false, reason: "final_object_size_mismatch", totalSize, expectedSize };
-  }
-  return { ok: true, totalSize, expectedSize };
+  return lastFailure;
 }
 
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: number, stage: string) {
@@ -747,11 +755,13 @@ Deno.serve(async (req) => {
       // Prefer it for playback; fall back to the authenticated Storage API if
       // the pull zone has not propagated the new object yet.
       const cdnUrl = `https://${bunnyConfig.cdnHostname}/${filePath}`;
-      let storageRes = await fetch(cdnUrl, { headers: rangeHeader ? { Range: rangeHeader } : {} });
-      if (!storageRes.ok && storageRes.status !== 206) {
-        storageRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
-          headers: upstreamHeaders,
-        });
+      const storageUrl = `https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`;
+      const isTeacherIntro = filePath.startsWith("content/teacher-intros/") || filePath.startsWith("content/teacher-intro/");
+      let storageRes = await fetch(isTeacherIntro ? storageUrl : cdnUrl, {
+        headers: isTeacherIntro ? upstreamHeaders : (rangeHeader ? { Range: rangeHeader } : {}),
+      });
+      if ((!storageRes.ok && storageRes.status !== 206) && !isTeacherIntro) {
+        storageRes = await fetch(storageUrl, { headers: upstreamHeaders });
       }
 
       if (storageRes.status === 304) {
@@ -780,7 +790,7 @@ Deno.serve(async (req) => {
         "X-Modrek-Function-Version": FUNCTION_VERSION,
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
-        "Cache-Control": "private, max-age=31536000, immutable",
+        "Cache-Control": isTeacherIntro ? "private, no-cache, max-age=0, must-revalidate" : "private, max-age=3600",
         "Accept-Ranges": "bytes",
       };
       const passthrough = ["content-length", "content-range", "etag", "last-modified"];
