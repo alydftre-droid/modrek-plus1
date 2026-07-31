@@ -289,7 +289,19 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
 
   // Teacher profile media (intro video / photo / cover) — visible to any
   // authenticated user, exactly like the public teacher profile itself.
-  if (filePath.startsWith("content/teacher-intros/")) {
+  // Cover every historical prefix that profile media has ever been written to,
+  // otherwise legacy uploads answer 404 ("Not found or no access") and the
+  // player stays black at 0:00.
+  const TEACHER_MEDIA_PREFIXES = [
+    "content/teacher-intros/",
+    "content/teacher-intro/",
+    "content/teacher-profiles/",
+    "content/teacher-profile/",
+    "content/teacher-media/",
+    "content/teachers/",
+    "content/profiles/",
+  ];
+  if (TEACHER_MEDIA_PREFIXES.some((prefix) => filePath.startsWith(prefix))) {
     // Profile media is intentionally visible to authenticated users. Do not
     // require the teacher_profiles row here: immediately after upload the new
     // URL has not been saved yet, and production profile data may live behind
@@ -298,12 +310,38 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
     return true;
   }
 
+  // Any asset referenced by a teacher profile row is public-authenticated too.
+  {
+    const storedUrl = `bstorage://${filePath}`;
+    const cdnUrl = `https://${Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || ""}/${filePath}`;
+    const { data: profileMedia } = await sb
+      .from("teacher_profiles")
+      .select("teacher_id")
+      .or(
+        [
+          `video_url.eq.${storedUrl}`,
+          `photo_url.eq.${storedUrl}`,
+          `cover_image_url.eq.${storedUrl}`,
+          `video_url.eq.${cdnUrl}`,
+          `photo_url.eq.${cdnUrl}`,
+          `cover_image_url.eq.${cdnUrl}`,
+        ].join(","),
+      )
+      .limit(1);
+    if (Array.isArray(profileMedia) && profileMedia.length > 0) return true;
+  }
+
+
+  const cdnStoredUrl = `https://${Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || ""}/${filePath}`;
   const { data: contentData, error: contentError } = await sb
     .from("content")
     .select("id")
-    .or(`file_url.eq.${storedUrl},thumbnail_url.eq.${storedUrl}`)
+    .or(
+      `file_url.eq.${storedUrl},thumbnail_url.eq.${storedUrl},file_url.eq.${cdnStoredUrl},thumbnail_url.eq.${cdnStoredUrl}`,
+    )
     .limit(1);
   if (!contentError && Array.isArray(contentData) && contentData.length > 0) return true;
+
 
 
   const { data: sourceData, error: sourceError } = await sb
@@ -652,8 +690,15 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
       if (!(await canReadStoredFile(userClient, filePath, userId))) {
-        return jsonResponse({ error: "Not found or no access" }, 404);
+        console.error("[bunny-storage:download_denied]", JSON.stringify({ filePath, userId }));
+        return jsonResponse({
+          error: "Not found or no access",
+          reason: "ACCESS_RULE_NO_MATCH",
+          detail: "لا توجد قاعدة صلاحية تطابق مسار هذا الملف",
+          path: filePath,
+        }, 404);
       }
+
 
       const rangeHeader = req.headers.get("Range");
       const ifNoneMatch = req.headers.get("If-None-Match");
