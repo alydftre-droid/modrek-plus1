@@ -53,27 +53,29 @@ function adMatchesStudent(
   profile: StudentProfile
 ): boolean {
   if (!targets || targets.length === 0) return true;
+  const eduOk = (t: AdTarget) => !t.education_type || t.education_type === profile.education_type;
   return targets.some((t) => {
-    if (t.target_type === "all") return true;
+    if (t.target_type === "all") return eduOk(t);
     if (t.target_type === "specific_students") return (t.student_ids || []).includes(userId);
     if (t.target_type === "stage") {
-      return (!t.stage || t.stage === profile.stage) &&
-        (!t.education_type || t.education_type === profile.education_type);
+      // A stage target without a stage value is invalid — never treat it as "everyone"
+      if (!t.stage) return false;
+      return t.stage === profile.stage && eduOk(t);
     }
     if (t.target_type === "grade") {
-      return (!t.stage || t.stage === profile.stage) &&
-        (!t.grade || t.grade === profile.grade) &&
-        (!t.education_type || t.education_type === profile.education_type);
+      if (!t.grade) return false;
+      return (!t.stage || t.stage === profile.stage) && t.grade === profile.grade && eduOk(t);
     }
     if (t.target_type === "section") {
+      if (!t.section) return false;
       return (!t.stage || t.stage === profile.stage) &&
         (!t.grade || t.grade === profile.grade) &&
-        (!t.section || t.section === profile.section) &&
-        (!t.education_type || t.education_type === profile.education_type);
+        t.section === profile.section && eduOk(t);
     }
     return false;
   });
 }
+
 
 export function useStudentAds(profile: StudentProfile | null) {
   const { user } = useAuth();
