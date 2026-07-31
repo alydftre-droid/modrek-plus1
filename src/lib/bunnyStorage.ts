@@ -364,18 +364,40 @@ export async function uploadToBunnyStorage(
     const maxAttempts = 4;
     while (true) {
       try {
-        const res = await fetch(
-          `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&index=${i}`,
-          {
-            method: "POST",
-            headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
-            body: chunk,
-            signal: controller.signal,
-          },
-        );
-        if (!res.ok) {
-          throw new Error(await parseErr(res, `فشل رفع الجزء ${i + 1}/${total} (${res.status})`));
-        }
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const abortUpload = () => xhr.abort();
+          controller.signal.addEventListener("abort", abortUpload, { once: true });
+          xhr.timeout = 180_000;
+          xhr.upload.addEventListener("progress", (event) => {
+            if (!event.lengthComputable) return;
+            const partPercent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+            const loadedNow = Math.min(file.size, start + event.loaded);
+            onProgress?.(loadedNow, file.size);
+            emitChunkProgress(loadedNow, i + 1, partPercent, "uploading");
+          });
+          xhr.addEventListener("load", () => {
+            controller.signal.removeEventListener("abort", abortUpload);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+              return;
+            }
+            let message = `فشل رفع الجزء ${i + 1}/${total} (${xhr.status})`;
+            try {
+              const parsed = JSON.parse(xhr.responseText || "{}");
+              if (parsed?.error) message = String(parsed.error);
+            } catch { /* keep fallback */ }
+            reject(new Error(message));
+          });
+          xhr.addEventListener("error", () => reject(new Error(`تعذر رفع الجزء ${i + 1}/${total}`)));
+          xhr.addEventListener("timeout", () => reject(new Error(`انتهت مهلة رفع الجزء ${i + 1}/${total}`)));
+          xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
+          xhr.open("POST", `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&index=${i}`);
+          xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+          xhr.setRequestHeader("apikey", supabaseKey);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+          xhr.send(chunk);
+        });
         break;
       } catch (err) {
         if (controller.signal.aborted) throw new Error("UPLOAD_ABORTED");
