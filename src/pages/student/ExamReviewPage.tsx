@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot, Lightbulb, Sparkles, BookOpen } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, CircleDot, Lightbulb, Sparkles, BookOpen } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
 
 type SmartFeedback = { notes: string; explanation: string; extra: string };
@@ -54,11 +54,6 @@ const isOptionCorrectForQuestion = (question: any, option: any) => {
     if (expected && actual) return expected === actual;
   }
   return Boolean(option?.is_correct);
-};
-
-const compactReviewText = (value: unknown, max = 90) => {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text.length > max ? `${text.slice(0, max)}…` : text;
 };
 
 export default function ExamReviewPage() {
