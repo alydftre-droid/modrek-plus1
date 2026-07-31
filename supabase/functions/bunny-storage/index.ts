@@ -674,7 +674,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const contentType = storageRes.headers.get("content-type") || "application/octet-stream";
+      const contentType = contentTypeFromPath(filePath, storageRes.headers.get("content-type"));
       const outHeaders: Record<string, string> = {
         ...corsHeaders,
         "Content-Type": contentType,
@@ -687,6 +687,35 @@ Deno.serve(async (req) => {
         const v = storageRes.headers.get(h);
         if (v) outHeaders[h] = v;
       }
+
+      // Bunny Storage ignores Range on some zones and replies 200 with the full
+      // body. Browsers then cannot seek and media stays stuck at 0:00, so we
+      // synthesise the 206 slice ourselves for small-enough ranged reads.
+      if (rangeHeader && storageRes.status === 200) {
+        const match = /bytes=(\d*)-(\d*)/i.exec(rangeHeader);
+        const fullBuffer = new Uint8Array(await storageRes.arrayBuffer());
+        const size = fullBuffer.byteLength;
+        let start = match?.[1] ? parseInt(match[1], 10) : 0;
+        let end = match?.[2] ? parseInt(match[2], 10) : size - 1;
+        if (!Number.isFinite(start) || start < 0) start = 0;
+        if (!Number.isFinite(end) || end >= size) end = size - 1;
+        if (start > end) {
+          return new Response(null, {
+            status: 416,
+            headers: { ...outHeaders, "Content-Range": `bytes */${size}` },
+          });
+        }
+        const slice = fullBuffer.slice(start, end + 1);
+        return new Response(slice, {
+          status: 206,
+          headers: {
+            ...outHeaders,
+            "Content-Range": `bytes ${start}-${end}/${size}`,
+            "Content-Length": String(slice.byteLength),
+          },
+        });
+      }
+
 
       return new Response(storageRes.body, {
         status: storageRes.status === 206 ? 206 : 200,
