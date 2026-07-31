@@ -179,8 +179,9 @@ export function getBunnyStorageCdnUrl(path: string): string {
  * This proxies through the edge function to avoid CDN auth issues
  */
 export function resolveBunnyStorageUrl(fileUrl: string): string {
-  if (fileUrl?.startsWith("bstorage://")) {
-    const path = fileUrl.replace("bstorage://", "");
+  if (isBunnyStorageFile(fileUrl)) {
+    const path = extractBunnyStoragePath(fileUrl);
+    if (!path) return fileUrl;
     const proxyUrl = resolveBunnyStorageProxyUrl(path);
     if (!proxyUrl) return fileUrl;
     // Browser media elements and normal anchors cannot attach Authorization
@@ -199,8 +200,9 @@ export function resolveBunnyStorageUrl(fileUrl: string): string {
  * session before assigning src to protected audio/video elements.
  */
 export async function resolveBunnyStorageMediaUrl(fileUrl: string): Promise<string> {
-  if (!fileUrl?.startsWith("bstorage://")) return fileUrl;
-  const path = fileUrl.replace("bstorage://", "");
+  if (!isBunnyStorageFile(fileUrl)) return fileUrl;
+  const path = extractBunnyStoragePath(fileUrl);
+  if (!path) throw new Error("MEDIA_STORAGE_PATH_INVALID");
   const proxyUrl = resolveBunnyStorageProxyUrl(path);
   if (!proxyUrl) throw new Error("MEDIA_PROXY_CONFIG_MISSING");
   const token = await getCurrentAccessToken();
@@ -209,10 +211,11 @@ export async function resolveBunnyStorageMediaUrl(fileUrl: string): Promise<stri
 }
 
 export async function resolveBunnyStorageBlobUrl(fileUrl: string, accessTokenOverride?: string | null): Promise<string> {
-  if (!fileUrl?.startsWith("bstorage://")) return fileUrl;
+  if (!isBunnyStorageFile(fileUrl)) return fileUrl;
   if (objectUrlCache.has(fileUrl)) return objectUrlCache.get(fileUrl)!;
 
-  const path = fileUrl.replace("bstorage://", "");
+  const path = extractBunnyStoragePath(fileUrl);
+  if (!path) return fileUrl;
   const proxyUrl = resolveBunnyStorageProxyUrl(path);
   const accessToken = await getCurrentAccessToken(accessTokenOverride);
   if (!proxyUrl || !accessToken) return fileUrl;
