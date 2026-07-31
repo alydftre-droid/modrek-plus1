@@ -26,6 +26,8 @@ type VideoDiagnostic = {
   dimensions?: string;
   browser?: string;
   checkedAt?: string;
+  mimeSupport?: string;
+  mediaErrorMessage?: string;
 };
 
 type Props = VideoHTMLAttributes<HTMLVideoElement> & {
@@ -57,7 +59,7 @@ const stateText = (value: number, kind: "ready" | "network") => {
   return (kind === "ready" ? ready : network)[value] || `غير معروف (${value})`;
 };
 
-export default function AuthenticatedVideo({ source, className, autoPlay, ...props }: Props) {
+export default function AuthenticatedVideo({ source, className, autoPlay, onError, onLoadedMetadata, ...props }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [src, setSrc] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -102,6 +104,7 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
       networkState: video?.networkState,
       duration: Number.isFinite(video?.duration) ? Number(video?.duration) : null,
       dimensions: `${video?.videoWidth || 0}×${video?.videoHeight || 0}`,
+      mediaErrorMessage: video?.error?.message || undefined,
       browser: `${navigator.userAgent} | ${navigator.platform || "unknown"}`,
       checkedAt: new Date().toISOString(),
     };
@@ -131,6 +134,7 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
         responseLength: response.headers.get("content-length") || "غير موجود",
         acceptRanges: response.headers.get("accept-ranges") || "غير موجود",
         etag: response.headers.get("etag") || "غير موجود",
+        mimeSupport: video?.canPlayType(response.headers.get("content-type") || "") || "غير مدعوم/غير معروف",
         traceId: response.headers.get("x-modrek-trace-id")
           || (typeof serverDiagnostic.traceId === "string" ? serverDiagnostic.traceId : undefined),
         reason: typeof serverDiagnostic.reason === "string" ? serverDiagnostic.reason : undefined,
@@ -170,6 +174,8 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
       `Accept-Ranges: ${diagnostic.acceptRanges || "غير موجود"}`,
       `ETag: ${diagnostic.etag || "غير موجود"}`,
       `MediaError: ${diagnostic.mediaCode ?? "غير موجود"}`,
+      `رسالة MediaError: ${diagnostic.mediaErrorMessage || "غير موجود"}`,
+      `توافق MIME/Codec: ${diagnostic.mimeSupport || "غير معروف"}`,
       `readyState: ${diagnostic.readyState ?? "غير موجود"}`,
       `networkState: ${diagnostic.networkState ?? "غير موجود"}`,
       `المدة: ${diagnostic.duration ?? "غير معروفة"}`,
@@ -206,9 +212,15 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
             preload="metadata"
             autoPlay={autoPlay}
             className={className}
-            onLoadedMetadata={() => setDiagnostic(null)}
-            onError={() => void inspectFailure()}
             {...props}
+            onLoadedMetadata={(event) => {
+              setDiagnostic(null);
+              onLoadedMetadata?.(event);
+            }}
+            onError={(event) => {
+              void inspectFailure();
+              onError?.(event);
+            }}
           />
         )}
       </div>
@@ -232,6 +244,8 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
             {diagnostic.readyState !== undefined && <p><b>حالة جاهزية الفيديو:</b> {stateText(diagnostic.readyState, "ready")} <span dir="ltr">({diagnostic.readyState})</span></p>}
             {diagnostic.networkState !== undefined && <p><b>حالة الشبكة:</b> {stateText(diagnostic.networkState, "network")} <span dir="ltr">({diagnostic.networkState})</span></p>}
             {diagnostic.dimensions && <p><b>أبعاد الفيديو:</b> <span dir="ltr">{diagnostic.dimensions}</span></p>}
+            {diagnostic.mimeSupport && <p><b>توافق النوع والترميز:</b> <span dir="ltr">{diagnostic.mimeSupport}</span></p>}
+            {diagnostic.mediaErrorMessage && <p><b>رسالة المتصفح:</b> <span dir="ltr">{diagnostic.mediaErrorMessage}</span></p>}
             <p><b>وقت الفحص:</b> <span dir="ltr">{diagnostic.checkedAt || "غير موجود"}</span></p>
             <p><b>التفاصيل:</b> {diagnostic.details}</p>
             <p><b>المكان:</b> مشغل الفيديو التعريفي ← خدمة ملفات Bunny</p>
