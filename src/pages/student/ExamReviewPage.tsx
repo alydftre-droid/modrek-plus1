@@ -1,10 +1,14 @@
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+
+
 import { useExam, useExamReviewQuestions } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight, CheckCircle2, XCircle, Info, CircleDot, Lightbulb, Sparkles, BookOpen } from "lucide-react";
+import { ArrowRight, CheckCircle2, XCircle, CircleDot, Lightbulb, Sparkles, BookOpen } from "lucide-react";
 import StudentLayout from "@/components/student/StudentLayout";
 
 type SmartFeedback = { notes: string; explanation: string; extra: string };
@@ -54,40 +58,59 @@ const isOptionCorrectForQuestion = (question: any, option: any) => {
   return Boolean(option?.is_correct);
 };
 
-const compactReviewText = (value: unknown, max = 90) => {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-};
-
-const LEGACY_FEEDBACK_PATTERNS = [
-  "اجابه صحيحه",
-  "اجابه غير صحيحه راجع الاجابه الصحيحه",
-  "اجابه غير صحيحه",
-  "اجابه خطا",
-  "اجابه ناقصه",
-  "اجابه جزئيه",
-  "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
-  "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
-  "لم يجب الطالب علي هذا السؤال",
-  "لم يقدم الطالب اجابه قابله للتصحيح لهذا السؤال",
-  "تم التصحيح وفق نموذج الاجابه والمعني الصحيح",
-];
-
-const isLegacyReviewFeedback = (value: unknown) => {
-  const text = normalizeReviewAnswer(value).replace(/[.!؟?]+$/g, "").trim();
-  if (!text) return true;
-  // Any very short stored feedback is treated as legacy so the rich client note wins.
-  if (text.length < 45) return true;
-  return LEGACY_FEEDBACK_PATTERNS.includes(text);
-};
-
 export default function ExamReviewPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
   const { data: exam } = useExam(examId);
-  const { data: questions = [], isLoading } = useExamReviewQuestions(attemptId);
+  const { data: questions = [], isLoading, refetch } = useExamReviewQuestions(attemptId);
+  const [waitTicks, setWaitTicks] = useState(0);
 
-  if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
+  const gradableQuestions = questions.filter(
+    (q: any) => q?.question_type && q.question_type !== "section",
+  );
+  const smartReady =
+    gradableQuestions.length > 0 &&
+    gradableQuestions.every((q: any) => parseSmartFeedback(q?.answer?.ai_feedback) !== null);
+  const stillWaiting = !isLoading && !smartReady && waitTicks < 40;
+
+  // First entry right after submit: smart grading may still be writing feedback.
+  // Poll the same source used on re-entry instead of rendering anything legacy.
+  useEffect(() => {
+    if (!stillWaiting) return;
+    const timer = window.setInterval(() => {
+      setWaitTicks((t) => t + 1);
+      void refetch();
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [stillWaiting, refetch]);
+
+  // Self-heal: if smart feedback is still missing on first entry, ask the smart
+  // grader to (re)run once so the new system is always what renders.
+  const healedRef = useRef(false);
+  useEffect(() => {
+    if (!attemptId || isLoading || smartReady || healedRef.current) return;
+    healedRef.current = true;
+    void supabase.functions
+      .invoke("grade-essay", { body: { attemptId } })
+      .then(() => refetch())
+      .catch(() => undefined);
+  }, [attemptId, isLoading, smartReady, refetch]);
+
+
+  if (isLoading || stillWaiting) {
+    return (
+      <StudentLayout>
+        <div className="p-4 space-y-3 max-w-3xl mx-auto">
+          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2 text-sm">
+            <Sparkles className="h-4 w-4 animate-pulse text-blue-600" />
+            جاري إعداد التصحيح الذكي والملاحظات الذكية...
+          </div>
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+      </StudentLayout>
+    );
+  }
 
   const showCorrect = (exam as any)?.show_correct_answers !== false;
   const answerByQ = new Map(
@@ -96,6 +119,7 @@ export default function ExamReviewPage() {
       .filter((answer: any) => answer?.question_id)
       .map((answer: any) => [answer.question_id, answer]),
   );
+
 
   return (
     <StudentLayout>
@@ -156,65 +180,10 @@ export default function ExamReviewPage() {
                   <p className="font-bold">{q.question_text}</p>
 
                   {(() => {
-                    const isObjective = q.question_type === "mcq" || q.question_type === "true_false" || q.question_type === "fill_blank";
-                    const isWrittenText = q.question_type === "short_answer" || q.question_type === "essay" || q.question_type === "fill_blank";
-                    let correctText = "";
-                    let studentPicked = "";
-                    if (q.question_type === "mcq" || q.question_type === "true_false") {
-                      const correctOpt = (q.options || []).find((o: any) => isOptionCorrectForQuestion(q, o));
-                      correctText = correctOpt?.option_text || q.correct_answer || "";
-                      const pickedOpt = (q.options || []).find((o: any) => a?.selected_option_ids?.includes(o.id));
-                      studentPicked = pickedOpt?.option_text || "";
-                    } else if (q.question_type === "fill_blank") {
-                      correctText = q.correct_answer || "";
-                      studentPicked = a?.answer_text || "";
-                    }
+                    const smart = parseSmartFeedback(a?.ai_feedback);
 
-                    const explanationLine = q.explanation
-                      ? `\n\n📘 من الدرس: ${String(q.explanation).trim()}`
-                      : "";
 
-                    // Build a rich, teacher-style note used when stored feedback is missing/legacy.
-                    let localNote = "";
-                    if (isObjective) {
-                      if (!a || (!studentPicked && !(a?.selected_option_ids?.length))) {
-                        localNote = `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}».\n\nالإجابة الصحيحة هي «${correctText}». حاول في المرة القادمة أن تجيب ولو بتخمين مدروس بدلاً من ترك السؤال فارغاً.${explanationLine}`;
-                      } else if (isCorrect) {
-                        const praises = ["أحسنت", "ممتاز", "رائع", "إجابة موفقة", "أداء ممتاز"];
-                        const praise = praises[(idx + (q.question_text || "").length) % praises.length];
-                        localNote = `✅ إجابتك صحيحة. ${praise}!\n\nاخترت «${studentPicked || correctText}»، وهو المطلوب بالضبط في السؤال: «${compactReviewText(q.question_text, 200)}».\n\nالفكرة الأساسية هنا هي «${correctText}». استمر بهذا المستوى من التركيز.${explanationLine}`;
-                      } else if (showCorrect && correctText) {
-                        localNote = studentPicked
-                          ? `❌ إجابتك غير صحيحة.\n\nاخترت «${studentPicked}»، بينما الإجابة الصحيحة هي «${correctText}».\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}». يبدو أنك خلطت بين خيارين متقاربين، فراجع الفرق بينهما جيداً قبل الإجابة في المرة القادمة.${explanationLine}`
-                          : `❌ إجابة غير صحيحة.\n\nالإجابة الصحيحة هي «${correctText}».\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}». راجع القاعدة المرتبطة به في الدرس وحاول تحديد الفكرة المطلوبة قبل الإجابة.${explanationLine}`;
-                      } else {
-                        localNote = `❌ إجابة غير صحيحة. راجع السؤال «${compactReviewText(q.question_text, 200)}» في الدرس وحدّد الفكرة المطلوبة قبل اختيار الإجابة.${explanationLine}`;
-                      }
-                    } else if (isWrittenText) {
-                      const student = String(a?.answer_text || "").trim();
-                      const model = String(q.correct_answer || "").trim();
-                      const compactQuestion = compactReviewText(q.question_text, 200);
-                      const compactStudent = student ? compactReviewText(student, 220) : "";
-                      if (!student) {
-                        localNote = `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${compactQuestion}».${model ? `\n\nالإجابة النموذجية: ${model}` : ""}\n\nحاول في المرة القادمة أن تكتب ما تعرفه ولو جزءاً منه؛ الإجابة الجزئية تستحق درجة، أما الفراغ فلا.${explanationLine}`;
-                      } else if (isCorrect) {
-                        localNote = `✅ إجابتك صحيحة، أحسنت!\n\nما كتبته «${compactStudent}» يطابق المطلوب في السؤال: «${compactQuestion}».${model ? `\n\nالفكرة الأساسية هنا: ${model}` : ""}\n\nاستمر بهذا المستوى من الفهم.${explanationLine}`;
-                      } else if (isPartial) {
-                        localNote = `🟡 إجابتك جزئية، وحصلت على ${awarded} من ${maxMark}.\n\nما كتبته: «${compactStudent}»${model ? `\n\nالإجابة النموذجية الكاملة: ${model}` : ""}\n\nذكرت بعض العناصر الصحيحة لكن نقصت عناصر مهمة أخرى. راجع النموذج أعلاه وحدّد ما فاتك حتى تحصل على الدرجة الكاملة في المرة القادمة.${explanationLine}`;
-                      } else {
-                        localNote = `❌ إجابتك غير صحيحة.\n\nما كتبته: «${compactStudent}»${model ? `\n\nالإجابة الصحيحة: ${model}` : ""}\n\nالسؤال كان يطلب: «${compactQuestion}». يبدو أن إجابتك ابتعدت عن المطلوب أو خلطت بين مفهومين. راجع هذه النقطة في الدرس وركّز على الكلمات المفتاحية قبل الإجابة في المرة القادمة.${explanationLine}`;
-                      }
-                    }
 
-                    const autoExplain = !q.explanation && isObjective && showCorrect && correctText
-                      ? `الإجابة الصحيحة: «${correctText}».`
-                      : "";
-
-                    const storedFeedback = String(a?.ai_feedback || "").trim();
-                    const smart = parseSmartFeedback(storedFeedback);
-                    const visibleFeedback = smart
-                      ? null
-                      : (isLegacyReviewFeedback(storedFeedback) ? (localNote || storedFeedback) : (storedFeedback || localNote));
 
                     return (
                       <>
@@ -290,26 +259,8 @@ export default function ExamReviewPage() {
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <>
-                            {visibleFeedback && (
-                              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                                <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
-                                <div className="text-sm whitespace-pre-wrap">{visibleFeedback}</div>
-                              </div>
-                            )}
-                            {(q.explanation || autoExplain) && (
-                              <Card className="bg-amber-500/5 border-amber-500/30">
-                                <CardContent className="p-3 text-sm">
-                                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
-                                    <Info className="h-4 w-4" />الشرح
-                                  </div>
-                                  <div className="whitespace-pre-wrap">{q.explanation || autoExplain}</div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </>
-                        )}
+                        ) : null}
+
                       </>
                     );
                   })()}
