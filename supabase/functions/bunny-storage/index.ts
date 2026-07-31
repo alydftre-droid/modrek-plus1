@@ -83,6 +83,32 @@ async function verifyFinalPdfObject(config: ReturnType<typeof getBunnyStorageCon
   return { ok: true, header, totalSize, expectedSize };
 }
 
+async function verifyFinalMediaObject(
+  config: ReturnType<typeof getBunnyStorageConfig>,
+  filePath: string,
+  expectedSize: number | null,
+) {
+  const verifyRes = await fetch(`https://${config.storageHost}/${config.zone}/${filePath}`, {
+    headers: {
+      AccessKey: config.apiKey,
+      Range: "bytes=0-1023",
+    },
+  });
+  if (!verifyRes.ok && verifyRes.status !== 206) {
+    const upstream = await verifyRes.text().catch(() => "");
+    return { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200) };
+  }
+  const rangeTotal = parseContentRangeTotal(verifyRes.headers.get("content-range"));
+  const lengthTotal = Number.parseInt(verifyRes.headers.get("content-length") || "0", 10) || null;
+  const totalSize = rangeTotal ?? lengthTotal;
+  const firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
+  if (firstBytes.byteLength === 0) return { ok: false, reason: "final_object_is_empty", totalSize };
+  if (expectedSize && totalSize && totalSize !== expectedSize) {
+    return { ok: false, reason: "final_object_size_mismatch", totalSize, expectedSize };
+  }
+  return { ok: true, totalSize, expectedSize };
+}
+
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: number, stage: string) {
   const controller = new AbortController();
   const startedAt = Date.now();
@@ -664,6 +690,16 @@ Deno.serve(async (req) => {
           }, 422);
         }
         uploadLog("finalize_verify_complete", { uploadId, filePath, ...verification });
+      } else if (contentType.toLowerCase().startsWith("video/")) {
+        const verification = await verifyFinalMediaObject(bunnyConfig, filePath, expectedSize);
+        if (!verification.ok) {
+          uploadError("finalize_video_verify_failed", { uploadId, filePath, ...verification });
+          return jsonResponse({
+            error: "فشل التحقق من ملف الفيديو بعد الرفع. لم يتم حفظ رابط لملف مفقود أو غير مكتمل.",
+            reason: verification.reason,
+          }, 422);
+        }
+        uploadLog("finalize_video_verify_complete", { uploadId, filePath, ...verification });
       }
 
       // Best-effort chunk cleanup — do not fail the response if delete fails.
@@ -699,7 +735,6 @@ Deno.serve(async (req) => {
         }, 404);
       }
 
-
       const rangeHeader = req.headers.get("Range");
       const ifNoneMatch = req.headers.get("If-None-Match");
       const upstreamHeaders: Record<string, string> = { AccessKey: bunnyConfig.apiKey };
@@ -721,6 +756,11 @@ Deno.serve(async (req) => {
         return new Response(null, { status: 304, headers: corsHeaders });
       }
       if (!storageRes.ok && storageRes.status !== 206) {
+        console.error("[bunny-storage:upstream_missing]", JSON.stringify({
+          filePath,
+          userId,
+          upstreamStatus: storageRes.status,
+        }));
         return new Response(JSON.stringify({ error: `File not found [${storageRes.status}]` }), {
           status: storageRes.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
