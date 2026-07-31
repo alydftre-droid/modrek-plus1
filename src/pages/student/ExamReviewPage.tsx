@@ -59,35 +59,46 @@ const compactReviewText = (value: unknown, max = 90) => {
   return text.length > max ? `${text.slice(0, max)}…` : text;
 };
 
-const LEGACY_FEEDBACK_PATTERNS = [
-  "اجابه صحيحه",
-  "اجابه غير صحيحه راجع الاجابه الصحيحه",
-  "اجابه غير صحيحه",
-  "اجابه خطا",
-  "اجابه ناقصه",
-  "اجابه جزئيه",
-  "اجابه جزئيه لهذا السؤال وتم احتساب الدرجه حسب عناصر الاجابه الصحيحه",
-  "الاجابه لا تحتوي علي عناصر كافيه من الاجابه النموذجيه لهذا السؤال",
-  "لم يجب الطالب علي هذا السؤال",
-  "لم يقدم الطالب اجابه قابله للتصحيح لهذا السؤال",
-  "تم التصحيح وفق نموذج الاجابه والمعني الصحيح",
-];
-
-const isLegacyReviewFeedback = (value: unknown) => {
-  const text = normalizeReviewAnswer(value).replace(/[.!؟?]+$/g, "").trim();
-  if (!text) return true;
-  // Any very short stored feedback is treated as legacy so the rich client note wins.
-  if (text.length < 45) return true;
-  return LEGACY_FEEDBACK_PATTERNS.includes(text);
-};
-
 export default function ExamReviewPage() {
   const { examId, attemptId } = useParams();
   const navigate = useNavigate();
   const { data: exam } = useExam(examId);
-  const { data: questions = [], isLoading } = useExamReviewQuestions(attemptId);
+  const { data: questions = [], isLoading, refetch } = useExamReviewQuestions(attemptId);
+  const [waitTicks, setWaitTicks] = useState(0);
 
-  if (isLoading) return <StudentLayout><div className="p-4 space-y-3 max-w-3xl mx-auto"><Skeleton className="h-40" /><Skeleton className="h-40" /></div></StudentLayout>;
+  const gradableQuestions = questions.filter(
+    (q: any) => q?.question_type && q.question_type !== "section",
+  );
+  const smartReady =
+    gradableQuestions.length > 0 &&
+    gradableQuestions.every((q: any) => parseSmartFeedback(q?.answer?.ai_feedback) !== null);
+  const stillWaiting = !isLoading && !smartReady && waitTicks < 40;
+
+  // First entry right after submit: smart grading may still be writing feedback.
+  // Poll the same source used on re-entry instead of rendering anything legacy.
+  useEffect(() => {
+    if (!stillWaiting) return;
+    const timer = window.setInterval(() => {
+      setWaitTicks((t) => t + 1);
+      void refetch();
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [stillWaiting, refetch]);
+
+  if (isLoading || stillWaiting) {
+    return (
+      <StudentLayout>
+        <div className="p-4 space-y-3 max-w-3xl mx-auto">
+          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 flex items-center gap-2 text-sm">
+            <Sparkles className="h-4 w-4 animate-pulse text-blue-600" />
+            جاري إعداد التصحيح الذكي والملاحظات الذكية...
+          </div>
+          <Skeleton className="h-40" />
+          <Skeleton className="h-40" />
+        </div>
+      </StudentLayout>
+    );
+  }
 
   const showCorrect = (exam as any)?.show_correct_answers !== false;
   const answerByQ = new Map(
@@ -96,6 +107,7 @@ export default function ExamReviewPage() {
       .filter((answer: any) => answer?.question_id)
       .map((answer: any) => [answer.question_id, answer]),
   );
+
 
   return (
     <StudentLayout>
