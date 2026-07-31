@@ -251,12 +251,25 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
   }
 
   const storedUrl = `bstorage://${filePath}`;
+
+  // Teacher profile media (intro video / photo / cover) — visible to any
+  // authenticated user, exactly like the public teacher profile itself.
+  if (filePath.startsWith("content/teacher-intros/")) {
+    const { data: profileData } = await sb
+      .from("teacher_profiles")
+      .select("teacher_id")
+      .or(`video_url.eq.${storedUrl},photo_url.eq.${storedUrl},cover_image_url.eq.${storedUrl}`)
+      .limit(1);
+    if (Array.isArray(profileData) && profileData.length > 0) return true;
+  }
+
   const { data: contentData, error: contentError } = await sb
     .from("content")
     .select("id")
     .or(`file_url.eq.${storedUrl},thumbnail_url.eq.${storedUrl}`)
     .limit(1);
   if (!contentError && Array.isArray(contentData) && contentData.length > 0) return true;
+
 
   const { data: sourceData, error: sourceError } = await sb
     .from("ai_sources")
