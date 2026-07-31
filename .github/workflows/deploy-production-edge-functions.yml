@@ -268,7 +268,7 @@ jobs:
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
-              admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
+              bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
                 deploy_fn_with_retry "$fn" true
                 ;;
               *)
@@ -399,7 +399,8 @@ jobs:
       - name: Verify production Bunny Storage credentials
         run: |
           set -euo pipefail
-          status="$(curl -sS -o /tmp/bunny-storage-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-storage?action=health" \
+          expected_version="teacher-media-playback-v4-2026-07-31"
+          status="$(curl -sS -D /tmp/bunny-storage-health.headers -o /tmp/bunny-storage-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-storage?action=health" \
             -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
           cat /tmp/bunny-storage-health.json
@@ -407,3 +408,9 @@ jobs:
             echo "::error::Production Bunny Storage health check failed. HTTP $status"
             exit 1
           fi
+          deployed_version="$(tr -d '\r' < /tmp/bunny-storage-health.headers | awk -F': ' 'tolower($1) == "x-modrek-function-version" { print $2 }' | tail -n 1)"
+          if [ "$deployed_version" != "$expected_version" ]; then
+            echo "::error::Production Bunny Storage is stale. Expected $expected_version, got ${deployed_version:-missing}."
+            exit 1
+          fi
+          echo "Production Bunny Storage version verified: $deployed_version"
