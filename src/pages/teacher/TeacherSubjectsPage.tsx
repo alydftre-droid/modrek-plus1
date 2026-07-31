@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { gradeDisplayFromAny, stageKeyFromValue, teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 import { groupTeacherAssignments, getNormalizedTeacherAssignmentGradeKey } from "@/lib/teacherAssignments";
-import { isDeveloperTeacherMode, removeTeacherGradeAssignments } from "@/lib/devTeacherGrades";
+import { GradeDeleteError, isDeveloperTeacherMode, removeTeacherGradeAssignments, type GradeDeleteDiagnostic } from "@/lib/devTeacherGrades";
 import { DSDialog } from "@/design-system/components/Dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,7 @@ export default function TeacherSubjectsPage() {
   const [confirmTarget, setConfirmTarget] = useState<GradeTarget | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<GradeDeleteDiagnostic | null>(null);
   const longPressTimer = useRef<number | null>(null);
   const longPressFired = useRef(false);
 
@@ -123,6 +124,7 @@ export default function TeacherSubjectsPage() {
   const handleDelete = async () => {
     if (!confirmTarget || !user || confirmText.trim() !== "حذف") return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       await removeTeacherGradeAssignments({ teacherId: user.id, assignmentIds: confirmTarget.assignmentIds });
       const removed = new Set(confirmTarget.assignmentIds);
@@ -130,8 +132,13 @@ export default function TeacherSubjectsPage() {
       setConfirmTarget(null);
       setConfirmText("");
       toast.success("✅ تم حذف الصف من حساب المعلم بنجاح.");
-    } catch (e: any) {
-      toast.error(e?.message || "فشل حذف الصف من حساب المعلم");
+    } catch (e) {
+      const diagnostic = e instanceof GradeDeleteError ? e.diagnostic : {
+        message: e instanceof Error ? e.message : "فشل حذف الصف من حساب المعلم",
+        stage: "واجهة المواد", code: "UNEXPECTED_UI_ERROR", traceId: "غير متوفر", location: "TeacherSubjectsPage",
+      };
+      setDeleteError(diagnostic);
+      toast.error("فشل حذف الصف", { description: `${diagnostic.stage}: ${diagnostic.message}`, duration: 9000 });
     } finally {
       setDeleting(false);
     }
@@ -226,7 +233,7 @@ export default function TeacherSubjectsPage() {
                 🗑️ حذف الصف من حساب المعلم
               </button>
               <p className="text-xs text-muted-foreground mt-3 leading-6">
-                هذا الخيار متاح للمطور فقط. لن يتم حذف الفيديوهات أو الملفات أو الاختبارات، سيتم فقط إزالة ربط الصف بحساب المعلم.
+                هذا الخيار متاح للمطور فقط. سيتم حذف الصف ومجموعاته ومحتواه واختباراته واشتراكاته من حساب المعلم نهائيًا.
               </p>
             </div>
           </SheetContent>
@@ -268,6 +275,16 @@ export default function TeacherSubjectsPage() {
             dir="rtl"
             autoFocus
           />
+          {deleteError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs leading-6 text-foreground" role="alert">
+              <p className="font-bold text-destructive">سبب الفشل: {deleteError.message}</p>
+              <p><strong>المرحلة:</strong> {deleteError.stage}</p>
+              <p><strong>المكان:</strong> <span className="break-all">{deleteError.location}</span></p>
+              <p><strong>كود الخطأ:</strong> {deleteError.code}</p>
+              {deleteError.details && <p className="break-all"><strong>التفاصيل:</strong> {deleteError.details}</p>}
+              <p className="break-all"><strong>معرّف التتبع:</strong> {deleteError.traceId}</p>
+            </div>
+          )}
         </div>
       </DSDialog>
     </TeacherSidebarLayout>

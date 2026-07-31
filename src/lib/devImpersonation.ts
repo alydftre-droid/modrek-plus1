@@ -37,11 +37,13 @@ export function getOriginalDeveloperAccessToken(): string | null {
 }
 
 export async function getFreshOriginalDeveloperAccessToken(): Promise<string | null> {
+  const raw = localStorage.getItem(ORIGINAL_SESSION_KEY);
+  if (!raw) throw new Error("لا توجد جلسة المطور الأصلية في هذا الجهاز");
   try {
-    const raw = localStorage.getItem(ORIGINAL_SESSION_KEY);
-    if (!raw) return null;
     const original = JSON.parse(raw);
-    if (!original?.access_token || !original?.refresh_token) return null;
+    if (!original?.access_token || !original?.refresh_token) {
+      throw new Error("بيانات جلسة المطور الأصلية غير مكتملة");
+    }
 
     const authClient = createClient(
       import.meta.env.VITE_SUPABASE_URL,
@@ -52,11 +54,13 @@ export async function getFreshOriginalDeveloperAccessToken(): Promise<string | n
       access_token: original.access_token,
       refresh_token: original.refresh_token,
     });
-    if (error || !data.session) return null;
+    if (error) throw new Error(`تعذر تجديد جلسة المطور: ${error.message}`);
+    if (!data.session) throw new Error("لم يُرجع نظام الدخول جلسة مطور جديدة");
     localStorage.setItem(ORIGINAL_SESSION_KEY, JSON.stringify(data.session));
     return data.session.access_token;
-  } catch {
-    return null;
+  } catch (error) {
+    if (error instanceof Error) throw error;
+    throw new Error("تعذر قراءة أو تجديد جلسة المطور الأصلية");
   }
 }
 
