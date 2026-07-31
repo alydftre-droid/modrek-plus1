@@ -414,3 +414,26 @@ jobs:
             exit 1
           fi
           echo "Production Bunny Storage version verified: $deployed_version"
+
+      - name: Verify legacy teacher intro object from production
+        run: |
+          set -euo pipefail
+          # This is the exact historical object that exposed the stale-function
+          # regression. Verify it at the authenticated storage origin after
+          # every deploy so CI cannot report success while existing profiles
+          # still show a black 0:00 player.
+          legacy_path="content/teacher-intros/0db23858-b633-4b90-9ea9-f579676c9a46/intro-1785462701041.mp4"
+          status="$(curl -sS -D /tmp/teacher-intro-origin.headers -o /tmp/teacher-intro-origin.bin -w '%{http_code}' \
+            -H "AccessKey: $BUNNY_STORAGE_API_KEY" \
+            -H "Range: bytes=0-1023" \
+            "https://storage.bunnycdn.com/$BUNNY_STORAGE_ZONE/$legacy_path")"
+          if [ "$status" != "200" ] && [ "$status" != "206" ]; then
+            echo "::error::Known production teacher intro is missing from Bunny Storage. HTTP $status"
+            exit 1
+          fi
+          content_type="$(tr -d '\r' < /tmp/teacher-intro-origin.headers | awk -F': ' 'tolower($1) == "content-type" { print $2 }' | tail -n 1)"
+          if ! grep -aq 'ftyp' /tmp/teacher-intro-origin.bin; then
+            echo "::error::Known teacher intro does not contain a valid MP4 header. Content-Type=${content_type:-missing}."
+            exit 1
+          fi
+          echo "Legacy teacher intro origin verified: HTTP $status, Content-Type=${content_type:-unknown}."
