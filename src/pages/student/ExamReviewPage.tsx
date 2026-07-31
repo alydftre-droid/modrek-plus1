@@ -182,51 +182,8 @@ export default function ExamReviewPage() {
                       studentPicked = a?.answer_text || "";
                     }
 
-                    const explanationLine = q.explanation
-                      ? `\n\n📘 من الدرس: ${String(q.explanation).trim()}`
-                      : "";
+                    const smart = parseSmartFeedback(a?.ai_feedback);
 
-                    // Build a rich, teacher-style note used when stored feedback is missing/legacy.
-                    let localNote = "";
-                    if (isObjective) {
-                      if (!a || (!studentPicked && !(a?.selected_option_ids?.length))) {
-                        localNote = `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}».\n\nالإجابة الصحيحة هي «${correctText}». حاول في المرة القادمة أن تجيب ولو بتخمين مدروس بدلاً من ترك السؤال فارغاً.${explanationLine}`;
-                      } else if (isCorrect) {
-                        const praises = ["أحسنت", "ممتاز", "رائع", "إجابة موفقة", "أداء ممتاز"];
-                        const praise = praises[(idx + (q.question_text || "").length) % praises.length];
-                        localNote = `✅ إجابتك صحيحة. ${praise}!\n\nاخترت «${studentPicked || correctText}»، وهو المطلوب بالضبط في السؤال: «${compactReviewText(q.question_text, 200)}».\n\nالفكرة الأساسية هنا هي «${correctText}». استمر بهذا المستوى من التركيز.${explanationLine}`;
-                      } else if (showCorrect && correctText) {
-                        localNote = studentPicked
-                          ? `❌ إجابتك غير صحيحة.\n\nاخترت «${studentPicked}»، بينما الإجابة الصحيحة هي «${correctText}».\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}». يبدو أنك خلطت بين خيارين متقاربين، فراجع الفرق بينهما جيداً قبل الإجابة في المرة القادمة.${explanationLine}`
-                          : `❌ إجابة غير صحيحة.\n\nالإجابة الصحيحة هي «${correctText}».\n\nالسؤال كان يطلب: «${compactReviewText(q.question_text, 200)}». راجع القاعدة المرتبطة به في الدرس وحاول تحديد الفكرة المطلوبة قبل الإجابة.${explanationLine}`;
-                      } else {
-                        localNote = `❌ إجابة غير صحيحة. راجع السؤال «${compactReviewText(q.question_text, 200)}» في الدرس وحدّد الفكرة المطلوبة قبل اختيار الإجابة.${explanationLine}`;
-                      }
-                    } else if (isWrittenText) {
-                      const student = String(a?.answer_text || "").trim();
-                      const model = String(q.correct_answer || "").trim();
-                      const compactQuestion = compactReviewText(q.question_text, 200);
-                      const compactStudent = student ? compactReviewText(student, 220) : "";
-                      if (!student) {
-                        localNote = `❌ لم تقدّم إجابة على هذا السؤال.\n\nالسؤال كان يطلب: «${compactQuestion}».${model ? `\n\nالإجابة النموذجية: ${model}` : ""}\n\nحاول في المرة القادمة أن تكتب ما تعرفه ولو جزءاً منه؛ الإجابة الجزئية تستحق درجة، أما الفراغ فلا.${explanationLine}`;
-                      } else if (isCorrect) {
-                        localNote = `✅ إجابتك صحيحة، أحسنت!\n\nما كتبته «${compactStudent}» يطابق المطلوب في السؤال: «${compactQuestion}».${model ? `\n\nالفكرة الأساسية هنا: ${model}` : ""}\n\nاستمر بهذا المستوى من الفهم.${explanationLine}`;
-                      } else if (isPartial) {
-                        localNote = `🟡 إجابتك جزئية، وحصلت على ${awarded} من ${maxMark}.\n\nما كتبته: «${compactStudent}»${model ? `\n\nالإجابة النموذجية الكاملة: ${model}` : ""}\n\nذكرت بعض العناصر الصحيحة لكن نقصت عناصر مهمة أخرى. راجع النموذج أعلاه وحدّد ما فاتك حتى تحصل على الدرجة الكاملة في المرة القادمة.${explanationLine}`;
-                      } else {
-                        localNote = `❌ إجابتك غير صحيحة.\n\nما كتبته: «${compactStudent}»${model ? `\n\nالإجابة الصحيحة: ${model}` : ""}\n\nالسؤال كان يطلب: «${compactQuestion}». يبدو أن إجابتك ابتعدت عن المطلوب أو خلطت بين مفهومين. راجع هذه النقطة في الدرس وركّز على الكلمات المفتاحية قبل الإجابة في المرة القادمة.${explanationLine}`;
-                      }
-                    }
-
-                    const autoExplain = !q.explanation && isObjective && showCorrect && correctText
-                      ? `الإجابة الصحيحة: «${correctText}».`
-                      : "";
-
-                    const storedFeedback = String(a?.ai_feedback || "").trim();
-                    const smart = parseSmartFeedback(storedFeedback);
-                    const visibleFeedback = smart
-                      ? null
-                      : (isLegacyReviewFeedback(storedFeedback) ? (localNote || storedFeedback) : (storedFeedback || localNote));
 
                     return (
                       <>
