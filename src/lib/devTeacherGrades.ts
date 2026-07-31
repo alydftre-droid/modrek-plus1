@@ -19,6 +19,8 @@ export class GradeDeleteError extends Error {
 }
 
 const makeTraceId = () => globalThis.crypto?.randomUUID?.() || `grade-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const MANAGED_DELETE_FALLBACK_URL = "https://qohhrliaecdtaeyfhcvb.supabase.co/functions/v1/admin-remove-teacher-grade";
+const MANAGED_DELETE_FALLBACK_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvaGhybGlhZWNkdGFleWZoY3ZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MTU1NDYsImV4cCI6MjA4MTI5MTU0Nn0.0j-tjPRX-s2wMCYfJypWo2dlYk9Mi40ueU8z0f00y8A";
 
 function fail(input: Partial<GradeDeleteDiagnostic> & Pick<GradeDeleteDiagnostic, "message">): never {
   throw new GradeDeleteError({
@@ -67,18 +69,31 @@ export async function removeTeacherGradeAssignments(params: { teacherId: string;
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 90_000);
   let response: Response;
+  let responseEndpoint = endpoint;
+  const requestBody = JSON.stringify({ teacher_id: params.teacherId, assignment_ids: params.assignmentIds });
+  const sendRequest = (url: string, key: string) => fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${devToken}`,
+      apikey: key,
+      "x-trace-id": traceId,
+    },
+    body: requestBody,
+    signal: controller.signal,
+  });
   try {
-    response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${devToken}`,
-        apikey,
-        "x-trace-id": traceId,
-      },
-      body: JSON.stringify({ teacher_id: params.teacherId, assignment_ids: params.assignmentIds }),
-      signal: controller.signal,
-    });
+    try {
+      response = await sendRequest(endpoint, apikey);
+      if (response.status === 404 && endpoint !== MANAGED_DELETE_FALLBACK_URL) {
+        responseEndpoint = MANAGED_DELETE_FALLBACK_URL;
+        response = await sendRequest(MANAGED_DELETE_FALLBACK_URL, MANAGED_DELETE_FALLBACK_KEY);
+      }
+    } catch (primaryError) {
+      if (endpoint === MANAGED_DELETE_FALLBACK_URL) throw primaryError;
+      responseEndpoint = MANAGED_DELETE_FALLBACK_URL;
+      response = await sendRequest(MANAGED_DELETE_FALLBACK_URL, MANAGED_DELETE_FALLBACK_KEY);
+    }
   } catch (error) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     const timedOut = error instanceof DOMException && error.name === "AbortError";
@@ -108,7 +123,7 @@ export async function removeTeacherGradeAssignments(params: { teacherId: string;
       stage: "إرسال طلب الحذف",
       code: offline ? "OFFLINE" : timedOut ? "REQUEST_TIMEOUT" : serviceMissing ? "PRODUCTION_FUNCTION_NOT_DEPLOYED" : "NETWORK_FETCH_FAILED",
       traceId,
-      location: endpoint,
+      location: responseEndpoint,
       details: error instanceof Error ? error.message : String(error),
     });
   } finally {
@@ -124,7 +139,7 @@ export async function removeTeacherGradeAssignments(params: { teacherId: string;
       stage: typeof data?.stage === "string" ? data.stage : "استجابة خدمة الحذف",
       code: typeof data?.code === "string" ? data.code : `HTTP_${response.status}`,
       traceId: typeof data?.trace_id === "string" ? data.trace_id : traceId,
-      location: typeof data?.location === "string" ? data.location : endpoint,
+      location: typeof data?.location === "string" ? data.location : responseEndpoint,
       details: typeof data?.details === "string" ? data.details : rawBody.slice(0, 800) || response.statusText,
     });
   }

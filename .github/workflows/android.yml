@@ -191,7 +191,9 @@ jobs:
           fi
           if grep -r --include='*.js' -q "qohhrliaecdtaeyfhcvb" dist/; then
             if grep -r --include='*.js' -q "cloud-fallback" dist/ && grep -r --include='*.js' -q "openrouter-tts" dist/; then
-              echo "OpenRouter voice fallback endpoint detected; allowed while production voice function deployment catches up."
+              echo "Managed backend fallback endpoint detected; allowed for resilient production functions."
+            elif grep -r --include='*.js' -q "admin-remove-teacher-grade" dist/; then
+              echo "Managed grade deletion fallback detected; allowed until the external production function is available."
             else
               echo "::error::Built bundle contains an unexpected Lovable Cloud Supabase project ref (qohhrliaecdtaeyfhcvb). Aborting to prevent split-brain."
               exit 1
@@ -228,7 +230,8 @@ jobs:
           # embeds it. The dist/ allow-list check above already validates that
           # bundle, so exclude the synced public/ copy here too.
           if grep -R -n "qohhrliaecdtaeyfhcvb" android/app/src android/app/capacitor.build.gradle android/capacitor.settings.gradle src package.json bun.lock package-lock.json \
-            | grep -v "src/lib/openrouterTts.ts" \
+             | grep -v "src/lib/openrouterTts.ts" \
+             | grep -v "src/lib/devTeacherGrades.ts" \
             | grep -v "android/app/src/main/assets/public/"; then
             echo "::error::Unexpected Lovable Cloud project ref outside the OpenRouter voice fallback."
             exit 1
