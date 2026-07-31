@@ -5,6 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Max-Age": "86400",
+  "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges",
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
@@ -421,7 +422,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Library uploads must use chunked upload" }, 409);
       }
 
-      const contentType = req.headers.get("content-type") || "application/octet-stream";
+      const contentType = contentTypeFromPath(filePath, req.headers.get("content-type"));
       const contentLength = req.headers.get("content-length");
 
       // Stream directly to Bunny to avoid buffering large PDFs in memory
@@ -533,7 +534,7 @@ Deno.serve(async (req) => {
       const uploadId = (url.searchParams.get("uploadId") || "").trim();
       const totalStr = (url.searchParams.get("total") || "").trim();
       const expectedSize = normalizePositiveInt(url.searchParams.get("size"), 500 * 1024 * 1024);
-      const contentType = url.searchParams.get("contentType") || "application/octet-stream";
+      const contentType = contentTypeFromPath(filePath || "", url.searchParams.get("contentType"));
       if (!filePath || !/^[a-zA-Z0-9_-]{8,64}$/.test(uploadId) || !/^\d{1,5}$/.test(totalStr)) {
         return jsonResponse({ error: "Invalid finalize parameters" }, 400);
       }
