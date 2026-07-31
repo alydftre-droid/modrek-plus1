@@ -120,7 +120,7 @@ const uploadTeacherIntroToStream = async (
           onProgress?.(loaded, total);
           onVideoProgress?.({ loaded, total, percent, currentPart: 1, totalParts: 1, partPercent: percent, phase: "uploading" });
         },
-        onSuccess: resolve,
+        onSuccess: () => resolve(),
       });
       upload.findPreviousUploads()
         .then((previous) => {
