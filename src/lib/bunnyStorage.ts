@@ -259,6 +259,15 @@ export async function uploadToBunnyStorage(
   const useChunked = file.size > CHUNK_THRESHOLD;
 
   if (!useChunked) {
+    onChunkProgress?.({
+      loaded: 0,
+      total: file.size,
+      percent: 0,
+      currentPart: 1,
+      totalParts: 1,
+      partPercent: 0,
+      phase: "preparing",
+    });
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const timeoutMs = Math.max(120_000, Math.min(900_000, file.size > 0 ? Math.ceil(file.size / 1024 / 1024) * 45_000 : 120_000));
@@ -266,7 +275,19 @@ export async function uploadToBunnyStorage(
 
       if (onProgress) {
         xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) onProgress(e.loaded, e.total);
+          if (e.lengthComputable) {
+            onProgress(e.loaded, e.total);
+            const percent = e.total > 0 ? Math.min(100, Math.round((e.loaded / e.total) * 100)) : 0;
+            onChunkProgress?.({
+              loaded: e.loaded,
+              total: e.total,
+              percent,
+              currentPart: 1,
+              totalParts: 1,
+              partPercent: percent,
+              phase: "uploading",
+            });
+          }
         });
       }
 
@@ -293,6 +314,15 @@ export async function uploadToBunnyStorage(
       xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
       if (onXhrReady) onXhrReady(xhr);
       xhr.send(file);
+    });
+    onChunkProgress?.({
+      loaded: file.size,
+      total: file.size,
+      percent: 100,
+      currentPart: 1,
+      totalParts: 1,
+      partPercent: 100,
+      phase: "finalizing",
     });
     return `bstorage://${storagePath}`;
   }
