@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
+const FUNCTION_VERSION = "teacher-media-playback-v3-2026-07-31";
 
 function getBunnyStorageConfig() {
   const apiKey = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
@@ -31,7 +32,7 @@ function getBunnyStorageConfig() {
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", "X-Modrek-Function-Version": FUNCTION_VERSION },
   });
 }
 
@@ -732,6 +733,7 @@ Deno.serve(async (req) => {
           reason: "ACCESS_RULE_NO_MATCH",
           detail: "لا توجد قاعدة صلاحية تطابق مسار هذا الملف",
           path: filePath,
+          functionVersion: FUNCTION_VERSION,
         }, 404);
       }
 
@@ -761,15 +763,21 @@ Deno.serve(async (req) => {
           userId,
           upstreamStatus: storageRes.status,
         }));
-        return new Response(JSON.stringify({ error: `File not found [${storageRes.status}]` }), {
+        return new Response(JSON.stringify({
+          error: `File not found [${storageRes.status}]`,
+          reason: "UPSTREAM_OBJECT_MISSING",
+          path: filePath,
+          functionVersion: FUNCTION_VERSION,
+        }), {
           status: storageRes.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...corsHeaders, "Content-Type": "application/json", "X-Modrek-Function-Version": FUNCTION_VERSION },
         });
       }
 
       const contentType = contentTypeFromPath(filePath, storageRes.headers.get("content-type"));
       const outHeaders: Record<string, string> = {
         ...corsHeaders,
+        "X-Modrek-Function-Version": FUNCTION_VERSION,
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
         "Cache-Control": "private, max-age=31536000, immutable",
