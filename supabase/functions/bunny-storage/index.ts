@@ -332,12 +332,16 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
   }
 
 
+  const cdnStoredUrl = `https://${Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || ""}/${filePath}`;
   const { data: contentData, error: contentError } = await sb
     .from("content")
     .select("id")
-    .or(`file_url.eq.${storedUrl},thumbnail_url.eq.${storedUrl}`)
+    .or(
+      `file_url.eq.${storedUrl},thumbnail_url.eq.${storedUrl},file_url.eq.${cdnStoredUrl},thumbnail_url.eq.${cdnStoredUrl}`,
+    )
     .limit(1);
   if (!contentError && Array.isArray(contentData) && contentData.length > 0) return true;
+
 
 
   const { data: sourceData, error: sourceError } = await sb
