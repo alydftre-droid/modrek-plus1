@@ -165,21 +165,9 @@ export default function ExamReviewPage() {
                   <p className="font-bold">{q.question_text}</p>
 
                   {(() => {
-                    const isObjective = q.question_type === "mcq" || q.question_type === "true_false" || q.question_type === "fill_blank";
-                    const isWrittenText = q.question_type === "short_answer" || q.question_type === "essay" || q.question_type === "fill_blank";
-                    let correctText = "";
-                    let studentPicked = "";
-                    if (q.question_type === "mcq" || q.question_type === "true_false") {
-                      const correctOpt = (q.options || []).find((o: any) => isOptionCorrectForQuestion(q, o));
-                      correctText = correctOpt?.option_text || q.correct_answer || "";
-                      const pickedOpt = (q.options || []).find((o: any) => a?.selected_option_ids?.includes(o.id));
-                      studentPicked = pickedOpt?.option_text || "";
-                    } else if (q.question_type === "fill_blank") {
-                      correctText = q.correct_answer || "";
-                      studentPicked = a?.answer_text || "";
-                    }
-
                     const smart = parseSmartFeedback(a?.ai_feedback);
+
+
 
 
                     return (
