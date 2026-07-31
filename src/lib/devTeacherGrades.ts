@@ -85,6 +85,10 @@ export async function removeTeacherGradeAssignments(params: { teacherId: string;
   try {
     try {
       response = await sendRequest(endpoint, apikey);
+      if (response.status === 404 && endpoint !== MANAGED_DELETE_FALLBACK_URL) {
+        responseEndpoint = MANAGED_DELETE_FALLBACK_URL;
+        response = await sendRequest(MANAGED_DELETE_FALLBACK_URL, MANAGED_DELETE_FALLBACK_KEY);
+      }
     } catch (primaryError) {
       if (endpoint === MANAGED_DELETE_FALLBACK_URL) throw primaryError;
       responseEndpoint = MANAGED_DELETE_FALLBACK_URL;

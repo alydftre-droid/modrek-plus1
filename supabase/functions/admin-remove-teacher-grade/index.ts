@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       if (claimsError?.message) claimsErrorMessage = claimsError.message;
     }
     if (!claims?.sub || !selectedRuntime) return json({ error: "جلسة المطور غير صالحة أو منتهية", stage, code: "INVALID_DEVELOPER_JWT", details: claimsErrorMessage, trace_id: traceId, location: "auth.getClaims" }, 401);
-    const callerId = claims.sub;
+    const callerId = String(claims.sub);
 
     const admin = createClient(selectedRuntime.url, selectedRuntime.serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
