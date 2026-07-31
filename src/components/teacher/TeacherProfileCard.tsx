@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, CheckCircle, GraduationCap, Play, Sparkles, Star, Trophy } from "lucide-react";
 import { useState } from "react";
 import {
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
   Dialog,
   DialogContent,
   DialogHeader,
@@ -180,7 +181,7 @@ const TeacherProfileCard = ({
           <DialogHeader>
             <DialogTitle>فيديو تعريفي - {teacherName}</DialogTitle>
           </DialogHeader>
-          {videoUrl ? <video src={videoUrl} controls autoPlay className="w-full rounded-lg" /> : null}
+          {videoUrl ? <video src={resolveBunnyStorageUrl(videoUrl)} controls autoPlay className="w-full rounded-lg" /> : null}
         </DialogContent>
       </Dialog>
     </>
