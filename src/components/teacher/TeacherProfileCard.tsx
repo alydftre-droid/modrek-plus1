@@ -1,4 +1,5 @@
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -181,7 +182,7 @@ const TeacherProfileCard = ({
           <DialogHeader>
             <DialogTitle>فيديو تعريفي - {teacherName}</DialogTitle>
           </DialogHeader>
-          {videoUrl ? <video src={resolveBunnyStorageUrl(videoUrl)} controls autoPlay className="w-full rounded-lg" /> : null}
+          {videoUrl ? <AuthenticatedVideo source={videoUrl} autoPlay className="w-full rounded-lg" /> : null}
         </DialogContent>
       </Dialog>
     </>

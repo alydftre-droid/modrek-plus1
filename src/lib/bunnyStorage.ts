@@ -192,6 +192,22 @@ export function resolveBunnyStorageUrl(fileUrl: string): string {
   return fileUrl;
 }
 
+/**
+ * Media elements may render before the asynchronous auth bootstrap has filled
+ * cachedAccessToken. In that case resolveBunnyStorageUrl returns an anonymous
+ * URL and the browser permanently keeps the first 401 response. Await a fresh
+ * session before assigning src to protected audio/video elements.
+ */
+export async function resolveBunnyStorageMediaUrl(fileUrl: string): Promise<string> {
+  if (!fileUrl?.startsWith("bstorage://")) return fileUrl;
+  const path = fileUrl.replace("bstorage://", "");
+  const proxyUrl = resolveBunnyStorageProxyUrl(path);
+  if (!proxyUrl) throw new Error("MEDIA_PROXY_CONFIG_MISSING");
+  const token = await getCurrentAccessToken();
+  if (!token) throw new Error("MEDIA_AUTH_SESSION_MISSING");
+  return `${proxyUrl}&token=${encodeURIComponent(token)}&media=${Date.now()}`;
+}
+
 export async function resolveBunnyStorageBlobUrl(fileUrl: string, accessTokenOverride?: string | null): Promise<string> {
   if (!fileUrl?.startsWith("bstorage://")) return fileUrl;
   if (objectUrlCache.has(fileUrl)) return objectUrlCache.get(fileUrl)!;
