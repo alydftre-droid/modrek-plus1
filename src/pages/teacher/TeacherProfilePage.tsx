@@ -476,7 +476,7 @@ export default function TeacherProfilePage() {
               {videoUrl && (
                 <div>
                   <p className="text-xs font-semibold mb-1.5" style={{ color: C.muted }}>الفيديو التعريفي</p>
-                  <video src={resolveBunnyStorageUrl(videoUrl)} controls className="w-full rounded-xl bg-black" />
+                  <AuthenticatedVideo source={videoUrl} className="w-full rounded-xl bg-black" />
                 </div>
               )}
             </div>
