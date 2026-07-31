@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
-const FUNCTION_VERSION = "teacher-media-playback-v3-2026-07-31";
+const FUNCTION_VERSION = "teacher-media-playback-v4-2026-07-31";
 
 function getBunnyStorageConfig() {
   const apiKey = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
@@ -33,6 +33,18 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json", "X-Modrek-Function-Version": FUNCTION_VERSION },
+  });
+}
+
+function diagnosticJsonResponse(body: Record<string, unknown>, status: number, traceId: string) {
+  return new Response(JSON.stringify({ ...body, functionVersion: FUNCTION_VERSION, traceId }), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "X-Modrek-Function-Version": FUNCTION_VERSION,
+      "X-Modrek-Trace-Id": traceId,
+    },
   });
 }
 
@@ -734,18 +746,16 @@ Deno.serve(async (req) => {
       const requestedTrace = (url.searchParams.get("trace") || "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 80);
       const traceId = requestedTrace || crypto.randomUUID();
       if (!filePath) {
-        return jsonResponse({ error: "Invalid or missing path" }, 400);
+        return diagnosticJsonResponse({ error: "Invalid or missing path", reason: "INVALID_STORAGE_PATH" }, 400, traceId);
       }
       if (!(await canReadStoredFile(userClient, filePath, userId))) {
         console.error("[bunny-storage:download_denied]", JSON.stringify({ filePath, userId }));
-        return jsonResponse({
+        return diagnosticJsonResponse({
           error: "Not found or no access",
           reason: "ACCESS_RULE_NO_MATCH",
           detail: "لا توجد قاعدة صلاحية تطابق مسار هذا الملف",
           path: filePath,
-          functionVersion: FUNCTION_VERSION,
-          traceId,
-        }, 404);
+        }, 404, traceId);
       }
 
       const rangeHeader = req.headers.get("Range");
@@ -776,16 +786,11 @@ Deno.serve(async (req) => {
           userId,
           upstreamStatus: storageRes.status,
         }));
-        return new Response(JSON.stringify({
+        return diagnosticJsonResponse({
           error: `File not found [${storageRes.status}]`,
           reason: "UPSTREAM_OBJECT_MISSING",
           path: filePath,
-          functionVersion: FUNCTION_VERSION,
-          traceId,
-        }), {
-          status: storageRes.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json", "X-Modrek-Function-Version": FUNCTION_VERSION, "X-Modrek-Trace-Id": traceId },
-        });
+        }, storageRes.status, traceId);
       }
 
       const contentType = contentTypeFromPath(filePath, storageRes.headers.get("content-type"));
