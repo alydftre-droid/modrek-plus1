@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type VideoHTMLAttributes } from "react";
 import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { resolveBunnyStorageMediaUrl } from "@/lib/bunnyStorage";
@@ -13,7 +13,7 @@ type VideoDiagnostic = {
   mediaCode?: number;
 };
 
-type Props = React.VideoHTMLAttributes<HTMLVideoElement> & {
+type Props = VideoHTMLAttributes<HTMLVideoElement> & {
   source: string;
 };
 
