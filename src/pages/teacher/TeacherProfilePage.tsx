@@ -1,4 +1,4 @@
-import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -369,7 +369,7 @@ export default function TeacherProfilePage() {
           <Field label="فيديو تعريفي" optional>
             {videoUrl ? (
               <div className="space-y-2">
-                <video src={resolveBunnyStorageUrl(videoUrl)} controls className="w-full rounded-xl bg-black" />
+                <AuthenticatedVideo source={videoUrl} className="w-full rounded-xl bg-black" />
                 <Button
                   type="button"
                   variant="outline"

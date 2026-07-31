@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import { reportRpcError } from "@/lib/rpcErrorReporter";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
@@ -1341,7 +1342,7 @@ const StudentSubjectView = () => {
               <DialogTitle>فيديو تعريفي - {introVideo?.name}</DialogTitle>
             </DialogHeader>
             {introVideo?.url && (
-              <video src={resolveBunnyStorageUrl(introVideo.url)} controls autoPlay playsInline className="w-full rounded-lg" />
+              <AuthenticatedVideo source={introVideo.url} autoPlay className="w-full rounded-lg" />
             )}
           </DialogContent>
         </Dialog>

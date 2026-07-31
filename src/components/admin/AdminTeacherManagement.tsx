@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { buildTeacherAssignmentsFromRequest } from "@/lib/teacherAssignmentSync";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 
 
 interface TeacherData {
@@ -661,7 +662,7 @@ const AdminTeacherManagement = () => {
             <DialogTitle>فيديو تعريفي - {selectedTeacher?.full_name}</DialogTitle>
           </DialogHeader>
           {selectedTeacher?.video_url && (
-            <video src={resolveBunnyStorageUrl(selectedTeacher.video_url)} controls autoPlay className="w-full rounded-lg" />
+            <AuthenticatedVideo source={selectedTeacher.video_url} autoPlay className="w-full rounded-lg" />
           )}
         </DialogContent>
       </Dialog>
