@@ -189,6 +189,40 @@ async function validateBunnyStorageCredentials(config: ReturnType<typeof getBunn
   return { ok: true, status: res.status, upstream: "" };
 }
 
+// Bunny Storage always answers GET with `application/octet-stream`, which makes
+// browsers refuse to play video/audio (black player, 0:00). Infer a real MIME
+// type from the file extension so media elements can decode the stream.
+const EXTENSION_CONTENT_TYPES: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/mp4",
+  webm: "video/webm",
+  ogv: "video/ogg",
+  mkv: "video/x-matroska",
+  avi: "video/x-msvideo",
+  wmv: "video/x-ms-wmv",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+  pdf: "application/pdf",
+};
+
+function contentTypeFromPath(filePath: string, upstreamType: string | null): string {
+  const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() || "";
+  const mapped = EXTENSION_CONTENT_TYPES[ext];
+  const upstream = (upstreamType || "").split(";")[0].trim().toLowerCase();
+  const isGeneric = !upstream || upstream === "application/octet-stream" || upstream === "binary/octet-stream";
+  if (mapped && isGeneric) return mapped;
+  return upstreamType || mapped || "application/octet-stream";
+}
+
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
   const { data } = await sb.from("user_roles").select("role").eq("user_id", userId).eq("role", role).maybeSingle();
   return Boolean(data?.role);
