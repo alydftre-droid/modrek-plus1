@@ -126,8 +126,12 @@ export function classifyCase(item: FeedbackItem, score: number): FeedbackCase {
     // Talks about the same lesson family? (shares words with the question text)
     const q = coverage(item.studentAnswer, item.question);
     if (q.common >= 2) return "off_topic";
+    // A substantive answer that shares nothing with the model usually means the
+    // student answered from a neighbouring concept, not a random guess.
+    if (c.aLen >= 3) return "concept_mix";
     return "wrong";
   }
+
   if (c.recall > 0 && c.recall < 0.35 && c.common >= 1) return "concept_mix";
   return "wrong";
 }
