@@ -11,6 +11,9 @@ type VideoDiagnostic = {
   contentType?: string;
   contentRange?: string;
   mediaCode?: number;
+  reason?: string;
+  path?: string;
+  functionVersion?: string;
 };
 
 type Props = VideoHTMLAttributes<HTMLVideoElement> & {
@@ -59,7 +62,11 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
 
     try {
       const response = await fetch(src, { headers: { Range: "bytes=0-1023" }, cache: "no-store" });
-      const body = response.ok ? "" : (await response.text().catch(() => "")).slice(0, 300);
+      const body = response.ok ? "" : (await response.text().catch(() => "")).slice(0, 500);
+      let serverDiagnostic: Record<string, unknown> = {};
+      if (body) {
+        try { serverDiagnostic = JSON.parse(body) as Record<string, unknown>; } catch { /* plain upstream error */ }
+      }
       setDiagnostic({
         ...base,
         stage: response.ok ? base.stage : "طلب ملف الفيديو",
@@ -67,6 +74,10 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
         status: response.status,
         contentType: response.headers.get("content-type") || "غير موجود",
         contentRange: response.headers.get("content-range") || "غير موجود",
+        reason: typeof serverDiagnostic.reason === "string" ? serverDiagnostic.reason : undefined,
+        path: typeof serverDiagnostic.path === "string" ? serverDiagnostic.path : undefined,
+        functionVersion: response.headers.get("x-modrek-function-version")
+          || (typeof serverDiagnostic.functionVersion === "string" ? serverDiagnostic.functionVersion : undefined),
         details: response.ok
           ? `${base.details}. استجاب الملف لكن المتصفح رفض الترميز أو الحاوية.`
           : `رفضت خدمة الملفات الطلب: ${body || response.statusText || "بدون تفاصيل"}`,
@@ -114,6 +125,9 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
             {diagnostic.status !== undefined && <p><b>حالة الخادم:</b> {diagnostic.status}</p>}
             {diagnostic.contentType && <p><b>نوع الملف:</b> <span dir="ltr">{diagnostic.contentType}</span></p>}
             {diagnostic.contentRange && <p><b>دعم أجزاء الفيديو:</b> <span dir="ltr">{diagnostic.contentRange}</span></p>}
+            {diagnostic.reason && <p><b>سبب الخادم:</b> <span dir="ltr">{diagnostic.reason}</span></p>}
+            {diagnostic.path && <p><b>مسار الملف:</b> <span dir="ltr">{diagnostic.path}</span></p>}
+            {diagnostic.functionVersion && <p><b>إصدار خدمة التشغيل:</b> <span dir="ltr">{diagnostic.functionVersion}</span></p>}
             <p><b>التفاصيل:</b> {diagnostic.details}</p>
             <p><b>المكان:</b> مشغل الفيديو التعريفي ← خدمة ملفات Bunny</p>
           </div>
