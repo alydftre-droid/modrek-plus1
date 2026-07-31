@@ -18,6 +18,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
+import {
+  buildFallbackFeedback,
+  caseDirective,
+  classifyCase,
+  type FeedbackItem,
+} from "../_shared/feedbackEngine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,38 +153,15 @@ function extraInfo(item: any): string {
   return "تذكّر دائماً: لا تحفظ الإجابة وحدها؛ احفظ معها سبب صحتها وكلمة السؤال التي دلت عليها، فهكذا تثبت المعلومة.";
 }
 
-// Deterministic local feedback used only when the AI provider fails. Still
-// gives 3 rich-ish sections so the review UI always shows something useful.
+// Deterministic local feedback used only when the AI provider fails or returns
+// a weak/duplicated note. Delegates to the smart feedback engine so the note is
+// case-aware (blank / partial / concept-mix / off-topic / ...) and varied.
+// NOTE: scoring is NOT touched here — `score` is read-only input.
 function localFeedback(item: any, score: number): string {
-  const max = Number(item.maxPoints || 0);
-  const q = trimText(item.question, 240);
-  const student = trimText(item.studentAnswer, 240);
-  const model = trimText(item.modelAnswer, 320);
-  const type = item.questionType;
-  const correct = max > 0 && score >= max;
-  const partial = !correct && score > 0;
-
-  const concept = detectConcept(item);
-  let notes: string;
-  if (isNonAnswer(item.studentAnswer) && WRITTEN_TYPES.has(type)) {
-    notes = `لم تقدّم إجابة على سؤال مرتبط بـ«${concept}»، لذلك لم تظهر أي عناصر يمكن تصحيحها. حتى لو لم تكن متأكداً، اكتب الفكرة التي تتذكرها أو مثالاً قريباً؛ لأن الإجابة الجزئية قد تكشف فهماً يستحق درجة.\n\nالسؤال كان يطلب منك تحديد الفكرة المقصودة في: «${q}»، والإجابة النموذجية تدور حول: «${model}».`;
-  } else if (correct) {
-    notes = OBJECTIVE_TYPES.has(type)
-      ? `اختيارك «${student || model}» صحيح لأنه يطابق الفكرة التي يسأل عنها السؤال، وليس مجرد اختيار عشوائي من البدائل.\n\nالقيمة التعليمية هنا أنك ميّزت الكلمة المفتاحية في السؤال وربطتها بباب «${concept}». انتبه فقط إلى الاختيارات القريبة التي قد تبدو صحيحة لكنها لا تجيب عن المطلوب تحديداً.`
-      : `إجابتك توضّح أنك فهمت المطلوب في سؤال «${q}»، لأنها وصلت إلى المعنى الأساسي: «${model}».\n\nالنجاح هنا ليس في كتابة نفس ألفاظ النموذج فقط، بل في وصولك للفكرة الصحيحة وربطها بباب «${concept}». حافظ على هذه الطريقة: اقرأ المطلوب أولاً ثم اكتب العناصر مباشرة.`;
-  } else if (partial) {
-    notes = `إجابتك فيها جزء من الفهم، لكنها لم تصل إلى الصورة الكاملة المطلوبة في السؤال. ذكرت معنى قريباً أو عنصراً صحيحاً، لكن الإجابة النموذجية تتضمن: «${model}».\n\nسبب نقص الدرجة أن السؤال لا يطلب تلميحاً عاماً، بل عناصر محددة من باب «${concept}». في المرة القادمة اكتب النقاط الأساسية أولاً، ثم أضف الشرح بعد ذلك.`;
-  } else {
-    notes = OBJECTIVE_TYPES.has(type)
-      ? `اختيارك «${student || "لم تختر إجابة واضحة"}» غير مناسب لهذا السؤال، لأن السؤال يقود إلى معنى مختلف هو «${model}».\n\nغالباً حدث الخلط بسبب تشابه الألفاظ أو لأنك ركزت على جزء من السؤال وتركت الكلمة التي تحدد المطلوب. قارن دائماً بين اختيارك والاختيار الصحيح: هل يجيب عن نفس المطلوب أم عن باب قريب فقط؟`
-      : `إجابتك «${student || "فارغة"}» ابتعدت عن المطلوب في السؤال. الإجابة الصحيحة تدور حول: «${model}».\n\nالخطأ هنا ليس في الأسلوب فقط، بل في أن المعنى الذي كتبته لا يغطي عناصر باب «${concept}» المطلوبة. اقرأ السؤال مرة أخرى وحدد: ما المطلوب؟ تعريف، حكم، شرط، ركن، أم مثال؟`;
-  }
-
-  const explanation = conceptExplanation(item);
-  const extra = extraInfo(item);
-
-  return encodeFeedback({ notes, explanation, extra });
+  const built = buildFallbackFeedback(item as FeedbackItem, Number(score || 0));
+  return encodeFeedback({ notes: built.notes, explanation: built.explanation, extra: built.extra });
 }
+
 
 function pickOption(options: any[], id: string | null | undefined) {
   if (!id || !Array.isArray(options)) return null;
@@ -310,24 +293,21 @@ serve(async (req) => {
 - إذا كانت الإجابة صحيحة لا تكتب فقط "إجابة صحيحة"؛ اشرح سبب صحة الاختيار والقاعدة التي جعلته صحيحاً.
 - إذا كانت الإجابة خاطئة لا تكتفِ بذكر الصحيح؛ قارن بين إجابة الطالب والصحيح واذكر سبب الالتباس.
 
-## قواعد notes حسب حالة الإجابة
-### إذا كانت الإجابة صحيحة تماماً:
-- اشرح **لماذا** هذه الإجابة تعتبر صحيحة علمياً/شرعياً/منطقياً.
-- بيّن مستوى فهم الطالب وما يدل عليه اختياره.
-- نبّه لنقطة يجب أن ينتبه لها مستقبلاً (خطأ شائع قريب من هذا السؤال).
-- 4–6 أسطر متكاملة، لا سطر واحد.
-### إذا كانت الإجابة خاطئة (mcq/tf/fill_blank/كتابي):
-- اشرح **أين** الخطأ بدقة داخل إجابة الطالب.
-- اشرح **لماذا** غالباً اختار الطالب هذه الإجابة (ما الشبهة أو التشابه الذي أوقعه فيها).
-- اشرح **لماذا** الإجابة الصحيحة هي الصحيحة.
-- في MCQ خصوصاً: قارن بين الخيار الذي اختاره الطالب والخيار الصحيح.
-- في أكمل: اشرح لماذا الكلمة الصحيحة تناسب الفراغ ولماذا كلمة الطالب لا تصلح.
-- في صح/خطأ: صحّح العبارة، ثم اذكر القاعدة الصحيحة.
-### إذا كانت الإجابة جزئية (مقالي/أكمل):
-- اذكر ما أجاده الطالب فعلاً.
-- اذكر ما نسيه أو أهمل ذكره من العناصر المطلوبة.
-- اذكر ما يحتاج تطويره في أسلوب الإجابة.
-- اختم بنصيحة عملية قصيرة لتحسين إجاباته المقالية.
+## حالات الإجابة الأربع عشرة (اكتب notes حسب الحالة المرسلة مع كل سؤال)
+1) صحيحة بالكامل: لا تقل «إجابة صحيحة» فقط؛ وضّح لماذا صحّت وأي عناصر غطّتها، ثم ثبّت الفكرة في سطرين أو ثلاثة.
+2) صحيحة ينقصها تفصيل: «إجابتك صحيحة جزئياً… لقد ذكرت… ولكن كان ينقص أيضاً…» ثم اشرح الناقص باختصار.
+3) خاطئة: «يبدو أنك خلطت بين…» ثم «والإجابة الصحيحة هي…» ثم «وسبب ذلك…» مع شرح مبسط.
+4) خلط بين مفهومين: بيّن أن ما كتبه يخص المفهوم الأول بينما السؤال عن الثاني، ثم اشرح الفرق بينهما بوضوح.
+5) أجاب عن سؤال آخر: «إجابتك تتعلق بموضوع قريب… لكن السؤال كان يطلب… بينما إجابتك كانت عن…» وأشر إلى أنه خطأ شائع.
+6) إجابة ناقصة عناصر: اذكر عدد العناصر الصحيحة بالاسم، ثم العناصر المتبقية صراحة واشرح كل ناقص بسطر.
+7) إجابة طويلة بها أخطاء: ابدأ بما فيها من صواب، ثم حدّد الخطأ بدقة، ثم اكتب التصحيح.
+8) تركها فارغة: «لم تقم بالإجابة… وكانت فرصة للحصول على X درجة… الإجابة الصحيحة هي…» ثم اشرح الفكرة كاملة باختصار.
+9) صحيحة بصياغة ضعيفة: «الفكرة صحيحة، لكن يفضل كتابتها هكذا: …» مع بيان سبب أهمية الدقة في الامتحان.
+10) مقالي: حلّل الإجابة كاملة وحدّد: ما أصاب فيه / ما أخطأ فيه / ما نسيه / كيف يكتب إجابة أفضل.
+11) صح وخطأ: صحّح نص العبارة نفسها واشرح لماذا هي خاطئة، ثم اذكر الصواب والقاعدة.
+12) اختيار من متعدد: اشرح لماذا اختياره غير مناسب تحديداً، ولماذا الخيار الصحيح هو الأنسب مقارنةً به.
+13) سؤال حفظ (اذكر / عدّد / أركان / شروط): أضف في extra طريقة سهلة للتذكّر أو قاعدة مختصرة.
+14) معلومة يكثر الخطأ فيها: ابدأ extra بـ «⚠️ انتبه:» ووضّح سبب شيوع الخطأ.
 
 ## قواعد explanation
 - الشرح يشرح **الدرس/المفهوم**، ليس الاختيار فقط.
@@ -339,6 +319,10 @@ serve(async (req) => {
 - سطر أو سطران فقط.
 - معلومة إضافية أو قاعدة سريعة تُساعد الطالب على تذكّر الفكرة.
 - ممنوع تكرارها بين الأسئلة.
+
+## منع التكرار (إلزامي)
+- لا تبدأ ملاحظتين في نفس الامتحان بنفس الجملة الافتتاحية.
+- نوّع الأسلوب والافتتاحيات والأمثلة بين الأسئلة، كأن كل ملاحظة كتبها معلم أثناء تصحيح الورقة بيده.
 
 ## قواعد التصحيح (للمكتوبة فقط)
 - score بين 0 والدرجة القصوى، مع كسور عشرية عادلة.
@@ -358,7 +342,9 @@ ${it.allOptionsText ? `الخيارات المتاحة:\n${it.allOptionsText}` :
 الإجابة النموذجية / الصحيحة: ${it.modelAnswer || "(غير متوفرة)"}
 إجابة الطالب: ${it.studentAnswer || "(لم يجب)"}
 ${it.questionExplanation ? `شرح المعلم المخزّن (استعن به لإثراء explanation): ${it.questionExplanation}` : ""}
+${caseDirective(it as unknown as FeedbackItem, classifyCase(it as unknown as FeedbackItem, Number(scores[it.questionId] ?? it.currentScore ?? 0)))}
 `).join("\n");
+
 
     const tools = [{
       type: "function",
@@ -446,6 +432,11 @@ ${it.questionExplanation ? `شرح المعلم المخزّن (استعن به 
       return false;
     };
 
+    // Anti-repetition guards (feedback only — never affects scores).
+    const seenOpeners = new Set<string>();
+    const seenExtras = new Set<string>();
+    const signature = (text: string) => normalizeArabicText(text).split(" ").slice(0, 8).join(" ");
+
     // Batch into small chunks to force detailed per-question reasoning instead of generic one-line notes.
     const CHUNK = 4;
     for (let i = 0; i < items.length; i += CHUNK) {
@@ -474,20 +465,35 @@ ${it.questionExplanation ? `شرح المعلم المخزّن (استعن به 
             if (isNonAnswer(it.studentAnswer)) finalScore = 0;
             scores[it.questionId] = Math.round(finalScore * 100) / 100;
           }
+
+          const engine = buildFallbackFeedback(it as unknown as FeedbackItem, scores[it.questionId] ?? it.currentScore ?? 0);
+          let notes = String(r.notes || "").trim();
+          let extra = String(r.extra || "").trim();
+          // If the model repeated an earlier opening line or tip, swap in the
+          // engine's case-aware variant so no two notes read the same.
+          if (seenOpeners.has(signature(notes))) notes = engine.notes;
+          if (seenExtras.has(signature(extra))) extra = engine.extra;
+          seenOpeners.add(signature(notes));
+          seenExtras.add(signature(extra));
+
           feedbackJson[it.questionId] = encodeFeedback({
-            notes: String(r.notes || "").trim(),
-            explanation: String(r.explanation || "").trim(),
-            extra: String(r.extra || "").trim(),
+            notes,
+            explanation: String(r.explanation || "").trim() || engine.explanation,
+            extra,
           });
         } else {
           // Fallback per item
           if (!it.isObjective) {
             scores[it.questionId] = writtenFallbackScore(it.studentAnswer, it.modelAnswer, it.maxPoints);
           }
-          feedbackJson[it.questionId] = localFeedback(it, scores[it.questionId] ?? 0);
+          const engine = buildFallbackFeedback(it as unknown as FeedbackItem, scores[it.questionId] ?? 0);
+          seenOpeners.add(signature(engine.notes));
+          seenExtras.add(signature(engine.extra));
+          feedbackJson[it.questionId] = encodeFeedback(engine);
         }
       }
     }
+
 
     // Persist per-answer feedback + written scores.
     for (const it of items) {
