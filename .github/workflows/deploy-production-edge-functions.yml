@@ -293,7 +293,7 @@ jobs:
           echo "::group::supabase functions list --project-ref $SUPABASE_PROJECT_REF"
           supabase functions list --project-ref "$SUPABASE_PROJECT_REF" | tee /tmp/production-functions-list.txt
           echo "::endgroup::"
-          for fn in admin-remove-teacher-grade library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+          for fn in teacher-intro-media bunny-storage admin-remove-teacher-grade library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             if ! grep -Eq "(^|[[:space:]│|])${fn}([[:space:]│|]|$)" /tmp/production-functions-list.txt; then
               echo "::error::Production Edge Function is missing from project $SUPABASE_PROJECT_REF: $fn"
               exit 1
@@ -318,8 +318,10 @@ jobs:
               exit 1
             fi
             headers="$(cat "/tmp/edge-${fn}.headers" | tr -d '\r')"
-            if ! echo "$headers" | grep -qi '^access-control-allow-methods:.*POST'; then
-              echo "::error::Production Edge Function $fn OPTIONS response is missing Access-Control-Allow-Methods: POST."
+            expected_method="POST"
+            if [ "$fn" = "teacher-intro-media" ]; then expected_method="GET"; fi
+            if ! echo "$headers" | grep -qi "^access-control-allow-methods:.*${expected_method}"; then
+              echo "::error::Production Edge Function $fn OPTIONS response is missing Access-Control-Allow-Methods: $expected_method."
               cat "/tmp/edge-${fn}.headers"
               exit 1
             fi
@@ -415,6 +417,25 @@ jobs:
           fi
           echo "Production Bunny Storage version verified: $deployed_version"
 
+      - name: Verify dedicated teacher intro playback deployment
+        run: |
+          set -euo pipefail
+          expected_version="teacher-intro-media-v2-2026-07-31"
+          status="$(curl -sS -D /tmp/teacher-intro-health.headers -o /tmp/teacher-intro-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/teacher-intro-media?action=health" \
+            -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
+          cat /tmp/teacher-intro-health.json
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Dedicated production teacher intro playback is missing or unhealthy. HTTP $status"
+            exit 1
+          fi
+          deployed_version="$(tr -d '\r' < /tmp/teacher-intro-health.headers | awk -F': ' 'tolower($1) == "x-modrek-function-version" { print $2 }' | tail -n 1)"
+          if [ "$deployed_version" != "$expected_version" ]; then
+            echo "::error::Production teacher-intro-media is stale. Expected $expected_version, got ${deployed_version:-missing}."
+            exit 1
+          fi
+          echo "Production teacher intro playback version verified: $deployed_version"
+
       - name: Verify legacy teacher intro object from production
         run: |
           set -euo pipefail
@@ -422,7 +443,7 @@ jobs:
           # regression. Verify it at the authenticated storage origin after
           # every deploy so CI cannot report success while existing profiles
           # still show a black 0:00 player.
-          legacy_path="content/teacher-intros/0db23858-b633-4b90-9ea9-f579676c9a46/intro-1785462701041.mp4"
+          legacy_path="content/teacher-intros/0db23858-b633-4b90-9ea9-f579676c9a46/intro-1785458327413.mp4"
           status="$(curl -sS -D /tmp/teacher-intro-origin.headers -o /tmp/teacher-intro-origin.bin -w '%{http_code}' \
             -H "AccessKey: $BUNNY_STORAGE_API_KEY" \
             -H "Range: bytes=0-1023" \

@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
-const FUNCTION_VERSION = "teacher-intro-media-v1-2026-07-31";
+const FUNCTION_VERSION = "teacher-intro-media-v2-2026-07-31";
 const INTRO_PATH = /^content\/teacher-intros?\/[0-9a-f-]{36}\/intro-[a-zA-Z0-9._-]+$/i;
 
 const responseHeaders = {
@@ -30,6 +30,12 @@ function getBearer(req: Request, url: URL) {
   return token?.split(".").length === 3 ? `Bearer ${token}` : null;
 }
 
+function isServiceRoleRequest(authHeader: string | null) {
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+  const bearer = authHeader?.replace(/^Bearer\s+/i, "").trim() || "";
+  return Boolean(serviceRoleKey && bearer === serviceRoleKey);
+}
+
 async function hasValidSession(authHeader: string) {
   const backendUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -55,6 +61,22 @@ Deno.serve(async (req) => {
   if (req.method !== "GET") return diagnostic("Method not allowed", "METHOD_NOT_ALLOWED", 405, traceId);
 
   const url = new URL(req.url);
+  const authHeader = getBearer(req, url);
+  if (url.searchParams.get("action") === "health") {
+    if (!isServiceRoleRequest(authHeader)) {
+      return diagnostic("Authentication required", "INVALID_HEALTH_CREDENTIAL", 401, traceId);
+    }
+    return new Response(JSON.stringify({ ok: true, provider: "teacher-intro-media", functionVersion: FUNCTION_VERSION }), {
+      status: 200,
+      headers: {
+        ...responseHeaders,
+        "Content-Type": "application/json",
+        "X-Modrek-Function-Version": FUNCTION_VERSION,
+        "X-Modrek-Trace-Id": traceId,
+      },
+    });
+  }
+
   const rawPath = url.searchParams.get("path")?.trim() || "";
   let path = rawPath;
   try { path = decodeURIComponent(rawPath); } catch { /* URLSearchParams is normally already decoded */ }
@@ -62,7 +84,6 @@ Deno.serve(async (req) => {
     return diagnostic("Invalid teacher intro path", "INVALID_INTRO_PATH", 400, traceId, path);
   }
 
-  const authHeader = getBearer(req, url);
   if (!authHeader || !(await hasValidSession(authHeader))) {
     return diagnostic("Authentication required", "INVALID_SESSION", 401, traceId, path);
   }

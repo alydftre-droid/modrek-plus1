@@ -9,7 +9,13 @@ Deno.test("teacher intro media is isolated to historical intro paths", () => {
 });
 
 Deno.test("teacher intro media exposes diagnostics and byte ranges", () => {
-  assertStringIncludes(source, "teacher-intro-media-v1-2026-07-31");
+  assertStringIncludes(source, "teacher-intro-media-v2-2026-07-31");
   assertStringIncludes(source, "X-Modrek-Trace-Id");
   assertStringIncludes(source, '"Accept-Ranges": "bytes"');
+});
+
+Deno.test("teacher intro media has a protected deployment health proof", () => {
+  assertStringIncludes(source, 'url.searchParams.get("action") === "health"');
+  assertStringIncludes(source, "isServiceRoleRequest(authHeader)");
+  assertStringIncludes(source, 'provider: "teacher-intro-media"');
 });
