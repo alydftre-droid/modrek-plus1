@@ -82,10 +82,31 @@ export async function removeTeacherGradeAssignments(params: { teacherId: string;
   } catch (error) {
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     const timedOut = error instanceof DOMException && error.name === "AbortError";
+    let serviceMissing = false;
+    if (!offline && !timedOut) {
+      try {
+        const probe = await fetch(endpoint, {
+          method: "OPTIONS",
+          headers: {
+            Origin: window.location.origin,
+            "Access-Control-Request-Method": "POST",
+          },
+        });
+        serviceMissing = probe.status === 404;
+      } catch {
+        // Preserve the original network diagnostic when even the probe fails.
+      }
+    }
     fail({
-      message: offline ? "الجهاز غير متصل بالإنترنت" : timedOut ? "انتهت مهلة الاتصال بعد 90 ثانية" : "فشل المتصفح في الاتصال بخدمة حذف الصف",
+      message: offline
+        ? "الجهاز غير متصل بالإنترنت"
+        : timedOut
+          ? "انتهت مهلة الاتصال بعد 90 ثانية"
+          : serviceMissing
+            ? "خدمة حذف الصف غير منشورة في بيئة الإنتاج"
+            : "فشل المتصفح في الاتصال بخدمة حذف الصف",
       stage: "إرسال طلب الحذف",
-      code: offline ? "OFFLINE" : timedOut ? "REQUEST_TIMEOUT" : "NETWORK_FETCH_FAILED",
+      code: offline ? "OFFLINE" : timedOut ? "REQUEST_TIMEOUT" : serviceMissing ? "PRODUCTION_FUNCTION_NOT_DEPLOYED" : "NETWORK_FETCH_FAILED",
       traceId,
       location: endpoint,
       details: error instanceof Error ? error.message : String(error),
