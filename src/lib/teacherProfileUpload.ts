@@ -154,9 +154,20 @@ export const uploadTeacherProfileFile = async (
   const path = buildPath(preparedFile, userId, kind);
   const contentType = getUploadContentType(preparedFile, kind);
 
-  // Videos: always resumable so 60/80/100MB files upload reliably. Falls back to
-  // a direct upload only for small files if the resumable endpoint is unavailable.
+  // Videos: go through the Bunny chunked pipeline (4MB chunks). The Supabase
+  // storage API enforces a project-wide per-file body limit (50MB) that also
+  // applies to resumable/TUS uploads — that limit is what kept rejecting real
+  // intro videos. Bunny has no such cap and is already used for lesson videos.
   if (kind === "video") {
+    const ext = getSafeExtension(preparedFile.name, "mp4");
+    const bunnyPath = `content/teacher-intros/${userId}/intro-${Date.now()}.${ext}`;
+    try {
+      const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
+      return await uploadToBunnyStorage(preparedFile, bunnyPath, onProgress);
+    } catch (bunnyError) {
+      console.warn("teacher intro video bunny upload failed, falling back", bunnyError);
+    }
+
     try {
       return await resumableStorageUpload(preparedFile, path, contentType, onProgress);
     } catch (error) {
@@ -165,6 +176,7 @@ export const uploadTeacherProfileFile = async (
       return await directStorageUpload(preparedFile, path, contentType);
     }
   }
+
 
 
   const { data: sessionData } = await supabase.auth.getSession();

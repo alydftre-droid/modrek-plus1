@@ -1,3 +1,4 @@
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -365,7 +366,7 @@ export default function TeacherProfilePage() {
           <Field label="فيديو تعريفي" optional>
             {videoUrl ? (
               <div className="space-y-2">
-                <video src={videoUrl} controls className="w-full rounded-xl bg-black" />
+                <video src={resolveBunnyStorageUrl(videoUrl)} controls className="w-full rounded-xl bg-black" />
                 <Button
                   type="button"
                   variant="outline"
@@ -462,7 +463,7 @@ export default function TeacherProfilePage() {
               {videoUrl && (
                 <div>
                   <p className="text-xs font-semibold mb-1.5" style={{ color: C.muted }}>الفيديو التعريفي</p>
-                  <video src={videoUrl} controls className="w-full rounded-xl bg-black" />
+                  <video src={resolveBunnyStorageUrl(videoUrl)} controls className="w-full rounded-xl bg-black" />
                 </div>
               )}
             </div>

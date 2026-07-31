@@ -25,6 +25,7 @@ import PaywallDialog from "@/components/subscription/PaywallDialog";
 import { gradeKeyFromArabicLabel } from "@/lib/teacherSubjectUtils";
 import { normalizeSectionForSubjects } from "@/lib/educationSection";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent, TEACHER_ASSIGNMENT_CATEGORY_VARIANTS, TEACHER_ASSIGNMENT_GRADE_VARIANTS } from "@/lib/teacherFiltering";
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 
 const categoryToArabic: Record<string, string> = {
   arabic: "المواد العربية",
@@ -398,7 +399,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
             <DialogTitle>فيديو تعريفي - {activeVideoName}</DialogTitle>
           </DialogHeader>
           {activeVideoUrl && (
-            <video src={activeVideoUrl} controls autoPlay className="w-full rounded-lg" />
+            <video src={resolveBunnyStorageUrl(activeVideoUrl)} controls autoPlay className="w-full rounded-lg" />
           )}
         </DialogContent>
       </Dialog>

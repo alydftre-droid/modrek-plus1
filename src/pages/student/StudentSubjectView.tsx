@@ -1341,7 +1341,7 @@ const StudentSubjectView = () => {
               <DialogTitle>فيديو تعريفي - {introVideo?.name}</DialogTitle>
             </DialogHeader>
             {introVideo?.url && (
-              <video src={introVideo.url} controls autoPlay playsInline className="w-full rounded-lg" />
+              <video src={resolveBunnyStorageUrl(introVideo.url)} controls autoPlay playsInline className="w-full rounded-lg" />
             )}
           </DialogContent>
         </Dialog>

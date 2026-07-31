@@ -1,3 +1,4 @@
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -445,7 +446,7 @@ const TeacherProfileEditor = () => {
           {videoUrl && (
             <div className="mb-4 rounded-lg overflow-hidden bg-black">
               <video
-                src={videoUrl}
+                src={resolveBunnyStorageUrl(videoUrl)}
                 controls
                 className="w-full max-h-64 object-contain"
               />
