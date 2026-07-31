@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { TeacherVideoUploadProgress } from "@/lib/teacherProfileUpload";
 
 // Bunny Storage integration utilities
 // Storage Zone: modrekplus-storage
@@ -241,6 +242,7 @@ export async function uploadToBunnyStorage(
   onProgress?: (loaded: number, total: number) => void,
   accessTokenOverride?: string | null,
   onXhrReady?: (xhr: XMLHttpRequest) => void,
+  onChunkProgress?: (progress: TeacherVideoUploadProgress) => void,
 ): Promise<string> {
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   const accessToken = await getCurrentAccessToken(accessTokenOverride);
@@ -311,6 +313,25 @@ export async function uploadToBunnyStorage(
     apikey: supabaseKey,
   } as const;
 
+  const emitChunkProgress = (
+    loaded: number,
+    currentPart: number,
+    partPercent: number,
+    phase: TeacherVideoUploadProgress["phase"],
+  ) => {
+    onChunkProgress?.({
+      loaded,
+      total: file.size,
+      percent: file.size > 0 ? Math.min(100, Math.round((loaded / file.size) * 100)) : 0,
+      currentPart,
+      totalParts: total,
+      partPercent,
+      phase,
+    });
+  };
+
+  emitChunkProgress(0, 1, 0, "preparing");
+
   const parseErr = async (res: Response, fallback: string): Promise<string> => {
     const text = await res.text().catch(() => "");
     try {
@@ -337,6 +358,7 @@ export async function uploadToBunnyStorage(
     const start = i * CHUNK_SIZE;
     const end = Math.min(file.size, start + CHUNK_SIZE);
     const chunk = file.slice(start, end);
+    emitChunkProgress(uploaded, i + 1, 0, "uploading");
 
     let attempt = 0;
     const maxAttempts = 4;
@@ -365,8 +387,10 @@ export async function uploadToBunnyStorage(
 
     uploaded = end;
     onProgress?.(uploaded, file.size);
+    emitChunkProgress(uploaded, i + 1, 100, "uploading");
   }
 
+  emitChunkProgress(uploaded, total, 100, "finalizing");
   const finalizeRes = await fetch(
     `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(contentType)}`,
     { method: "POST", headers: authHeaders, signal: controller.signal },
@@ -374,6 +398,8 @@ export async function uploadToBunnyStorage(
   if (!finalizeRes.ok) {
     throw new Error(await parseErr(finalizeRes, `فشل إنهاء الرفع (${finalizeRes.status})`));
   }
+
+  emitChunkProgress(file.size, total, 100, "finalizing");
 
   return `bstorage://${storagePath}`;
 }

@@ -2,6 +2,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type TeacherProfileUploadKind = "photo" | "video" | "cover";
 
+export interface TeacherVideoUploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+  currentPart: number;
+  totalParts: number;
+  partPercent: number;
+  phase: "preparing" | "uploading" | "finalizing";
+}
+
 const BUCKET = "teacher-profiles";
 
 const getSafeExtension = (fileName: string, fallback: string) => {
@@ -149,6 +159,7 @@ export const uploadTeacherProfileFile = async (
   userId: string,
   kind: TeacherProfileUploadKind,
   onProgress?: (loaded: number, total: number) => void,
+  onVideoProgress?: (progress: TeacherVideoUploadProgress) => void,
 ) => {
   const preparedFile = kind === "video" ? file : await imageFileToJpeg(file);
   const path = buildPath(preparedFile, userId, kind);
@@ -163,7 +174,7 @@ export const uploadTeacherProfileFile = async (
     const bunnyPath = `content/teacher-intros/${userId}/intro-${Date.now()}.${ext}`;
     try {
       const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
-      return await uploadToBunnyStorage(preparedFile, bunnyPath, onProgress);
+      return await uploadToBunnyStorage(preparedFile, bunnyPath, onProgress, undefined, undefined, onVideoProgress);
     } catch (bunnyError) {
       console.warn("teacher intro video bunny upload failed, falling back", bunnyError);
     }

@@ -20,7 +20,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
+import { Progress } from "@/components/ui/progress";
+import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile, type TeacherVideoUploadProgress } from "@/lib/teacherProfileUpload";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 import {
   Select,
@@ -58,6 +59,7 @@ export default function TeacherProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState<TeacherVideoUploadProgress | null>(null);
 
   const [profileExists, setProfileExists] = useState(false);
   const [isApproved, setIsApproved] = useState(false);
@@ -121,8 +123,9 @@ export default function TeacherProfilePage() {
     if (!file.type.startsWith("video/")) { toast.error("يرجى اختيار فيديو"); return; }
     if (file.size > 100 * 1024 * 1024) { toast.error("الحد الأقصى 100 ميجابايت"); return; }
     setUploadingVideo(true);
+    setVideoUploadProgress(null);
     try {
-      const publicUrl = await uploadTeacherProfileFile(file, user.id, "video");
+      const publicUrl = await uploadTeacherProfileFile(file, user.id, "video", undefined, setVideoUploadProgress);
       setVideoUrl(publicUrl);
       toast.success("تم رفع الفيديو");
     } catch (error) {
@@ -395,6 +398,16 @@ export default function TeacherProfilePage() {
               </button>
             )}
             <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleVideoUpload} />
+            {uploadingVideo && videoUploadProgress && (
+              <div className="mt-3 space-y-2 rounded-xl border border-border bg-muted/30 p-3" aria-live="polite">
+                <div className="flex items-center justify-between gap-3 text-xs font-bold">
+                  <span>{videoUploadProgress.phase === "finalizing" ? "جاري تجهيز الفيديو للتشغيل" : `رفع الجزء ${videoUploadProgress.currentPart} من ${videoUploadProgress.totalParts}`}</span>
+                  <span className="text-primary">{videoUploadProgress.percent}%</span>
+                </div>
+                <Progress value={videoUploadProgress.percent} className="h-3" />
+                <p className="text-[11px] text-muted-foreground">نسبة الجزء الحالي: {videoUploadProgress.partPercent}%</p>
+              </div>
+            )}
           </Field>
 
           {/* Submit */}
