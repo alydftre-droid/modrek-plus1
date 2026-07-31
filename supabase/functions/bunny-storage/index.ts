@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
-const FUNCTION_VERSION = "teacher-media-playback-v4-2026-07-31";
+const FUNCTION_VERSION = "teacher-media-legacy-v5-2026-07-31";
 
 function getBunnyStorageConfig() {
   const apiKey = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";

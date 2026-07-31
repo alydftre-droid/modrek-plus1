@@ -5,7 +5,7 @@ const source = await Deno.readTextFile(new URL("./index.ts", import.meta.url));
 Deno.test("teacher intro playback remains allowed and versioned", () => {
   assertStringIncludes(source, '"content/teacher-intros/"');
   assertStringIncludes(source, "return true;");
-  assertStringIncludes(source, 'const FUNCTION_VERSION = "teacher-media-playback-v4-2026-07-31"');
+  assertStringIncludes(source, 'const FUNCTION_VERSION = "teacher-media-legacy-v5-2026-07-31"');
 });
 
 Deno.test("all download failures expose trace and service version", () => {

@@ -71,6 +71,77 @@ const buildPath = (file: File, userId: string, kind: TeacherProfileUploadKind) =
   return `${userId}/intro-${Date.now()}.${ext}`;
 };
 
+const uploadTeacherIntroToStream = async (
+  file: File,
+  userId: string,
+  onProgress?: (loaded: number, total: number) => void,
+  onVideoProgress?: (progress: TeacherVideoUploadProgress) => void,
+) => {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData.session?.access_token;
+  const backendUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+  if (!token || !backendUrl || !publishableKey) throw new Error("no-session");
+
+  onVideoProgress?.({ loaded: 0, total: file.size, percent: 0, currentPart: 1, totalParts: 1, partPercent: 0, phase: "preparing" });
+  const createResponse = await fetch(`${backendUrl}/functions/v1/bunny-stream?action=create-video`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      apikey: publishableKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title: `teacher-intro-${userId}-${Date.now()}` }),
+  });
+  const created = await createResponse.json().catch(() => ({}));
+  if (!createResponse.ok || !created?.videoId || !created?.tusEndpoint) {
+    throw new Error(created?.error || `فشل إنشاء فيديو السيرة (${createResponse.status})`);
+  }
+
+  const { Upload } = await import("tus-js-client");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const upload = new Upload(file, {
+        endpoint: String(created.tusEndpoint),
+        retryDelays: [0, 1000, 3000, 5000, 10000],
+        chunkSize: 5 * 1024 * 1024,
+        removeFingerprintOnSuccess: true,
+        fingerprint: async () => `teacher-intro-stream-${created.videoId}-${file.name}-${file.size}-${file.lastModified}`,
+        metadata: { filetype: file.type || "video/mp4", title: `teacher-intro-${userId}` },
+        headers: {
+          AuthorizationSignature: String(created.signature),
+          AuthorizationExpire: String(created.expirationTime),
+          VideoId: String(created.videoId),
+          LibraryId: String(created.libraryId),
+        },
+        onError: reject,
+        onProgress: (loaded, total) => {
+          const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+          onProgress?.(loaded, total);
+          onVideoProgress?.({ loaded, total, percent, currentPart: 1, totalParts: 1, partPercent: percent, phase: "uploading" });
+        },
+        onSuccess: () => resolve(),
+      });
+      upload.findPreviousUploads()
+        .then((previous) => {
+          if (previous.length > 0) upload.resumeFromPreviousUpload(previous[0]);
+          upload.start();
+        })
+        .catch(reject);
+    });
+  } catch (error) {
+    void fetch(`${backendUrl}/functions/v1/bunny-stream?action=delete-video`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, apikey: publishableKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ videoId: created.videoId }),
+    }).catch(() => undefined);
+    throw error;
+  }
+
+  onVideoProgress?.({ loaded: file.size, total: file.size, percent: 100, currentPart: 1, totalParts: 1, partPercent: 100, phase: "finalizing" });
+  return `bunny://${created.videoId}`;
+};
+
 const parseUploadError = async (response: Response) => {
   const text = await response.text().catch(() => "");
   if (!text) return `HTTP ${response.status}`;
@@ -165,18 +236,13 @@ export const uploadTeacherProfileFile = async (
   const path = buildPath(preparedFile, userId, kind);
   const contentType = getUploadContentType(preparedFile, kind);
 
-  // Videos: go through the Bunny chunked pipeline (4MB chunks). The Supabase
-  // storage API enforces a project-wide per-file body limit (50MB) that also
-  // applies to resumable/TUS uploads — that limit is what kept rejecting real
-  // intro videos. Bunny has no such cap and is already used for lesson videos.
+  // Intro videos belong in Bunny Stream, not raw object storage. Stream accepts
+  // resumable TUS uploads, transcodes phone/desktop formats, and serves adaptive
+  // HLS playback. Raw Bunny Storage was the source of the historical 404/0:00
+  // failures because protected MP4 byte ranges were proxied through an old
+  // backend deployment.
   if (kind === "video") {
-    const ext = getSafeExtension(preparedFile.name, "mp4");
-    const bunnyPath = `content/teacher-intros/${userId}/intro-${Date.now()}.${ext}`;
-    const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
-    // Keep one authoritative backend for intro videos. Falling back silently to
-    // another bucket saved URLs with different access semantics and produced
-    // persistent 404s after an otherwise recoverable Bunny verification delay.
-    return await uploadToBunnyStorage(preparedFile, bunnyPath, onProgress, undefined, undefined, onVideoProgress);
+    return await uploadTeacherIntroToStream(preparedFile, userId, onProgress, onVideoProgress);
   }
 
 

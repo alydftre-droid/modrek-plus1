@@ -125,9 +125,9 @@ async function getVerifiedClaims(authHeader: string) {
     const token = authHeader.replace("Bearer ", "").trim();
     if (!token) return null;
     const sb = createUserClient(authHeader);
-    const { data, error } = await sb.auth.getUser(token);
-    if (error || !data?.user?.id) return null;
-    return { sub: data.user.id, email: data.user.email ?? null };
+    const { data, error } = await sb.auth.getClaims(token);
+    if (error || !data?.claims?.sub) return null;
+    return { sub: String(data.claims.sub), email: typeof data.claims.email === "string" ? data.claims.email : null };
   } catch {
     return null;
   }
@@ -151,7 +151,13 @@ async function canCreateTeacherVideo(sb: ReturnType<typeof createClient>, userId
 
 async function canAccessVideo(sb: ReturnType<typeof createClient>, videoId: string) {
   const { data, error } = await sb.from("content").select("id").eq("file_url", `bunny://${videoId}`).limit(1);
-  return !error && Array.isArray(data) && data.length > 0;
+  if (!error && Array.isArray(data) && data.length > 0) return true;
+  const { data: profileData, error: profileError } = await sb
+    .from("teacher_profiles")
+    .select("teacher_id")
+    .eq("video_url", `bunny://${videoId}`)
+    .limit(1);
+  return !profileError && Array.isArray(profileData) && profileData.length > 0;
 }
 
 /* ---------------------------------------------------------------- */
@@ -277,15 +283,11 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "videoId is required" }, 400);
       }
 
-      // Access check — teachers/admins pass through; students must have a content row they can read.
+      // Access check — teachers/admins pass through; students may play either a
+      // lesson video or an intro referenced by a visible teacher profile.
       const isPrivileged = await canCreateTeacherVideo(userClient, userId, claims.email as string | undefined);
       if (!isPrivileged) {
-        const { data: rows, error: rowsErr } = await userClient
-          .from("content")
-          .select("id")
-          .eq("file_url", `bunny://${videoId}`)
-          .limit(1);
-        if (rowsErr || !rows || rows.length === 0) {
+        if (!(await canAccessVideo(userClient, videoId))) {
           // Log denied attempt (best-effort, do not fail the request on log error)
           try {
             await userClient.from("student_activity_logs").insert({
