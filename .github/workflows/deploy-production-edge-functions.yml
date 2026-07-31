@@ -399,7 +399,7 @@ jobs:
       - name: Verify production Bunny Storage credentials
         run: |
           set -euo pipefail
-          expected_version="teacher-media-playback-v4-2026-07-31"
+          expected_version="teacher-media-legacy-v5-2026-07-31"
           status="$(curl -sS -D /tmp/bunny-storage-health.headers -o /tmp/bunny-storage-health.json -w '%{http_code}' -X GET "$PRODUCTION_SUPABASE_URL/functions/v1/bunny-storage?action=health" \
             -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
             -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"

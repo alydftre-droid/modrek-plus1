@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, type VideoHTMLAttributes } from "react";
 import { AlertTriangle, Check, ClipboardCopy, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { extractBunnyStoragePath, isBunnyStorageFile, resolveBunnyStorageMediaUrl } from "@/lib/bunnyStorage";
+import { extractBunnyVideoId, isBunnyVideo } from "@/lib/bunnyStream";
+import { getSignedPlayback } from "@/lib/bunnyPlayback";
 
 type VideoDiagnostic = {
   stage: string;
@@ -65,11 +67,30 @@ export default function AuthenticatedVideo({ source, className, autoPlay, onErro
   const [attempt, setAttempt] = useState(0);
   const [diagnostic, setDiagnostic] = useState<VideoDiagnostic | null>(null);
   const [copied, setCopied] = useState(false);
+  const [streamEmbedUrl, setStreamEmbedUrl] = useState("");
 
   useEffect(() => {
     let active = true;
     setSrc("");
+    setStreamEmbedUrl("");
     setDiagnostic(null);
+    if (isBunnyVideo(source)) {
+      const videoId = extractBunnyVideoId(source);
+      if (!videoId) {
+        setDiagnostic({ stage: "تجهيز رابط التشغيل", code: "STREAM_VIDEO_ID_INVALID", details: "معرّف فيديو السيرة غير صالح", sourceKind: "Bunny Stream", checkedAt: new Date().toISOString() });
+        return () => { active = false; };
+      }
+      getSignedPlayback(videoId).then((playback) => {
+        if (!active) return;
+        if (playback?.embedUrl) setStreamEmbedUrl(playback.embedUrl);
+        else if (playback?.playbackUrl) setSrc(playback.playbackUrl);
+        else setDiagnostic({ stage: "تجهيز رابط التشغيل", code: "STREAM_PLAYBACK_UNAVAILABLE", details: "الفيديو قيد المعالجة أو تعذر تجهيز رابط تشغيله", sourceKind: "Bunny Stream", path: videoId, checkedAt: new Date().toISOString() });
+      }).catch((error) => {
+        if (!active) return;
+        setDiagnostic({ stage: "تجهيز رابط التشغيل", code: "STREAM_PLAYBACK_FAILED", details: error instanceof Error ? error.message : String(error), sourceKind: "Bunny Stream", path: videoId, checkedAt: new Date().toISOString() });
+      });
+      return () => { active = false; };
+    }
     resolveBunnyStorageMediaUrl(source)
       .then((url) => {
         if (!active) return;
@@ -85,7 +106,7 @@ export default function AuthenticatedVideo({ source, className, autoPlay, onErro
           stage: "تجهيز رابط التشغيل",
           code: error instanceof Error ? error.message : "MEDIA_URL_RESOLVE_FAILED",
           details: error instanceof Error ? error.message : "تعذر تجهيز رابط تشغيل الفيديو",
-          sourceKind: isBunnyStorageFile(source) ? "Bunny Storage" : "رابط خارجي/قديم",
+          sourceKind: isBunnyStorageFile(source) ? "Bunny Storage (قديم)" : "رابط خارجي/قديم",
           path: extractBunnyStoragePath(source) || redactUrl(source),
           checkedAt: new Date().toISOString(),
         });
@@ -97,7 +118,7 @@ export default function AuthenticatedVideo({ source, className, autoPlay, onErro
     const video = videoRef.current;
     const mediaCode = video?.error?.code || 0;
     const shared: Partial<VideoDiagnostic> = {
-      sourceKind: isBunnyStorageFile(source) ? "Bunny Storage" : "رابط خارجي/قديم",
+      sourceKind: isBunnyStorageFile(source) ? "Bunny Storage (قديم)" : isBunnyVideo(source) ? "Bunny Stream" : "رابط خارجي/قديم",
       path: extractBunnyStoragePath(source) || redactUrl(source),
       resolvedHost: (() => { try { return new URL(src).host; } catch { return "رابط غير صالح"; } })(),
       readyState: video?.readyState,
@@ -197,7 +218,7 @@ export default function AuthenticatedVideo({ source, className, autoPlay, onErro
   return (
     <div className="space-y-2">
       <div className="relative min-h-40 overflow-hidden rounded-lg bg-muted">
-        {!src && !diagnostic && (
+        {!src && !streamEmbedUrl && !diagnostic && (
           <div className="absolute inset-0 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" /> جاري تجهيز الفيديو
           </div>
@@ -221,6 +242,16 @@ export default function AuthenticatedVideo({ source, className, autoPlay, onErro
               void inspectFailure();
               onError?.(event);
             }}
+          />
+        )}
+        {streamEmbedUrl && (
+          <iframe
+            key={streamEmbedUrl}
+            src={streamEmbedUrl}
+            title="فيديو تعريفي للمعلم"
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            className={className || "aspect-video w-full"}
           />
         )}
       </div>
