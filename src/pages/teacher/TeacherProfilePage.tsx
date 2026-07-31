@@ -1,3 +1,4 @@
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,7 +23,6 @@ import { Label } from "@/components/ui/label";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 import {
-import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
   Select,
   SelectContent,
   SelectItem,

@@ -1,3 +1,4 @@
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -5,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { BookOpen, CheckCircle, GraduationCap, Play, Sparkles, Star, Trophy } from "lucide-react";
 import { useState } from "react";
 import {
-import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
   Dialog,
   DialogContent,
   DialogHeader,

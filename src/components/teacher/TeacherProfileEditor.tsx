@@ -1,3 +1,4 @@
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useMemo, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +13,6 @@ import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@
 import { useQueryClient } from "@tanstack/react-query";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 import {
-import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
   Camera,
   FileText,
   Globe,
