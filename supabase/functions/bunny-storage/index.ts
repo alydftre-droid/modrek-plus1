@@ -690,8 +690,15 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
       if (!(await canReadStoredFile(userClient, filePath, userId))) {
-        return jsonResponse({ error: "Not found or no access" }, 404);
+        console.error("[bunny-storage:download_denied]", JSON.stringify({ filePath, userId }));
+        return jsonResponse({
+          error: "Not found or no access",
+          reason: "ACCESS_RULE_NO_MATCH",
+          detail: "لا توجد قاعدة صلاحية تطابق مسار هذا الملف",
+          path: filePath,
+        }, 404);
       }
+
 
       const rangeHeader = req.headers.get("Range");
       const ifNoneMatch = req.headers.get("If-None-Match");
