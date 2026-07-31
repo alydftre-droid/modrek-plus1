@@ -82,6 +82,19 @@ export default function ExamReviewPage() {
     return () => window.clearInterval(timer);
   }, [stillWaiting, refetch]);
 
+  // Self-heal: if smart feedback is still missing on first entry, ask the smart
+  // grader to (re)run once so the new system is always what renders.
+  const healedRef = useRef(false);
+  useEffect(() => {
+    if (!attemptId || isLoading || smartReady || healedRef.current) return;
+    healedRef.current = true;
+    void supabase.functions
+      .invoke("grade-essay", { body: { attemptId } })
+      .then(() => refetch())
+      .catch(() => undefined);
+  }, [attemptId, isLoading, smartReady, refetch]);
+
+
   if (isLoading || stillWaiting) {
     return (
       <StudentLayout>
