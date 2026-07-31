@@ -259,26 +259,8 @@ export default function ExamReviewPage() {
                               </div>
                             )}
                           </div>
-                        ) : (
-                          <>
-                            {visibleFeedback && (
-                              <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/30">
-                                <div className="text-xs text-blue-700 dark:text-blue-300 mb-1">ملاحظات:</div>
-                                <div className="text-sm whitespace-pre-wrap">{visibleFeedback}</div>
-                              </div>
-                            )}
-                            {(q.explanation || autoExplain) && (
-                              <Card className="bg-amber-500/5 border-amber-500/30">
-                                <CardContent className="p-3 text-sm">
-                                  <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 mb-1 font-bold">
-                                    <Info className="h-4 w-4" />الشرح
-                                  </div>
-                                  <div className="whitespace-pre-wrap">{q.explanation || autoExplain}</div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </>
-                        )}
+                        ) : null}
+
                       </>
                     );
                   })()}
