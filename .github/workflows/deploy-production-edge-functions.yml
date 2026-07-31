@@ -88,7 +88,7 @@ jobs:
             echo "::error::Exhausted retries deploying $fn after $max_attempts attempts."
             return 1
           }
-          for fn in library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+          for fn in admin-remove-teacher-grade library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             echo "Pre-deploying critical Library V2 function: $fn"
             deploy_with_retry "$fn"
           done
@@ -265,7 +265,7 @@ jobs:
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
-              library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
+              admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
                 deploy_fn_with_retry "$fn" true
                 ;;
               *)
@@ -290,7 +290,7 @@ jobs:
           echo "::group::supabase functions list --project-ref $SUPABASE_PROJECT_REF"
           supabase functions list --project-ref "$SUPABASE_PROJECT_REF" | tee /tmp/production-functions-list.txt
           echo "::endgroup::"
-          for fn in library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+          for fn in admin-remove-teacher-grade library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             if ! grep -Eq "(^|[[:space:]│|])${fn}([[:space:]│|]|$)" /tmp/production-functions-list.txt; then
               echo "::error::Production Edge Function is missing from project $SUPABASE_PROJECT_REF: $fn"
               exit 1
@@ -301,7 +301,7 @@ jobs:
         run: |
           set -euo pipefail
           base="$PRODUCTION_SUPABASE_URL/functions/v1"
-          for fn in ai-chat teacher-assistant support-assistant grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
+          for fn in admin-remove-teacher-grade ai-chat teacher-assistant support-assistant grade-essay openrouter-tts bunny-stream bunny-storage library-admin library-worker library-v2-enqueue library-v2-dispatcher library-v2-worker modrek-worker ai-health-check send-push-notification send-content-notification; do
             status="$(curl -sS -D "/tmp/edge-${fn}.headers" -o "/tmp/edge-${fn}.body" -w '%{http_code}' -X OPTIONS "$base/$fn" \
               -H "apikey: $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
               -H "Authorization: Bearer $PRODUCTION_SUPABASE_PUBLISHABLE_KEY" \
@@ -321,6 +321,13 @@ jobs:
               exit 1
             fi
             case "$fn" in
+              admin-remove-teacher-grade)
+                if ! echo "$headers" | grep -qi '^access-control-allow-headers:.*x-trace-id'; then
+                  echo "::error::Production Edge Function $fn OPTIONS response is missing x-trace-id in Access-Control-Allow-Headers."
+                  cat "/tmp/edge-${fn}.headers"
+                  exit 1
+                fi
+                ;;
               library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
                 if ! echo "$headers" | grep -qi '^access-control-allow-headers:.*x-library-trace-id'; then
                   echo "::error::Production Edge Function $fn OPTIONS response is missing x-library-trace-id in Access-Control-Allow-Headers."
