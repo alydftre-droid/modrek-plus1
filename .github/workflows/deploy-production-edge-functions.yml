@@ -88,7 +88,10 @@ jobs:
             echo "::error::Exhausted retries deploying $fn after $max_attempts attempts."
             return 1
           }
-          for fn in admin-remove-teacher-grade library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
+          # Media playback is also user-critical. Deploy bunny-storage before
+          # migrations so an unrelated historical migration can never leave the
+          # production player on an old access-rule build returning HTTP 404.
+          for fn in bunny-storage admin-remove-teacher-grade library-admin library-v2-enqueue library-v2-dispatcher library-v2-worker; do
             echo "Pre-deploying critical Library V2 function: $fn"
             deploy_with_retry "$fn"
           done
