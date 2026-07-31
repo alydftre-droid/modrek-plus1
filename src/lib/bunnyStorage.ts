@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { TeacherVideoUploadProgress } from "@/lib/teacherProfileUpload";
 
 // Bunny Storage integration utilities
 // Storage Zone: modrekplus-storage
@@ -241,6 +242,7 @@ export async function uploadToBunnyStorage(
   onProgress?: (loaded: number, total: number) => void,
   accessTokenOverride?: string | null,
   onXhrReady?: (xhr: XMLHttpRequest) => void,
+  onChunkProgress?: (progress: TeacherVideoUploadProgress) => void,
 ): Promise<string> {
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   const accessToken = await getCurrentAccessToken(accessTokenOverride);
@@ -257,6 +259,15 @@ export async function uploadToBunnyStorage(
   const useChunked = file.size > CHUNK_THRESHOLD;
 
   if (!useChunked) {
+    onChunkProgress?.({
+      loaded: 0,
+      total: file.size,
+      percent: 0,
+      currentPart: 1,
+      totalParts: 1,
+      partPercent: 0,
+      phase: "preparing",
+    });
     await new Promise<void>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const timeoutMs = Math.max(120_000, Math.min(900_000, file.size > 0 ? Math.ceil(file.size / 1024 / 1024) * 45_000 : 120_000));
@@ -264,7 +275,19 @@ export async function uploadToBunnyStorage(
 
       if (onProgress) {
         xhr.upload.addEventListener("progress", (e) => {
-          if (e.lengthComputable) onProgress(e.loaded, e.total);
+          if (e.lengthComputable) {
+            onProgress(e.loaded, e.total);
+            const percent = e.total > 0 ? Math.min(100, Math.round((e.loaded / e.total) * 100)) : 0;
+            onChunkProgress?.({
+              loaded: e.loaded,
+              total: e.total,
+              percent,
+              currentPart: 1,
+              totalParts: 1,
+              partPercent: percent,
+              phase: "uploading",
+            });
+          }
         });
       }
 
@@ -292,6 +315,15 @@ export async function uploadToBunnyStorage(
       if (onXhrReady) onXhrReady(xhr);
       xhr.send(file);
     });
+    onChunkProgress?.({
+      loaded: file.size,
+      total: file.size,
+      percent: 100,
+      currentPart: 1,
+      totalParts: 1,
+      partPercent: 100,
+      phase: "finalizing",
+    });
     return `bstorage://${storagePath}`;
   }
 
@@ -310,6 +342,25 @@ export async function uploadToBunnyStorage(
     Authorization: `Bearer ${accessToken}`,
     apikey: supabaseKey,
   } as const;
+
+  const emitChunkProgress = (
+    loaded: number,
+    currentPart: number,
+    partPercent: number,
+    phase: TeacherVideoUploadProgress["phase"],
+  ) => {
+    onChunkProgress?.({
+      loaded,
+      total: file.size,
+      percent: file.size > 0 ? Math.min(100, Math.round((loaded / file.size) * 100)) : 0,
+      currentPart,
+      totalParts: total,
+      partPercent,
+      phase,
+    });
+  };
+
+  emitChunkProgress(0, 1, 0, "preparing");
 
   const parseErr = async (res: Response, fallback: string): Promise<string> => {
     const text = await res.text().catch(() => "");
@@ -337,23 +388,46 @@ export async function uploadToBunnyStorage(
     const start = i * CHUNK_SIZE;
     const end = Math.min(file.size, start + CHUNK_SIZE);
     const chunk = file.slice(start, end);
+    emitChunkProgress(uploaded, i + 1, 0, "uploading");
 
     let attempt = 0;
     const maxAttempts = 4;
     while (true) {
       try {
-        const res = await fetch(
-          `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&index=${i}`,
-          {
-            method: "POST",
-            headers: { ...authHeaders, "Content-Type": "application/octet-stream" },
-            body: chunk,
-            signal: controller.signal,
-          },
-        );
-        if (!res.ok) {
-          throw new Error(await parseErr(res, `فشل رفع الجزء ${i + 1}/${total} (${res.status})`));
-        }
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          const abortUpload = () => xhr.abort();
+          controller.signal.addEventListener("abort", abortUpload, { once: true });
+          xhr.timeout = 180_000;
+          xhr.upload.addEventListener("progress", (event) => {
+            if (!event.lengthComputable) return;
+            const partPercent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+            const loadedNow = Math.min(file.size, start + event.loaded);
+            onProgress?.(loadedNow, file.size);
+            emitChunkProgress(loadedNow, i + 1, partPercent, "uploading");
+          });
+          xhr.addEventListener("load", () => {
+            controller.signal.removeEventListener("abort", abortUpload);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+              return;
+            }
+            let message = `فشل رفع الجزء ${i + 1}/${total} (${xhr.status})`;
+            try {
+              const parsed = JSON.parse(xhr.responseText || "{}");
+              if (parsed?.error) message = String(parsed.error);
+            } catch { /* keep fallback */ }
+            reject(new Error(message));
+          });
+          xhr.addEventListener("error", () => reject(new Error(`تعذر رفع الجزء ${i + 1}/${total}`)));
+          xhr.addEventListener("timeout", () => reject(new Error(`انتهت مهلة رفع الجزء ${i + 1}/${total}`)));
+          xhr.addEventListener("abort", () => reject(new Error("UPLOAD_ABORTED")));
+          xhr.open("POST", `${supabaseUrl}/functions/v1/bunny-storage?action=upload-chunk&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&index=${i}`);
+          xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+          xhr.setRequestHeader("apikey", supabaseKey);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+          xhr.send(chunk);
+        });
         break;
       } catch (err) {
         if (controller.signal.aborted) throw new Error("UPLOAD_ABORTED");
@@ -365,8 +439,10 @@ export async function uploadToBunnyStorage(
 
     uploaded = end;
     onProgress?.(uploaded, file.size);
+    emitChunkProgress(uploaded, i + 1, 100, "uploading");
   }
 
+  emitChunkProgress(uploaded, total, 100, "finalizing");
   const finalizeRes = await fetch(
     `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(contentType)}`,
     { method: "POST", headers: authHeaders, signal: controller.signal },
@@ -374,6 +450,8 @@ export async function uploadToBunnyStorage(
   if (!finalizeRes.ok) {
     throw new Error(await parseErr(finalizeRes, `فشل إنهاء الرفع (${finalizeRes.status})`));
   }
+
+  emitChunkProgress(file.size, total, 100, "finalizing");
 
   return `bstorage://${storagePath}`;
 }

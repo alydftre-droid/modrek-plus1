@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range, if-none-match",
   "Access-Control-Max-Age": "86400",
   "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges",
 };
@@ -290,12 +290,12 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
   // Teacher profile media (intro video / photo / cover) — visible to any
   // authenticated user, exactly like the public teacher profile itself.
   if (filePath.startsWith("content/teacher-intros/")) {
-    const { data: profileData } = await sb
-      .from("teacher_profiles")
-      .select("teacher_id")
-      .or(`video_url.eq.${storedUrl},photo_url.eq.${storedUrl},cover_image_url.eq.${storedUrl}`)
-      .limit(1);
-    if (Array.isArray(profileData) && profileData.length > 0) return true;
+    // Profile media is intentionally visible to authenticated users. Do not
+    // require the teacher_profiles row here: immediately after upload the new
+    // URL has not been saved yet, and production profile data may live behind
+    // the external mirrored client. That old lookup returned 404 to <video>,
+    // producing a black player stuck at 0:00.
+    return true;
   }
 
   const { data: contentData, error: contentError } = await sb
@@ -661,9 +661,16 @@ Deno.serve(async (req) => {
       if (rangeHeader) upstreamHeaders["Range"] = rangeHeader;
       if (ifNoneMatch) upstreamHeaders["If-None-Match"] = ifNoneMatch;
 
-      const storageRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
-        headers: upstreamHeaders,
-      });
+      // The CDN supports byte ranges natively and is the correct media origin.
+      // Prefer it for playback; fall back to the authenticated Storage API if
+      // the pull zone has not propagated the new object yet.
+      const cdnUrl = `https://${bunnyConfig.cdnHostname}/${filePath}`;
+      let storageRes = await fetch(cdnUrl, { headers: rangeHeader ? { Range: rangeHeader } : {} });
+      if (!storageRes.ok && storageRes.status !== 206) {
+        storageRes = await fetch(`https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`, {
+          headers: upstreamHeaders,
+        });
+      }
 
       if (storageRes.status === 304) {
         return new Response(null, { status: 304, headers: corsHeaders });
