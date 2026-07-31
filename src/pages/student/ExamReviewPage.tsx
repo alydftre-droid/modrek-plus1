@@ -68,21 +68,35 @@ export default function ExamReviewPage() {
   const gradableQuestions = questions.filter(
     (q: any) => q?.question_type && q.question_type !== "section",
   );
-  const smartReady =
-    gradableQuestions.length > 0 &&
-    gradableQuestions.every((q: any) => parseSmartFeedback(q?.answer?.ai_feedback) !== null);
-  const stillWaiting = !isLoading && !smartReady && waitTicks < 40;
+  const smartCount = gradableQuestions.filter(
+    (q: any) => parseSmartFeedback(q?.answer?.ai_feedback) !== null,
+  ).length;
+  const smartReady = gradableQuestions.length > 0 && smartCount === gradableQuestions.length;
+  // Show the preparing state only very briefly: as soon as any smart feedback
+  // exists (or ~3s pass) render the review instead of blocking the student.
+  const stillWaiting = !isLoading && !smartReady && smartCount === 0 && waitTicks < 3;
 
-  // First entry right after submit: smart grading may still be writing feedback.
-  // Poll the same source used on re-entry instead of rendering anything legacy.
   useEffect(() => {
     if (!stillWaiting) return;
     const timer = window.setInterval(() => {
       setWaitTicks((t) => t + 1);
       void refetch();
-    }, 2500);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [stillWaiting, refetch]);
+
+  // Keep refreshing quietly in the background until all feedback lands,
+  // so the page fills in without the student reloading.
+  useEffect(() => {
+    if (isLoading || smartReady) return;
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      void refetch();
+      if (ticks >= 30) window.clearInterval(timer);
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [isLoading, smartReady, refetch]);
 
   // Self-heal: if smart feedback is still missing on first entry, ask the smart
   // grader to (re)run once so the new system is always what renders.
@@ -95,6 +109,7 @@ export default function ExamReviewPage() {
       .then(() => refetch())
       .catch(() => undefined);
   }, [attemptId, isLoading, smartReady, refetch]);
+
 
 
   if (isLoading || stillWaiting) {
