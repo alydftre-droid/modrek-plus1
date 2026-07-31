@@ -12,6 +12,7 @@ import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@
 import { useQueryClient } from "@tanstack/react-query";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
 import {
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
   Camera,
   FileText,
   Globe,
@@ -445,7 +446,7 @@ const TeacherProfileEditor = () => {
           {videoUrl && (
             <div className="mb-4 rounded-lg overflow-hidden bg-black">
               <video
-                src={videoUrl}
+                src={resolveBunnyStorageUrl(videoUrl)}
                 controls
                 className="w-full max-h-64 object-contain"
               />
