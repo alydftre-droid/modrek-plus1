@@ -179,9 +179,13 @@ export default function AuthenticatedVideo({ source, className, autoPlay, ...pro
       `التفاصيل: ${diagnostic.details}`,
       `رابط الفحص الآمن: ${redactUrl(src)}`,
     ].join("\n");
-    await navigator.clipboard.writeText(report);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(report);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setDiagnostic((current) => current ? { ...current, details: `${current.details} — تعذر النسخ التلقائي؛ يرجى تصوير التقرير الظاهر.` } : current);
+    }
   };
 
   return (
