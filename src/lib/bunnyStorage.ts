@@ -139,7 +139,14 @@ const objectUrlCache = new Map<string, string>();
 function resolveBunnyStorageProxyUrl(path: string) {
   const { supabaseUrl, supabaseKey } = getSupabaseFunctionsConfig();
   if (!supabaseUrl || !supabaseKey) return null;
-  return `${supabaseUrl}/functions/v1/bunny-storage?action=download&path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
+  // Historical teacher intros use a dedicated, minimal playback function.
+  // This avoids coupling existing profile videos to the large general-purpose
+  // storage function whose stale production deployment caused repeated 404s.
+  const functionName = /^content\/teacher-intros?\//i.test(path)
+    ? "teacher-intro-media"
+    : "bunny-storage";
+  const action = functionName === "bunny-storage" ? "action=download&" : "";
+  return `${supabaseUrl}/functions/v1/${functionName}?${action}path=${encodeURIComponent(path)}&apikey=${supabaseKey}`;
 }
 
 /**
