@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range, if-none-match",
   "Access-Control-Max-Age": "86400",
-  "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges",
+  "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges, x-modrek-function-version, x-modrek-trace-id",
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
