@@ -6,8 +6,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 // Edge runtime and caused this function to fail during boot before OPTIONS ran.
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-trace-id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Expose-Headers": "x-trace-id",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -15,13 +16,22 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const traceId = req.headers.get("x-trace-id") || crypto.randomUUID();
+  let stage = "بدء خدمة حذف الصف";
+
   const json = (body: unknown, status = 200) =>
-    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json", "x-trace-id": traceId } });
 
   try {
+    stage = "فحص إعدادات خدمة الحذف";
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+    if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
+      return json({ error: "إعدادات خدمة الحذف غير مكتملة", stage, code: "MISSING_SERVER_CONFIG", trace_id: traceId, location: "admin-remove-teacher-grade" }, 500);
+    }
+
+    stage = "التحقق من جلسة المطور";
     const authHeader = req.headers.get("Authorization");
     const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
     const authClient = createClient(SUPABASE_URL, ANON_KEY, {
@@ -31,16 +41,18 @@ Deno.serve(async (req) => {
       ? await authClient.auth.getClaims(token)
       : { data: null, error: new Error("missing token") };
     const claims = claimsError ? null : claimsData?.claims;
-    if (!claims?.sub) return json({ error: "انتهت جلسة المطور. اخرج من حساب المعلم ثم ادخل إليه مرة أخرى" }, 401);
+    if (!claims?.sub) return json({ error: "جلسة المطور غير صالحة أو منتهية", stage, code: "INVALID_DEVELOPER_JWT", details: claimsError?.message, trace_id: traceId, location: "auth.getClaims" }, 401);
     const callerId = claims.sub;
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
 
+    stage = "التحقق من صلاحية المطور";
     const { data: roleRow } = await admin
       .from("user_roles").select("role").eq("user_id", callerId).eq("role", "admin").maybeSingle();
     const isSuperAdmin = String(claims.email || "").toLowerCase() === "alyedaft@gmail.com";
-    if (!roleRow && !isSuperAdmin) return json({ error: "هذه العملية متاحة للمطور فقط" }, 403);
+    if (!roleRow && !isSuperAdmin) return json({ error: "الحساب الأصلي لا يملك صلاحية المطور", stage, code: "ADMIN_ROLE_REQUIRED", trace_id: traceId, location: "user_roles" }, 403);
 
+    stage = "قراءة وفحص بيانات الصف";
     const body = (await req.json().catch(() => null)) as
       | { teacher_id?: string; assignment_ids?: string[] }
       | null;
@@ -48,20 +60,18 @@ Deno.serve(async (req) => {
     const teacherId = body?.teacher_id;
     const ids = Array.isArray(body?.assignment_ids) ? body!.assignment_ids!.filter((i) => typeof i === "string" && UUID_RE.test(i)) : [];
 
-    if (!teacherId || !UUID_RE.test(teacherId)) return json({ error: "معرّف المعلم غير صالح" }, 400);
-    if (ids.length === 0 || ids.length > 50) return json({ error: "قائمة الصفوف غير صالحة" }, 400);
+    if (!teacherId || !UUID_RE.test(teacherId)) return json({ error: "معرّف المعلم غير صالح", stage, code: "INVALID_TEACHER_ID", trace_id: traceId, location: "request.teacher_id" }, 400);
+    if (ids.length === 0 || ids.length > 50) return json({ error: "قائمة روابط الصف فارغة أو غير صالحة", stage, code: "INVALID_ASSIGNMENT_IDS", trace_id: traceId, location: "request.assignment_ids" }, 400);
 
+    stage = "الحذف الذري داخل قاعدة البيانات";
     const { data: result, error: deleteError } = await admin.rpc("admin_remove_teacher_grade_workspace", {
       _teacher_id: teacherId,
       _assignment_ids: ids,
     });
-    if (deleteError) throw deleteError;
-    return json(result || { success: true });
+    if (deleteError) return json({ error: deleteError.message, stage, code: deleteError.code || "DATABASE_DELETE_FAILED", details: deleteError.details || deleteError.hint, trace_id: traceId, location: "admin_remove_teacher_grade_workspace" }, 500);
+    return json({ ...(result || { success: true }), trace_id: traceId, stage: "اكتمل الحذف" });
   } catch (err) {
-    console.error("[admin-remove-teacher-grade]", err);
-    return new Response(JSON.stringify({ error: (err as Error)?.message || "خطأ غير متوقع" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("[admin-remove-teacher-grade]", { traceId, stage, error: err });
+    return json({ error: (err as Error)?.message || "خطأ غير متوقع", stage, code: "UNEXPECTED_SERVER_ERROR", trace_id: traceId, location: "admin-remove-teacher-grade" }, 500);
   }
 });

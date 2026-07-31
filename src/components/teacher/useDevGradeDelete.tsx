@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { isDeveloperTeacherMode, removeTeacherGradeAssignments } from "@/lib/devTeacherGrades";
+import { GradeDeleteError, isDeveloperTeacherMode, removeTeacherGradeAssignments, type GradeDeleteDiagnostic } from "@/lib/devTeacherGrades";
 import { getNormalizedTeacherAssignmentGradeKey, type TeacherAssignmentLike } from "@/lib/teacherAssignments";
 import { gradeDisplayFromAny } from "@/lib/teacherSubjectUtils";
 import { DSDialog } from "@/design-system/components/Dialog";
@@ -33,6 +33,7 @@ export function useDevGradeDelete(params: {
   const [confirmTarget, setConfirmTarget] = useState<DevGradeTarget | null>(null);
   const [confirmText, setConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<GradeDeleteDiagnostic | null>(null);
   const timer = useRef<number | null>(null);
   const fired = useRef(false);
 
@@ -99,14 +100,20 @@ export function useDevGradeDelete(params: {
   const handleDelete = async () => {
     if (!confirmTarget || !teacherId || confirmText.trim() !== "حذف") return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       await removeTeacherGradeAssignments({ teacherId, assignmentIds: confirmTarget.assignmentIds });
       onDeleted?.(confirmTarget.assignmentIds);
       setConfirmTarget(null);
       setConfirmText("");
       toast.success("تم حذف الصف ومجموعاته وكل متعلقاته من حساب المعلم نهائيًا.");
-    } catch (e: any) {
-      toast.error(e?.message || "فشل حذف الصف من حساب المعلم");
+    } catch (e) {
+      const diagnostic = e instanceof GradeDeleteError ? e.diagnostic : {
+        message: e instanceof Error ? e.message : "فشل حذف الصف من حساب المعلم",
+        stage: "واجهة حذف الصف", code: "UNEXPECTED_UI_ERROR", traceId: "غير متوفر", location: "useDevGradeDelete",
+      };
+      setDeleteError(diagnostic);
+      toast.error("فشل حذف الصف", { description: `${diagnostic.stage}: ${diagnostic.message}`, duration: 9000 });
     } finally {
       setDeleting(false);
     }
@@ -171,6 +178,16 @@ export function useDevGradeDelete(params: {
             للتأكيد اكتب الكلمة التالية: <span className="font-bold text-destructive">حذف</span>
           </p>
           <Input value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="حذف" dir="rtl" autoFocus />
+          {deleteError && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs leading-6 text-foreground" role="alert">
+              <p className="font-bold text-destructive">سبب الفشل: {deleteError.message}</p>
+              <p><strong>المرحلة:</strong> {deleteError.stage}</p>
+              <p><strong>المكان:</strong> <span className="break-all">{deleteError.location}</span></p>
+              <p><strong>كود الخطأ:</strong> {deleteError.code}</p>
+              {deleteError.details && <p className="break-all"><strong>التفاصيل:</strong> {deleteError.details}</p>}
+              <p className="break-all"><strong>معرّف التتبع:</strong> {deleteError.traceId}</p>
+            </div>
+          )}
         </div>
       </DSDialog>
     </>
