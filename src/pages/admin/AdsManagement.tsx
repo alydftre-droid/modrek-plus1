@@ -226,7 +226,21 @@ export default function AdsManagement() {
     if (!editorAd.title.trim()) {
       toast({ title: "اسم الإعلان مطلوب", variant: "destructive" }); return;
     }
+    // Guard: a target must actually be specific, otherwise the ad would reach everyone
+    if (target.target_type === "stage" && !target.stage) {
+      toast({ title: "اختر المرحلة المستهدفة", variant: "destructive" }); return;
+    }
+    if (target.target_type === "grade" && !target.grade) {
+      toast({ title: "اختر الصف المستهدف", variant: "destructive" }); return;
+    }
+    if (target.target_type === "section" && !target.section) {
+      toast({ title: "اختر الشعبة المستهدفة", variant: "destructive" }); return;
+    }
+    if (target.target_type === "specific_students" && !(target.student_ids || []).length) {
+      toast({ title: "اختر طالبًا واحدًا على الأقل", variant: "destructive" }); return;
+    }
     setSaving(true);
+
     try {
       let adId = editing?.id;
       const payload = { ...editorAd, created_by: user?.id };
