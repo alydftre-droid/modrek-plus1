@@ -18,6 +18,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
+import {
+  buildFallbackFeedback,
+  caseDirective,
+  classifyCase,
+  CASE_LABEL_AR,
+  type FeedbackItem,
+} from "../_shared/feedbackEngine.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
