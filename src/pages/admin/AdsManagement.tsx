@@ -239,9 +239,13 @@ export default function AdsManagement() {
         adId = (data as any).id;
       }
       if (adId) {
-        await supabase.from("ad_targets").delete().eq("ad_id", adId);
-        await supabase.from("ad_targets").insert({ ad_id: adId, ...target });
+        const { error: delErr } = await supabase.from("ad_targets").delete().eq("ad_id", adId);
+        if (delErr) throw delErr;
+        const { id: _ignoredTargetId, ...targetPayload } = target as any;
+        const { error: tErr } = await supabase.from("ad_targets").insert({ ad_id: adId, ...targetPayload });
+        if (tErr) throw tErr;
       }
+
       toast({ title: editing ? "تم تحديث الإعلان" : "تم إنشاء الإعلان" });
       setEditorOpen(false);
       load();
