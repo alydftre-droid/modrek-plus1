@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, range, if-none-match",
   "Access-Control-Max-Age": "86400",
-  "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges",
+  "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges, x-modrek-function-version, x-modrek-trace-id",
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
@@ -731,6 +731,8 @@ Deno.serve(async (req) => {
     // viewers / video players can request byte slices instead of the full file.
     if (action === "download") {
       const filePath = sanitizeStoragePath(url.searchParams.get("path"));
+      const requestedTrace = (url.searchParams.get("trace") || "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 80);
+      const traceId = requestedTrace || crypto.randomUUID();
       if (!filePath) {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
@@ -742,6 +744,7 @@ Deno.serve(async (req) => {
           detail: "لا توجد قاعدة صلاحية تطابق مسار هذا الملف",
           path: filePath,
           functionVersion: FUNCTION_VERSION,
+          traceId,
         }, 404);
       }
 
@@ -778,9 +781,10 @@ Deno.serve(async (req) => {
           reason: "UPSTREAM_OBJECT_MISSING",
           path: filePath,
           functionVersion: FUNCTION_VERSION,
+          traceId,
         }), {
           status: storageRes.status,
-          headers: { ...corsHeaders, "Content-Type": "application/json", "X-Modrek-Function-Version": FUNCTION_VERSION },
+          headers: { ...corsHeaders, "Content-Type": "application/json", "X-Modrek-Function-Version": FUNCTION_VERSION, "X-Modrek-Trace-Id": traceId },
         });
       }
 
@@ -788,6 +792,7 @@ Deno.serve(async (req) => {
       const outHeaders: Record<string, string> = {
         ...corsHeaders,
         "X-Modrek-Function-Version": FUNCTION_VERSION,
+        "X-Modrek-Trace-Id": traceId,
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
         "Cache-Control": isTeacherIntro ? "private, no-cache, max-age=0, must-revalidate" : "private, max-age=3600",
