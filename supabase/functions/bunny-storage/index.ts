@@ -5,6 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Max-Age": "86400",
+  "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges",
 };
 
 const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
@@ -187,6 +188,40 @@ async function validateBunnyStorageCredentials(config: ReturnType<typeof getBunn
     return { ok: false, status: res.status, upstream: upstream.slice(0, 500) };
   }
   return { ok: true, status: res.status, upstream: "" };
+}
+
+// Bunny Storage always answers GET with `application/octet-stream`, which makes
+// browsers refuse to play video/audio (black player, 0:00). Infer a real MIME
+// type from the file extension so media elements can decode the stream.
+const EXTENSION_CONTENT_TYPES: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/mp4",
+  webm: "video/webm",
+  ogv: "video/ogg",
+  mkv: "video/x-matroska",
+  avi: "video/x-msvideo",
+  wmv: "video/x-ms-wmv",
+  mp3: "audio/mpeg",
+  m4a: "audio/mp4",
+  wav: "audio/wav",
+  ogg: "audio/ogg",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+  pdf: "application/pdf",
+};
+
+function contentTypeFromPath(filePath: string, upstreamType: string | null): string {
+  const ext = filePath.split("?")[0].split(".").pop()?.toLowerCase() || "";
+  const mapped = EXTENSION_CONTENT_TYPES[ext];
+  const upstream = (upstreamType || "").split(";")[0].trim().toLowerCase();
+  const isGeneric = !upstream || upstream === "application/octet-stream" || upstream === "binary/octet-stream";
+  if (mapped && isGeneric) return mapped;
+  return upstreamType || mapped || "application/octet-stream";
 }
 
 async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role: "teacher" | "admin") {
@@ -387,7 +422,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Library uploads must use chunked upload" }, 409);
       }
 
-      const contentType = req.headers.get("content-type") || "application/octet-stream";
+      const contentType = contentTypeFromPath(filePath, req.headers.get("content-type"));
       const contentLength = req.headers.get("content-length");
 
       // Stream directly to Bunny to avoid buffering large PDFs in memory
@@ -499,7 +534,7 @@ Deno.serve(async (req) => {
       const uploadId = (url.searchParams.get("uploadId") || "").trim();
       const totalStr = (url.searchParams.get("total") || "").trim();
       const expectedSize = normalizePositiveInt(url.searchParams.get("size"), 500 * 1024 * 1024);
-      const contentType = url.searchParams.get("contentType") || "application/octet-stream";
+      const contentType = contentTypeFromPath(filePath || "", url.searchParams.get("contentType"));
       if (!filePath || !/^[a-zA-Z0-9_-]{8,64}$/.test(uploadId) || !/^\d{1,5}$/.test(totalStr)) {
         return jsonResponse({ error: "Invalid finalize parameters" }, 400);
       }
@@ -640,7 +675,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const contentType = storageRes.headers.get("content-type") || "application/octet-stream";
+      const contentType = contentTypeFromPath(filePath, storageRes.headers.get("content-type"));
       const outHeaders: Record<string, string> = {
         ...corsHeaders,
         "Content-Type": contentType,
@@ -653,6 +688,35 @@ Deno.serve(async (req) => {
         const v = storageRes.headers.get(h);
         if (v) outHeaders[h] = v;
       }
+
+      // Bunny Storage ignores Range on some zones and replies 200 with the full
+      // body. Browsers then cannot seek and media stays stuck at 0:00, so we
+      // synthesise the 206 slice ourselves for small-enough ranged reads.
+      if (rangeHeader && storageRes.status === 200) {
+        const match = /bytes=(\d*)-(\d*)/i.exec(rangeHeader);
+        const fullBuffer = new Uint8Array(await storageRes.arrayBuffer());
+        const size = fullBuffer.byteLength;
+        let start = match?.[1] ? parseInt(match[1], 10) : 0;
+        let end = match?.[2] ? parseInt(match[2], 10) : size - 1;
+        if (!Number.isFinite(start) || start < 0) start = 0;
+        if (!Number.isFinite(end) || end >= size) end = size - 1;
+        if (start > end) {
+          return new Response(null, {
+            status: 416,
+            headers: { ...outHeaders, "Content-Range": `bytes */${size}` },
+          });
+        }
+        const slice = fullBuffer.slice(start, end + 1);
+        return new Response(slice, {
+          status: 206,
+          headers: {
+            ...outHeaders,
+            "Content-Range": `bytes ${start}-${end}/${size}`,
+            "Content-Length": String(slice.byteLength),
+          },
+        });
+      }
+
 
       return new Response(storageRes.body, {
         status: storageRes.status === 206 ? 206 : 200,
