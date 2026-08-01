@@ -7004,11 +7004,19 @@ export type Database = {
         Args: { _section: string }
         Returns: string
       }
+      library_track_code_from_section: {
+        Args: { p_section: string }
+        Returns: string
+      }
       library_track_code_from_subject: {
         Args: { _section: string }
         Returns: string
       }
       library_track_display_name: { Args: { _code: string }; Returns: string }
+      library_track_matches_student: {
+        Args: { p_book_track: string; p_section: string }
+        Returns: boolean
+      }
       library_track_sort_order: { Args: { _code: string }; Returns: number }
       library_worker_heartbeat: { Args: never; Returns: undefined }
       log_exam_attempt_debug: {
