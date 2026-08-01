@@ -5,7 +5,7 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getDocumentProxy } from "npm:unpdf@0.11.0";
 import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
-import { aiEmbeddings } from "../_shared/aiProvider.ts";
+import { aiEmbeddings, resolveFileApiRoute } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -87,6 +87,29 @@ const WORKER_SHARED_KEY = (Deno.env.get("MODREK_WORKER_SHARED_KEY") || Deno.env.
 
 function resolveGoogleGeminiApiKey(): string {
   return String(Deno.env.get("GEMINI_API_KEY") || GEMINI_API_KEY || Deno.env.get("GOOGLE_API_KEY") || "").trim();
+}
+
+// Book-file uploads are the ONLY AI service that may fall outside the active
+// provider: they need Google's resumable File API (upload + file_uri). The
+// unified layer probes the active gateway on every run, so the day a gateway
+// ships a real Files endpoint this flips automatically. Until then we log the
+// routing decision so the developer dashboard and the job logs agree.
+async function describeFileApiRoute(admin: SupabaseClient, jobId?: string, extra: Record<string, unknown> = {}) {
+  try {
+    const route = await resolveFileApiRoute();
+    await log(admin, jobId, "info", "file_api_routing_decision", {
+      route: route.route,
+      active_provider: route.provider,
+      provider_supports_files: route.provider_supported,
+      key_env: route.key_env,
+      key_present: route.key_present,
+      reason: route.reason,
+      ...extra,
+    });
+    return route;
+  } catch (_err) {
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -1176,6 +1199,7 @@ async function ensureGeminiFileForAsset(admin: SupabaseClient, asset: any, jobId
   }
   if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
 
+  await describeFileApiRoute(admin, jobId, { asset_id: asset.id });
   await log(admin, jobId, "info", "starting Gemini File API upload", {
     asset_id: asset.id,
     filename: asset.original_filename,
