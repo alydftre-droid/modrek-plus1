@@ -4,6 +4,8 @@
 // error. Only TTS uses OpenRouter directly (via the `openrouter-tts` edge
 // function) since Gemini has no equivalent OpenAI-compatible speech endpoint.
 
+import { getActiveAiApiKey, getActiveAiBaseUrl } from "./aiProvider.ts";
+
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 export const OPENROUTER_DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
 export const OPENROUTER_DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
@@ -232,15 +234,19 @@ export async function openRouterChat(opts: {
   model: string;
   body: Record<string, unknown>;
   timeoutMs?: number;
+  /** Override the gateway base URL. Defaults to the ACTIVE AI provider. */
+  baseUrl?: string;
 }): Promise<{ ok: true; response: Response } | { ok: false; status: number; lastError: string }> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 60_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
+  const baseUrl = String(opts.baseUrl || "").trim() || await getActiveAiBaseUrl();
+  const apiKey = String(opts.apiKey || "").trim() || await getActiveAiApiKey();
   try {
     const body = applySafeOpenRouterTokenBudget(opts.body);
-    const resp = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+    const resp = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
-      headers: buildOpenRouterHeaders(opts.apiKey),
+      headers: buildOpenRouterHeaders(apiKey),
       signal: controller.signal,
       body: JSON.stringify({ ...body, model: toOpenRouterModelId(opts.model) }),
     });
@@ -284,11 +290,15 @@ export async function openRouterTts(opts: {
   instructions?: string;
   speed?: number;
   timeoutMs?: number;
+  /** Override the gateway base URL. Defaults to the ACTIVE AI provider. */
+  baseUrl?: string;
 }): Promise<{ ok: true; response: Response; debug: OpenRouterDebugInfo } | { ok: false; status: number; lastError: string; debug: OpenRouterDebugInfo }> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 60_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
-  const requestUrl = `${OPENROUTER_BASE_URL}/audio/speech`;
+  const ttsBaseUrl = String(opts.baseUrl || "").trim() || await getActiveAiBaseUrl();
+  const ttsApiKey = String(opts.apiKey || "").trim() || await getActiveAiApiKey();
+  const requestUrl = `${ttsBaseUrl}/audio/speech`;
   const started = performance.now();
   try {
     const model = toOpenRouterTtsModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
@@ -306,7 +316,7 @@ export async function openRouterTts(opts: {
     // OpenRouter documents `speed` for OpenAI-compatible voices. Gemini TTS ignores
     // or may reject unknown provider fields, so we keep Gemini requests minimal.
     if (!isGeminiTts && typeof opts.speed === "number") body.speed = opts.speed;
-    const headers = buildOpenRouterHeaders(opts.apiKey);
+    const headers = buildOpenRouterHeaders(ttsApiKey);
     const debug: OpenRouterDebugInfo = {
       requestUrl,
       method: "POST",
@@ -401,15 +411,19 @@ export async function openRouterEmbed(opts: {
   model?: string;
   inputs: string[];
   timeoutMs?: number;
+  /** Override the gateway base URL. Defaults to the ACTIVE AI provider. */
+  baseUrl?: string;
 }): Promise<{ ok: true; vectors: number[][]; model: string } | { ok: false; status: number; lastError: string }> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(`timeout:${timeoutMs}`), timeoutMs);
   const model = String(opts.model || OPENROUTER_DEFAULT_EMBED_MODEL).trim() || OPENROUTER_DEFAULT_EMBED_MODEL;
   try {
-    const resp = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
+    const embedBaseUrl = String(opts.baseUrl || "").trim() || await getActiveAiBaseUrl();
+    const embedApiKey = String(opts.apiKey || "").trim() || await getActiveAiApiKey();
+    const resp = await fetch(`${embedBaseUrl}/embeddings`, {
       method: "POST",
-      headers: buildOpenRouterHeaders(opts.apiKey),
+      headers: buildOpenRouterHeaders(embedApiKey),
       signal: controller.signal,
       body: JSON.stringify({ model, input: opts.inputs }),
     });

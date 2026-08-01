@@ -349,6 +349,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_gateway_providers: {
+        Row: {
+          api_key_env: string
+          base_url: string
+          is_active: boolean
+          label: string
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          api_key_env: string
+          base_url: string
+          is_active?: boolean
+          label: string
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          api_key_env?: string
+          base_url?: string
+          is_active?: boolean
+          label?: string
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ai_lesson_pages: {
         Row: {
           created_at: string
@@ -539,6 +569,47 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ai_providers"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_provider_function_settings: {
+        Row: {
+          enable_streaming: boolean
+          fallback_delay_ms: number
+          function_name: string
+          max_retries: number
+          models_to_try: string[]
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enable_streaming?: boolean
+          fallback_delay_ms?: number
+          function_name: string
+          max_retries?: number
+          models_to_try?: string[]
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enable_streaming?: boolean
+          fallback_delay_ms?: number
+          function_name?: string
+          max_retries?: number
+          models_to_try?: string[]
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_provider_function_settings_provider_fkey"
+            columns: ["provider"]
+            isOneToOne: false
+            referencedRelation: "ai_gateway_providers"
+            referencedColumns: ["provider"]
           },
         ]
       }

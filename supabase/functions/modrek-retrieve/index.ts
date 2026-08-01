@@ -6,6 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
+import { getActiveAiBaseUrl } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -347,7 +348,8 @@ async function embed(text: string): Promise<number[]> {
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
   const resolved = await resolveOpenRouterApiKey(admin);
   if (!resolved.apiKey) throw new Error("OPENROUTER_API_KEY_MISSING_FOR_EMBEDDINGS");
-  const r = await fetch(`${OPENROUTER_BASE_URL}/embeddings`, {
+  const aiBaseUrl = (await getActiveAiBaseUrl()) || OPENROUTER_BASE_URL;
+  const r = await fetch(`${aiBaseUrl}/embeddings`, {
     method: "POST",
     headers: buildOpenRouterHeaders(resolved.apiKey),
     body: JSON.stringify({ model: EMBED_MODEL, input: [input], dimensions: EMBED_DIMS, encoding_format: "float" }),
