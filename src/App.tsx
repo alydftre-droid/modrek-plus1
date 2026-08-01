@@ -401,6 +401,8 @@ const STUDENT_DS_EXCLUDE_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/privacy-policy",
+  "/delete-account",
+  "/account/delete",
   "/privacy",
   "/terms-of-service",
   "/terms",
