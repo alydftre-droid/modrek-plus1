@@ -225,6 +225,13 @@ jobs:
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
             PRODUCTION_SUPABASE_URL="$PRODUCTION_SUPABASE_URL"
+          if [ -n "${AGENTROUTER_API_KEY:-}" ]; then
+            supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" \
+              AGENTROUTER_API_KEY="$AGENTROUTER_API_KEY"
+            echo "AgentRouter key synced to production."
+          else
+            echo "::warning::AGENTROUTER_API_KEY GitHub secret is empty — AgentRouter will show 'no key' in production."
+          fi
       - name: Deploy functions to production project only
         run: |
           set -euo pipefail
