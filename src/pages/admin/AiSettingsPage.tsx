@@ -80,9 +80,12 @@ export default function AiSettingsPage() {
 
   return (
     <div className="space-y-4">
+      <AiProviderSettings />
+
       <p className="text-sm text-muted-foreground">
-        تحكّم في قائمة موديلات Gemini المستخدمة لكل وظيفة، وحدود المحاولات، وتفعيل البث المباشر للردود (Streaming).
+        إعدادات الوظائف الخاصة بـ OpenRouter: تحكّم في قائمة الموديلات لكل وظيفة، وحدود المحاولات، وتفعيل البث المباشر للردود (Streaming).
       </p>
+
 
       {rows.map((row) => (
         <Card key={row.function_name}>
