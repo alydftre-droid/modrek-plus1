@@ -400,8 +400,19 @@ async function aiFetchOnce(provider: AiProviderConfig, opts: {
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
       const waf = detectAiWafBlock(contentType, text);
+      if (!waf && (resp.status === 401 || resp.status === 403) && /invalid\s*api\s*key|unauthorized|no such key|token/i.test(text)) {
+        return {
+          ok: false,
+          status: resp.status,
+          provider: provider.provider,
+          endpoint,
+          duration_ms,
+          error: `PROVIDER_INVALID_API_KEY (${provider.apiKeyEnv}) ${text.slice(0, 300)}`,
+        };
+      }
       return { ok: false, status: waf ? 502 : resp.status, provider: provider.provider, endpoint, duration_ms, error: waf || text.slice(0, 800) };
     }
+
     if (expect === "json") {
       const text = await resp.text().catch(() => "");
       const waf = detectAiWafBlock(contentType, text);
