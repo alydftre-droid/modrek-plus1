@@ -64,8 +64,14 @@ serve(async (req) => {
     ? await verifyChatPipeline()
     : { ok: false, status: 500, model: null, provider: active.provider, error: `${active.apiKeyEnv}_MISSING` };
 
+  const degraded = chatPipeline.ok && Boolean(chatPipeline.provider) && chatPipeline.provider !== active.provider;
   const body = {
     ok: Boolean(openRouterKey) && chatPipeline.ok,
+    degraded,
+    // When the active gateway is blocked (e.g. AgentRouter WAF on datacenter
+    // IPs) the layer fails over automatically; the platform stays healthy.
+    servedBy: chatPipeline.provider || null,
+    degradedReason: degraded ? `ACTIVE_PROVIDER_UNAVAILABLE_FAILED_OVER_TO_${String(chatPipeline.provider).toUpperCase()}` : null,
     provider: active.provider,
     project: supabaseUrl || null,
     configured: {
