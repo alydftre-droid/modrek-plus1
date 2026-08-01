@@ -570,7 +570,7 @@ export default function StudentSupportAssistantPage() {
             }
             const isUser = msg.role === "user";
             const isSupport = msg.role === "support";
-            const hasStructuredTable = !isUser && /\n\|.+\|\n\|[-:\s|]+\|/.test(msg.content);
+            const hasStructuredTable = !isUser && /\n\|.+\|\n\|[\s:|-]+\|/.test(msg.content);
             return (
               <div key={msg.id} className={`flex ${isUser ? "justify-start" : "justify-end"} gap-2`}>
                 {!isUser && (

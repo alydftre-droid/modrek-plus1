@@ -104,21 +104,6 @@ export function SubjectArtwork({ pattern, className = "" }: { pattern: SubjectPa
           <text x="160" y="80" fill="white" fontSize="14" fontWeight="700" opacity="0.55">O₂</text>
         </svg>
       );
-    case "bio":
-      return (
-        <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
-          <g stroke="white" strokeWidth="1.4" fill="none" opacity="0.7">
-            <path d="M 30 10 Q 80 60 30 110" />
-            <path d="M 60 10 Q 10 60 60 110" />
-            {Array.from({ length: 8 }).map((_, i) => (
-              <line key={i} x1={30 + i * 0.5} y1={20 + i * 12} x2={60 - i * 0.5} y2={20 + i * 12} />
-            ))}
-          </g>
-          <circle cx="150" cy="40" r="14" fill="white" opacity="0.25" />
-          <circle cx="150" cy="40" r="6" fill="white" opacity="0.5" />
-          <circle cx="175" cy="85" r="10" fill="white" opacity="0.2" />
-        </svg>
-      );
     case "arabic":
       return (
         <svg viewBox="0 0 200 120" className={`${common} ${className}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
