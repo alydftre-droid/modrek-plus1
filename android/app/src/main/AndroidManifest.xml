@@ -82,5 +82,12 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <!-- Google Play policy: التطبيق لا يشغّل أي Foreground Service،
+         لذلك تم إزالة صلاحية FOREGROUND_SERVICE لتجنّب مطالبة الإفصاح
+         عن استخدام الخدمات الأمامية في Play Console. الإشعارات تعمل
+         بالكامل عبر FCM بدون خدمة أمامية. -->
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE"
+        tools:node="remove" />
 </manifest>
