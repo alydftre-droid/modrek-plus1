@@ -406,11 +406,19 @@ export default function LibraryBookStudio() {
       stopSpeaking();
 
       try {
+        // Give the tutor the actual page image so it can read scanned pages,
+        // diagrams, tables and equations instead of relying on extracted text.
+        let pageImage = pageImages[pageNum] || null;
+        if (!pageImage) pageImage = await renderPage(pageNum);
+        if (activePageRef.current !== pageNum) return;
+
         const data = await invokeEdgeFunctionJson("library-explain", {
           book_id: book?.id,
           page_number: pageNum,
           variant: "default",
           with_audio: false,
+          page_image_base64: pageImage || null,
+          page_image_mime: "image/jpeg",
         });
         // Race-condition guard: ignore stale responses
         if (activePageRef.current !== pageNum) return;
@@ -439,7 +447,7 @@ export default function LibraryBookStudio() {
         setSending(false);
       }
     },
-    [book?.id, sending, speak, stopSpeaking]
+    [book?.id, sending, speak, stopSpeaking, pageImages, renderPage]
   );
 
   // ── Chat with assistant ──
