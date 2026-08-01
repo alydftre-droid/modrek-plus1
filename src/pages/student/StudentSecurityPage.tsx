@@ -9,9 +9,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Mail, Loader2, Eye, EyeOff, LogOut, Shield } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Lock, Mail, Loader2, Eye, EyeOff, LogOut, Shield, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
+
 
 export default function StudentSecurityPage() {
   const {
