@@ -28,6 +28,7 @@ jobs:
       PRODUCTION_SUPABASE_PUBLISHABLE_KEY: sb_publishable_rN8ogJuF9T1Dy6aMkdLVeQ__RbfP19A
       PRODUCTION_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.PRODUCTION_SUPABASE_SERVICE_ROLE_KEY || secrets.EXTERNAL_SUPABASE_SERVICE_ROLE_KEY }}
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      AGENTROUTER_API_KEY: ${{ secrets.AGENTROUTER_API_KEY }}
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       FIREBASE_PROJECT_ID: dotted-banner-489523-m3
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -211,6 +212,7 @@ jobs:
           supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" \
             GEMINI_API_KEY="$GEMINI_API_KEY" \
             OPENROUTER_API_KEY="$OPENROUTER_API_KEY" \
+            AGENTROUTER_API_KEY="$AGENTROUTER_API_KEY" \
             BUNNY_STREAM_API_KEY="$BUNNY_STREAM_API_KEY" \
             BUNNY_STREAM_LIBRARY_ID="$BUNNY_STREAM_LIBRARY_ID" \
             BUNNY_STREAM_CDN_HOSTNAME="$BUNNY_STREAM_CDN_HOSTNAME" \
@@ -223,6 +225,13 @@ jobs:
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
             PRODUCTION_SUPABASE_URL="$PRODUCTION_SUPABASE_URL"
+          if [ -n "${AGENTROUTER_API_KEY:-}" ]; then
+            supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" \
+              AGENTROUTER_API_KEY="$AGENTROUTER_API_KEY"
+            echo "AgentRouter key synced to production."
+          else
+            echo "::warning::AGENTROUTER_API_KEY GitHub secret is empty — AgentRouter will show 'no key' in production."
+          fi
       - name: Deploy functions to production project only
         run: |
           set -euo pipefail
