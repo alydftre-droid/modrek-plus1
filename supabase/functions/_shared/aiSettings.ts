@@ -2,7 +2,7 @@
 // from the public.ai_function_settings table. Falls back to safe defaults
 // if the row is missing or DB read fails.
 import { getOpenRouterApiKey, openRouterChat, toOpenRouterModelId } from "./openrouter.ts";
-import { getActiveAiProvider } from "./aiProvider.ts";
+import { getActiveAiProvider, getAiFailoverProvider, isAiProviderOutage } from "./aiProvider.ts";
 import {
   DEFAULT_CHAT_MODELS,
   DEFAULT_TTS_MODELS as POLICY_TTS_MODELS,
@@ -246,6 +246,41 @@ export async function callGeminiWithFallback(opts: {
     if (i < models.length - 1 && opts.fallbackDelayMs && opts.fallbackDelayMs > 0) {
       await new Promise((r) => setTimeout(r, opts.fallbackDelayMs));
 
+    }
+  }
+
+  // Provider-level outage (WAF challenge page, missing/rejected key, host
+  // unreachable) — retry once on a healthy alternative gateway so a blocked
+  // active provider never takes the whole platform's AI down.
+  if (isAiProviderOutage({ ok: false, status: lastStatus, error: lastError })) {
+    const backup = await getAiFailoverProvider(active.provider).catch(() => null);
+    if (backup) {
+      console.warn("[ai-settings] provider_failover", active.provider, "->", backup.provider, truncateErrorForLog(lastError, 200));
+      for (const model of models) {
+        const orModel = toOpenRouterModelId(model);
+        const startedAt = Date.now();
+        const retry = await openRouterChat({
+          apiKey: backup.apiKey,
+          model: orModel,
+          body: opts.body,
+          timeoutMs,
+          baseUrl: backup.baseUrl || undefined,
+        });
+        logAiCall({
+          function: fnName,
+          task: opts.task,
+          model: orModel,
+          purpose: opts.purpose,
+          durationMs: Date.now() - startedAt,
+          status: retry.ok ? 200 : retry.status,
+          ok: retry.ok,
+          error: retry.ok ? undefined : summarizeUpstreamError(retry.lastError).slice(0, 500),
+        });
+        if (retry.ok) return { ok: true, response: retry.response, model: orModel, provider: backup.provider };
+        lastStatus = retry.status;
+        lastError = `${active.provider}: ${truncateErrorForLog(lastError, 200)} | failover ${backup.provider}: ${truncateErrorForLog(retry.lastError, 300)}`;
+        if (retry.status === 401 || retry.status === 402 || retry.status === 403) break;
+      }
     }
   }
 
