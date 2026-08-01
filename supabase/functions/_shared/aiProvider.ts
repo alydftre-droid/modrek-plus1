@@ -39,7 +39,13 @@ const CACHE_TTL_MS = 10_000; // switching in the dashboard applies within ~10s
 let cache: { at: number; config: AiProviderConfig } | null = null;
 
 function normalizeBaseUrl(url: string): string {
-  return String(url || "").trim().replace(/\/+$/, "");
+  const normalized = String(url || "").trim().replace(/\/+$/, "");
+  // The legacy host now serves an Aliyun WAF challenge to edge-server IPs.
+  // Canonicalize stale saved values to AgentRouter's current API host.
+  if (/^https:\/\/agentrouter\.org\/v1$/i.test(normalized)) {
+    return "https://co.agentrouter.org/v1";
+  }
+  return normalized;
 }
 
 function envKey(name: string): string {

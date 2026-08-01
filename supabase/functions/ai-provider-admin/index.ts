@@ -32,10 +32,13 @@ function envKey(name: string) {
 }
 
 function normalizeBaseUrl(url: string) {
-  return String(url || "").trim().replace(/\/+$/, "");
+  const normalized = String(url || "").trim().replace(/\/+$/, "");
+  return /^https:\/\/agentrouter\.org\/v1$/i.test(normalized)
+    ? "https://co.agentrouter.org/v1"
+    : normalized;
 }
 
-async function testProvider(baseUrl: string, apiKey: string, model?: string) {
+async function testProvider(baseUrl: string, apiKey: string, model?: string, provider?: string) {
   const started = Date.now();
   const url = `${normalizeBaseUrl(baseUrl)}/chat/completions`;
   const controller = new AbortController();
@@ -46,9 +49,13 @@ async function testProvider(baseUrl: string, apiKey: string, model?: string) {
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36",
         Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://modrekplus.com",
-        "X-Title": "Modrek Plus",
+        ...(provider === "openrouter" ? {
+          "HTTP-Referer": "https://modrekplus.com",
+          "X-Title": "Modrek Plus",
+        } : {}),
       },
       body: JSON.stringify({
         model: model || "google/gemini-2.5-flash",
@@ -171,7 +178,7 @@ Deno.serve(async (req) => {
           error: `${row.api_key_env} غير مضبوط في إعدادات الأسرار`,
         });
       }
-      const result = await testProvider(baseUrl, apiKey, body.model ? String(body.model) : undefined);
+      const result = await testProvider(baseUrl, apiKey, body.model ? String(body.model) : undefined, String(row.provider));
       return json({ ...result, provider: row.provider, api_key_env: row.api_key_env, key_missing: false });
     }
 
