@@ -86,6 +86,35 @@ export default function StudentSecurityPage() {
     else { toast.success("تم تسجيل الخروج من جميع الأجهزة"); navigate("/auth"); }
   };
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm.trim() !== "حذف") return;
+    if (isImpersonating()) {
+      toast.error("لا يمكن حذف الحساب أثناء وضع المطور");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-my-account", {
+        body: { confirmation: "حذف" },
+      });
+      if (error || (data as any)?.error) {
+        toast.error((data as any)?.error || "تعذّر حذف الحساب، حاول مرة أخرى");
+        setDeleting(false);
+        return;
+      }
+      setDeleteOpen(false);
+      toast.success("تم حذف حسابك نهائياً");
+      try { await supabase.auth.signOut({ scope: "global" }); } catch { /* session already gone */ }
+      try { localStorage.clear(); } catch { /* ignore */ }
+      navigate("/auth", { replace: true });
+    } catch (err) {
+      toast.error("تعذّر حذف الحساب، حاول مرة أخرى");
+      setDeleting(false);
+    }
+  };
+
+
+
   return (
     <StudentSidebarLayout title="إدارة الحساب">
       <div className="p-4 md:p-8 max-w-lg mx-auto space-y-5">
