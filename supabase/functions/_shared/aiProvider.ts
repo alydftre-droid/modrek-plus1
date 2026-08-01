@@ -206,14 +206,45 @@ export async function resolveAiProvider(providerName?: string | null): Promise<A
   return await getActiveAiProvider();
 }
 
-export function buildAiHeaders(apiKey: string, extra: Record<string, string> = {}): Record<string, string> {
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+/**
+ * Provider-appropriate headers.
+ * `HTTP-Referer` / `X-Title` are OpenRouter-specific attribution headers — we
+ * only send them there. Every other OpenAI-compatible gateway gets the minimal
+ * documented set (Authorization + Content-Type + Accept) plus a normal
+ * User-Agent, which is what edge-protected gateways expect.
+ */
+export function buildAiHeaders(
+  apiKey: string,
+  extra: Record<string, string> = {},
+  provider?: string,
+): Record<string, string> {
+  const isOpenRouter = !provider || provider === "openrouter";
   return {
     "Content-Type": "application/json",
+    Accept: "application/json",
+    "User-Agent": BROWSER_UA,
     Authorization: `Bearer ${apiKey}`,
-    "HTTP-Referer": AI_REFERRER,
-    "X-Title": AI_APP_TITLE,
+    ...(isOpenRouter ? { "HTTP-Referer": AI_REFERRER, "X-Title": AI_APP_TITLE } : {}),
     ...extra,
   };
+}
+
+/**
+ * WAF / challenge-page detection. Some gateways (AgentRouter behind Aliyun WAF)
+ * answer HTTP 200 with an HTML challenge page instead of the JSON/audio body,
+ * on EVERY endpoint — including `/audio/speech` and `/audio/transcriptions`.
+ * Without this check those calls look "successful" while returning garbage.
+ */
+export function detectAiWafBlock(contentType: string, sample: string): string | null {
+  const ct = (contentType || "").toLowerCase();
+  const body = (sample || "").slice(0, 600);
+  const htmlish = ct.includes("text/html") || /^\s*<(!doctype|html|meta)/i.test(body);
+  if (!htmlish) return null;
+  const waf = /aliyun_waf|captcha|cloudflare|challenge|Just a moment/i.test(body) ? " (WAF_CHALLENGE)" : "";
+  return `PROVIDER_BLOCKED_NON_JSON_RESPONSE${waf} (${ct || "unknown"}) ${body.slice(0, 300)}`;
 }
 
 /**
@@ -230,6 +261,7 @@ export function isAiProviderOutage(result: { ok: boolean; status: number; error?
   if (err.endsWith("_MISSING")) return true;
   return result.status === 0 || result.status === 401 || result.status === 403;
 }
+
 
 /**
  * Pick a healthy alternative gateway when the active one is down/blocked.
