@@ -29,6 +29,7 @@ import {
   OPENROUTER_TTS_QUALITY,
   preprocessSpeechForTeacher,
 } from "../_shared/openrouter.ts";
+import { getActiveAiApiKey } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -243,7 +244,8 @@ Deno.serve(async (req) => {
     `السؤال: ${question}`,
   ].filter(Boolean).join("\n\n");
 
-  const openRouterKey = getOpenRouterApiKey();
+  // Key of the ACTIVE AI provider (OpenRouter / AgentRouter / ...).
+  const openRouterKey = (await getActiveAiApiKey()) || getOpenRouterApiKey();
   if (!openRouterKey) return jsonError(503, "OPENROUTER_API_KEY غير مضبوط.");
 
   const ai = await openRouterChat({
