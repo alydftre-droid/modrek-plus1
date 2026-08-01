@@ -198,6 +198,18 @@ export default function AiProviderSettings() {
           <p className="text-xs text-muted-foreground">
             مزود واحد فقط يمكن أن يكون نشطاً. المزود غير النشط يتوقف بالكامل ولا يُرسل إليه أي طلب.
           </p>
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs leading-relaxed">
+            <p className="font-semibold">استثناء واحد فقط: رفع ملفات الكتب (Gemini File API)</p>
+            <p className="text-muted-foreground mt-1">
+              كل خدمات الذكاء الاصطناعي (محادثة، Streaming، Vision، OCR، Embeddings، TTS، STT) تعتمد على المزوّد النشط أعلاه.
+              أما رفع ملفات الكتب الكبيرة/المصوّرة فيستخدم Gemini File API (رفع قابل للاستئناف بمراجع file_uri) وهو بروتوكول
+              خاص بجوجل لا توفّره البوابات المتوافقة مع OpenAI، لذلك يعتمد وحده على المفتاح
+              <span className="mx-1 font-mono" dir="ltr">GEMINI_API_KEY</span>.
+              النظام يفحص المزوّد النشط تلقائياً في كل مرة، وإذا وفّر File API حقيقياً ينتقل إليه تلقائياً — وتظهر النتيجة في
+              «تشخيص خدمات الذكاء الاصطناعي» ضمن اختبار «رفع ملفات الكتب (File API)».
+            </p>
+          </div>
+
 
           {providers.map((p) => {
             const isActive = p.is_active;
