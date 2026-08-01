@@ -130,65 +130,10 @@ export default function LibraryBookStudio() {
     return () => { void unlockNativeOrientation(); };
   }, []);
 
-  useEffect(() => {
-    setZoom(zoomByPageRef.current[selectedPage] ?? 1);
-    setPan(panByPageRef.current[selectedPage] ?? { x: 0, y: 0 });
-  }, [selectedPage]);
+  // Zoom/pan is fully owned by <PageZoomViewer /> (matrix transform, clamped
+  // bounds, pinch/double-tap/wheel). Here we only mirror the level for the
+  // badge and to decide when a crisper page render is worth the memory.
 
-  useEffect(() => {
-    zoomByPageRef.current[selectedPage] = zoom;
-  }, [selectedPage, zoom]);
-
-  useEffect(() => {
-    panByPageRef.current[selectedPage] = pan;
-  }, [selectedPage, pan]);
-
-  const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
-
-  const updateZoom = useCallback((nextZoom: number) => {
-    const clamped = clampZoom(nextZoom);
-    setZoom(clamped);
-    if (clamped <= 1.01) {
-      setPan({ x: 0, y: 0 });
-    }
-  }, [clampZoom]);
-
-  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length === 2) {
-      const [a, b] = Array.from(event.touches);
-      pinchStateRef.current = {
-        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-        zoom,
-      };
-    }
-  }, [zoom]);
-
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 2 || !pinchStateRef.current) return;
-    const [a, b] = Array.from(event.touches);
-    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    if (!distance || !pinchStateRef.current.distance) return;
-    event.preventDefault();
-    const ratio = distance / pinchStateRef.current.distance;
-    updateZoom(pinchStateRef.current.zoom * ratio);
-  }, [updateZoom]);
-
-  const handleTouchEnd = useCallback(() => {
-    pinchStateRef.current = null;
-  }, []);
-
-  const handleViewportScroll = useCallback(() => {
-    const node = imageViewportRef.current;
-    if (!node || zoom <= 1.01) return;
-    setPan({ x: node.scrollLeft, y: node.scrollTop });
-  }, [zoom]);
-
-  useEffect(() => {
-    const node = imageViewportRef.current;
-    if (!node) return;
-    node.scrollLeft = pan.x;
-    node.scrollTop = pan.y;
-  }, [pan, zoom, selectedPage]);
 
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
