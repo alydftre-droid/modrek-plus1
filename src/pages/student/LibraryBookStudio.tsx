@@ -301,6 +301,62 @@ export default function LibraryBookStudio() {
     [pageImages, bookId],
   );
 
+  // ── High-resolution re-render for deep zoom ──
+  // The base page is rasterized at scale 1.5 (fast, low memory). Once the
+  // student zooms past ~1.6x we render that single page at a much higher scale
+  // so text stays razor sharp instead of pixelating. Only one hi-res bitmap is
+  // ever kept in memory, and it is dropped when zoom returns to fit.
+  const hiResTaskRef = useRef<number | null>(null);
+
+  const renderHiRes = useCallback(async (pageNum: number, scale: number) => {
+    const pdf = pdfRef.current;
+    if (!pdf || pageNum < 1 || pageNum > pdf.numPages) return;
+    if (hiResTaskRef.current === pageNum) return;
+    hiResTaskRef.current = pageNum;
+    try {
+      const page = await pdf.getPage(pageNum);
+      const dpr = Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
+      // Cap total pixels so big books never blow up device memory.
+      const base = page.getViewport({ scale: 1 });
+      const target = Math.min(4.5, 1.5 * Math.max(2, Math.min(3, scale)) * dpr);
+      const maxPixels = 12_000_000;
+      const safeScale = Math.min(target, Math.sqrt(maxPixels / (base.width * base.height)));
+      const viewport = page.getViewport({ scale: Math.max(1.5, safeScale) });
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      await page.render({ canvasContext: ctx, viewport } as any).promise;
+      const url = canvas.toDataURL("image/jpeg", 0.92);
+      canvas.width = 0;
+      canvas.height = 0;
+      if (hiResTaskRef.current === pageNum) setHiResPage({ page: pageNum, url });
+    } catch (err) {
+      console.debug("[library] hi-res render failed", pageNum, err);
+    }
+  }, []);
+
+  const handleScaleChange = useCallback(
+    (scale: number) => {
+      setZoom(scale);
+      if (scale > 1.6) {
+        if (!hiResPage || hiResPage.page !== selectedPage) void renderHiRes(selectedPage, scale);
+      } else if (hiResPage) {
+        hiResTaskRef.current = null;
+        setHiResPage(null);
+      }
+    },
+    [hiResPage, selectedPage, renderHiRes],
+  );
+
+  // Dropping the hi-res bitmap on page change keeps memory flat in long books.
+  useEffect(() => {
+    hiResTaskRef.current = null;
+    setHiResPage(null);
+  }, [selectedPage]);
+
+
   const loadPdf = useCallback(async () => {
     if (!pdfBlob) return;
     try {
