@@ -466,7 +466,7 @@ export async function aiSpeech(opts: {
   });
 }
 
-/** Speech-to-text through the active provider (multipart upload). */
+/** Speech-to-text through the active provider (multipart upload + failover). */
 export async function aiTranscription(opts: {
   file: Blob;
   fileName?: string;
@@ -475,7 +475,25 @@ export async function aiTranscription(opts: {
   providerName?: string | null;
   timeoutMs?: number;
 }): Promise<AiCallResult<any>> {
-  const provider = await resolveAiProvider(opts.providerName);
+  const first = await aiTranscriptionOnce(await resolveAiProvider(opts.providerName), opts);
+  if (first.ok || opts.providerName || !isAiProviderOutage(first)) return first;
+  const backup = await getAiFailoverProvider(first.provider);
+  if (!backup) return first;
+  console.warn("[ai-provider] failover(stt)", first.provider, "->", backup.provider);
+  const second = await aiTranscriptionOnce(backup, opts);
+  if (!second.ok) {
+    return { ...second, error: `${first.provider}: ${String(first.error || "").slice(0, 300)} | failover ${backup.provider}: ${String(second.error || "").slice(0, 300)}` };
+  }
+  return second;
+}
+
+async function aiTranscriptionOnce(provider: AiProviderConfig, opts: {
+  file: Blob;
+  fileName?: string;
+  model: string;
+  language?: string;
+  timeoutMs?: number;
+}): Promise<AiCallResult<any>> {
   const endpoint = `${provider.baseUrl}/audio/transcriptions`;
   const started = Date.now();
   if (!provider.hasKey) {
@@ -489,18 +507,25 @@ export async function aiTranscription(opts: {
     form.append("file", opts.file, opts.fileName || "audio.wav");
     form.append("model", opts.model);
     if (opts.language) form.append("language", opts.language);
+    const isOpenRouter = provider.provider === "openrouter";
     const resp = await fetch(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${provider.apiKey}`,
-        "HTTP-Referer": AI_REFERRER,
-        "X-Title": AI_APP_TITLE,
+        Accept: "application/json",
+        "User-Agent": BROWSER_UA,
+        ...(isOpenRouter ? { "HTTP-Referer": AI_REFERRER, "X-Title": AI_APP_TITLE } : {}),
       },
       signal: controller.signal,
       body: form,
     });
     clearTimeout(timer);
+    const contentType = (resp.headers.get("content-type") || "").toLowerCase();
     const text = await resp.text().catch(() => "");
+    const waf = detectAiWafBlock(contentType, text);
+    if (waf) {
+      return { ok: false, status: 502, provider: provider.provider, endpoint, duration_ms: Date.now() - started, error: waf };
+    }
     let data: unknown = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 500) }; }
     return {
@@ -518,6 +543,7 @@ export async function aiTranscription(opts: {
     if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) msg = `timeout after ${timeoutMs}ms`;
     return { ok: false, status: 0, provider: provider.provider, endpoint, duration_ms: Date.now() - started, error: msg };
   }
+
 }
 
 /** List models exposed by a provider (diagnostics only). */
