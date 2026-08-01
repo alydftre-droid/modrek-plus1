@@ -399,3 +399,122 @@ export async function aiTranscription(opts: {
 export async function aiListModels(providerName?: string | null): Promise<AiCallResult<any>> {
   return await aiFetch({ path: "/models", method: "GET", providerName, timeoutMs: 20_000 });
 }
+
+// ============================================================================
+// File API routing (Gemini File API vs. active provider)
+// ----------------------------------------------------------------------------
+// Large / scanned PDFs are processed with Google's **Gemini File API**
+// (resumable upload + `file_uri` reference inside generateContent). That
+// protocol is Google-specific: the OpenAI-compatible gateways (OpenRouter /
+// AgentRouter) expose `/chat/completions`, `/embeddings`, `/audio/*` — they do
+// NOT expose a resumable `/files` upload that can then be referenced by URI.
+//
+// So instead of hardcoding the exception, we PROBE the active provider on every
+// check: if a gateway ever ships a real OpenAI-style Files endpoint, this
+// returns `provider_supported: true` and the route flips automatically once the
+// operator enables AI_PROVIDER_FILE_API_ENABLED=1. Until then the route stays
+// `gemini_direct` and the reason is reported verbatim to the developer UI.
+// ============================================================================
+
+export type AiFileApiRoute = "provider" | "gemini_direct";
+
+export interface AiFileApiStatus {
+  provider: string;
+  label: string;
+  endpoint: string;
+  /** Does the active gateway answer on an OpenAI-style /files endpoint? */
+  provider_supported: boolean;
+  probe_status: number;
+  probe_error: string | null;
+  probe_duration_ms: number;
+  /** Resumable upload + file_uri references (what large PDFs need). */
+  resumable_upload_supported: boolean;
+  /** Effective route used by the library/book processing pipeline. */
+  route: AiFileApiRoute;
+  /** True when this service does NOT follow the active provider. */
+  independent_of_active_provider: boolean;
+  key_env: string;
+  key_present: boolean;
+  reason: string;
+  reason_ar: string;
+  note_ar: string;
+}
+
+const FILE_API_KEY_ENV = "GEMINI_API_KEY";
+const FILE_API_CACHE_TTL_MS = 60_000;
+let fileApiCache: { at: number; key: string; status: AiFileApiStatus } | null = null;
+
+function geminiFileApiKey(): string {
+  return envKey(FILE_API_KEY_ENV) || envKey("GOOGLE_API_KEY");
+}
+
+/**
+ * Probe the active (or a named) provider for OpenAI-style Files support and
+ * return the effective routing decision for the Gemini File API service.
+ * Never throws.
+ */
+export async function probeAiProviderFileApi(providerName?: string | null): Promise<AiFileApiStatus> {
+  const provider = await resolveAiProvider(providerName);
+  const cacheKey = `${provider.provider}|${provider.baseUrl}`;
+  const now = Date.now();
+  if (fileApiCache && fileApiCache.key === cacheKey && now - fileApiCache.at < FILE_API_CACHE_TTL_MS) {
+    return fileApiCache.status;
+  }
+
+  const probe = await aiFetch({
+    path: "/files",
+    method: "GET",
+    providerName: providerName ?? provider.provider,
+    timeoutMs: 15_000,
+  });
+
+  // A usable Files endpoint must answer 200 with an OpenAI-style list payload.
+  const listed = (probe.data as any)?.data;
+  const providerSupported = probe.ok && Array.isArray(listed);
+  const overrideEnabled = envKey("AI_PROVIDER_FILE_API_ENABLED") === "1";
+  const resumable = providerSupported && overrideEnabled;
+  const route: AiFileApiRoute = resumable ? "provider" : "gemini_direct";
+  const keyPresent = !!geminiFileApiKey();
+
+  const reason = providerSupported
+    ? overrideEnabled
+      ? "PROVIDER_FILES_ENDPOINT_ENABLED"
+      : "PROVIDER_FILES_ENDPOINT_FOUND_BUT_NOT_ENABLED"
+    : probe.status === 404 || probe.status === 405
+    ? "PROVIDER_HAS_NO_FILES_ENDPOINT"
+    : `PROVIDER_FILES_PROBE_FAILED_${probe.status}`;
+
+  const reasonAr = providerSupported
+    ? overrideEnabled
+      ? "المزوّد النشط يدعم Files API وتم تفعيله، لذلك تمر ملفات الكتب عبر المزوّد النشط."
+      : "المزوّد النشط يعرض نقطة /files لكن التفعيل موقوف (AI_PROVIDER_FILE_API_ENABLED=1 لتشغيله)، لذلك ما زلنا نستخدم Gemini File API."
+    : "المزوّد النشط (بوابة متوافقة مع OpenAI) لا يوفّر رفعًا قابلًا للاستئناف مع مراجع file_uri، وهو ما تحتاجه ملفات PDF الكبيرة/المصوّرة، لذلك تبقى هذه الخدمة على Gemini File API.";
+
+  const status: AiFileApiStatus = {
+    provider: provider.provider,
+    label: provider.label,
+    endpoint: route === "provider" ? `${provider.baseUrl}/files` : "https://generativelanguage.googleapis.com/upload/v1beta/files",
+    provider_supported: providerSupported,
+    probe_status: probe.status,
+    probe_error: probe.error ? String(probe.error).slice(0, 400) : null,
+    probe_duration_ms: probe.duration_ms,
+    resumable_upload_supported: resumable,
+    route,
+    independent_of_active_provider: route === "gemini_direct",
+    key_env: FILE_API_KEY_ENV,
+    key_present: keyPresent,
+    reason,
+    reason_ar: reasonAr,
+    note_ar: route === "gemini_direct"
+      ? `خدمة رفع ملفات الكتب (Gemini File API) هي الخدمة الوحيدة المستقلة وتعتمد على ${FILE_API_KEY_ENV}${keyPresent ? " (المفتاح موجود)" : " (المفتاح غير موجود — رفع الكتب الكبيرة سيفشل)"}. أما باقي خدمات الذكاء الاصطناعي (محادثة، رؤية، OCR، Embeddings، TTS، STT، Streaming) فتعتمد على المزوّد النشط فقط.`
+      : "جميع خدمات الذكاء الاصطناعي — بما فيها رفع ملفات الكتب — تمر الآن عبر المزوّد النشط.",
+  };
+
+  fileApiCache = { at: now, key: cacheKey, status };
+  return status;
+}
+
+/** Effective File API route for the processing pipeline. */
+export async function resolveFileApiRoute(): Promise<AiFileApiStatus> {
+  return await probeAiProviderFileApi();
+}

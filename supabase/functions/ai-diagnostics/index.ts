@@ -10,6 +10,7 @@ import {
   aiSpeech,
   aiTranscription,
   getActiveAiProvider,
+  probeAiProviderFileApi,
   resolveAiProvider,
 } from "../_shared/aiProvider.ts";
 
@@ -242,6 +243,26 @@ async function testStt(provider: string | null | undefined, model: string) {
   );
 }
 
+// File API — reports whether the active provider can host book files, or whether
+// this single service stays independent on GEMINI_API_KEY.
+async function testFileApi(provider: string | null | undefined) {
+  const st = await probeAiProviderFileApi(provider);
+  const ok = st.route === "provider" ? true : st.key_present;
+  return {
+    service: "file_api",
+    label: "رفع ملفات الكتب (File API)",
+    ok,
+    status: st.probe_status,
+    provider: st.provider,
+    endpoint: st.endpoint,
+    duration_ms: st.probe_duration_ms,
+    detail: st.route === "provider"
+      ? "يمر عبر المزوّد النشط"
+      : `خدمة مستقلة عن المزوّد النشط — تعتمد على ${st.key_env}${st.key_present ? " (المفتاح موجود)" : ""}`,
+    error: ok ? null : `${st.key_env}_MISSING`,
+  } as TestResult;
+}
+
 const DEFAULTS = {
   chat: "google/gemini-2.5-flash",
   vision: "google/gemini-2.5-flash",
@@ -272,11 +293,12 @@ Deno.serve(async (req) => {
     const providerName = body.provider ? String(body.provider) : null;
     const requested: string[] = Array.isArray(body.services) && body.services.length
       ? body.services.map((s: unknown) => String(s))
-      : ["models", "chat", "streaming", "vision", "ocr", "embeddings", "tts", "stt"];
+      : ["models", "chat", "streaming", "vision", "ocr", "embeddings", "tts", "stt", "file_api"];
     const models = { ...DEFAULTS, ...(body.models && typeof body.models === "object" ? body.models : {}) };
 
     const target = await resolveAiProvider(providerName);
     const active = await getActiveAiProvider();
+    const fileApi = await probeAiProviderFileApi(providerName);
 
     const runners: Record<string, () => Promise<TestResult>> = {
       models: () => testModels(providerName),
@@ -287,6 +309,7 @@ Deno.serve(async (req) => {
       embeddings: () => testEmbeddings(providerName, models.embeddings),
       tts: () => testTts(providerName, models.tts, models.voice),
       stt: () => testStt(providerName, models.stt),
+      file_api: () => testFileApi(providerName),
     };
 
     const results: TestResult[] = [];
@@ -321,6 +344,7 @@ Deno.serve(async (req) => {
       },
       active_provider: active.provider,
       layer: "unified_ai_provider_layer",
+      file_api: fileApi,
       results,
       summary: {
         total: results.length,

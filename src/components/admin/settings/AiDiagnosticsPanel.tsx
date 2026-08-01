@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import {
-  Activity, CheckCircle2, ChevronDown, Loader2, PlayCircle, RefreshCw, XCircle, Zap,
+  Activity, CheckCircle2, ChevronDown, FileWarning, Loader2, PlayCircle, RefreshCw, XCircle, Zap,
 } from "lucide-react";
 
 type ProviderRow = {
@@ -40,7 +40,23 @@ const SERVICES: Array<{ key: string; label: string; hint: string }> = [
   { key: "embeddings", label: "التمثيل الرقمي (Embeddings)", hint: "POST /embeddings" },
   { key: "tts", label: "تحويل النص لصوت (TTS)", hint: "POST /audio/speech" },
   { key: "stt", label: "تحويل الصوت لنص (STT)", hint: "POST /audio/transcriptions" },
+  { key: "file_api", label: "رفع ملفات الكتب (File API)", hint: "GET /files ← فحص دعم المزود" },
 ];
+
+type FileApiStatus = {
+  provider: string;
+  label: string;
+  endpoint: string;
+  provider_supported: boolean;
+  probe_status: number;
+  route: "provider" | "gemini_direct";
+  independent_of_active_provider: boolean;
+  key_env: string;
+  key_present: boolean;
+  reason: string;
+  reason_ar: string;
+  note_ar: string;
+};
 
 const DEFAULT_MODELS: Record<string, string> = {
   chat: "google/gemini-2.5-flash",
@@ -59,6 +75,7 @@ export default function AiDiagnosticsPanel() {
   const [models, setModels] = useState<Record<string, string>>(DEFAULT_MODELS);
   const [results, setResults] = useState<Record<string, Record<string, TestResult>>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [fileApi, setFileApi] = useState<FileApiStatus | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -89,6 +106,7 @@ export default function AiDiagnosticsPanel() {
       if (error) throw new Error(error.message);
       if ((data as any)?.error) throw new Error(String((data as any).error));
       const list = ((data as any)?.results || []) as TestResult[];
+      if ((data as any)?.file_api) setFileApi((data as any).file_api as FileApiStatus);
       setResults((prev) => ({
         ...prev,
         [selected]: { ...(prev[selected] ?? {}), ...Object.fromEntries(list.map((r) => [r.service, r])) },
@@ -159,6 +177,47 @@ export default function AiDiagnosticsPanel() {
             </div>
           </div>
         )}
+
+        <div
+          className={`rounded-lg border p-3 text-xs space-y-1.5 ${
+            fileApi && !fileApi.independent_of_active_provider
+              ? "border-emerald-500/40 bg-emerald-500/5"
+              : "border-amber-500/40 bg-amber-500/5"
+          }`}
+        >
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <FileWarning className="h-4 w-4 text-amber-500" />
+            مصدر مفاتيح الخدمات
+          </p>
+          <p className="leading-relaxed text-muted-foreground">
+            جميع خدمات الذكاء الاصطناعي (محادثة، Streaming، Vision، OCR، Embeddings، TTS، STT) تعتمد على
+            <strong className="mx-1">المزوّد النشط</strong>
+            فقط عبر الطبقة الموحدة.
+          </p>
+          {fileApi ? (
+            <>
+              <p className="leading-relaxed">{fileApi.note_ar}</p>
+              <p className="leading-relaxed text-muted-foreground">{fileApi.reason_ar}</p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Badge variant={fileApi.independent_of_active_provider ? "outline" : "secondary"} className="text-[10px]">
+                  المسار: {fileApi.route === "provider" ? "المزوّد النشط" : "Gemini File API (مستقل)"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px] font-mono" dir="ltr">{fileApi.key_env}</Badge>
+                <Badge variant={fileApi.key_present ? "secondary" : "destructive"} className="text-[10px]">
+                  {fileApi.key_present ? "المفتاح موجود" : "المفتاح مفقود"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  دعم المزوّد لـ /files: {fileApi.provider_supported ? "متاح" : "غير متاح"} ({fileApi.probe_status})
+                </Badge>
+              </div>
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              شغّل اختبار «رفع ملفات الكتب (File API)» لمعرفة ما إذا كان المزوّد النشط يدعم File API أم أن الخدمة مستقلة على
+              <span className="mx-1 font-mono" dir="ltr">GEMINI_API_KEY</span>.
+            </p>
+          )}
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Object.keys(DEFAULT_MODELS).map((key) => (
