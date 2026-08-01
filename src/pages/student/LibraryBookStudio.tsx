@@ -109,7 +109,7 @@ export default function LibraryBookStudio() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ pages: Array<{ page_number: number; snippet: string }>; index: Array<{ id: string; title: string; page_start: number; page_end: number; kind: string }> }>({ pages: [], index: [] });
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [hiResPage, setHiResPage] = useState<{ page: number; url: string } | null>(null);
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
   const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   const autoAdvanceAfterSpeechRef = useRef(false);
