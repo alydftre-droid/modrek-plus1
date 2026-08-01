@@ -77,6 +77,19 @@ Deno.serve(async (req) => {
     const withAudio = body.with_audio !== false; // default true
     const userQuestion = body.question ? String(body.question).slice(0, 500) : null;
 
+    // Vision input: the reader renders each page to a JPEG and sends it here so
+    // the tutor can read scanned pages, diagrams, tables and handwriting even
+    // when the PDF has no extractable text layer.
+    const rawImage = typeof body.page_image_base64 === "string" ? body.page_image_base64 : "";
+    const pageImageBase64 = rawImage.includes(",") && rawImage.startsWith("data:")
+      ? rawImage.slice(rawImage.indexOf(",") + 1)
+      : rawImage;
+    const pageImageMime = typeof body.page_image_mime === "string" && body.page_image_mime.startsWith("image/")
+      ? body.page_image_mime
+      : "image/jpeg";
+    // ~8MB base64 cap to stay inside edge function memory limits.
+    const hasImage = pageImageBase64.length > 512 && pageImageBase64.length < 8_000_000;
+
     if (!bookId) return json({ error: "book_id required" }, 400);
 
     // 1) Load book + verify accessible.
