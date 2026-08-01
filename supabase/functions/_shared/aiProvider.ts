@@ -217,9 +217,57 @@ export function buildAiHeaders(apiKey: string, extra: Record<string, string> = {
 }
 
 /**
+ * Is this failure a provider-level outage (not a request/content problem)?
+ * Those are the only cases where retrying on another gateway can help:
+ *  - WAF/HTML challenge pages (AgentRouter blocks datacenter IPs)
+ *  - missing / rejected credentials on the active gateway
+ *  - the gateway host being unreachable
+ */
+export function isAiProviderOutage(result: { ok: boolean; status: number; error?: string | null }): boolean {
+  if (result.ok) return false;
+  const err = String(result.error || "");
+  if (err.includes("PROVIDER_BLOCKED_NON_JSON_RESPONSE")) return true;
+  if (err.endsWith("_MISSING")) return true;
+  return result.status === 0 || result.status === 401 || result.status === 403;
+}
+
+/**
+ * Pick a healthy alternative gateway when the active one is down/blocked.
+ * Prefers OpenRouter, then any other provider whose API key secret exists.
+ */
+export async function getAiFailoverProvider(currentProvider: string): Promise<AiProviderConfig | null> {
+  const rows = await listAiProviders().catch(() => []);
+  const candidates = rows
+    .filter((row) => row.provider !== currentProvider && row.has_key)
+    .sort((a, b) => (a.provider === "openrouter" ? -1 : b.provider === "openrouter" ? 1 : 0));
+  const pick = candidates[0];
+  if (pick) {
+    const apiKey = envKey(pick.api_key_env);
+    if (apiKey) {
+      return {
+        provider: pick.provider,
+        label: pick.label,
+        baseUrl: normalizeBaseUrl(pick.base_url) || OPENROUTER_FALLBACK.baseUrl,
+        apiKeyEnv: pick.api_key_env,
+        apiKey,
+        hasKey: true,
+        source: "db",
+      };
+    }
+  }
+  // Last resort: env-configured OpenRouter.
+  if (currentProvider !== "openrouter") {
+    const apiKey = envKey("OPENROUTER_API_KEY");
+    if (apiKey) return { ...OPENROUTER_FALLBACK, apiKey, hasKey: true };
+  }
+  return null;
+}
+
+/**
  * Low-level unified request. Returns the raw Response (so SSE streams and
  * binary audio bodies both work) plus provider/timing metadata.
- * Guards against gateways that answer 200 with a WAF/HTML challenge page.
+ * Guards against gateways that answer 200 with a WAF/HTML challenge page,
+ * and automatically fails over to a healthy gateway in that case.
  */
 export async function aiFetch(opts: {
   path: string;
@@ -229,8 +277,31 @@ export async function aiFetch(opts: {
   timeoutMs?: number;
   expect?: "json" | "stream" | "binary";
   headers?: Record<string, string>;
+  /** Diagnostics only: never fail over, test exactly one provider. */
+  noFailover?: boolean;
 }): Promise<AiCallResult> {
-  const provider = await resolveAiProvider(opts.providerName);
+  const first = await aiFetchOnce(await resolveAiProvider(opts.providerName), opts);
+  // An explicitly requested provider (diagnostics) is never silently swapped.
+  if (first.ok || opts.providerName || opts.noFailover || !isAiProviderOutage(first)) return first;
+  const backup = await getAiFailoverProvider(first.provider);
+  if (!backup) return first;
+  console.warn("[ai-provider] failover", first.provider, "->", backup.provider, String(first.error || "").slice(0, 200));
+  const second = await aiFetchOnce(backup, opts);
+  if (!second.ok) {
+    return { ...second, error: `${first.provider}: ${String(first.error || "").slice(0, 300)} | failover ${backup.provider}: ${String(second.error || "").slice(0, 300)}` };
+  }
+  return second;
+}
+
+async function aiFetchOnce(provider: AiProviderConfig, opts: {
+  path: string;
+  method?: "GET" | "POST";
+  body?: unknown;
+  timeoutMs?: number;
+  expect?: "json" | "stream" | "binary";
+  headers?: Record<string, string>;
+}): Promise<AiCallResult> {
+
   const endpoint = `${provider.baseUrl}${opts.path.startsWith("/") ? opts.path : `/${opts.path}`}`;
   const started = Date.now();
   if (!provider.hasKey) {
