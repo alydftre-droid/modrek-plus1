@@ -447,7 +447,7 @@ export default function LibraryBookStudio() {
         setSending(false);
       }
     },
-    [book?.id, sending, speak, stopSpeaking]
+    [book?.id, sending, speak, stopSpeaking, pageImages, renderPage]
   );
 
   // ── Chat with assistant ──
