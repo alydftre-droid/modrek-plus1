@@ -215,6 +215,9 @@ function AnimatedRoutes() {
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
+              <Route path="/delete-account" element={<DeleteAccount />} />
+              <Route path="/account/delete" element={<Navigate to="/delete-account" replace />} />
+
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/teacher/terms" element={<TeacherTerms />} />
               <Route path="/teacher-terms" element={<Navigate to="/teacher/terms" replace />} />
