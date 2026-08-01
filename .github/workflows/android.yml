@@ -375,25 +375,28 @@ jobs:
             exit 1
           fi
 
-          # --- AAB check (read base module manifest from the bundle) ---
-          rm -rf /tmp/aab-verify && mkdir -p /tmp/aab-verify
-          unzip -o -q android/app/build/outputs/bundle/release/app-release.aab \
-            'base/manifest/AndroidManifest.xml' -d /tmp/aab-verify
-          AAB_TARGET=$("$AAPT2" dump xmltree --file base/manifest/AndroidManifest.xml \
-            android/app/build/outputs/bundle/release/app-release.aab 2>/dev/null \
-            | grep -A2 -i "targetSdkVersion" | grep -o "0x0*24\|=(type 0x10)0x24\|\"36\"" | head -n 1 || true)
-          echo "AAB targetSdkVersion raw match: ${AAB_TARGET:-none}"
-          if [ -z "$AAB_TARGET" ]; then
-            echo "::error::Could not confirm targetSdkVersion=36 (0x24) in the AAB base manifest."
-            "$AAPT2" dump xmltree --file base/manifest/AndroidManifest.xml \
-              android/app/build/outputs/bundle/release/app-release.aab | head -n 40 || true
+          # --- AAB check ---
+          # NOTE: aapt2 cannot read .aab files (they use protobuf manifests, not
+          # binary XML), which is why `aapt2 dump xmltree` failed with
+          # "could not identify format of APK". bundletool is the correct tool.
+          BUNDLETOOL=/tmp/bundletool.jar
+          curl -fsSL -o "$BUNDLETOOL" \
+            https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          AAB_TARGET=$(java -jar "$BUNDLETOOL" dump manifest \
+            --bundle android/app/build/outputs/bundle/release/app-release.aab \
+            --xpath /manifest/uses-sdk/@android:targetSdkVersion 2>/dev/null | tr -d '[:space:]' || true)
+          echo "AAB targetSdkVersion=${AAB_TARGET:-none}"
+          if [ "$AAB_TARGET" != "36" ]; then
+            echo "::error::Built AAB targets SDK '${AAB_TARGET:-unknown}' instead of 36."
+            java -jar "$BUNDLETOOL" dump manifest \
+              --bundle android/app/build/outputs/bundle/release/app-release.aab | head -n 40 || true
             exit 1
           fi
           {
             echo "## ✅ Target SDK verified"
             echo ""
             echo "- APK targetSdkVersion: **$APK_TARGET**"
-            echo "- AAB base manifest targetSdkVersion: **36 (0x24)**"
+            echo "- AAB base manifest targetSdkVersion: **$AAB_TARGET**"
             echo "- versionCode: **31** / versionName: **1.1.28**"
           } >> "$GITHUB_STEP_SUMMARY"
 
