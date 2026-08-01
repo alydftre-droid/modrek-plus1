@@ -35,6 +35,7 @@ import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tut
 import TheaterStage from "@/features/interactive-tutor/TheaterStage";
 import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
 import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
+import PageZoomViewer, { type PageZoomViewerHandle } from "@/features/library/PageZoomViewer";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -74,10 +75,7 @@ export default function LibraryBookStudio() {
   const narrationRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
-  const imageViewportRef = useRef<HTMLDivElement>(null);
-  const zoomByPageRef = useRef<Record<number, number>>({});
-  const panByPageRef = useRef<Record<number, { x: number; y: number }>>({});
-  const pinchStateRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const zoomControlsRef = useRef<PageZoomViewerHandle | null>(null);
 
   const [book, setBook] = useState<LibraryBook | null>(null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
@@ -109,7 +107,7 @@ export default function LibraryBookStudio() {
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<{ pages: Array<{ page_number: number; snippet: string }>; index: Array<{ id: string; title: string; page_start: number; page_end: number; kind: string }> }>({ pages: [], index: [] });
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [hiResPage, setHiResPage] = useState<{ page: number; url: string } | null>(null);
   const [pageExplainFailed, setPageExplainFailed] = useState(false);
   const [lastExplainError, setLastExplainError] = useState<string | null>(null);
   const autoAdvanceAfterSpeechRef = useRef(false);
@@ -130,65 +128,10 @@ export default function LibraryBookStudio() {
     return () => { void unlockNativeOrientation(); };
   }, []);
 
-  useEffect(() => {
-    setZoom(zoomByPageRef.current[selectedPage] ?? 1);
-    setPan(panByPageRef.current[selectedPage] ?? { x: 0, y: 0 });
-  }, [selectedPage]);
+  // Zoom/pan is fully owned by <PageZoomViewer /> (matrix transform, clamped
+  // bounds, pinch/double-tap/wheel). Here we only mirror the level for the
+  // badge and to decide when a crisper page render is worth the memory.
 
-  useEffect(() => {
-    zoomByPageRef.current[selectedPage] = zoom;
-  }, [selectedPage, zoom]);
-
-  useEffect(() => {
-    panByPageRef.current[selectedPage] = pan;
-  }, [selectedPage, pan]);
-
-  const clampZoom = useCallback((value: number) => Math.min(4, Math.max(0.5, value)), []);
-
-  const updateZoom = useCallback((nextZoom: number) => {
-    const clamped = clampZoom(nextZoom);
-    setZoom(clamped);
-    if (clamped <= 1.01) {
-      setPan({ x: 0, y: 0 });
-    }
-  }, [clampZoom]);
-
-  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length === 2) {
-      const [a, b] = Array.from(event.touches);
-      pinchStateRef.current = {
-        distance: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
-        zoom,
-      };
-    }
-  }, [zoom]);
-
-  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 2 || !pinchStateRef.current) return;
-    const [a, b] = Array.from(event.touches);
-    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    if (!distance || !pinchStateRef.current.distance) return;
-    event.preventDefault();
-    const ratio = distance / pinchStateRef.current.distance;
-    updateZoom(pinchStateRef.current.zoom * ratio);
-  }, [updateZoom]);
-
-  const handleTouchEnd = useCallback(() => {
-    pinchStateRef.current = null;
-  }, []);
-
-  const handleViewportScroll = useCallback(() => {
-    const node = imageViewportRef.current;
-    if (!node || zoom <= 1.01) return;
-    setPan({ x: node.scrollLeft, y: node.scrollTop });
-  }, [zoom]);
-
-  useEffect(() => {
-    const node = imageViewportRef.current;
-    if (!node) return;
-    node.scrollLeft = pan.x;
-    node.scrollTop = pan.y;
-  }, [pan, zoom, selectedPage]);
 
   // ── Speech ──
   const stopSpeaking = useCallback(() => {
@@ -355,6 +298,62 @@ export default function LibraryBookStudio() {
     },
     [pageImages, bookId],
   );
+
+  // ── High-resolution re-render for deep zoom ──
+  // The base page is rasterized at scale 1.5 (fast, low memory). Once the
+  // student zooms past ~1.6x we render that single page at a much higher scale
+  // so text stays razor sharp instead of pixelating. Only one hi-res bitmap is
+  // ever kept in memory, and it is dropped when zoom returns to fit.
+  const hiResTaskRef = useRef<number | null>(null);
+
+  const renderHiRes = useCallback(async (pageNum: number, scale: number) => {
+    const pdf = pdfRef.current;
+    if (!pdf || pageNum < 1 || pageNum > pdf.numPages) return;
+    if (hiResTaskRef.current === pageNum) return;
+    hiResTaskRef.current = pageNum;
+    try {
+      const page = await pdf.getPage(pageNum);
+      const dpr = Math.min(2, typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1);
+      // Cap total pixels so big books never blow up device memory.
+      const base = page.getViewport({ scale: 1 });
+      const target = Math.min(4.5, 1.5 * Math.max(2, Math.min(3, scale)) * dpr);
+      const maxPixels = 12_000_000;
+      const safeScale = Math.min(target, Math.sqrt(maxPixels / (base.width * base.height)));
+      const viewport = page.getViewport({ scale: Math.max(1.5, safeScale) });
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      await page.render({ canvasContext: ctx, viewport } as any).promise;
+      const url = canvas.toDataURL("image/jpeg", 0.92);
+      canvas.width = 0;
+      canvas.height = 0;
+      if (hiResTaskRef.current === pageNum) setHiResPage({ page: pageNum, url });
+    } catch (err) {
+      console.debug("[library] hi-res render failed", pageNum, err);
+    }
+  }, []);
+
+  const handleScaleChange = useCallback(
+    (scale: number) => {
+      setZoom(scale);
+      if (scale > 1.6) {
+        if (!hiResPage || hiResPage.page !== selectedPage) void renderHiRes(selectedPage, scale);
+      } else if (hiResPage) {
+        hiResTaskRef.current = null;
+        setHiResPage(null);
+      }
+    },
+    [hiResPage, selectedPage, renderHiRes],
+  );
+
+  // Dropping the hi-res bitmap on page change keeps memory flat in long books.
+  useEffect(() => {
+    hiResTaskRef.current = null;
+    setHiResPage(null);
+  }, [selectedPage]);
+
 
   const loadPdf = useCallback(async () => {
     if (!pdfBlob) return;
@@ -658,22 +657,25 @@ export default function LibraryBookStudio() {
           <div className="absolute top-2 left-2 z-[215] flex flex-col gap-1.5">
           <button
             type="button"
-            onClick={() => updateZoom(zoom + 0.15)}
+            onClick={() => zoomControlsRef.current?.zoomIn()}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
+            aria-label="تكبير"
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => updateZoom(zoom - 0.15)}
+            onClick={() => zoomControlsRef.current?.zoomOut()}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
+            aria-label="تصغير"
           >
             <ZoomOut className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => updateZoom(1)}
+            onClick={() => zoomControlsRef.current?.reset()}
             className="flex h-8 min-w-[52px] items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-primary shadow-sm border border-border"
+            aria-label="إعادة ضبط التكبير"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -696,41 +698,23 @@ export default function LibraryBookStudio() {
           </div>
 
         ) : (
-          <div
-            ref={imageViewportRef}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-            onScroll={handleViewportScroll}
-            className="flex h-full items-center justify-center overflow-auto rounded-xl border border-border bg-background"
-            style={{ touchAction: "none" }}
-          >
+          <div className="h-full w-full">
             {pageImages[selectedPage] ? (
-              <div
-                className="relative inline-block"
-                style={{
-                  transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                  transformOrigin: "top center",
-                }}
-              >
-                <img
-                  src={pageImages[selectedPage]}
-                  alt={`صفحة ${selectedPage}`}
-                  className="pointer-events-none block max-h-full max-w-full object-contain"
-                  loading="lazy"
-                  draggable={false}
-                  style={{
-                    maxWidth: zoom === 1 ? "100%" : "none",
-                    maxHeight: zoom === 1 ? "100%" : "none",
-                  }}
-                />
-                {annotations.length > 0 && (
-                  <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
-                )}
-              </div>
+              <PageZoomViewer
+                src={pageImages[selectedPage]}
+                hiResSrc={hiResPage?.page === selectedPage ? hiResPage.url : null}
+                alt={`صفحة ${selectedPage}`}
+                controlsRef={zoomControlsRef}
+                onScaleChange={handleScaleChange}
+                onSwipe={(dir) => goPage(dir === "next" ? 1 : -1)}
+                overlay={
+                  annotations.length > 0 ? (
+                    <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
+                  ) : null
+                }
+              />
             ) : (
-              <div className="flex aspect-[3/4] w-full max-w-[420px] items-center justify-center bg-muted">
+              <div className="flex h-full items-center justify-center rounded-xl border border-border bg-background">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             )}
