@@ -285,13 +285,13 @@ const WalletPage = () => {
                 <TabsList className="grid w-full grid-cols-2 mb-4 bg-slate-100 rounded-xl p-1 h-11">
                   <TabsTrigger
                     value="deposits"
-                    className="gap-1.5 text-xs sm:text-sm rounded-lg font-bold transition-all duration-[250ms] data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700"
+                    className="gap-1.5 text-xs sm:text-sm rounded-lg font-bold transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700"
                   >
                     <ArrowDownCircle className="h-3.5 w-3.5" />الإيداعات
                   </TabsTrigger>
                   <TabsTrigger
                     value="purchases"
-                    className="gap-1.5 text-xs sm:text-sm rounded-lg font-bold transition-all duration-[250ms] data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-rose-700"
+                    className="gap-1.5 text-xs sm:text-sm rounded-lg font-bold transition-all duration-300 data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-rose-700"
                   >
                     <ArrowUpCircle className="h-3.5 w-3.5" />المشتريات
                   </TabsTrigger>
