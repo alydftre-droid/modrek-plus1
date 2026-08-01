@@ -696,41 +696,23 @@ export default function LibraryBookStudio() {
           </div>
 
         ) : (
-          <div
-            ref={imageViewportRef}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-            onScroll={handleViewportScroll}
-            className="flex h-full items-center justify-center overflow-auto rounded-xl border border-border bg-background"
-            style={{ touchAction: "none" }}
-          >
+          <div className="h-full w-full">
             {pageImages[selectedPage] ? (
-              <div
-                className="relative inline-block"
-                style={{
-                  transform: zoom !== 1 ? `scale(${zoom})` : undefined,
-                  transformOrigin: "top center",
-                }}
-              >
-                <img
-                  src={pageImages[selectedPage]}
-                  alt={`صفحة ${selectedPage}`}
-                  className="pointer-events-none block max-h-full max-w-full object-contain"
-                  loading="lazy"
-                  draggable={false}
-                  style={{
-                    maxWidth: zoom === 1 ? "100%" : "none",
-                    maxHeight: zoom === 1 ? "100%" : "none",
-                  }}
-                />
-                {annotations.length > 0 && (
-                  <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
-                )}
-              </div>
+              <PageZoomViewer
+                src={pageImages[selectedPage]}
+                hiResSrc={hiResPage?.page === selectedPage ? hiResPage.url : null}
+                alt={`صفحة ${selectedPage}`}
+                controlsRef={zoomControlsRef}
+                onScaleChange={handleScaleChange}
+                onSwipe={(dir) => goToPage(selectedPage + (dir === "next" ? 1 : -1))}
+                overlay={
+                  annotations.length > 0 ? (
+                    <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
+                  ) : null
+                }
+              />
             ) : (
-              <div className="flex aspect-[3/4] w-full max-w-[420px] items-center justify-center bg-muted">
+              <div className="flex h-full items-center justify-center rounded-xl border border-border bg-background">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             )}
