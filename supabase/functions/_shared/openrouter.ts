@@ -6,7 +6,9 @@
 
 import { getActiveAiApiKey, getActiveAiBaseUrl } from "./aiProvider.ts";
 
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+// No hardcoded gateway host is used anywhere: the base URL always comes from
+// the unified AI Provider Layer (_shared/aiProvider.ts) → active provider.
+
 export const OPENROUTER_DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
 export const OPENROUTER_DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 export const OPENROUTER_DEFAULT_TTS_VOICE = "Charon";
