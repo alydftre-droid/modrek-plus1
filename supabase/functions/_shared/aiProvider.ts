@@ -352,38 +352,60 @@ async function aiFetchOnce(provider: AiProviderConfig, opts: {
   try {
     const resp = await fetch(endpoint, {
       method: opts.method || "POST",
-      headers: buildAiHeaders(provider.apiKey, opts.headers),
+      headers: buildAiHeaders(provider.apiKey, opts.headers, provider.provider),
       signal: controller.signal,
       body: opts.method === "GET" || opts.body === undefined ? undefined : JSON.stringify(opts.body),
     });
     clearTimeout(timer);
     const duration_ms = Date.now() - started;
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
-    if (resp.ok && (opts.expect ?? "json") !== "binary") {
+    const expect = opts.expect ?? "json";
+    const blocked = (sample: string) => ({
+      ok: false as const,
+      status: 502,
+      provider: provider.provider,
+      endpoint,
+      duration_ms,
+      error: detectAiWafBlock(contentType, sample) ??
+        `PROVIDER_BLOCKED_NON_JSON_RESPONSE (${contentType || "unknown"}) ${sample.slice(0, 300)}`,
+    });
+
+    if (resp.ok && expect === "binary") {
+      // Audio bodies must be binary — an HTML challenge page here is a WAF block,
+      // not a successful TTS response.
+      const bytes = new Uint8Array(await resp.arrayBuffer().catch(() => new ArrayBuffer(0)));
+      const head = new TextDecoder().decode(bytes.slice(0, 600));
+      if (detectAiWafBlock(contentType, head) || contentType.includes("text/html")) return blocked(head);
+      return {
+        ok: true,
+        status: resp.status,
+        provider: provider.provider,
+        endpoint,
+        duration_ms,
+        response: new Response(bytes, { status: resp.status, headers: { "Content-Type": contentType || "application/octet-stream" } }),
+        error: null,
+      };
+    }
+
+    if (resp.ok) {
       const looksLikeAi = contentType.includes("json") || contentType.includes("event-stream") || contentType.includes("text/plain");
-      if (!looksLikeAi) {
-        const preview = (await resp.text().catch(() => "")).slice(0, 300);
-        return {
-          ok: false,
-          status: 502,
-          provider: provider.provider,
-          endpoint,
-          duration_ms,
-          error: `PROVIDER_BLOCKED_NON_JSON_RESPONSE (${contentType || "unknown"}) ${preview}`,
-        };
-      }
+      if (!looksLikeAi) return blocked((await resp.text().catch(() => "")).slice(0, 600));
     }
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      return { ok: false, status: resp.status, provider: provider.provider, endpoint, duration_ms, error: text.slice(0, 800) };
+      const waf = detectAiWafBlock(contentType, text);
+      return { ok: false, status: waf ? 502 : resp.status, provider: provider.provider, endpoint, duration_ms, error: waf || text.slice(0, 800) };
     }
-    if ((opts.expect ?? "json") === "json") {
+    if (expect === "json") {
       const text = await resp.text().catch(() => "");
+      const waf = detectAiWafBlock(contentType, text);
+      if (waf) return blocked(text);
       let data: unknown = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 800) }; }
       return { ok: true, status: resp.status, provider: provider.provider, endpoint, duration_ms, data, error: null };
     }
     return { ok: true, status: resp.status, provider: provider.provider, endpoint, duration_ms, response: resp, error: null };
+
   } catch (err) {
     clearTimeout(timer);
     let msg = err instanceof Error ? err.message : String(err);
