@@ -8,6 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Plus, X, Save } from "lucide-react";
+import AiProviderSettings from "@/components/admin/settings/AiProviderSettings";
+
 
 type Settings = {
   function_name: string;
