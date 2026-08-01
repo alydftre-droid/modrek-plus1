@@ -76,6 +76,7 @@ const TeacherAttemptDetailPage = lazy(() => import("@/pages/teacher/TeacherAttem
 const TeacherExamAnalyticsPage = lazy(() => import("@/pages/teacher/TeacherExamAnalyticsPage"));
 const About = lazy(() => import("@/pages/About"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const DeleteAccount = lazy(() => import("@/pages/DeleteAccount"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const AboutPage = lazy(() => import("@/pages/student/AboutPage"));
 const EducationTypeSelection = lazy(() => import("@/pages/EducationTypeSelection"));
