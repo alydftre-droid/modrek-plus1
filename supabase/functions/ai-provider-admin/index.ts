@@ -58,6 +58,18 @@ async function testProvider(baseUrl: string, apiKey: string, model?: string) {
     });
     clearTimeout(timer);
     const text = await resp.text().catch(() => "");
+    const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+    const isJson = contentType.includes("json");
+    if (resp.ok && !isJson) {
+      return {
+        ok: false,
+        status: 502,
+        duration_ms: Date.now() - started,
+        endpoint: url,
+        reply: "",
+        error: `المزود رد بصفحة حماية (WAF) بدل JSON — تأكد من صحة Base URL أو أن الخدمة تسمح بالطلبات من سيرفرات المنصة. المحتوى: ${contentType || "unknown"} — ${text.slice(0, 200)}`,
+      };
+    }
     let reply = "";
     try {
       const parsed = JSON.parse(text);

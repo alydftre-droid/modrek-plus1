@@ -251,7 +251,22 @@ export async function openRouterChat(opts: {
       body: JSON.stringify({ ...body, model: toOpenRouterModelId(opts.model) }),
     });
     clearTimeout(timer);
-    if (resp.ok) return { ok: true, response: resp };
+    if (resp.ok) {
+      // Guard: some gateways sit behind a WAF that answers HTTP 200 with an
+      // HTML challenge page instead of JSON/SSE. Treat that as a failure so
+      // model fallback and the UI error path work normally.
+      const contentType = (resp.headers.get("content-type") || "").toLowerCase();
+      const looksLikeAi = contentType.includes("json") || contentType.includes("event-stream") || contentType.includes("text/plain");
+      if (!looksLikeAi) {
+        const preview = (await resp.text().catch(() => "")).slice(0, 300);
+        return {
+          ok: false,
+          status: 502,
+          lastError: `PROVIDER_BLOCKED_NON_JSON_RESPONSE (${contentType || "unknown"}) ${preview}`,
+        };
+      }
+      return { ok: true, response: resp };
+    }
     const text = await resp.text().catch(() => "");
     return { ok: false, status: resp.status, lastError: text };
   } catch (err) {
