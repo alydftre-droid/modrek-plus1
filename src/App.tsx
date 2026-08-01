@@ -76,6 +76,7 @@ const TeacherAttemptDetailPage = lazy(() => import("@/pages/teacher/TeacherAttem
 const TeacherExamAnalyticsPage = lazy(() => import("@/pages/teacher/TeacherExamAnalyticsPage"));
 const About = lazy(() => import("@/pages/About"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const DeleteAccount = lazy(() => import("@/pages/DeleteAccount"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const AboutPage = lazy(() => import("@/pages/student/AboutPage"));
 const EducationTypeSelection = lazy(() => import("@/pages/EducationTypeSelection"));
@@ -214,6 +215,9 @@ function AnimatedRoutes() {
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
+              <Route path="/delete-account" element={<DeleteAccount />} />
+              <Route path="/account/delete" element={<Navigate to="/delete-account" replace />} />
+
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/teacher/terms" element={<TeacherTerms />} />
               <Route path="/teacher-terms" element={<Navigate to="/teacher/terms" replace />} />
@@ -397,6 +401,8 @@ const STUDENT_DS_EXCLUDE_PREFIXES = [
   "/forgot-password",
   "/reset-password",
   "/privacy-policy",
+  "/delete-account",
+  "/account/delete",
   "/privacy",
   "/terms-of-service",
   "/terms",

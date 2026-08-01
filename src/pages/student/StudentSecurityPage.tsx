@@ -9,9 +9,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Lock, Mail, Loader2, Eye, EyeOff, LogOut, Shield } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Lock, Mail, Loader2, Eye, EyeOff, LogOut, Shield, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
+
 
 export default function StudentSecurityPage() {
   const {
@@ -36,6 +45,10 @@ export default function StudentSecurityPage() {
   const [emailSaving, setEmailSaving] = useState(false);
   const [emailOtpOpen, setEmailOtpOpen] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const normalizeEmail = (v: string) => v.trim().replace(/\s+/g, "").toLowerCase();
 
@@ -76,6 +89,35 @@ export default function StudentSecurityPage() {
     if (error) toast.error("فشل تسجيل الخروج");
     else { toast.success("تم تسجيل الخروج من جميع الأجهزة"); navigate("/auth"); }
   };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm.trim() !== "حذف") return;
+    if (isImpersonating()) {
+      toast.error("لا يمكن حذف الحساب أثناء وضع المطور");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-my-account", {
+        body: { confirmation: "حذف" },
+      });
+      if (error || (data as any)?.error) {
+        toast.error((data as any)?.error || "تعذّر حذف الحساب، حاول مرة أخرى");
+        setDeleting(false);
+        return;
+      }
+      setDeleteOpen(false);
+      toast.success("تم حذف حسابك نهائياً");
+      try { await supabase.auth.signOut({ scope: "global" }); } catch { /* session already gone */ }
+      try { localStorage.clear(); } catch { /* ignore */ }
+      navigate("/auth", { replace: true });
+    } catch (err) {
+      toast.error("تعذّر حذف الحساب، حاول مرة أخرى");
+      setDeleting(false);
+    }
+  };
+
+
 
   return (
     <StudentSidebarLayout title="إدارة الحساب">
@@ -178,7 +220,69 @@ export default function StudentSecurityPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Delete account permanently (Google Play compliance) */}
+        <Card className="border border-destructive/40 bg-destructive/5">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              <h3 className="text-base font-bold text-destructive">حذف الحساب</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              حذف حسابك نهائياً مع جميع بياناتك الشخصية. لا يمكن التراجع عن هذه العملية.
+            </p>
+            <Button
+              variant="destructive"
+              onClick={() => { setDeleteConfirm(""); setDeleteOpen(true); }}
+              className="w-full gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              🗑 حذف الحساب
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleting) { setDeleteOpen(o); if (!o) setDeleteConfirm(""); } }}>
+        <DialogContent dir="rtl" className="max-w-sm text-right">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              حذف الحساب نهائياً
+            </DialogTitle>
+            <DialogDescription className="text-right leading-6">
+              أنت على وشك حذف حسابك نهائياً. سيتم حذف جميع بياناتك الشخصية المرتبطة بالحساب،
+              ولا يمكن التراجع عن هذه العملية.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label className="text-sm">إذا كنت متأكداً، اكتب كلمة «حذف» للتأكيد</Label>
+            <Input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="حذف"
+              disabled={deleting}
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-start">
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deleting || deleteConfirm.trim() !== "حذف"}
+              className="flex-1 gap-2"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              حذف الحساب نهائياً
+            </Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting} className="border-border">
+              إلغاء
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* OTP dialog for email change */}
 
