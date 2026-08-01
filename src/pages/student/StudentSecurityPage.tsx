@@ -220,7 +220,69 @@ export default function StudentSecurityPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Delete account permanently (Google Play compliance) */}
+        <Card className="border border-destructive/40 bg-destructive/5">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-destructive" />
+              <h3 className="text-base font-bold text-destructive">حذف الحساب</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              حذف حسابك نهائياً مع جميع بياناتك الشخصية. لا يمكن التراجع عن هذه العملية.
+            </p>
+            <Button
+              variant="destructive"
+              onClick={() => { setDeleteConfirm(""); setDeleteOpen(true); }}
+              className="w-full gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              🗑 حذف الحساب
+            </Button>
+          </CardContent>
+        </Card>
       </div>
+
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleting) { setDeleteOpen(o); if (!o) setDeleteConfirm(""); } }}>
+        <DialogContent dir="rtl" className="max-w-sm text-right">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              حذف الحساب نهائياً
+            </DialogTitle>
+            <DialogDescription className="text-right leading-6">
+              أنت على وشك حذف حسابك نهائياً. سيتم حذف جميع بياناتك الشخصية المرتبطة بالحساب،
+              ولا يمكن التراجع عن هذه العملية.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label className="text-sm">إذا كنت متأكداً، اكتب كلمة «حذف» للتأكيد</Label>
+            <Input
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="حذف"
+              disabled={deleting}
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:justify-start">
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={deleting || deleteConfirm.trim() !== "حذف"}
+              className="flex-1 gap-2"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              حذف الحساب نهائياً
+            </Button>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting} className="border-border">
+              إلغاء
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* OTP dialog for email change */}
 
