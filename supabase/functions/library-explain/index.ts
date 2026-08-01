@@ -97,9 +97,9 @@ Deno.serve(async (req) => {
     if (!access.ok) return json({ error: access.error }, access.status);
     const book = access.book as any;
 
-    // 2) Cache lookup.
+    // 2) Cache lookup (vision explanations are cached separately from text-only ones).
     const cacheKey = await sha256Hex(
-      JSON.stringify({ source: "explain", bookId, pageNumber, sectionId, variant, q: userQuestion || "" }),
+      JSON.stringify({ source: "explain", bookId, pageNumber, sectionId, variant, q: userQuestion || "", vision: hasImage ? "v2" : "none" }),
     );
     const { data: cached } = await admin
       .from("library_section_explanations")
@@ -109,7 +109,12 @@ Deno.serve(async (req) => {
       .eq("variant", variant)
       .maybeSingle();
 
-    if (cached) {
+    const isWeakCachedText = (value: string) =>
+      !value.trim() ||
+      value.includes("لم يتم العثور على نص واضح") ||
+      value.includes("لا يوجد نص مستخرج");
+
+    if (cached && !isWeakCachedText(String(cached.text_ar || ""))) {
       await admin
         .from("library_section_explanations")
         .update({ hit_count: (cached.hit_count ?? 0) + 1 })
@@ -120,6 +125,10 @@ Deno.serve(async (req) => {
         audio_path: cached.audio_path,
         cached: true,
       });
+    }
+    if (cached) {
+      // Drop the useless placeholder so the page gets a real explanation.
+      await admin.from("library_section_explanations").delete().eq("id", cached.id);
     }
 
     // 3) Load context (section text if provided, else page OCR).
@@ -155,14 +164,31 @@ Deno.serve(async (req) => {
       : "قدّم شرحًا واضحًا ومتوسط الطول مناسبًا لطالب مدرسة.";
 
     const systemPrompt = `أنت معلم عربي متمكن يشرح دروس كتاب "${book.title}" مادة "${book.subject_name_ar || ""}". ${styleHint}
+- أنت ترى صورة الصفحة كاملة: اقرأ كل ما فيها بنفسك (العناوين، الفقرات، الأرقام، الجداول، الرسومات، الأشكال، المعادلات، الصور التوضيحية، وحتى الكتابة اليدوية) ثم اشرحها كأنك تشرح على السبورة أمام الطالب.
+- إن وُجد رسم أو شكل أو جدول أو خريطة، فصِف مكوناته وماذا يوضح ولماذا هو مهم في الدرس.
+- إن كانت هناك أسئلة أو تدريبات في الصفحة، فاشرح المطلوب منها وطريقة التفكير في حلها.
 - تحدث بالعربية الفصحى المبسطة.
 - لا تستخدم Markdown ولا رموز أو إيموجي.
 - ابدأ مباشرة بالشرح دون مقدمات مثل "بالطبع".
-- إذا سأل الطالب سؤالاً محدداً، أجب عليه أولاً ثم اربطه بمحتوى الصفحة.`;
+- إذا سأل الطالب سؤالاً محدداً، أجب عليه أولاً ثم اربطه بمحتوى الصفحة.
+- ممنوع تمامًا أن تقول إنك لا ترى الصفحة أو أنه لا يوجد نص واضح؛ اعتمد على الصورة ومعرفتك بالمادة وقدّم شرحًا مفيدًا دائمًا.`;
+
+    const contextBlock = context
+      ? `\n\nالنص المستخرج من الصفحة (قد يكون ناقصًا، والصورة هي المرجع الأساسي):\n${context}`
+      : hasImage
+        ? "\n\nلا يوجد نص مستخرج لهذه الصفحة، فاعتمد كليًا على قراءة صورة الصفحة المرفقة."
+        : "\n\n(لا يوجد نص مستخرج، اعتمد على معرفتك بالمادة وبعنوان الكتاب.)";
 
     const userPrompt = userQuestion
-      ? `الصفحة رقم ${pageNumber}. سؤال الطالب: ${userQuestion}\n\nمحتوى الصفحة/الجزء:\n${context || "(لا يوجد نص مستخرج، اعتمد على معرفتك بالمادة)"}`
-      : `اشرح الصفحة رقم ${pageNumber} من الكتاب.\n\nمحتوى الصفحة/الجزء:\n${context || "(لا يوجد نص مستخرج)"}`;
+      ? `الصفحة رقم ${pageNumber}. سؤال الطالب: ${userQuestion}${contextBlock}`
+      : `اشرح الصفحة رقم ${pageNumber} من الكتاب شرحًا كاملاً كما يفعل معلم محترف: ابدأ بعنوان الدرس أو موضوع الصفحة، ثم اشرح الأفكار بالترتيب، ثم فسّر الرسومات والجداول إن وُجدت، وأنهِ بخلاصة قصيرة.${contextBlock}`;
+
+    const userContent = hasImage
+      ? [
+          { type: "text", text: userPrompt },
+          { type: "image_url", image_url: { url: `data:${pageImageMime};base64,${pageImageBase64}` } },
+        ]
+      : userPrompt;
 
     const chatResult = await callGeminiWithFallback({
       apiKey,
@@ -170,13 +196,14 @@ Deno.serve(async (req) => {
       body: {
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
+          { role: "user", content: userContent },
         ],
         temperature: 0.6,
       },
       fallbackDelayMs: chatSettings.fallback_delay_ms,
-      timeoutMs: 60_000,
+      timeoutMs: 90_000,
     });
+
 
     if (!chatResult.ok) {
       return json({ error: `ai_failed: ${chatResult.status} ${(chatResult.lastError || "").slice(0, 200)}` }, 502);
