@@ -51,8 +51,13 @@ export function toOpenRouterTtsModelId(model?: string): string {
   return OPENROUTER_DEFAULT_TTS_MODEL;
 }
 
-export function getOpenRouterApiKey(): string {
-  return String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
+/**
+ * @deprecated Direct env access is forbidden — the key always comes from the
+ * unified AI Provider Layer (active provider). Kept as an async shim for
+ * legacy callers.
+ */
+export async function getOpenRouterApiKey(): Promise<string> {
+  return await getActiveAiApiKey();
 }
 
 export function buildOpenRouterHeaders(apiKey: string, extra: Record<string, string> = {}): Record<string, string> {

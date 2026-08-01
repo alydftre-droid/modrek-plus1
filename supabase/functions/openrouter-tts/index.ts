@@ -8,6 +8,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { getActiveAiApiKey } from "../_shared/aiProvider.ts";
 import {
   EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
   estimatePcmDurationSeconds,
