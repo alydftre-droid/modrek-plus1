@@ -658,22 +658,25 @@ export default function LibraryBookStudio() {
           <div className="absolute top-2 left-2 z-[215] flex flex-col gap-1.5">
           <button
             type="button"
-            onClick={() => updateZoom(zoom + 0.15)}
+            onClick={() => zoomControlsRef.current?.zoomIn()}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
+            aria-label="تكبير"
           >
             <ZoomIn className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => updateZoom(zoom - 0.15)}
+            onClick={() => zoomControlsRef.current?.zoomOut()}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-card text-foreground shadow-sm border border-border"
+            aria-label="تصغير"
           >
             <ZoomOut className="h-4 w-4" />
           </button>
           <button
             type="button"
-            onClick={() => updateZoom(1)}
+            onClick={() => zoomControlsRef.current?.reset()}
             className="flex h-8 min-w-[52px] items-center justify-center rounded-full bg-card px-2 text-[11px] font-bold text-primary shadow-sm border border-border"
+            aria-label="إعادة ضبط التكبير"
           >
             {Math.round(zoom * 100)}%
           </button>
