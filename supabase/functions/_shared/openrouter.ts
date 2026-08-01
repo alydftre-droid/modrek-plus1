@@ -6,7 +6,9 @@
 
 import { getActiveAiApiKey, getActiveAiBaseUrl } from "./aiProvider.ts";
 
-export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+// No hardcoded gateway host is used anywhere: the base URL always comes from
+// the unified AI Provider Layer (_shared/aiProvider.ts) → active provider.
+
 export const OPENROUTER_DEFAULT_CHAT_MODEL = "google/gemini-2.5-flash";
 export const OPENROUTER_DEFAULT_TTS_MODEL = "google/gemini-3.1-flash-tts-preview";
 export const OPENROUTER_DEFAULT_TTS_VOICE = "Charon";
@@ -51,8 +53,13 @@ export function toOpenRouterTtsModelId(model?: string): string {
   return OPENROUTER_DEFAULT_TTS_MODEL;
 }
 
-export function getOpenRouterApiKey(): string {
-  return String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
+/**
+ * @deprecated Direct env access is forbidden — the key always comes from the
+ * unified AI Provider Layer (active provider). Kept as an async shim for
+ * legacy callers.
+ */
+export async function getOpenRouterApiKey(): Promise<string> {
+  return await getActiveAiApiKey();
 }
 
 export function buildOpenRouterHeaders(apiKey: string, extra: Record<string, string> = {}): Record<string, string> {

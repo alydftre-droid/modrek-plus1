@@ -5,7 +5,7 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getDocumentProxy } from "npm:unpdf@0.11.0";
 import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
-import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
+import { aiEmbeddings } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1365,16 +1365,16 @@ async function detectOutlineUnits(admin: SupabaseClient, text: string): Promise<
 
 async function runChatCompletion(admin: SupabaseClient, body: Record<string, unknown>) {
   const requestedModel = String(body.model ?? STRUCTURE_MODEL);
-  const openRouterKey = String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
-
-  if (!openRouterKey) {
-    throw new Error("OPENROUTER_API_KEY_MISSING: لا يوجد مفتاح OpenRouter مفعّل لمعالجة مكتبة Modrek AI");
+  // Key comes ONLY from the unified AI Provider Layer (active provider).
+  const { apiKey: providerKey } = await resolveOpenRouterApiKey(admin);
+  if (!providerKey) {
+    throw new Error("AI_PROVIDER_KEY_MISSING: لا يوجد مفتاح للمزود النشط لمعالجة مكتبة Modrek AI");
   }
 
   const orModel = requestedModel.includes("/") ? requestedModel : `google/${requestedModel.replace(/^google\//, "")}`;
   const orBody = { ...body, model: orModel };
   const orResult = await callGeminiWithFallback({
-    apiKey: openRouterKey,
+    apiKey: providerKey,
     models: [orModel, STRUCTURE_MODEL, "google/gemini-2.5-flash-lite"],
     body: orBody,
     timeoutMs: 90_000,
@@ -1385,21 +1385,10 @@ async function runChatCompletion(admin: SupabaseClient, body: Record<string, unk
 }
 
 async function embedTexts(admin: SupabaseClient, inputs: string[]): Promise<number[][]> {
-  // OpenRouter-only embeddings. OpenAI text-embedding-3-small supports the
-  // `dimensions` parameter, so we can match the pgvector column (vector(768)).
-  const resolved = await resolveOpenRouterApiKey(admin);
-  if (!resolved.apiKey) throw new Error("OPENROUTER_API_KEY_MISSING_FOR_EMBEDDINGS");
-  const r = await fetchWithTimeout(`${OPENROUTER_BASE_URL}/embeddings`, {
-    method: "POST",
-    headers: buildOpenRouterHeaders(resolved.apiKey),
-    body: JSON.stringify({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS, encoding_format: "float" }),
-  }, AI_REQUEST_TIMEOUT_MS);
-  if (!r.ok) {
-    const errorText = await r.text().catch(() => "");
-    throw new Error(`openrouter embed failed ${r.status}: ${errorText.slice(0, 300)}`);
-  }
-  const jr = await r.json();
-  return (jr.data ?? []).map((item: any) => item.embedding).filter(Boolean);
+  // Embeddings go through the unified AI Provider Layer (active provider only).
+  const r = await aiEmbeddings({ model: EMBED_MODEL, input: inputs, dimensions: EMBED_DIMS, timeoutMs: AI_REQUEST_TIMEOUT_MS });
+  if (!r.ok) throw new Error(`ai_embed_failed ${r.status}: ${String(r.error || "").slice(0, 300)}`);
+  return ((r.data as any)?.data ?? []).map((item: any) => item.embedding).filter(Boolean);
 }
 
 function splitText(t: string, size = 900, overlap = 100): string[] {

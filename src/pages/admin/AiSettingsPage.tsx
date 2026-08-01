@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Plus, X, Save } from "lucide-react";
 import AiProviderSettings from "@/components/admin/settings/AiProviderSettings";
+import AiDiagnosticsPanel from "@/components/admin/settings/AiDiagnosticsPanel";
 
 
 type Settings = {
@@ -83,6 +84,8 @@ export default function AiSettingsPage() {
   return (
     <div className="space-y-4">
       <AiProviderSettings />
+
+      <AiDiagnosticsPanel />
 
       <p className="text-sm text-muted-foreground">
         إعدادات الوظائف الخاصة بـ OpenRouter: تحكّم في قائمة الموديلات لكل وظيفة، وحدود المحاولات، وتفعيل البث المباشر للردود (Streaming).

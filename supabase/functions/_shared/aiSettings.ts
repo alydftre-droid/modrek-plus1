@@ -72,8 +72,6 @@ export async function resolveGeminiApiKey(
     const active = await getActiveAiProvider();
     if (active.apiKey) return { apiKey: active.apiKey, source: "env" };
   } catch (_e) { /* fall through to legacy env lookup */ }
-  const envKey = String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
-  if (envKey) return { apiKey: envKey, source: "env" };
   return { apiKey: "", source: "missing" };
 }
 
@@ -196,7 +194,7 @@ export async function callGeminiWithFallback(opts: {
     const resolved = await getActiveAiProvider();
     active = { provider: resolved.provider, baseUrl: resolved.baseUrl, apiKey: resolved.apiKey, apiKeyEnv: resolved.apiKeyEnv };
   } catch (_e) { /* fallback to env-based OpenRouter */ }
-  const providerKey = String(opts.apiKey || "").trim() || active.apiKey || getOpenRouterApiKey();
+  const providerKey = String(opts.apiKey || "").trim() || active.apiKey || (await getOpenRouterApiKey());
   if (!providerKey) {
     return { ok: false, status: 401, lastError: `${active.apiKeyEnv}_MISSING` };
   }

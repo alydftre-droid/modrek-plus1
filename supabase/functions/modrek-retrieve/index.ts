@@ -5,8 +5,8 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
-import { OPENROUTER_BASE_URL, buildOpenRouterHeaders } from "../_shared/openrouter.ts";
-import { getActiveAiBaseUrl } from "../_shared/aiProvider.ts";
+
+import { aiEmbeddings } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -343,24 +343,12 @@ async function ocrImage(image: string, mime: string): Promise<{ text: string; gu
 
 async function embed(text: string): Promise<number[]> {
   const input = text.slice(0, 8000);
-  // OpenRouter-only embeddings. Must match modrek-worker so query and corpus
-  // vectors share the same embedding space.
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const resolved = await resolveOpenRouterApiKey(admin);
-  if (!resolved.apiKey) throw new Error("OPENROUTER_API_KEY_MISSING_FOR_EMBEDDINGS");
-  const aiBaseUrl = (await getActiveAiBaseUrl()) || OPENROUTER_BASE_URL;
-  const r = await fetch(`${aiBaseUrl}/embeddings`, {
-    method: "POST",
-    headers: buildOpenRouterHeaders(resolved.apiKey),
-    body: JSON.stringify({ model: EMBED_MODEL, input: [input], dimensions: EMBED_DIMS, encoding_format: "float" }),
-  });
-  if (!r.ok) {
-    const errorText = await r.text().catch(() => "");
-    throw new Error(`openrouter_embed_${r.status}: ${errorText.slice(0, 200)}`);
-  }
-  const jr = await r.json();
-  const vec = jr?.data?.[0]?.embedding;
-  if (!Array.isArray(vec)) throw new Error("openrouter_embed_empty");
+  // Embeddings via the unified AI Provider Layer. Must match modrek-worker so
+  // query and corpus vectors share the same embedding space.
+  const r = await aiEmbeddings({ model: EMBED_MODEL, input: [input], dimensions: EMBED_DIMS });
+  if (!r.ok) throw new Error(`ai_embed_${r.status}: ${String(r.error || "").slice(0, 200)}`);
+  const vec = (r.data as any)?.data?.[0]?.embedding;
+  if (!Array.isArray(vec)) throw new Error("ai_embed_empty");
   return vec as number[];
 }
 

@@ -19,7 +19,6 @@ import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import {
   EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
   estimatePcmDurationSeconds,
-  getOpenRouterApiKey,
   openRouterChat,
   openRouterTts,
   pcmToWav,
@@ -245,8 +244,8 @@ Deno.serve(async (req) => {
   ].filter(Boolean).join("\n\n");
 
   // Key of the ACTIVE AI provider (OpenRouter / AgentRouter / ...).
-  const openRouterKey = (await getActiveAiApiKey()) || getOpenRouterApiKey();
-  if (!openRouterKey) return jsonError(503, "OPENROUTER_API_KEY غير مضبوط.");
+  const openRouterKey = await getActiveAiApiKey();
+  if (!openRouterKey) return jsonError(503, "مفتاح المزود النشط للذكاء الاصطناعي غير مضبوط.");
 
   const ai = await openRouterChat({
     apiKey: openRouterKey,
