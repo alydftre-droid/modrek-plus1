@@ -74,10 +74,7 @@ export default function LibraryBookStudio() {
   const narrationRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const pagesContainerRef = useRef<HTMLDivElement>(null);
-  const imageViewportRef = useRef<HTMLDivElement>(null);
-  const zoomByPageRef = useRef<Record<number, number>>({});
-  const panByPageRef = useRef<Record<number, { x: number; y: number }>>({});
-  const pinchStateRef = useRef<{ distance: number; zoom: number } | null>(null);
+  const zoomControlsRef = useRef<PageZoomViewerHandle | null>(null);
 
   const [book, setBook] = useState<LibraryBook | null>(null);
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
