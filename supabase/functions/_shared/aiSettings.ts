@@ -2,6 +2,7 @@
 // from the public.ai_function_settings table. Falls back to safe defaults
 // if the row is missing or DB read fails.
 import { getOpenRouterApiKey, openRouterChat, toOpenRouterModelId } from "./openrouter.ts";
+import { getActiveAiProvider } from "./aiProvider.ts";
 import {
   DEFAULT_CHAT_MODELS,
   DEFAULT_TTS_MODELS as POLICY_TTS_MODELS,
@@ -65,9 +66,12 @@ export async function resolveGeminiApiKey(
   sb: any,
   _envKey?: string,
 ): Promise<{ apiKey: string; source: "vault" | "env" | "missing" }> {
-  // Lovable Cloud exposes function secrets as environment variables. Avoid an
-  // optional RPC lookup here because missing RPCs show up as schema-cache
-  // errors in every library AI function.
+  // Resolves the key of the ACTIVE AI provider (OpenRouter, AgentRouter, ...).
+  // The inactive provider is never contacted and its key is never read.
+  try {
+    const active = await getActiveAiProvider();
+    if (active.apiKey) return { apiKey: active.apiKey, source: "env" };
+  } catch (_e) { /* fall through to legacy env lookup */ }
   const envKey = String(Deno.env.get("OPENROUTER_API_KEY") || "").trim();
   if (envKey) return { apiKey: envKey, source: "env" };
   return { apiKey: "", source: "missing" };
@@ -109,11 +113,31 @@ export async function loadAiSettings(
     enable_streaming: false,
   };
   try {
-    const { data, error } = await sb
-      .from("ai_function_settings")
-      .select("function_name, models_to_try, max_retries, fallback_delay_ms, enable_streaming")
-      .eq("function_name", fnName)
-      .maybeSingle();
+    // Each provider keeps its own model lists. OpenRouter keeps using the
+    // original ai_function_settings table (unchanged); any other active
+    // provider reads ai_provider_function_settings.
+    let activeProvider = "openrouter";
+    try { activeProvider = (await getActiveAiProvider()).provider; } catch (_e) { /* default */ }
+
+    let data: any = null;
+    let error: any = null;
+    if (activeProvider !== "openrouter") {
+      const res = await sb
+        .from("ai_provider_function_settings")
+        .select("function_name, models_to_try, max_retries, fallback_delay_ms, enable_streaming")
+        .eq("provider", activeProvider)
+        .eq("function_name", fnName)
+        .maybeSingle();
+      data = res.data; error = res.error;
+    }
+    if (!data) {
+      const res = await sb
+        .from("ai_function_settings")
+        .select("function_name, models_to_try, max_retries, fallback_delay_ms, enable_streaming")
+        .eq("function_name", fnName)
+        .maybeSingle();
+      data = res.data; error = res.error;
+    }
     if (error || !data) return fallback;
     return {
       function_name: data.function_name,
@@ -133,7 +157,7 @@ export async function loadAiSettings(
 
 // Helper to call the AI provider with model fallback. OpenRouter is the ONLY
 // provider — Gemini/OpenAI/Anthropic direct paths have been removed.
-export type AiProvider = "openrouter";
+export type AiProvider = string;
 export type GeminiCallResult =
   | { ok: true; response: Response; model: string; provider: AiProvider }
   | { ok: false; status: number; lastError?: string };
@@ -165,9 +189,16 @@ export async function callGeminiWithFallback(opts: {
   purpose?: "chat" | "exam" | "vision" | "tts" | "background" | "ocr" | "rag" | "grade" | "summarize" | "extract";
 }): Promise<GeminiCallResult> {
   const timeoutMs = typeof opts.timeoutMs === "number" && opts.timeoutMs > 0 ? opts.timeoutMs : 45_000;
-  const openRouterKey = String(opts.apiKey || "").trim() || getOpenRouterApiKey();
-  if (!openRouterKey) {
-    return { ok: false, status: 401, lastError: "OPENROUTER_API_KEY_MISSING" };
+  // Resolve the ACTIVE provider (OpenRouter by default). Only that provider
+  // is contacted — the inactive one receives no requests at all.
+  let active = { provider: "openrouter", baseUrl: "", apiKey: "", apiKeyEnv: "OPENROUTER_API_KEY" };
+  try {
+    const resolved = await getActiveAiProvider();
+    active = { provider: resolved.provider, baseUrl: resolved.baseUrl, apiKey: resolved.apiKey, apiKeyEnv: resolved.apiKeyEnv };
+  } catch (_e) { /* fallback to env-based OpenRouter */ }
+  const providerKey = String(opts.apiKey || "").trim() || active.apiKey || getOpenRouterApiKey();
+  if (!providerKey) {
+    return { ok: false, status: 401, lastError: `${active.apiKeyEnv}_MISSING` };
   }
 
   const fnName = opts.functionName || "unknown";
@@ -181,10 +212,11 @@ export async function callGeminiWithFallback(opts: {
     const orModel = toOpenRouterModelId(models[i]);
     const startedAt = Date.now();
     const orResult = await openRouterChat({
-      apiKey: openRouterKey,
+      apiKey: providerKey,
       model: orModel,
       body: opts.body,
       timeoutMs,
+      baseUrl: active.baseUrl || undefined,
     });
     const durationMs = Date.now() - startedAt;
     if (orResult.ok) {
@@ -197,7 +229,7 @@ export async function callGeminiWithFallback(opts: {
         status: 200,
         ok: true,
       });
-      return { ok: true, response: orResult.response, model: orModel, provider: "openrouter" };
+      return { ok: true, response: orResult.response, model: orModel, provider: active.provider };
     }
     lastStatus = orResult.status;
     lastError = orResult.lastError;
