@@ -35,6 +35,7 @@ import TutorPlaybackBar, { type PlaybackSpeed } from "@/features/interactive-tut
 import TheaterStage from "@/features/interactive-tutor/TheaterStage";
 import { parseTutorResponse } from "@/features/interactive-tutor/parseTutorResponse";
 import type { AnnotationShape, WhiteboardStep } from "@/features/interactive-tutor/types";
+import PageZoomViewer, { type PageZoomViewerHandle } from "@/features/library/PageZoomViewer";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
