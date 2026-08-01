@@ -206,14 +206,45 @@ export async function resolveAiProvider(providerName?: string | null): Promise<A
   return await getActiveAiProvider();
 }
 
-export function buildAiHeaders(apiKey: string, extra: Record<string, string> = {}): Record<string, string> {
+const BROWSER_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+/**
+ * Provider-appropriate headers.
+ * `HTTP-Referer` / `X-Title` are OpenRouter-specific attribution headers — we
+ * only send them there. Every other OpenAI-compatible gateway gets the minimal
+ * documented set (Authorization + Content-Type + Accept) plus a normal
+ * User-Agent, which is what edge-protected gateways expect.
+ */
+export function buildAiHeaders(
+  apiKey: string,
+  extra: Record<string, string> = {},
+  provider?: string,
+): Record<string, string> {
+  const isOpenRouter = !provider || provider === "openrouter";
   return {
     "Content-Type": "application/json",
+    Accept: "application/json",
+    "User-Agent": BROWSER_UA,
     Authorization: `Bearer ${apiKey}`,
-    "HTTP-Referer": AI_REFERRER,
-    "X-Title": AI_APP_TITLE,
+    ...(isOpenRouter ? { "HTTP-Referer": AI_REFERRER, "X-Title": AI_APP_TITLE } : {}),
     ...extra,
   };
+}
+
+/**
+ * WAF / challenge-page detection. Some gateways (AgentRouter behind Aliyun WAF)
+ * answer HTTP 200 with an HTML challenge page instead of the JSON/audio body,
+ * on EVERY endpoint — including `/audio/speech` and `/audio/transcriptions`.
+ * Without this check those calls look "successful" while returning garbage.
+ */
+export function detectAiWafBlock(contentType: string, sample: string): string | null {
+  const ct = (contentType || "").toLowerCase();
+  const body = (sample || "").slice(0, 600);
+  const htmlish = ct.includes("text/html") || /^\s*<(!doctype|html|meta)/i.test(body);
+  if (!htmlish) return null;
+  const waf = /aliyun_waf|captcha|cloudflare|challenge|Just a moment/i.test(body) ? " (WAF_CHALLENGE)" : "";
+  return `PROVIDER_BLOCKED_NON_JSON_RESPONSE${waf} (${ct || "unknown"}) ${body.slice(0, 300)}`;
 }
 
 /**
@@ -230,6 +261,7 @@ export function isAiProviderOutage(result: { ok: boolean; status: number; error?
   if (err.endsWith("_MISSING")) return true;
   return result.status === 0 || result.status === 401 || result.status === 403;
 }
+
 
 /**
  * Pick a healthy alternative gateway when the active one is down/blocked.
@@ -320,38 +352,60 @@ async function aiFetchOnce(provider: AiProviderConfig, opts: {
   try {
     const resp = await fetch(endpoint, {
       method: opts.method || "POST",
-      headers: buildAiHeaders(provider.apiKey, opts.headers),
+      headers: buildAiHeaders(provider.apiKey, opts.headers, provider.provider),
       signal: controller.signal,
       body: opts.method === "GET" || opts.body === undefined ? undefined : JSON.stringify(opts.body),
     });
     clearTimeout(timer);
     const duration_ms = Date.now() - started;
     const contentType = (resp.headers.get("content-type") || "").toLowerCase();
-    if (resp.ok && (opts.expect ?? "json") !== "binary") {
+    const expect = opts.expect ?? "json";
+    const blocked = (sample: string) => ({
+      ok: false as const,
+      status: 502,
+      provider: provider.provider,
+      endpoint,
+      duration_ms,
+      error: detectAiWafBlock(contentType, sample) ??
+        `PROVIDER_BLOCKED_NON_JSON_RESPONSE (${contentType || "unknown"}) ${sample.slice(0, 300)}`,
+    });
+
+    if (resp.ok && expect === "binary") {
+      // Audio bodies must be binary — an HTML challenge page here is a WAF block,
+      // not a successful TTS response.
+      const bytes = new Uint8Array(await resp.arrayBuffer().catch(() => new ArrayBuffer(0)));
+      const head = new TextDecoder().decode(bytes.slice(0, 600));
+      if (detectAiWafBlock(contentType, head) || contentType.includes("text/html")) return blocked(head);
+      return {
+        ok: true,
+        status: resp.status,
+        provider: provider.provider,
+        endpoint,
+        duration_ms,
+        response: new Response(bytes, { status: resp.status, headers: { "Content-Type": contentType || "application/octet-stream" } }),
+        error: null,
+      };
+    }
+
+    if (resp.ok) {
       const looksLikeAi = contentType.includes("json") || contentType.includes("event-stream") || contentType.includes("text/plain");
-      if (!looksLikeAi) {
-        const preview = (await resp.text().catch(() => "")).slice(0, 300);
-        return {
-          ok: false,
-          status: 502,
-          provider: provider.provider,
-          endpoint,
-          duration_ms,
-          error: `PROVIDER_BLOCKED_NON_JSON_RESPONSE (${contentType || "unknown"}) ${preview}`,
-        };
-      }
+      if (!looksLikeAi) return blocked((await resp.text().catch(() => "")).slice(0, 600));
     }
     if (!resp.ok) {
       const text = await resp.text().catch(() => "");
-      return { ok: false, status: resp.status, provider: provider.provider, endpoint, duration_ms, error: text.slice(0, 800) };
+      const waf = detectAiWafBlock(contentType, text);
+      return { ok: false, status: waf ? 502 : resp.status, provider: provider.provider, endpoint, duration_ms, error: waf || text.slice(0, 800) };
     }
-    if ((opts.expect ?? "json") === "json") {
+    if (expect === "json") {
       const text = await resp.text().catch(() => "");
+      const waf = detectAiWafBlock(contentType, text);
+      if (waf) return blocked(text);
       let data: unknown = null;
       try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 800) }; }
       return { ok: true, status: resp.status, provider: provider.provider, endpoint, duration_ms, data, error: null };
     }
     return { ok: true, status: resp.status, provider: provider.provider, endpoint, duration_ms, response: resp, error: null };
+
   } catch (err) {
     clearTimeout(timer);
     let msg = err instanceof Error ? err.message : String(err);
@@ -412,7 +466,7 @@ export async function aiSpeech(opts: {
   });
 }
 
-/** Speech-to-text through the active provider (multipart upload). */
+/** Speech-to-text through the active provider (multipart upload + failover). */
 export async function aiTranscription(opts: {
   file: Blob;
   fileName?: string;
@@ -421,7 +475,25 @@ export async function aiTranscription(opts: {
   providerName?: string | null;
   timeoutMs?: number;
 }): Promise<AiCallResult<any>> {
-  const provider = await resolveAiProvider(opts.providerName);
+  const first = await aiTranscriptionOnce(await resolveAiProvider(opts.providerName), opts);
+  if (first.ok || opts.providerName || !isAiProviderOutage(first)) return first;
+  const backup = await getAiFailoverProvider(first.provider);
+  if (!backup) return first;
+  console.warn("[ai-provider] failover(stt)", first.provider, "->", backup.provider);
+  const second = await aiTranscriptionOnce(backup, opts);
+  if (!second.ok) {
+    return { ...second, error: `${first.provider}: ${String(first.error || "").slice(0, 300)} | failover ${backup.provider}: ${String(second.error || "").slice(0, 300)}` };
+  }
+  return second;
+}
+
+async function aiTranscriptionOnce(provider: AiProviderConfig, opts: {
+  file: Blob;
+  fileName?: string;
+  model: string;
+  language?: string;
+  timeoutMs?: number;
+}): Promise<AiCallResult<any>> {
   const endpoint = `${provider.baseUrl}/audio/transcriptions`;
   const started = Date.now();
   if (!provider.hasKey) {
@@ -435,18 +507,25 @@ export async function aiTranscription(opts: {
     form.append("file", opts.file, opts.fileName || "audio.wav");
     form.append("model", opts.model);
     if (opts.language) form.append("language", opts.language);
+    const isOpenRouter = provider.provider === "openrouter";
     const resp = await fetch(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${provider.apiKey}`,
-        "HTTP-Referer": AI_REFERRER,
-        "X-Title": AI_APP_TITLE,
+        Accept: "application/json",
+        "User-Agent": BROWSER_UA,
+        ...(isOpenRouter ? { "HTTP-Referer": AI_REFERRER, "X-Title": AI_APP_TITLE } : {}),
       },
       signal: controller.signal,
       body: form,
     });
     clearTimeout(timer);
+    const contentType = (resp.headers.get("content-type") || "").toLowerCase();
     const text = await resp.text().catch(() => "");
+    const waf = detectAiWafBlock(contentType, text);
+    if (waf) {
+      return { ok: false, status: 502, provider: provider.provider, endpoint, duration_ms: Date.now() - started, error: waf };
+    }
     let data: unknown = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { raw: text.slice(0, 500) }; }
     return {
@@ -464,6 +543,7 @@ export async function aiTranscription(opts: {
     if (msg.toLowerCase().includes("abort") || msg.toLowerCase().includes("timeout")) msg = `timeout after ${timeoutMs}ms`;
     return { ok: false, status: 0, provider: provider.provider, endpoint, duration_ms: Date.now() - started, error: msg };
   }
+
 }
 
 /** List models exposed by a provider (diagnostics only). */
