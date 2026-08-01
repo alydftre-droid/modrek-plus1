@@ -46,6 +46,10 @@ export default function StudentSecurityPage() {
   const [emailOtpOpen, setEmailOtpOpen] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
 
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
   const normalizeEmail = (v: string) => v.trim().replace(/\s+/g, "").toLowerCase();
 
   const handleChangePassword = async () => {
