@@ -704,7 +704,7 @@ export default function LibraryBookStudio() {
                 alt={`صفحة ${selectedPage}`}
                 controlsRef={zoomControlsRef}
                 onScaleChange={handleScaleChange}
-                onSwipe={(dir) => goToPage(selectedPage + (dir === "next" ? 1 : -1))}
+                onSwipe={(dir) => goPage(dir === "next" ? 1 : -1)}
                 overlay={
                   annotations.length > 0 ? (
                     <AnnotationOverlay key={replayKey} annotations={annotations} speed={playbackSpeed} playing />
