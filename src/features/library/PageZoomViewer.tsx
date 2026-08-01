@@ -187,7 +187,7 @@ export default function PageZoomViewer({
   }, [controlsRef, zoomAtCenter, apply]);
 
   // ── Pointer gestures (pan + pinch + double tap) ──
-  const localPoint = useCallback((e: PointerEvent | React.PointerEvent): Point => {
+  const localPoint = useCallback((e: { clientX: number; clientY: number }): Point => {
     const rect = containerRef.current?.getBoundingClientRect();
     return { x: e.clientX - (rect?.left ?? 0), y: e.clientY - (rect?.top ?? 0) };
   }, []);
