@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
+import { getActiveAiProvider } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,7 +33,7 @@ async function verifyChatPipeline() {
   });
 
   if (!result.ok) {
-    return { ok: false, status: result.status, model: null, provider: "openrouter", error: String(result.lastError || "").slice(0, 500) };
+    return { ok: false, status: result.status, model: null, provider: "active", error: String(result.lastError || "").slice(0, 500) };
   }
 
   const payload = await result.response.json().catch(() => null);
@@ -55,20 +56,21 @@ serve(async (req) => {
   const sb = supabaseUrl && supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false, autoRefreshToken: false } })
     : null;
-  const resolved = sb
-    ? await resolveOpenRouterApiKey(sb)
-    : { apiKey: Deno.env.get("OPENROUTER_API_KEY") || "", source: "env" as const };
-  const openRouterKey = resolved.apiKey;
+  // Key + provider resolved exclusively by the unified AI Provider Layer.
+  const active = await getActiveAiProvider();
+  const resolved = sb ? await resolveOpenRouterApiKey(sb) : { apiKey: active.apiKey, source: "env" as const };
+  const openRouterKey = resolved.apiKey || active.apiKey;
   const chatPipeline = openRouterKey
     ? await verifyChatPipeline()
-    : { ok: false, status: 500, model: null, provider: "openrouter", error: "OPENROUTER_API_KEY_MISSING" };
+    : { ok: false, status: 500, model: null, provider: active.provider, error: `${active.apiKeyEnv}_MISSING` };
 
   const body = {
     ok: Boolean(openRouterKey) && chatPipeline.ok,
-    provider: "openrouter",
+    provider: active.provider,
     project: supabaseUrl || null,
     configured: {
-      OPENROUTER_API_KEY: Boolean(openRouterKey),
+      provider_key_env: active.apiKeyEnv,
+      provider_key_present: Boolean(openRouterKey),
       keyFingerprint: mask(openRouterKey),
       keySource: resolved.source,
     },

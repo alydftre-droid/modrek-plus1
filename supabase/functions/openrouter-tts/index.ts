@@ -11,7 +11,6 @@ import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import {
   EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
   estimatePcmDurationSeconds,
-  getOpenRouterApiKey,
   openRouterTts,
   pcmToWav,
   OPENROUTER_DEFAULT_TTS_MODEL,
@@ -209,9 +208,10 @@ serve(async (req) => {
   const normalized = normalizeArabic(text);
   const questionHash = await sha256Hex(`tts_narration|${model}|${voice}|${speed}|${subjectId ?? ""}|${grade ?? ""}|${lessonHint ?? ""}|${normalized}`);
 
-  const apiKey = getOpenRouterApiKey();
+  // Key from the unified AI Provider Layer (active provider only).
+  const apiKey = await getActiveAiApiKey();
   if (!apiKey) {
-    return jsonError(503, "خدمة الصوت غير مُعدّة. أضف OPENROUTER_API_KEY.", { OPENROUTER_API_KEY: false }, debugId);
+    return jsonError(503, "خدمة الصوت غير مُعدّة. مفتاح المزود النشط غير موجود.", { AI_PROVIDER_KEY: false }, debugId);
   }
 
   const supabase = SUPABASE_URL && SERVICE_ROLE

@@ -6,7 +6,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 
-import { getActiveAiBaseUrl } from "../_shared/aiProvider.ts";
+import { aiEmbeddings } from "../_shared/aiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
