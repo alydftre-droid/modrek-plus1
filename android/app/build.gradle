@@ -10,21 +10,44 @@ android {
         applicationId "com.modrek.plus"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 34
-        versionName "1.1.31"
+        versionCode 35
+        versionName "1.1.32"
 
         // لا يوجد كود أصلي (NDK) في التطبيق، لذلك لا نضع أي فلاتر ABI
         // ولا فلاتر كثافة/لغة — أي فلتر هنا يحجب أجهزة عن التثبيت.
+        // النتيجة: حزمة واحدة تعمل على arm64-v8a / armeabi-v7a / x86 / x86_64.
         ndk {
             abiFilters.clear()
         }
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // ملاحظة: لا نستخدم resConfigs إطلاقاً — تقييد اللغات/الكثافات
+        // يمنع Play من تسليم الحزمة لبعض الأجهزة.
     }
 
     androidResources {
         ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+
+    // App Bundle: نُبقي كل اللغات داخل الحزمة الأساسية (التطبيق عربي بالكامل)
+    // حتى لا تفشل الترجمة على أجهزة بلغة نظام مختلفة، ونترك تقسيم
+    // ABI/الكثافة مفعّلاً (بدون أثر لعدم وجود كود أصلي).
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+
+    // لا تُضمَّن قائمة التبعيات في APK لكن تُضمَّن في AAB كما يتطلب Play.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = true
+    }
+
 
     buildFeatures {
         buildConfig = true

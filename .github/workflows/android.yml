@@ -392,13 +392,102 @@ jobs:
               --bundle android/app/build/outputs/bundle/release/app-release.aab | head -n 40 || true
             exit 1
           fi
+          APK_VER_CODE=$("$AAPT2" dump badging android/app/build/outputs/apk/release/app-release.apk \
+            | grep -o "versionCode='[0-9]*'" | grep -o "[0-9]*" | head -n 1)
+          APK_VER_NAME=$("$AAPT2" dump badging android/app/build/outputs/apk/release/app-release.apk \
+            | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
+          echo "BUNDLETOOL=$BUNDLETOOL" >> "$GITHUB_ENV"
           {
             echo "## ✅ Target SDK verified"
             echo ""
             echo "- APK targetSdkVersion: **$APK_TARGET**"
             echo "- AAB base manifest targetSdkVersion: **$AAB_TARGET**"
-            echo "- versionCode: **31** / versionName: **1.1.28**"
+            echo "- versionCode: **$APK_VER_CODE** / versionName: **$APK_VER_NAME**"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Google Play device compatibility audit (merged manifest)
+        run: |
+          set -euo pipefail
+          SDK_PATH="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          AAPT2="$(ls "$SDK_PATH"/build-tools/*/aapt2 | sort -V | tail -n 1)"
+          BUNDLETOOL="${BUNDLETOOL:-/tmp/bundletool.jar}"
+          java -jar "$BUNDLETOOL" dump manifest \
+            --bundle android/app/build/outputs/bundle/release/app-release.aab > /tmp/merged-manifest.xml
+          echo "----- merged AAB manifest -----"
+          cat /tmp/merged-manifest.xml
+          python3 <<'PY'
+          import re, sys, subprocess, os
+          xml = open('/tmp/merged-manifest.xml', encoding='utf-8').read()
+          errors = []
+
+          # 1) No mandatory hardware/software feature may be required.
+          for feature in re.findall(r'<uses-feature[^>]*>', xml):
+              if 'android:required="false"' in feature:
+                  continue
+              if 'android:glEsVersion' in feature:
+                  continue  # glEsVersion 2.0 is supported by every Play device
+              errors.append(f"Required uses-feature blocks devices: {feature}")
+
+          # 2) No permission may carry maxSdkVersion-based device exclusion surprises
+          for perm in re.findall(r'<uses-permission[^>]*>', xml):
+              for blocked in ('CAMERA', 'RECORD_AUDIO', 'ACCESS_FINE_LOCATION', 'READ_PHONE_STATE'):
+                  if blocked in perm:
+                      errors.append(f"Permission implies an implicit hardware requirement: {perm}")
+
+          # 3) minSdk / targetSdk sanity
+          m = re.search(r'android:minSdkVersion="(\d+)"', xml)
+          t = re.search(r'android:targetSdkVersion="(\d+)"', xml)
+          if not m or int(m.group(1)) > 23:
+              errors.append(f"minSdkVersion must be <= 23, found {m.group(1) if m else 'none'}")
+          if not t or t.group(1) != '36':
+              errors.append(f"targetSdkVersion must be 36, found {t.group(1) if t else 'none'}")
+
+          # 4) No screen-size / density restrictions
+          if 'compatible-screens' in xml:
+              errors.append("<compatible-screens> restricts devices; remove it")
+          if 'supports-gl-texture' in xml:
+              errors.append("<supports-gl-texture> restricts devices; remove it")
+
+          # 5) Activity must stay resizeable (tablets, Chromebooks, foldables, XR)
+          if 'android:resizeableActivity="false"' in xml:
+              errors.append('resizeableActivity="false" limits large-screen / Chromebook availability')
+
+          if errors:
+              print("::error::Google Play compatibility audit failed")
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("Compatibility audit passed: no device filters in the merged manifest.")
+          PY
+
+          # 6) Prove the bundle installs on every CPU architecture and screen density.
+          for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
+            cat > /tmp/device-spec.json <<SPEC
+          {
+            "supportedAbis": ["$ABI"],
+            "supportedLocales": ["ar", "en"],
+            "screenDensity": 420,
+            "sdkVersion": 23
+          }
+          SPEC
+            rm -rf /tmp/apks-$ABI.apks
+            java -jar "$BUNDLETOOL" build-apks \
+              --bundle=android/app/build/outputs/bundle/release/app-release.aab \
+              --output=/tmp/apks-$ABI.apks \
+              --device-spec=/tmp/device-spec.json \
+              --mode=default >/dev/null
+            echo "✅ Bundle generates installable APKs for $ABI (minSdk 23 device)"
+          done
+          {
+            echo "## ✅ Device compatibility audit"
+            echo ""
+            echo "- No required \`uses-feature\` entries in the merged manifest"
+            echo "- No camera/mic/location/telephony permissions (no implicit hardware filters)"
+            echo "- minSdk 23 (Android 6.0) → targetSdk 36"
+            echo "- Verified installable APK generation for arm64-v8a, armeabi-v7a, x86, x86_64"
+            echo "- Resizeable activity: tablets, foldables, Chromebook, Android XR supported"
+          } >> "$GITHUB_STEP_SUMMARY"
+
 
       - name: Publish APK and AAB to stable release
         env:

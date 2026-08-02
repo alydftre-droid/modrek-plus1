@@ -7,27 +7,48 @@
     </queries>
 
     <!-- توافق كامل مع كل أجهزة أندرويد: لا نطلب أي ميزة عتاد إلزامية،
-         حتى لا يستبعد Play أجهزة (تابلت / Chromebook / أجهزة بدون كاميرا). -->
+         حتى لا يستبعد Play أي جهاز (تابلت / Chromebook / Android XR / أجهزة بدون كاميرا).
+         كل ميزة هنا required="false" بدون استثناء. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.audio.output" android:required="false" />
     <uses-feature android:name="android.hardware.location" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.light" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen.multitouch" android:required="false" />
-    <uses-feature android:name="android.hardware.faketouch" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen.multitouch.distinct" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen.multitouch.jazzhand" android:required="false" />
+    <!-- faketouch كان required="true" وكان يستبعد أجهزة (Android XR / بعض الأجهزة بدون إدخال لمسي) -->
+    <uses-feature android:name="android.hardware.faketouch" android:required="false" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
+    <uses-feature android:name="android.software.webview" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
 
     <supports-screens
         android:smallScreens="true"
         android:normalScreens="true"
         android:largeScreens="true"
         android:xlargeScreens="true"
+        android:resizeable="true"
         android:anyDensity="true" />
+
 
     <application
         android:allowBackup="true"
@@ -104,12 +125,15 @@
             android:value="modrek_high_v4" />
     </application>
 
-    <!-- Permissions -->
+    <!-- Permissions: لا توجد صلاحية واحدة تسبب فلترة أجهزة في Play
+         (لا CAMERA / لا RECORD_AUDIO / لا LOCATION / لا TELEPHONY) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
 
     <!-- Google Play policy: التطبيق لا يشغّل أي Foreground Service،
          لذلك تم إزالة صلاحية FOREGROUND_SERVICE لتجنّب مطالبة الإفصاح
