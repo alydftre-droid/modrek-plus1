@@ -125,12 +125,15 @@
             android:value="modrek_high_v4" />
     </application>
 
-    <!-- Permissions -->
+    <!-- Permissions: لا توجد صلاحية واحدة تسبب فلترة أجهزة في Play
+         (لا CAMERA / لا RECORD_AUDIO / لا LOCATION / لا TELEPHONY) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
 
     <!-- Google Play policy: التطبيق لا يشغّل أي Foreground Service،
          لذلك تم إزالة صلاحية FOREGROUND_SERVICE لتجنّب مطالبة الإفصاح
