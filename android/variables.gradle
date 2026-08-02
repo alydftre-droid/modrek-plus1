@@ -1,5 +1,7 @@
 ext {
-    minSdkVersion = 26
+    // Android 6.0 (API 23) — أوسع توافق ممكن مع Capacitor 6 وحزم AndroidX المستخدمة.
+    // رفع هذه القيمة يستبعد أجهزة كاملة من متجر Play ويخفي زر التثبيت لديها.
+    minSdkVersion = 23
     compileSdkVersion = 36
     targetSdkVersion = 36
     androidxActivityVersion = '1.8.0'
