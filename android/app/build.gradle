@@ -20,7 +20,7 @@ android {
             abiFilters.clear()
         }
         // ملاحظة: لا نستخدم resConfigs إطلاقاً — تقييد اللغات/الكثافات
-        // يمنع Play من تسليم الحزمة لبعض الأجهezة.
+        // يمنع Play من تسليم الحزمة لبعض الأجهزة.
     }
 
     androidResources {
