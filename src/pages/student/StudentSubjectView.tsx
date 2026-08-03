@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
+import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import { reportRpcError } from "@/lib/rpcErrorReporter";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
