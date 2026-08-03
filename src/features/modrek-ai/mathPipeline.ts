@@ -82,11 +82,22 @@ function convertInlineScience(chunk: string): string {
     return `$\\ce{${m}}$`;
   });
 
-  // Chemical reaction arrows
+  // Full chemical reactions ("CaCO3 --> CaO + CO2") become ONE mhchem block so
+  // the equation keeps its left-to-right order inside RTL text.
+  out = out.replace(
+    /(?<![$\p{L}])((?:[A-Z][A-Za-z0-9()]*\s*(?:\+\s*[A-Z][A-Za-z0-9()]*\s*)*))(-->|<-->|→|⇌)(\s*(?:[A-Z][A-Za-z0-9()]*\s*(?:\+\s*[A-Z][A-Za-z0-9()]*\s*)*))/gu,
+    (_m, left: string, arrow: string, right: string) => {
+      const op = arrow === "-->" || arrow === "→" ? "->" : "<=>";
+      return `$\\ce{${left.trim()} ${op} ${right.trim()}}$`;
+    },
+  );
+
+  // Bare chemical reaction arrows left in prose
   out = out.replace(/(?<!\$)\s-->\s(?!\$)/g, " $\\longrightarrow$ ");
   out = out.replace(/(?<!\$)\s<-->\s(?!\$)/g, " $\\rightleftharpoons$ ");
 
   return out;
+
 }
 
 /**
