@@ -108,6 +108,27 @@ export function normalizeScience(text: string): string {
       .replace(/\bقا\b/g, "\\qa "),
   );
 
+  // A display block written mid-line ("📐 القانون: $$x$$") must sit on its own
+  // line, otherwise remark-math renders it as inline math.
+  out = out
+    .split("\n")
+    .flatMap((line) => {
+      if (!/\$\$[\s\S]*?\$\$/.test(line) || /^\s*\$\$[\s\S]*\$\$\s*$/.test(line)) return [line];
+      const parts: string[] = [];
+      let rest = line;
+      const re = /\$\$([\s\S]*?)\$\$/;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(rest))) {
+        const before = rest.slice(0, m.index).trim();
+        if (before) parts.push(before);
+        parts.push(`$$${m[1].trim()}$$`);
+        rest = rest.slice(m.index + m[0].length);
+      }
+      if (rest.trim()) parts.push(rest.trim());
+      return parts.flatMap((p) => [p, ""]);
+    })
+    .join("\n");
+
   // A math block alone on its line becomes a display equation.
   out = out
     .split("\n")
@@ -121,4 +142,5 @@ export function normalizeScience(text: string): string {
     .join("\n");
 
   return out;
+
 }
