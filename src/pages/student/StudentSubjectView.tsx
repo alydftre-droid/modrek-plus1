@@ -1814,6 +1814,15 @@ const StudentSubjectView = () => {
           )
         )}
       </AnimatePresence>
+
+      {activeDocument?.file_url && (
+        <DocumentViewerDialog
+          open
+          fileUrl={activeDocument.file_url}
+          title={activeDocument.title}
+          onClose={() => setActiveDocument(null)}
+        />
+      )}
     </div>
   );
 };
