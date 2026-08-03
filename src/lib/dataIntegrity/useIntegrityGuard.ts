@@ -14,7 +14,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { hashSnapshot, type IntegritySnapshot } from "./platformHash";
 
-const INTERVAL_MS = 60_000;
+// Resource budget: this loop used to fire every 60s for every signed-in session
+// (1 edge invocation + 3 DB reads per user per minute), which alone accounted for
+// the majority of the project's edge-function traffic. A 15-minute cadence plus a
+// re-check whenever the tab regains focus keeps the same self-healing guarantee
+// while cutting the invocations by ~95%.
+const INTERVAL_MS = 15 * 60_000;
+const MIN_GAP_MS = 60_000;
 
 async function buildClientSnapshot(userId: string): Promise<IntegritySnapshot> {
   // Always read from the database, not from cache, so the "client" hash
@@ -54,6 +60,7 @@ async function fetchServerHash(): Promise<string | null> {
 export function useIntegrityGuard(userId: string | null | undefined) {
   const queryClient = useQueryClient();
   const runningRef = useRef(false);
+  const lastRunRef = useRef(0);
 
   useEffect(() => {
     if (!userId) return;
@@ -61,7 +68,9 @@ export function useIntegrityGuard(userId: string | null | undefined) {
     const tick = async () => {
       if (runningRef.current) return;
       if (typeof document !== "undefined" && document.hidden) return;
+      if (Date.now() - lastRunRef.current < MIN_GAP_MS) return;
       runningRef.current = true;
+      lastRunRef.current = Date.now();
       try {
         const snap = await buildClientSnapshot(userId);
         const [clientHash, serverHash] = await Promise.all([
@@ -95,9 +104,17 @@ export function useIntegrityGuard(userId: string | null | undefined) {
     // First run after a short delay so we don't compete with initial paint.
     const first = window.setTimeout(tick, 5_000);
     const interval = window.setInterval(tick, INTERVAL_MS);
+    // Re-check when the user comes back to the app — this preserves the
+    // "fresh data the moment you look at the screen" behaviour without paying
+    // for a background poll every minute.
+    const onVisible = () => {
+      if (!document.hidden) void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearTimeout(first);
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [userId, queryClient]);
 }

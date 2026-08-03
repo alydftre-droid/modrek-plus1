@@ -800,7 +800,13 @@ Deno.serve(async (req) => {
         "X-Modrek-Trace-Id": traceId,
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${filePath.split("/").pop()}"`,
-        "Cache-Control": isTeacherIntro ? "private, no-cache, max-age=0, must-revalidate" : "private, max-age=3600",
+        // Egress control: teacher intros must stay revalidated (they get replaced
+        // in place), but lesson videos/PDFs/images are immutable once uploaded.
+        // Caching them in the browser for a week removes the repeated full-file
+        // re-downloads that were driving both edge invocations and egress.
+        "Cache-Control": isTeacherIntro
+          ? "private, no-cache, max-age=0, must-revalidate"
+          : "private, max-age=604800, immutable",
         "Accept-Ranges": "bytes",
       };
       const passthrough = ["content-length", "content-range", "etag", "last-modified"];
