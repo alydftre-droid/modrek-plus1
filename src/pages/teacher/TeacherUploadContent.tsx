@@ -303,6 +303,7 @@ const TeacherUploadContent = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
   const [previewVideo, setPreviewVideo] = useState<{ url: string; title: string } | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<{ url: string; title: string } | null>(null);
 
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
@@ -1183,6 +1184,15 @@ const TeacherUploadContent = () => {
             </div>
           </div>
         )
+      )}
+
+      {previewDocument && (
+        <DocumentViewerDialog
+          open
+          fileUrl={previewDocument.url}
+          title={previewDocument.title}
+          onClose={() => setPreviewDocument(null)}
+        />
       )}
 
       {/* Developer-only: toggle free preview (long-press) */}
