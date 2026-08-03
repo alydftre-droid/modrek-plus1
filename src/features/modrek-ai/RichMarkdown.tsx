@@ -388,7 +388,7 @@ function NoteCard({ kind, title, content }: { kind: CardKind; title: string; con
 /* ------------------------------------------------------------------ */
 
 export function RichMarkdown({ children }: { children: string }) {
-  const blocks = React.useMemo(() => parseBlocks(children), [children]);
+  const blocks = React.useMemo(() => parseBlocks(normalizeScience(children)), [children]);
 
   return (
     <article
@@ -396,8 +396,14 @@ export function RichMarkdown({ children }: { children: string }) {
       lang="ar"
       className="modrek-notes font-[Cairo,system-ui,sans-serif] text-[15.5px] text-slate-900 break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
                  [&_ul>li]:before:content-['✓'] [&_ul>li]:before:absolute [&_ul>li]:before:right-[-1.25rem]
-                 [&_ul>li]:before:text-primary [&_ul>li]:before:font-extrabold"
+                 [&_ul>li]:before:text-primary [&_ul>li]:before:font-extrabold
+                 [&_.katex]:!font-normal [&_.katex]:text-[1.06em]
+                 [&_.katex-display]:!my-5 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden
+                 [&_.katex-display]:rounded-2xl [&_.katex-display]:border [&_.katex-display]:border-primary/15
+                 [&_.katex-display]:bg-primary/[0.04] [&_.katex-display]:px-3 [&_.katex-display]:py-4
+                 [&_.katex-display]:text-[1.22em]"
     >
+
       {blocks.map((b, i) => {
         if (b.type === "hr") {
           return (
