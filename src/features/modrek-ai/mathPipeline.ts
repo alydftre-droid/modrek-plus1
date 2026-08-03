@@ -75,6 +75,17 @@ function convertInlineScience(chunk: string): string {
   // \ce{...} outside math → wrap it
   out = out.replace(/(?<!\$)\\ce\{([^}]*)\}/g, (_, m) => `$\\ce{${m}}$`);
 
+  // Full chemical reactions ("CaCO3 --> CaO + CO2") become ONE mhchem block so
+  // the equation keeps its left-to-right order inside RTL text. This runs before
+  // single-formula wrapping so the whole reaction stays in one math span.
+  out = out.replace(
+    /(?<![$\p{L}])((?:[A-Z][A-Za-z0-9()]*\s*(?:\+\s*[A-Z][A-Za-z0-9()]*\s*)*))(-->|<-->|→|⇌)(\s*(?:[A-Z][A-Za-z0-9()]*(?:\s*\+\s*[A-Z][A-Za-z0-9()]*)*))/gu,
+    (_m, left: string, arrow: string, right: string) => {
+      const op = arrow === "-->" || arrow === "→" ? "->" : "<=>";
+      return `$\\ce{${left.trim()} ${op} ${right.trim()}}$`;
+    },
+  );
+
   // Known chemical formulas → mhchem
   out = out.replace(CHEM_TOKEN_RE, (m) => {
     const bare = m.replace(/\^?\d*[+-]$/, "");
@@ -82,23 +93,13 @@ function convertInlineScience(chunk: string): string {
     return `$\\ce{${m}}$`;
   });
 
-  // Full chemical reactions ("CaCO3 --> CaO + CO2") become ONE mhchem block so
-  // the equation keeps its left-to-right order inside RTL text.
-  out = out.replace(
-    /(?<![$\p{L}])((?:[A-Z][A-Za-z0-9()]*\s*(?:\+\s*[A-Z][A-Za-z0-9()]*\s*)*))(-->|<-->|→|⇌)(\s*(?:[A-Z][A-Za-z0-9()]*\s*(?:\+\s*[A-Z][A-Za-z0-9()]*\s*)*))/gu,
-    (_m, left: string, arrow: string, right: string) => {
-      const op = arrow === "-->" || arrow === "→" ? "->" : "<=>";
-      return `$\\ce{${left.trim()} ${op} ${right.trim()}}$`;
-    },
-  );
-
   // Bare chemical reaction arrows left in prose
   out = out.replace(/(?<!\$)\s-->\s(?!\$)/g, " $\\longrightarrow$ ");
   out = out.replace(/(?<!\$)\s<-->\s(?!\$)/g, " $\\rightleftharpoons$ ");
 
   return out;
-
 }
+
 
 /**
  * Public entry: normalize an assistant answer for KaTeX rendering.
