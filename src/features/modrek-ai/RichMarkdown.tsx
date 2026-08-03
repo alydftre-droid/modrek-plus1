@@ -300,7 +300,18 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
           </div>
         ),
         code: ({ className, children, ...props }: any) => {
-          const isBlock = /language-/.test(className || "") || String(children).includes("\n");
+          const raw = String(children ?? "");
+          const lang = /language-([\w-]+)/.exec(className || "")?.[1]?.toLowerCase();
+          if (lang === "mermaid") return <DiagramBlock code={raw} />;
+          if (lang === "svg" || /^\s*<svg[\s>]/i.test(raw)) return <SvgBlock code={raw} />;
+          if (lang === "math" || lang === "latex" || lang === "tex") {
+            return (
+              <div dir="ltr" className="my-5 overflow-x-auto text-center">
+                <MarkdownBody>{`$$${raw.trim()}$$`}</MarkdownBody>
+              </div>
+            );
+          }
+          const isBlock = !!lang || raw.includes("\n");
           return isBlock ? (
             <pre
               dir="ltr"
@@ -314,6 +325,7 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
             </code>
           );
         },
+
         table: (props) => (
           <div className="my-5 -mx-1 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
             <table className="w-full min-w-[22rem] border-collapse text-right text-[14px]" {...props} />
