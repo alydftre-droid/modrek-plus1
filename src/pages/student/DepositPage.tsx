@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import StudentLayout from "@/components/student/StudentLayout";
 import PaymentLogo, { PaymentMethodKey, getMethodMeta } from "@/components/wallet/PaymentLogo";
 import { loadPaymentMethodsConfig, PaymentMethodsConfig } from "@/lib/paymentMethods";
+import DepositSupportCard from "@/components/wallet/DepositSupportCard";
 import {
   Copy, Upload, X, Loader2, CheckCircle, Clock, AlertTriangle, Play,
   ChevronRight, ArrowRight, CreditCard,
