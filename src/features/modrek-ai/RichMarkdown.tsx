@@ -397,11 +397,13 @@ export function RichMarkdown({ children }: { children: string }) {
       className="modrek-notes font-[Cairo,system-ui,sans-serif] text-[15.5px] text-slate-900 break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
                  [&_ul>li]:before:content-['✓'] [&_ul>li]:before:absolute [&_ul>li]:before:right-[-1.25rem]
                  [&_ul>li]:before:text-primary [&_ul>li]:before:font-extrabold
-                 [&_.katex]:!font-normal [&_.katex]:text-[1.06em]
+                 [&_.katex]:!font-normal [&_.katex]:text-[1.06em] [&_.katex]:[direction:ltr]
+                 [&_.katex]:[unicode-bidi:isolate] [&_.katex]:inline-block [&_.katex]:align-middle
                  [&_.katex-display]:!my-5 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden
                  [&_.katex-display]:rounded-2xl [&_.katex-display]:border [&_.katex-display]:border-primary/15
                  [&_.katex-display]:bg-primary/[0.04] [&_.katex-display]:px-3 [&_.katex-display]:py-4
-                 [&_.katex-display]:text-[1.22em]"
+                 [&_.katex-display]:text-[1.22em] [&_.katex-display]:[direction:ltr] [&_.katex-display]:block"
+
     >
 
       {blocks.map((b, i) => {
