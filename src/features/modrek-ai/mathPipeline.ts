@@ -86,12 +86,20 @@ function convertInlineScience(chunk: string): string {
     },
   );
 
-  // Known chemical formulas → mhchem
+  // Known chemical formulas → mhchem (skipping spans that already became math
+  // in this pass, so we never emit nested \ce{\ce{…}}).
+  const madeMath: string[] = [];
+  out = out.replace(/\$[^\n$]*\$/g, (m) => {
+    madeMath.push(m);
+    return `\u0001${madeMath.length - 1}\u0001`;
+  });
   out = out.replace(CHEM_TOKEN_RE, (m) => {
     const bare = m.replace(/\^?\d*[+-]$/, "");
     if (!CHEM_ALLOW.has(bare) && !CHEM_ALLOW.has(m)) return m;
     return `$\\ce{${m}}$`;
   });
+  out = out.replace(/\u0001(\d+)\u0001/g, (_, i) => madeMath[Number(i)]);
+
 
   // Bare chemical reaction arrows left in prose
   out = out.replace(/(?<!\$)\s-->\s(?!\$)/g, " $\\longrightarrow$ ");
