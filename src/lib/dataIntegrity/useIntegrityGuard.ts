@@ -60,6 +60,7 @@ async function fetchServerHash(): Promise<string | null> {
 export function useIntegrityGuard(userId: string | null | undefined) {
   const queryClient = useQueryClient();
   const runningRef = useRef(false);
+  const lastRunRef = useRef(0);
 
   useEffect(() => {
     if (!userId) return;
@@ -67,7 +68,9 @@ export function useIntegrityGuard(userId: string | null | undefined) {
     const tick = async () => {
       if (runningRef.current) return;
       if (typeof document !== "undefined" && document.hidden) return;
+      if (Date.now() - lastRunRef.current < MIN_GAP_MS) return;
       runningRef.current = true;
+      lastRunRef.current = Date.now();
       try {
         const snap = await buildClientSnapshot(userId);
         const [clientHash, serverHash] = await Promise.all([
@@ -101,8 +104,21 @@ export function useIntegrityGuard(userId: string | null | undefined) {
     // First run after a short delay so we don't compete with initial paint.
     const first = window.setTimeout(tick, 5_000);
     const interval = window.setInterval(tick, INTERVAL_MS);
+    // Re-check when the user comes back to the app — this preserves the
+    // "fresh data the moment you look at the screen" behaviour without paying
+    // for a background poll every minute.
+    const onVisible = () => {
+      if (!document.hidden) void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       window.clearTimeout(first);
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [userId, queryClient]);
+}
+
       window.clearInterval(interval);
     };
   }, [userId, queryClient]);
