@@ -232,7 +232,19 @@ const BULLET_LIST = "my-3 space-y-2 pr-6 list-none";
 function MarkdownBody({ children, compact = false }: { children: string; compact?: boolean }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[
+        [
+          rehypeKatex,
+          {
+            throwOnError: false,
+            errorColor: "#DC2626",
+            strict: false,
+            trust: (ctx: any) => ["\\htmlClass", "\\includegraphics"].includes(ctx.command) === false,
+            macros: KATEX_MACROS,
+          },
+        ],
+      ]}
       components={{
         h1: (props) => (
           <h1
