@@ -1,6 +1,13 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+import katex from "katex";
+import "katex/contrib/mhchem";
+import { KATEX_MACROS, normalizeScience } from "./mathPipeline";
+import { DiagramBlock, SvgBlock } from "./DiagramBlock";
 import {
   Lightbulb,
   Star,
@@ -16,6 +23,10 @@ import {
   XCircle,
   Table2,
 } from "lucide-react";
+
+// Touch katex so the mhchem side-effect import is never tree-shaken away.
+void katex;
+
 
 /**
  * Modrek AI — "Teacher's Notes" rendering engine.
