@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { toast } from "sonner";
