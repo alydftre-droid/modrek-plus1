@@ -989,7 +989,7 @@ const StudentSubjectView = () => {
               if (targetRow.type === "video") {
                 setActiveVideo(targetRow);
               } else if (targetRow.file_url) {
-                openUrlWithinAppContainer(resolveBunnyStorageUrl(targetRow.file_url));
+                setActiveDocument(targetRow);
               }
             }, 250);
           }
