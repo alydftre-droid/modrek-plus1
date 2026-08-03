@@ -159,6 +159,54 @@ function normalizePositiveInt(value: string | null, max: number): number | null 
   return parsed;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Bunny CDN redirect (egress offload)                                */
+/* ------------------------------------------------------------------ */
+
+// Master switch. Set BUNNY_CDN_REDIRECT=off to instantly roll back to full
+// byte-proxying through this edge function without a code change.
+function isCdnRedirectEnabled(): boolean {
+  return (Deno.env.get("BUNNY_CDN_REDIRECT") || "on").toLowerCase() !== "off";
+}
+
+/**
+ * Bunny "Token Authentication" (basic) signature:
+ *   token = base64url( sha256_raw( tokenKey + path + expires ) )
+ * Only applied when BUNNY_CDN_TOKEN_KEY is configured; otherwise the plain
+ * pull-zone URL is used (same origin the proxy already reads from).
+ */
+async function buildCdnUrl(cdnHostname: string, filePath: string, ttlSec = 3600): Promise<string> {
+  const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+  const base = `https://${cdnHostname}/${encodedPath}`;
+  const tokenKey = Deno.env.get("BUNNY_CDN_TOKEN_KEY") || "";
+  if (!tokenKey) return base;
+  const expires = Math.floor(Date.now() / 1000) + ttlSec;
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${tokenKey}/${filePath}${expires}`),
+  );
+  const token = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  return `${base}?token=${token}&expires=${expires}`;
+}
+
+/**
+ * Decide whether this download request can be served as a 302 to the CDN.
+ * Browser primitives (<img>, <video>, <iframe>, navigation) follow redirects
+ * transparently and need no CORS on the target, so they are safe. fetch/XHR
+ * callers (Sec-Fetch-Dest: empty) keep the proxied path because the pull zone
+ * does not necessarily return CORS headers — this guarantees zero behaviour
+ * change for PDF blob loads and the AI pipeline.
+ */
+function canRedirectDownload(req: Request, url: URL, isTeacherIntro: boolean): boolean {
+  if (!isCdnRedirectEnabled()) return false;
+  if (url.searchParams.get("noredirect") === "1") return false;
+  if (isTeacherIntro) return false; // replaced in place, must stay revalidated
+  if (req.headers.get("Range")) return false; // let players range against CDN after first hit
+  const dest = (req.headers.get("Sec-Fetch-Dest") || "").toLowerCase();
+  return dest === "image" || dest === "video" || dest === "audio" || dest === "iframe" || dest === "document" || dest === "object" || dest === "embed";
+}
+
 function getRequestAuthHeader(req: Request, url: URL) {
   const header = req.headers.get("Authorization");
   if (header?.startsWith("Bearer ")) return header;
