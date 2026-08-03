@@ -217,6 +217,33 @@ export async function resolveBunnyStorageMediaUrl(fileUrl: string): Promise<stri
   return `${proxyUrl}&token=${encodeURIComponent(token)}&media=${Date.now()}`;
 }
 
+/**
+ * Fetch ANY protected file (PDF, image, doc) stored on Bunny Storage as a Blob
+ * using an Authorization header. Opening the proxy URL directly in an external
+ * browser tab shows a blank page on Android (Chrome refuses to render the
+ * inline stream and the token can be stale), so in-app viewers must use this.
+ */
+export async function fetchBunnyStorageBlob(fileUrl: string): Promise<Blob> {
+  if (!isBunnyStorageFile(fileUrl)) {
+    const res = await fetch(fileUrl);
+    if (!res.ok) throw new Error(`FILE_FETCH_FAILED_${res.status}`);
+    return await res.blob();
+  }
+  const path = extractBunnyStoragePath(fileUrl);
+  if (!path) throw new Error("FILE_PATH_INVALID");
+  const proxyUrl = resolveBunnyStorageProxyUrl(path);
+  const accessToken = await getCurrentAccessToken();
+  if (!proxyUrl) throw new Error("FILE_PROXY_CONFIG_MISSING");
+  if (!accessToken) throw new Error("FILE_AUTH_SESSION_MISSING");
+  const { supabaseKey } = getSupabaseFunctionsConfig();
+  const res = await fetch(proxyUrl, {
+    headers: { Authorization: `Bearer ${accessToken}`, apikey: supabaseKey },
+  });
+  if (!res.ok) throw new Error(`FILE_FETCH_FAILED_${res.status}`);
+  return await res.blob();
+}
+
+
 export async function resolveBunnyStorageBlobUrl(fileUrl: string, accessTokenOverride?: string | null): Promise<string> {
   if (!isBunnyStorageFile(fileUrl)) return fileUrl;
   if (objectUrlCache.has(fileUrl)) return objectUrlCache.get(fileUrl)!;
