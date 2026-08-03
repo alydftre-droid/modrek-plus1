@@ -202,7 +202,6 @@ function canRedirectDownload(req: Request, url: URL, isTeacherIntro: boolean): b
   if (!isCdnRedirectEnabled()) return false;
   if (url.searchParams.get("noredirect") === "1") return false;
   if (isTeacherIntro) return false; // replaced in place, must stay revalidated
-  if (req.headers.get("Range")) return false; // let players range against CDN after first hit
   const dest = (req.headers.get("Sec-Fetch-Dest") || "").toLowerCase();
   return dest === "image" || dest === "video" || dest === "audio" || dest === "iframe" || dest === "document" || dest === "object" || dest === "embed";
 }
