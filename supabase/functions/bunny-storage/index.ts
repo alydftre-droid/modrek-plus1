@@ -163,10 +163,17 @@ function normalizePositiveInt(value: string | null, max: number): number | null 
 /*  Bunny CDN redirect (egress offload)                                */
 /* ------------------------------------------------------------------ */
 
-// Master switch. Set BUNNY_CDN_REDIRECT=off to instantly roll back to full
-// byte-proxying through this edge function without a code change.
+// Master switch.
+//  - BUNNY_CDN_REDIRECT=off  -> instant rollback to full byte-proxying.
+//  - BUNNY_CDN_REDIRECT=on   -> force redirects even without a token key.
+//  - unset (default)         -> redirect ONLY when BUNNY_CDN_TOKEN_KEY exists,
+//    so handed-out CDN URLs are always short-lived and signed. This keeps the
+//    existing content-protection guarantees intact.
 function isCdnRedirectEnabled(): boolean {
-  return (Deno.env.get("BUNNY_CDN_REDIRECT") || "on").toLowerCase() !== "off";
+  const flag = (Deno.env.get("BUNNY_CDN_REDIRECT") || "").toLowerCase();
+  if (flag === "off") return false;
+  if (flag === "on") return true;
+  return Boolean(Deno.env.get("BUNNY_CDN_TOKEN_KEY"));
 }
 
 /**
