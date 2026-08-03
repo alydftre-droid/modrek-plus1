@@ -263,14 +263,16 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
         ),
         h4: (props) => <h4 className="text-[15.5px] font-bold text-slate-800 mt-4 mb-1.5" {...props} />,
         p: ({ children, ...props }) => {
-          const raw = String(
-            Array.isArray(children) ? children.filter((c) => typeof c === "string").join("") : children ?? "",
-          );
+          const nodes = Array.isArray(children) ? children : [children];
+          const firstText = typeof nodes[0] === "string" ? (nodes[0] as string).replace(/^\s+/, "") : "";
           for (const [re, label, tone] of QA_LABELS) {
-            if (re.test(raw.trim())) {
+            if (firstText && re.test(firstText)) {
+              // Keep the already-parsed children (bold, KaTeX, links) intact and
+              // only strip the leading emoji marker from the first text node.
+              const rest = [firstText.replace(re, ""), ...nodes.slice(1)];
               return (
                 <QaRow label={label} tone={tone}>
-                  <MarkdownBody compact>{raw.trim().replace(re, "")}</MarkdownBody>
+                  <span className="block">{rest}</span>
                 </QaRow>
               );
             }
@@ -281,6 +283,7 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
             </p>
           );
         },
+
         strong: (props) => (
           <strong
             className="font-extrabold text-primary bg-primary/10 rounded-md px-1 py-[1px] decoration-clone"
