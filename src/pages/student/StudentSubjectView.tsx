@@ -1137,8 +1137,7 @@ const StudentSubjectView = () => {
         toast.error("رابط الملف غير متاح حاليًا");
         return;
       }
-      const resolvedUrl = resolveBunnyStorageUrl(item.file_url);
-      openUrlWithinAppContainer(resolvedUrl);
+      setActiveDocument(item);
     }
   };
 
