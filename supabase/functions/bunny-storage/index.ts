@@ -817,6 +817,26 @@ Deno.serve(async (req) => {
       const cdnUrl = `https://${bunnyConfig.cdnHostname}/${filePath}`;
       const storageUrl = `https://${bunnyConfig.storageHost}/${bunnyConfig.zone}/${filePath}`;
       const isTeacherIntro = filePath.startsWith("content/teacher-intros/") || filePath.startsWith("content/teacher-intro/");
+
+      // Egress offload: after the access check passes, hand browser media
+      // primitives straight to the Bunny CDN with a 302 so the file bytes never
+      // pass through this function. Access control is unchanged (the redirect is
+      // only issued to an authorised caller), and fetch/XHR callers still get
+      // the proxied bytes so nothing that needs CORS changes behaviour.
+      if (canRedirectDownload(req, url, isTeacherIntro)) {
+        const target = await buildCdnUrl(bunnyConfig.cdnHostname, filePath);
+        return new Response(null, {
+          status: 302,
+          headers: {
+            ...corsHeaders,
+            Location: target,
+            "Cache-Control": "private, max-age=1800",
+            "X-Modrek-Function-Version": FUNCTION_VERSION,
+            "X-Modrek-Trace-Id": traceId,
+            "X-Modrek-Delivery": "cdn-redirect",
+          },
+        });
+      }
       let storageRes = await fetch(isTeacherIntro ? storageUrl : cdnUrl, {
         headers: isTeacherIntro ? upstreamHeaders : (rangeHeader ? { Range: rangeHeader } : {}),
       });
