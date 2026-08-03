@@ -14,7 +14,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { hashSnapshot, type IntegritySnapshot } from "./platformHash";
 
-const INTERVAL_MS = 60_000;
+// Resource budget: this loop used to fire every 60s for every signed-in session
+// (1 edge invocation + 3 DB reads per user per minute), which alone accounted for
+// the majority of the project's edge-function traffic. A 15-minute cadence plus a
+// re-check whenever the tab regains focus keeps the same self-healing guarantee
+// while cutting the invocations by ~95%.
+const INTERVAL_MS = 15 * 60_000;
+const MIN_GAP_MS = 60_000;
 
 async function buildClientSnapshot(userId: string): Promise<IntegritySnapshot> {
   // Always read from the database, not from cache, so the "client" hash
