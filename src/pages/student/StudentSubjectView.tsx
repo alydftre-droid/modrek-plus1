@@ -363,6 +363,7 @@ const StudentSubjectView = () => {
   
   // Protected video player state
   const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
+  const [activeDocument, setActiveDocument] = useState<ContentRow | null>(null);
   
   // Sub-subject selection - now uses sub_subjects table
   const [selectedSubSubject, setSelectedSubSubject] = useState<SubSubjectRow | null>(null);
