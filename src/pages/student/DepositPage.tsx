@@ -182,12 +182,15 @@ const DepositPage = () => {
               {!config ? (
                 <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
               ) : availableMethods.length === 0 ? (
-                <div className="text-center py-20 space-y-3">
-                  <div className="w-20 h-20 mx-auto rounded-full bg-amber-100 flex items-center justify-center">
-                    <AlertTriangle className="h-10 w-10 text-amber-600" />
+                <div className="space-y-6">
+                  <div className="text-center py-14 space-y-3">
+                    <div className="w-20 h-20 mx-auto rounded-full bg-amber-100 flex items-center justify-center">
+                      <AlertTriangle className="h-10 w-10 text-amber-600" />
+                    </div>
+                    <p className="font-extrabold text-lg">طرق الدفع متوقفة مؤقتًا</p>
+                    <p className="text-sm text-muted-foreground">يرجى المحاولة لاحقًا أو التواصل مع الدعم</p>
                   </div>
-                  <p className="font-extrabold text-lg">طرق الدفع متوقفة مؤقتًا</p>
-                  <p className="text-sm text-muted-foreground">يرجى المحاولة لاحقًا أو التواصل مع الدعم</p>
+                  <DepositSupportCard />
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -208,6 +211,7 @@ const DepositPage = () => {
                       </button>
                     );
                   })}
+                  <DepositSupportCard />
                 </div>
               )}
             </>
