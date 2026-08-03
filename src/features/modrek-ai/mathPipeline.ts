@@ -129,18 +129,23 @@ export function normalizeScience(text: string): string {
     })
     .join("\n");
 
-  // A math block alone on its line becomes a display equation.
+  // A math span alone on its line becomes a display equation, and every display
+  // equation is emitted in fenced form ("$$\n…\n$$") which remark-math requires
+  // to produce a real block (centred, large) instead of inline math.
   out = out
     .split("\n")
-    .map((line) => {
+    .flatMap((line) => {
       const t = line.trim();
-      if (/^\$[^$][\s\S]*\$$/.test(t) && !t.startsWith("$$") && t.length > 6) {
-        return `$$${t.slice(1, -1)}$$`;
+      const display = /^\$\$([\s\S]*)\$\$$/.exec(t);
+      if (display) return ["$$", display[1].trim(), "$$"];
+      if (/^\$[^$][\s\S]*\$$/.test(t) && t.length > 6) {
+        return ["$$", t.slice(1, -1).trim(), "$$"];
       }
-      return line;
+      return [line];
     })
     .join("\n");
 
   return out;
+
 
 }
