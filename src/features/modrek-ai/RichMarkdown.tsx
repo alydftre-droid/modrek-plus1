@@ -1,6 +1,13 @@
 import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import "katex/dist/katex.min.css";
+import katex from "katex";
+import "katex/contrib/mhchem";
+import { KATEX_MACROS, normalizeScience } from "./mathPipeline";
+import { DiagramBlock, SvgBlock } from "./DiagramBlock";
 import {
   Lightbulb,
   Star,
@@ -16,6 +23,10 @@ import {
   XCircle,
   Table2,
 } from "lucide-react";
+
+// Touch katex so the mhchem side-effect import is never tree-shaken away.
+void katex;
+
 
 /**
  * Modrek AI — "Teacher's Notes" rendering engine.
@@ -221,7 +232,19 @@ const BULLET_LIST = "my-3 space-y-2 pr-6 list-none";
 function MarkdownBody({ children, compact = false }: { children: string; compact?: boolean }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[
+        [
+          rehypeKatex,
+          {
+            throwOnError: false,
+            errorColor: "#DC2626",
+            strict: false,
+            trust: (ctx: any) => ["\\htmlClass", "\\includegraphics"].includes(ctx.command) === false,
+            macros: KATEX_MACROS,
+          },
+        ],
+      ]}
       components={{
         h1: (props) => (
           <h1
@@ -289,7 +312,18 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
           </div>
         ),
         code: ({ className, children, ...props }: any) => {
-          const isBlock = /language-/.test(className || "") || String(children).includes("\n");
+          const raw = String(children ?? "");
+          const lang = /language-([\w-]+)/.exec(className || "")?.[1]?.toLowerCase();
+          if (lang === "mermaid") return <DiagramBlock code={raw} />;
+          if (lang === "svg" || /^\s*<svg[\s>]/i.test(raw)) return <SvgBlock code={raw} />;
+          if (lang === "math" || lang === "latex" || lang === "tex") {
+            return (
+              <div dir="ltr" className="my-5 overflow-x-auto text-center">
+                <MarkdownBody>{`$$${raw.trim()}$$`}</MarkdownBody>
+              </div>
+            );
+          }
+          const isBlock = !!lang || raw.includes("\n");
           return isBlock ? (
             <pre
               dir="ltr"
@@ -303,6 +337,7 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
             </code>
           );
         },
+
         table: (props) => (
           <div className="my-5 -mx-1 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
             <table className="w-full min-w-[22rem] border-collapse text-right text-[14px]" {...props} />
@@ -353,7 +388,7 @@ function NoteCard({ kind, title, content }: { kind: CardKind; title: string; con
 /* ------------------------------------------------------------------ */
 
 export function RichMarkdown({ children }: { children: string }) {
-  const blocks = React.useMemo(() => parseBlocks(children), [children]);
+  const blocks = React.useMemo(() => parseBlocks(normalizeScience(children)), [children]);
 
   return (
     <article
@@ -361,8 +396,16 @@ export function RichMarkdown({ children }: { children: string }) {
       lang="ar"
       className="modrek-notes font-[Cairo,system-ui,sans-serif] text-[15.5px] text-slate-900 break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
                  [&_ul>li]:before:content-['✓'] [&_ul>li]:before:absolute [&_ul>li]:before:right-[-1.25rem]
-                 [&_ul>li]:before:text-primary [&_ul>li]:before:font-extrabold"
+                 [&_ul>li]:before:text-primary [&_ul>li]:before:font-extrabold
+                 [&_.katex]:!font-normal [&_.katex]:text-[1.06em] [&_.katex]:[direction:ltr]
+                 [&_.katex]:[unicode-bidi:isolate] [&_.katex]:inline-block [&_.katex]:align-middle
+                 [&_.katex-display]:!my-5 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden
+                 [&_.katex-display]:rounded-2xl [&_.katex-display]:border [&_.katex-display]:border-primary/15
+                 [&_.katex-display]:bg-primary/[0.04] [&_.katex-display]:px-3 [&_.katex-display]:py-4
+                 [&_.katex-display]:text-[1.22em] [&_.katex-display]:[direction:ltr] [&_.katex-display]:block"
+
     >
+
       {blocks.map((b, i) => {
         if (b.type === "hr") {
           return (
