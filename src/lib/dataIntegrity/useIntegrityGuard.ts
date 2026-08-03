@@ -118,8 +118,3 @@ export function useIntegrityGuard(userId: string | null | undefined) {
     };
   }, [userId, queryClient]);
 }
-
-      window.clearInterval(interval);
-    };
-  }, [userId, queryClient]);
-}
