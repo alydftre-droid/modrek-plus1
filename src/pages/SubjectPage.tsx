@@ -6,8 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
-import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { toast } from "sonner";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
@@ -73,6 +72,7 @@ const SubjectPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasSubscription, setHasSubscription] = useState(false);
   const [purchasedGroupIds, setPurchasedGroupIds] = useState<Set<string>>(new Set());
+  const [activeDocument, setActiveDocument] = useState<ContentRow | null>(null);
 
   const hasAccess = (item: ContentRow) => {
     if (!item.is_paid) return true;
@@ -159,7 +159,11 @@ const SubjectPage = () => {
       toast.error("يجب الاشتراك أولًا لمشاهدة هذا المحتوى");
       return;
     }
-    openUrlWithinAppContainer(resolveBunnyStorageUrl(item.file_url));
+    if (!item.file_url) {
+      toast.error("رابط الملف غير متاح حاليًا");
+      return;
+    }
+    setActiveDocument(item);
   };
 
   const handleSignOut = async () => {
@@ -337,6 +341,15 @@ const SubjectPage = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {activeDocument?.file_url && (
+        <DocumentViewerDialog
+          open
+          fileUrl={activeDocument.file_url}
+          title={activeDocument.title}
+          onClose={() => setActiveDocument(null)}
+        />
+      )}
     </div>
   );
 };

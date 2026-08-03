@@ -4,8 +4,8 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
+import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import { reportRpcError } from "@/lib/rpcErrorReporter";
-import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
@@ -362,6 +362,7 @@ const StudentSubjectView = () => {
   
   // Protected video player state
   const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
+  const [activeDocument, setActiveDocument] = useState<ContentRow | null>(null);
   
   // Sub-subject selection - now uses sub_subjects table
   const [selectedSubSubject, setSelectedSubSubject] = useState<SubSubjectRow | null>(null);
@@ -987,7 +988,7 @@ const StudentSubjectView = () => {
               if (targetRow.type === "video") {
                 setActiveVideo(targetRow);
               } else if (targetRow.file_url) {
-                openUrlWithinAppContainer(resolveBunnyStorageUrl(targetRow.file_url));
+                setActiveDocument(targetRow);
               }
             }, 250);
           }
@@ -1135,8 +1136,7 @@ const StudentSubjectView = () => {
         toast.error("رابط الملف غير متاح حاليًا");
         return;
       }
-      const resolvedUrl = resolveBunnyStorageUrl(item.file_url);
-      openUrlWithinAppContainer(resolvedUrl);
+      setActiveDocument(item);
     }
   };
 
@@ -1813,6 +1813,15 @@ const StudentSubjectView = () => {
           )
         )}
       </AnimatePresence>
+
+      {activeDocument?.file_url && (
+        <DocumentViewerDialog
+          open
+          fileUrl={activeDocument.file_url}
+          title={activeDocument.title}
+          onClose={() => setActiveDocument(null)}
+        />
+      )}
     </div>
   );
 };

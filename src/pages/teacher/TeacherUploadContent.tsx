@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { isBunnyVideo, getBunnyThumbnailUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -302,6 +303,7 @@ const TeacherUploadContent = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [editItem, setEditItem] = useState<ContentItem | null>(null);
   const [previewVideo, setPreviewVideo] = useState<{ url: string; title: string } | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<{ url: string; title: string } | null>(null);
 
   const subjectName = searchParams.get("subjectName") || "";
   const groupIdParam = searchParams.get("groupId") || "";
@@ -947,11 +949,18 @@ const TeacherUploadContent = () => {
                       مشاهدة
                     </Button>
                   ) : (
-                  <Button variant="outline" size="sm" asChild className="gap-1 text-xs h-8 px-2">
-                    <a href={resolveBunnyStorageUrl(item.file_url)} target="_blank" rel="noopener noreferrer">
-                      <Download className="h-3.5 w-3.5" />
-                      تحميل
-                    </a>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-xs h-8 px-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPreviewDocument({ url: item.file_url, title: item.title });
+                    }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    فتح
                   </Button>
                 )}
                 {isAdminMode && (
@@ -1175,6 +1184,15 @@ const TeacherUploadContent = () => {
             </div>
           </div>
         )
+      )}
+
+      {previewDocument && (
+        <DocumentViewerDialog
+          open
+          fileUrl={previewDocument.url}
+          title={previewDocument.title}
+          onClose={() => setPreviewDocument(null)}
+        />
       )}
 
       {/* Developer-only: toggle free preview (long-press) */}
