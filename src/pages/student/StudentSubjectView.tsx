@@ -6,7 +6,6 @@ import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import { reportRpcError } from "@/lib/rpcErrorReporter";
-import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import AssistantLessonStudio from "@/components/student/AssistantLessonStudio";
 import LiveTabContent from "@/components/live/LiveTabContent";
 import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
