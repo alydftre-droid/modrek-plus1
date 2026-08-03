@@ -272,7 +272,11 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
               const rest = [firstText.replace(re, ""), ...nodes.slice(1)];
               return (
                 <QaRow label={label} tone={tone}>
-                  <span className="block">{rest}</span>
+                  <span className="block">
+                    {rest.map((n, i) => (
+                      <React.Fragment key={i}>{n as React.ReactNode}</React.Fragment>
+                    ))}
+                  </span>
                 </QaRow>
               );
             }
