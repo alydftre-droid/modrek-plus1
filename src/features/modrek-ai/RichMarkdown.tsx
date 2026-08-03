@@ -1,125 +1,387 @@
+import * as React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Lightbulb, Star, CheckCircle2, AlertTriangle, BookOpen, Info } from "lucide-react";
+import {
+  Lightbulb,
+  Star,
+  CheckCircle2,
+  AlertTriangle,
+  BookOpen,
+  Info,
+  Sigma,
+  HelpCircle,
+  ListChecks,
+  Target,
+  PenLine,
+  XCircle,
+  Table2,
+} from "lucide-react";
 
 /**
- * Professional textbook-style markdown renderer for Modrek AI messages.
- * - Larger, weightier headings with clear hierarchy
- * - Callout boxes derived from leading emoji cues (💡 ⭐ ✅ 📘 ⚠️ / ملاحظة / تذكر / مثال / تحذير)
- * - Rich list, table, blockquote, and code styling with generous spacing
- * - Full RTL, Cairo-friendly, harmonized with the app's semantic tokens
+ * Modrek AI — "Teacher's Notes" rendering engine.
+ *
+ * Purpose: render the SAME AI answer as a professionally designed PDF-style
+ * study handout (مذكرة) instead of plain chat markdown.
+ *
+ * - Full RTL, Cairo typography scale, generous line-height & block spacing
+ * - Auto-detected educational cards (تعريف / ملحوظة / تحذير / قانون / مثال /
+ *   سؤال / ملخص / أهم النقاط / سؤال مراجعة / معلومة إضافية / خطأ شائع / نصيحة)
+ * - Q&A rows (❓ السؤال / ✔ الإجابة / 📝 الشرح / 🎯 السبب) as labelled rows
+ * - Professional, mobile-responsive tables
+ * - Rich list markers, visual separators, highlighted keywords
  */
 
-type CalloutKind = "tip" | "important" | "success" | "example" | "warning" | "info";
+/* ------------------------------------------------------------------ */
+/* Card definitions                                                    */
+/* ------------------------------------------------------------------ */
 
-const CALLOUT_STYLES: Record<CalloutKind, { bg: string; border: string; text: string; Icon: any; label: string }> = {
-  tip:       { bg: "bg-amber-50",   border: "border-amber-300",  text: "text-amber-900",   Icon: Lightbulb,     label: "معلومة مهمة" },
-  important: { bg: "bg-indigo-50",  border: "border-indigo-300", text: "text-indigo-900",  Icon: Star,          label: "تذكر" },
-  success:   { bg: "bg-emerald-50", border: "border-emerald-300",text: "text-emerald-900", Icon: CheckCircle2,  label: "ملاحظة" },
-  example:   { bg: "bg-sky-50",     border: "border-sky-300",    text: "text-sky-900",     Icon: BookOpen,      label: "مثال" },
-  warning:   { bg: "bg-rose-50",    border: "border-rose-300",   text: "text-rose-900",    Icon: AlertTriangle, label: "تحذير" },
-  info:      { bg: "bg-slate-50",   border: "border-slate-300",  text: "text-slate-800",   Icon: Info,          label: "ملاحظة" },
+type CardKind =
+  | "definition"
+  | "note"
+  | "important"
+  | "warning"
+  | "law"
+  | "example"
+  | "question"
+  | "summary"
+  | "keypoints"
+  | "review"
+  | "extra"
+  | "mistake"
+  | "tip"
+  | "table";
+
+const CARD_STYLES: Record<
+  CardKind,
+  { ring: string; bg: string; head: string; headText: string; Icon: React.ElementType; label: string }
+> = {
+  definition: { ring: "border-sky-200",     bg: "bg-sky-50/70",     head: "bg-sky-100",     headText: "text-sky-900",     Icon: BookOpen,     label: "تعريف" },
+  note:       { ring: "border-emerald-200", bg: "bg-emerald-50/70", head: "bg-emerald-100", headText: "text-emerald-900", Icon: CheckCircle2, label: "ملحوظة" },
+  important:  { ring: "border-indigo-200",  bg: "bg-indigo-50/70",  head: "bg-indigo-100",  headText: "text-indigo-900",  Icon: Star,         label: "معلومة مهمة" },
+  warning:    { ring: "border-rose-200",    bg: "bg-rose-50/70",    head: "bg-rose-100",    headText: "text-rose-900",    Icon: AlertTriangle,label: "احذر" },
+  law:        { ring: "border-violet-200",  bg: "bg-violet-50/70",  head: "bg-violet-100",  headText: "text-violet-900",  Icon: Sigma,        label: "القانون" },
+  example:    { ring: "border-amber-200",   bg: "bg-amber-50/70",   head: "bg-amber-100",   headText: "text-amber-900",   Icon: Lightbulb,    label: "مثال" },
+  question:   { ring: "border-blue-200",    bg: "bg-blue-50/60",    head: "bg-blue-100",    headText: "text-blue-900",    Icon: HelpCircle,   label: "سؤال" },
+  summary:    { ring: "border-teal-200",    bg: "bg-teal-50/70",    head: "bg-teal-100",    headText: "text-teal-900",    Icon: ListChecks,   label: "ملخص سريع" },
+  keypoints:  { ring: "border-fuchsia-200", bg: "bg-fuchsia-50/60", head: "bg-fuchsia-100", headText: "text-fuchsia-900", Icon: Target,       label: "أهم النقاط للحفظ" },
+  review:     { ring: "border-cyan-200",    bg: "bg-cyan-50/70",    head: "bg-cyan-100",    headText: "text-cyan-900",    Icon: PenLine,      label: "سؤال مراجعة" },
+  extra:      { ring: "border-slate-200",   bg: "bg-slate-50",      head: "bg-slate-100",   headText: "text-slate-800",   Icon: Info,         label: "معلومة إضافية" },
+  mistake:    { ring: "border-orange-200",  bg: "bg-orange-50/70",  head: "bg-orange-100",  headText: "text-orange-900",  Icon: XCircle,      label: "خطأ شائع" },
+  tip:        { ring: "border-lime-200",    bg: "bg-lime-50/70",    head: "bg-lime-100",    headText: "text-lime-900",    Icon: Lightbulb,    label: "نصيحة" },
+  table:      { ring: "border-slate-200",   bg: "bg-white",         head: "bg-slate-100",   headText: "text-slate-800",   Icon: Table2,       label: "جدول" },
 };
 
-function detectCallout(text: string): { kind: CalloutKind; body: string } | null {
-  const t = text.trim();
-  const patterns: Array<[RegExp, CalloutKind]> = [
-    [/^(💡|معلومة\s*مهمة[:：]?)/, "tip"],
-    [/^(⭐|تذكر[:：]?)/, "important"],
-    [/^(✅|ملاحظة\s*مهمة[:：]?|ملاحظة[:：])/, "success"],
-    [/^(📘|📖|مثال[:：]?)/, "example"],
-    [/^(⚠️|تحذير[:：]?|انتبه[:：]?)/, "warning"],
-    [/^(ℹ️|info[:：]?)/i, "info"],
-  ];
-  for (const [re, kind] of patterns) {
-    if (re.test(t)) return { kind, body: t.replace(re, "").trim() };
+/** [regex, kind] — matched against a cleaned single line. */
+const CARD_PATTERNS: Array<[RegExp, CardKind]> = [
+  [/^(📘|📖|تعريف|التعريف|المفهوم)\b/u, "definition"],
+  [/^(⚠️|⚠|تحذير|احذر|انتبه|تنبيه)\b/u, "warning"],
+  [/^(📐|📏|قانون|القانون|القاعدة|قاعدة)\b/u, "law"],
+  [/^(❌|خطأ\s*شائع|أخطاء\s*شائعة)\b/u, "mistake"],
+  [/^(✅|ملخص\s*سريع|الملخص|ملخص)\b/u, "summary"],
+  [/^(🎯|أهم\s*النقاط.*|نقاط\s*للحفظ)\b/u, "keypoints"],
+  [/^(📝|سؤال\s*مراجعة|سؤال\s*للمراجعة)\b/u, "review"],
+  [/^(❓|❔|سؤال\s*(?:الأول|الثاني|الثالث|الرابع|الخامس|\d+)?|السؤال\s*.*)$/u, "question"],
+  [/^(💡|معلومة\s*إضافية|هل\s*تعلم)\b/u, "extra"],
+  [/^(⭐|معلومة\s*مهمة|مهم\b|تذكر)\b/u, "important"],
+  [/^(🧠|🧪|مثال\s*(?:محلول)?\s*[\d١٢٣٤٥]*\s*$|مثال\b)/u, "example"],
+  [/^(✔️|✔|ملحوظة|ملاحظة)\b/u, "note"],
+  [/^(🌟|نصيحة|نصائح)\b/u, "tip"],
+];
+
+const SEPARATOR_RE = /^[━─—=*_\-–]{3,}$/u;
+
+/** Strip markdown decorations so a heading line can be pattern-matched. */
+function cleanLine(line: string) {
+  return line
+    .replace(/^\s*>+\s*/, "")
+    .replace(/^\s*#{1,6}\s*/, "")
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/\*\*/g, "")
+    .replace(/__/g, "")
+    .replace(/[:：]\s*$/, "")
+    .replace(/[━─—]{2,}\s*$/u, "")
+    .trim();
+}
+
+function matchCard(line: string): { kind: CardKind; title: string; inlineBody: string } | null {
+  const cleaned = cleanLine(line);
+  if (!cleaned || cleaned.length > 80) return null;
+  for (const [re, kind] of CARD_PATTERNS) {
+    if (re.test(cleaned)) {
+      // Everything after a ":" on the header line becomes the first body line.
+      const raw = line.replace(/^\s*#{1,6}\s*/, "").replace(/^\s*>+\s*/, "").trim();
+      const colon = raw.search(/[:：]/);
+      let inlineBody = "";
+      let title = cleaned;
+      if (colon > -1 && colon < 60) {
+        inlineBody = raw.slice(colon + 1).trim();
+        title = cleanLine(raw.slice(0, colon));
+      }
+      return { kind, title: title.replace(/^[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F]+\s*/u, "").trim(), inlineBody };
+    }
   }
   return null;
 }
 
-function Callout({ kind, children }: { kind: CalloutKind; children: React.ReactNode }) {
-  const s = CALLOUT_STYLES[kind];
-  const { Icon } = s;
+type Block =
+  | { type: "md"; content: string }
+  | { type: "card"; kind: CardKind; title: string; content: string }
+  | { type: "hr" };
+
+function parseBlocks(text: string): Block[] {
+  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  const blocks: Block[] = [];
+  let buffer: string[] = [];
+  let current: { kind: CardKind; title: string; body: string[] } | null = null;
+  let inFence = false;
+
+  const flushBuffer = () => {
+    const content = buffer.join("\n").trim();
+    if (content) blocks.push({ type: "md", content });
+    buffer = [];
+  };
+  const flushCard = () => {
+    if (current) {
+      blocks.push({
+        type: "card",
+        kind: current.kind,
+        title: current.title,
+        content: current.body.join("\n").trim(),
+      });
+      current = null;
+    }
+  };
+
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) inFence = !inFence;
+
+    if (!inFence) {
+      const trimmed = line.trim();
+
+      if (SEPARATOR_RE.test(trimmed)) {
+        if (current) continue; // decorative separator inside a card
+        flushBuffer();
+        blocks.push({ type: "hr" });
+        continue;
+      }
+
+      const card = !/^\s*\|/.test(line) ? matchCard(line) : null;
+      if (card) {
+        flushCard();
+        flushBuffer();
+        current = { kind: card.kind, title: card.title, body: card.inlineBody ? [card.inlineBody] : [] };
+        continue;
+      }
+
+      // A markdown heading (non-card) ends the current card.
+      if (current && /^\s*#{1,3}\s+/.test(line)) {
+        flushCard();
+        buffer.push(line);
+        continue;
+      }
+    }
+
+    if (current) current.body.push(line);
+    else buffer.push(line);
+  }
+
+  flushCard();
+  flushBuffer();
+  return blocks;
+}
+
+/* ------------------------------------------------------------------ */
+/* Q&A labelled rows                                                   */
+/* ------------------------------------------------------------------ */
+
+const QA_LABELS: Array<[RegExp, string, string]> = [
+  [/^(❓|❔)\s*/u, "السؤال", "bg-blue-100 text-blue-900"],
+  [/^(✔️|✔|✅)\s*/u, "الإجابة", "bg-emerald-100 text-emerald-900"],
+  [/^(📝)\s*/u, "الشرح", "bg-amber-100 text-amber-900"],
+  [/^(🎯)\s*/u, "السبب", "bg-fuchsia-100 text-fuchsia-900"],
+  [/^(📌)\s*/u, "المعطيات", "bg-slate-200 text-slate-800"],
+  [/^(🧮|✏️)\s*/u, "الحل", "bg-violet-100 text-violet-900"],
+];
+
+function QaRow({ label, tone, children }: { label: string; tone: string; children: React.ReactNode }) {
   return (
-    <div className={`my-4 rounded-2xl border-2 ${s.border} ${s.bg} ${s.text} p-4 shadow-sm`}>
-      <div className="flex items-center gap-2 mb-2 font-extrabold text-[15px]">
-        <Icon className="h-5 w-5" />
-        <span>{s.label}</span>
-      </div>
-      <div className="text-[15px] leading-8 [&>p]:m-0">{children}</div>
+    <div className="flex items-start gap-2 my-2">
+      <span className={`shrink-0 mt-0.5 rounded-lg px-2 py-0.5 text-[12px] font-extrabold ${tone}`}>{label}</span>
+      <div className="min-w-0 flex-1 text-[15px] leading-8 text-slate-800 [&>p]:m-0">{children}</div>
     </div>
   );
 }
 
-export function RichMarkdown({ children }: { children: string }) {
+/* ------------------------------------------------------------------ */
+/* Base markdown renderer                                              */
+/* ------------------------------------------------------------------ */
+
+const BULLET_LIST = "my-3 space-y-2 pr-6 list-none";
+
+function MarkdownBody({ children, compact = false }: { children: string; compact?: boolean }) {
   return (
-    <div dir="rtl" className="rich-markdown text-[15.5px] leading-8 text-slate-900 space-y-3 break-words">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          h1: ({ node, ...props }) => (
-            <h1 className="text-[24px] font-extrabold text-slate-900 mt-5 mb-3 pb-2 border-b-2 border-primary/30" {...props} />
-          ),
-          h2: ({ node, ...props }) => (
-            <h2 className="text-[20px] font-extrabold text-slate-900 mt-5 mb-2 flex items-center gap-2 before:content-[''] before:w-1.5 before:h-6 before:bg-primary before:rounded-full" {...props} />
-          ),
-          h3: ({ node, ...props }) => (
-            <h3 className="text-[17px] font-bold text-primary mt-4 mb-2" {...props} />
-          ),
-          h4: ({ node, ...props }) => (
-            <h4 className="text-[15px] font-bold text-slate-800 mt-3 mb-1" {...props} />
-          ),
-          p: ({ node, children, ...props }) => {
-            const raw = String(Array.isArray(children) ? children.filter((c) => typeof c === "string").join("") : children || "");
-            const cal = detectCallout(raw);
-            if (cal) {
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: (props) => (
+          <h1
+            className="text-[23px] font-extrabold text-slate-900 mt-2 mb-4 pb-3 border-b-[3px] border-primary/40 tracking-tight"
+            {...props}
+          />
+        ),
+        h2: (props) => (
+          <h2
+            className="text-[19px] font-extrabold text-slate-900 mt-6 mb-3 flex items-center gap-2 before:content-[''] before:w-2 before:h-6 before:rounded-full before:bg-primary"
+            {...props}
+          />
+        ),
+        h3: (props) => (
+          <h3 className="text-[17px] font-bold text-primary mt-5 mb-2 pr-1 border-r-[3px] border-primary/40" {...props} />
+        ),
+        h4: (props) => <h4 className="text-[15.5px] font-bold text-slate-800 mt-4 mb-1.5" {...props} />,
+        p: ({ children, ...props }) => {
+          const raw = String(
+            Array.isArray(children) ? children.filter((c) => typeof c === "string").join("") : children ?? "",
+          );
+          for (const [re, label, tone] of QA_LABELS) {
+            if (re.test(raw.trim())) {
               return (
-                <Callout kind={cal.kind}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{cal.body}</ReactMarkdown>
-                </Callout>
+                <QaRow label={label} tone={tone}>
+                  <MarkdownBody compact>{raw.trim().replace(re, "")}</MarkdownBody>
+                </QaRow>
               );
             }
-            return <p className="text-[15.5px] leading-8 my-2 text-slate-800" {...props}>{children}</p>;
-          },
-          strong: ({ node, ...props }) => (
-            <strong className="font-extrabold text-primary" {...props} />
-          ),
-          em: ({ node, ...props }) => <em className="text-slate-700 not-italic font-semibold" {...props} />,
-          ul: ({ node, ...props }) => (
-            <ul className="my-3 space-y-1.5 pr-5 marker:text-primary list-disc" {...props} />
-          ),
-          ol: ({ node, ...props }) => (
-            <ol className="my-3 space-y-1.5 pr-5 marker:text-primary marker:font-bold list-decimal" {...props} />
-          ),
-          li: ({ node, ...props }) => <li className="leading-8 text-[15.5px]" {...props} />,
-          blockquote: ({ node, ...props }) => (
-            <blockquote className="my-4 border-r-4 border-primary bg-primary/5 rounded-l-xl rounded-r-md px-4 py-3 text-slate-700 italic" {...props} />
-          ),
-          hr: () => <hr className="my-5 border-t-2 border-dashed border-slate-200" />,
-          code: ({ inline, className, children, ...props }: any) =>
-            inline ? (
-              <code className="px-1.5 py-0.5 rounded-md bg-slate-100 text-primary font-mono text-[13.5px]" {...props}>{children}</code>
-            ) : (
-              <pre className="my-3 rounded-xl bg-slate-900 text-slate-100 p-4 overflow-x-auto text-[13.5px] leading-6 font-mono">
-                <code {...props}>{children}</code>
-              </pre>
-            ),
-          table: ({ node, ...props }) => (
-            <div className="my-4 overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-sm text-right border-collapse" {...props} />
+          }
+          return (
+            <p className={`text-[15.5px] text-slate-800 ${compact ? "leading-8 my-0" : "leading-[2.05] my-3"}`} {...props}>
+              {children}
+            </p>
+          );
+        },
+        strong: (props) => (
+          <strong
+            className="font-extrabold text-primary bg-primary/10 rounded-md px-1 py-[1px] decoration-clone"
+            {...props}
+          />
+        ),
+        em: (props) => <em className="not-italic font-bold text-violet-700" {...props} />,
+        ul: (props) => <ul className={BULLET_LIST} {...props} />,
+        ol: (props) => <ol className="my-3 space-y-2 pr-6 list-decimal marker:text-primary marker:font-extrabold" {...props} />,
+        li: ({ children, ...props }) => {
+          const parentIsOrdered = false; // styled bullets for unordered lists
+          return (
+            <li className="relative text-[15.5px] leading-[2] text-slate-800 pr-1" {...props}>
+              {!parentIsOrdered && null}
+              {children}
+            </li>
+          );
+        },
+        blockquote: (props) => (
+          <blockquote
+            className="my-4 rounded-xl border-r-[5px] border-primary bg-primary/[0.06] px-4 py-3 text-[15px] leading-8 text-slate-700"
+            {...props}
+          />
+        ),
+        hr: () => (
+          <div className="my-6 flex items-center gap-2" aria-hidden>
+            <span className="h-[3px] flex-1 rounded-full bg-gradient-to-l from-primary/40 via-slate-200 to-transparent" />
+            <span className="h-1.5 w-1.5 rounded-full bg-primary/50" />
+          </div>
+        ),
+        code: ({ className, children, ...props }: any) => {
+          const isBlock = /language-/.test(className || "") || String(children).includes("\n");
+          return isBlock ? (
+            <pre
+              dir="ltr"
+              className="my-4 rounded-xl bg-slate-900 text-slate-100 p-4 overflow-x-auto text-[13.5px] leading-7 font-mono"
+            >
+              <code {...props}>{children}</code>
+            </pre>
+          ) : (
+            <code className="mx-0.5 rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-[13.5px] text-violet-700" {...props}>
+              {children}
+            </code>
+          );
+        },
+        table: (props) => (
+          <div className="my-5 -mx-1 overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+            <table className="w-full min-w-[22rem] border-collapse text-right text-[14px]" {...props} />
+          </div>
+        ),
+        thead: (props) => <thead className="bg-primary text-primary-foreground" {...props} />,
+        tbody: (props) => <tbody className="divide-y divide-slate-100" {...props} />,
+        tr: (props) => <tr className="even:bg-slate-50/70 align-top" {...props} />,
+        th: (props) => (
+          <th className="whitespace-nowrap px-3 py-2.5 text-[14px] font-extrabold border-b border-white/20" {...props} />
+        ),
+        td: (props) => <td className="px-3 py-2.5 text-[14px] leading-7 text-slate-800 break-words" {...props} />,
+        a: (props) => (
+          <a className="text-primary font-bold underline underline-offset-4" target="_blank" rel="noreferrer" {...props} />
+        ),
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Card shell                                                          */
+/* ------------------------------------------------------------------ */
+
+function NoteCard({ kind, title, content }: { kind: CardKind; title: string; content: string }) {
+  const s = CARD_STYLES[kind];
+  const { Icon } = s;
+  const heading = title && title.length > 1 ? title : s.label;
+  return (
+    <section className={`my-4 overflow-hidden rounded-2xl border-2 ${s.ring} ${s.bg} shadow-[0_1px_2px_rgba(15,23,42,0.04)]`}>
+      <header className={`flex items-center gap-2 ${s.head} ${s.headText} px-4 py-2.5`}>
+        <Icon className="h-[18px] w-[18px] shrink-0" />
+        <h4 className="text-[15px] font-extrabold leading-6">{heading}</h4>
+      </header>
+      {content && (
+        <div className="px-4 py-3 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+          <MarkdownBody>{content}</MarkdownBody>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Public component                                                    */
+/* ------------------------------------------------------------------ */
+
+export function RichMarkdown({ children }: { children: string }) {
+  const blocks = React.useMemo(() => parseBlocks(children), [children]);
+
+  return (
+    <article
+      dir="rtl"
+      lang="ar"
+      className="modrek-notes font-[Cairo,system-ui,sans-serif] text-[15.5px] text-slate-900 break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0
+                 [&_ul>li]:before:content-['✓'] [&_ul>li]:before:absolute [&_ul>li]:before:right-[-1.25rem]
+                 [&_ul>li]:before:text-primary [&_ul>li]:before:font-extrabold"
+    >
+      {blocks.map((b, i) => {
+        if (b.type === "hr") {
+          return (
+            <div key={i} className="my-5 flex items-center gap-2" aria-hidden>
+              <span className="h-[3px] flex-1 rounded-full bg-gradient-to-l from-primary/40 via-slate-200 to-transparent" />
+              <span className="h-1.5 w-1.5 rounded-full bg-primary/50" />
             </div>
-          ),
-          thead: ({ node, ...props }) => <thead className="bg-primary/10 text-slate-900" {...props} />,
-          th: ({ node, ...props }) => <th className="px-3 py-2 font-bold border-b border-slate-200 text-[14px]" {...props} />,
-          td: ({ node, ...props }) => <td className="px-3 py-2 border-b border-slate-100 text-[14px] text-slate-800" {...props} />,
-          a: ({ node, ...props }) => (
-            <a className="text-primary underline underline-offset-2 hover:text-primary/80" target="_blank" rel="noreferrer" {...props} />
-          ),
-        }}
-      >
-        {children}
-      </ReactMarkdown>
-    </div>
+          );
+        }
+        if (b.type === "card") {
+          return <NoteCard key={i} kind={b.kind} title={b.title} content={b.content} />;
+        }
+        return (
+          <div key={i} className="[&>*:first-child]:mt-0">
+            <MarkdownBody>{b.content}</MarkdownBody>
+          </div>
+        );
+      })}
+    </article>
   );
 }
 
