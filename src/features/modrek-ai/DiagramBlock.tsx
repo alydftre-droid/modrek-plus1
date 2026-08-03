@@ -10,7 +10,7 @@ let mermaidPromise: Promise<any> | null = null;
 async function getMermaid() {
   if (!mermaidPromise) {
     mermaidPromise = import("mermaid").then((mod) => {
-      const mermaid = mod.default ?? mod;
+      const mermaid: any = (mod as any).default ?? mod;
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: "strict",
