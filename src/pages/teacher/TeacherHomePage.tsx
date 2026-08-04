@@ -57,6 +57,9 @@ export default function TeacherHomePage() {
     teacherId: user?.id,
     onDeleted: () => queryClient.invalidateQueries({ queryKey: ["teacher-assignments", user?.id] }),
   });
+  const devScopeAllowed = isDeveloperTeacherMode();
+  const [scopeOpen, setScopeOpen] = useState(false);
+
 
   if (loading) {
     return (
