@@ -228,6 +228,7 @@ const menuItems = [
   { id: "students", label: "إدارة الطلاب", icon: Users },
   { id: "student-settings", label: "إعدادات الطالب", icon: MonitorPlay, route: "/admin/ads" },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
+  { id: "student-wallets", label: "محفظة الطلاب", icon: Wallet, route: "/admin/student-wallets" },
   { id: "teacher-affairs", label: "شؤون المعلمين", icon: UserCog },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
   { id: "subscriptions", label: "الاشتراكات", icon: CreditCard, route: "/admin/subscriptions" },
