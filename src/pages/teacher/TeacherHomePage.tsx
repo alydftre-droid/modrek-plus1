@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import TeacherScopeDialog from "@/components/admin/developer/teacher/TeacherScopeDialog";
 import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
 import { groupTeacherAssignments } from "@/lib/teacherAssignments";
+import { useCatalogFilteredAssignments } from "@/hooks/useSubjectCatalog";
 import { getSubjectVisual } from "@/lib/teacherSubjectVisuals";
 import { SubjectArtwork } from "@/components/teacher/SubjectArtwork";
 import { getGradeArtwork } from "@/lib/teacherGradeArtwork";
@@ -50,7 +51,8 @@ export default function TeacherHomePage() {
   const memberSince = formatArabicDate(user?.created_at);
   const loading = profileLoading || assignLoading;
 
-  const grouped = useMemo(() => groupTeacherAssignments(assignments), [assignments]);
+  const { assignments: catalogAssignments } = useCatalogFilteredAssignments(assignments);
+  const grouped = useMemo(() => groupTeacherAssignments(catalogAssignments), [catalogAssignments]);
   const queryClient = useQueryClient();
   const devGrade = useDevGradeDelete({
     assignments: assignments as any,

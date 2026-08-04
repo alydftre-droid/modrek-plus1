@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { gradeDisplayFromAny, stageKeyFromValue, teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 import { groupTeacherAssignments, getNormalizedTeacherAssignmentGradeKey } from "@/lib/teacherAssignments";
+import { useCatalogFilteredAssignments } from "@/hooks/useSubjectCatalog";
 import { GradeDeleteError, isDeveloperTeacherMode, removeTeacherGradeAssignments, type GradeDeleteDiagnostic } from "@/lib/devTeacherGrades";
 import { DSDialog } from "@/design-system/components/Dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -73,7 +74,8 @@ export default function TeacherSubjectsPage() {
     setLoading(false);
   };
 
-  const grouped = groupTeacherAssignments(assignments);
+  const { assignments: catalogAssignments, isLoading: catalogLoading } = useCatalogFilteredAssignments(assignments);
+  const grouped = groupTeacherAssignments(catalogAssignments);
 
   const buildTarget = (group: (typeof grouped)[number], grade: string): GradeTarget => {
     const gradeKey = getNormalizedTeacherAssignmentGradeKey(grade);
@@ -144,7 +146,7 @@ export default function TeacherSubjectsPage() {
     }
   };
 
-  if (loading) {
+  if (loading || catalogLoading) {
     return (
       <TeacherSidebarLayout title="المواد الدراسية" teacherName={teacherName}>
         <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
