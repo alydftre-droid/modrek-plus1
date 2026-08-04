@@ -87,7 +87,7 @@ export default function AppDownloadSection({ variant = "landing" }: Props) {
                 <img src={mudrikLogo} alt="تطبيق مدرك بلس" width={40} height={40} loading="lazy" className="h-10 w-10 object-contain" />
               </div>
               <div className="min-w-0">
-                <h2 className="text-base font-bold text-foreground">📲 تطبيق مدرك بلس للأندرويد</h2>
+                <h2 className="text-base font-bold text-foreground">تطبيق مدرك بلس للأندرويد</h2>
                 <p className="text-xs text-muted-foreground">تجربة تعلم أسرع وأسهل من هاتفك</p>
               </div>
             </div>
@@ -141,7 +141,7 @@ export default function AppDownloadSection({ variant = "landing" }: Props) {
                 <img src={mudrikLogo} alt="شعار تطبيق مدرك بلس" width={40} height={40} loading="lazy" className="h-10 w-10 object-contain" />
               </div>
               <h2 className="text-2xl font-extrabold text-foreground sm:text-3xl">
-                📱 احصل على تطبيق <span className="text-primary">مدرك بلس</span>
+                احصل على تطبيق <span className="text-primary">مدرك بلس</span>
               </h2>
             </div>
 
