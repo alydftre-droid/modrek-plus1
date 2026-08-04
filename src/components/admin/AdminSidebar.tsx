@@ -18,6 +18,7 @@ const menuItems = [
   { id: "students", label: "الطلاب", icon: Users },
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
+  { id: "student-wallets", label: "محفظة الطلاب", icon: Wallet, route: "/admin/student-wallets" },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },

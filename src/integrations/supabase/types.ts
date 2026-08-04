@@ -6205,6 +6205,7 @@ export type Database = {
       admin_financial_overview: { Args: never; Returns: Json }
       admin_get_financial_close: { Args: { _id: string }; Returns: Json }
       admin_get_overview_snapshot: { Args: { _id: string }; Returns: Json }
+      admin_get_student_deposit: { Args: { _id: string }; Returns: Json }
       admin_get_teacher_management: { Args: never; Returns: Json }
       admin_get_withdrawal_dashboard: { Args: never; Returns: Json }
       admin_list_audit_logs: {
@@ -6217,6 +6218,21 @@ export type Database = {
         Returns: Json
       }
       admin_list_overview_snapshots: { Args: never; Returns: Json }
+      admin_list_student_deposits: {
+        Args: {
+          _from?: string
+          _grade?: string
+          _limit?: number
+          _max_amount?: number
+          _method?: string
+          _min_amount?: number
+          _offset?: number
+          _search?: string
+          _status?: string
+          _to?: string
+        }
+        Returns: Json
+      }
       admin_list_teacher_wallets: {
         Args: { _limit?: number; _offset?: number; _search?: string }
         Returns: Json
@@ -6301,6 +6317,7 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_student_deposit_stats: { Args: never; Returns: Json }
       admin_switch_system_terms: {
         Args: { _target_term: string; _term_ids: string[] }
         Returns: Json
