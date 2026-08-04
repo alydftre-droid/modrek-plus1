@@ -6322,6 +6322,17 @@ export type Database = {
         Args: { _target_term: string; _term_ids: string[] }
         Returns: Json
       }
+      admin_sync_teacher_teaching_scope: {
+        Args: {
+          _categories: string[]
+          _education_type?: string
+          _grades: string[]
+          _stages: string[]
+          _teacher_id: string
+          _teaches_integrated_science?: boolean
+        }
+        Returns: Json
+      }
       admin_teacher_monthly_statement: {
         Args: { _period_label: string; _teacher_id: string }
         Returns: Json
@@ -6340,6 +6351,10 @@ export type Database = {
         Returns: number
       }
       apply_pending_commissions: { Args: never; Returns: Json }
+      apply_teacher_request_assignments: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       archive_all_teachers_period: { Args: never; Returns: Json }
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
       audit_test_student_visibility: {
