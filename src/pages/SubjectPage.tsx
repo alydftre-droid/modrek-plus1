@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
+import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
+import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
+import { isBunnyVideo } from "@/lib/bunnyStream";
 import { getPostSignOutPath } from "@/lib/devImpersonation";
 import { toast } from "sonner";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
@@ -73,6 +76,7 @@ const SubjectPage = () => {
   const [hasSubscription, setHasSubscription] = useState(false);
   const [purchasedGroupIds, setPurchasedGroupIds] = useState<Set<string>>(new Set());
   const [activeDocument, setActiveDocument] = useState<ContentRow | null>(null);
+  const [activeVideo, setActiveVideo] = useState<ContentRow | null>(null);
 
   const hasAccess = (item: ContentRow) => {
     if (!item.is_paid) return true;
@@ -161,6 +165,10 @@ const SubjectPage = () => {
     }
     if (!item.file_url) {
       toast.error("رابط الملف غير متاح حاليًا");
+      return;
+    }
+    if (item.type === "video") {
+      setActiveVideo(item);
       return;
     }
     setActiveDocument(item);
@@ -341,6 +349,24 @@ const SubjectPage = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {activeVideo?.file_url && (
+        isBunnyVideo(activeVideo.file_url) ? (
+          <BunnyStreamPlayer
+            url={activeVideo.file_url}
+            title={activeVideo.title}
+            contentId={activeVideo.id}
+            onClose={() => setActiveVideo(null)}
+          />
+        ) : (
+          <ProtectedVideoPlayer
+            contentId={activeVideo.id}
+            url={activeVideo.file_url}
+            title={activeVideo.title}
+            onClose={() => setActiveVideo(null)}
+          />
+        )
+      )}
 
       {activeDocument?.file_url && (
         <DocumentViewerDialog
