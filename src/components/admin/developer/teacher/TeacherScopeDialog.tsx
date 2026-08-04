@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
 import TeacherRegistrationForm, { TeacherFormData } from "@/components/auth/TeacherRegistrationForm";
+import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
+import { getFreshOriginalDeveloperAccessToken } from "@/lib/devImpersonation";
 
 interface Props {
   teacherId: string;
