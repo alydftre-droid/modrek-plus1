@@ -69,7 +69,29 @@ export default function TeacherHomePage() {
   return (
     <TeacherSidebarLayout title="" teacherName={teacherName} hideHeaderTitle teacherAvatar={teacherAvatar}>
       <div className="mx-auto max-w-4xl space-y-6 px-4 pb-28 pt-4 md:px-6 md:pt-6">
+        {/* Developer-only (impersonation mode): manage this teacher's subjects & grades */}
+        {devScopeAllowed && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setScopeOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+            >
+              <BookOpen className="h-3.5 w-3.5" /> إدارة المواد والصفوف
+            </button>
+          </div>
+        )}
+        {devScopeAllowed && user?.id && (
+          <TeacherScopeDialog
+            teacherId={user.id}
+            teacherName={teacherName}
+            open={scopeOpen}
+            onOpenChange={setScopeOpen}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ["teacher-assignments", user.id] })}
+          />
+        )}
         {/* ============ Teacher Identity Card — Modrek Plus brand ============ */}
+
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45 }}>
           <div
             className="relative overflow-hidden rounded-[24px] border border-white/10"
