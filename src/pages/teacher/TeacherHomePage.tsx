@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTeacherProfile, useTeacherAssignments, useUnreadNotifications } from "@/hooks/useTeacherData";
 import TeacherSidebarLayout from "@/components/teacher/TeacherSidebarLayout";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, GraduationCap, ChevronLeft } from "lucide-react";
+import { Loader2, GraduationCap, ChevronLeft, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { gradeDisplayFromAny, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { useMemo } from "react";
