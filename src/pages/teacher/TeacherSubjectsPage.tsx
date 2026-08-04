@@ -74,7 +74,8 @@ export default function TeacherSubjectsPage() {
     setLoading(false);
   };
 
-  const grouped = groupTeacherAssignments(assignments);
+  const { assignments: catalogAssignments, isLoading: catalogLoading } = useCatalogFilteredAssignments(assignments);
+  const grouped = groupTeacherAssignments(catalogAssignments);
 
   const buildTarget = (group: (typeof grouped)[number], grade: string): GradeTarget => {
     const gradeKey = getNormalizedTeacherAssignmentGradeKey(grade);
