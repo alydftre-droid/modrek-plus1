@@ -140,7 +140,8 @@ def main():
     })
 
     print("==> Resetting Token Authentication key")
-    new_key = secrets.token_urlsafe(32)
+    # Bunny.net requires SecurityKey between 8 and 36 characters.
+    new_key = secrets.token_urlsafe(24)[:32]
     reset_security_key(pull_zone_id, new_key)
 
     print("==> Verifying pull zone settings")
