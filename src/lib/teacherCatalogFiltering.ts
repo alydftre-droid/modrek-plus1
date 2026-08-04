@@ -13,6 +13,10 @@ export type SubjectCatalogIndex = {
   byCategory: Set<string>;
   /** `${category}|${stage}|${gradeKey}|${name}` */
   byName: Set<string>;
+  /** all subject names known per category (across stages/grades) */
+  namesByCategory: Map<string, Set<string>>;
+  /** distinct subject names count per `${category}|${stage}|${gradeKey}` cell */
+  namesPerCell: Map<string, Set<string>>;
   isEmpty: boolean;
 };
 
@@ -23,18 +27,27 @@ function gradeKey(value: string) {
 export function buildSubjectCatalogIndex(rows: SubjectCatalogRow[] | null | undefined): SubjectCatalogIndex {
   const byCategory = new Set<string>();
   const byName = new Set<string>();
+  const namesByCategory = new Map<string, Set<string>>();
+  const namesPerCell = new Map<string, Set<string>>();
 
   (rows || []).forEach((row) => {
     const category = (row.category || "").trim();
     const stage = (row.stage || "").trim();
     const g = gradeKey(row.grade || "");
     if (!category || !stage || !g) return;
-    byCategory.add(`${category}|${stage}|${g}`);
+    const cell = `${category}|${stage}|${g}`;
+    byCategory.add(cell);
     const name = (row.name || "").trim();
-    if (name) byName.add(`${category}|${stage}|${g}|${name}`);
+    if (name) {
+      byName.add(`${cell}|${name}`);
+      if (!namesByCategory.has(category)) namesByCategory.set(category, new Set());
+      namesByCategory.get(category)!.add(name);
+      if (!namesPerCell.has(cell)) namesPerCell.set(cell, new Set());
+      namesPerCell.get(cell)!.add(name);
+    }
   });
 
-  return { byCategory, byName, isEmpty: byCategory.size === 0 };
+  return { byCategory, byName, namesByCategory, namesPerCell, isEmpty: byCategory.size === 0 };
 }
 
 /**
@@ -55,12 +68,26 @@ export function assignmentExistsInCatalog(
   const g = gradeKey(assignment.grade);
   if (!stage || !g) return true;
 
+  const cell = `${filter.categoryKey}|${stage}|${g}`;
+
   if (filter.subjectName) {
-    return index.byName.has(`${filter.categoryKey}|${stage}|${g}|${filter.subjectName}`);
+    if (index.byName.has(`${cell}|${filter.subjectName}`)) return true;
+
+    // The subject itself is not part of the catalog anywhere (e.g. الجيولوجيا).
+    // Do not hide the teacher's work: allow it only inside cells where the
+    // category is split into specialised subjects (secondary science, etc.),
+    // never inside cells that hold a single generic subject (prep العلوم).
+    const knownNames = index.namesByCategory.get(filter.categoryKey);
+    const nameIsUnknown = !knownNames || !knownNames.has(filter.subjectName);
+    if (nameIsUnknown) {
+      return (index.namesPerCell.get(cell)?.size ?? 0) > 1;
+    }
+    return false;
   }
 
-  return index.byCategory.has(`${filter.categoryKey}|${stage}|${g}`);
+  return index.byCategory.has(cell);
 }
+
 
 export function filterAssignmentsByCatalog<T extends TeacherAssignmentLike>(
   assignments: T[],
