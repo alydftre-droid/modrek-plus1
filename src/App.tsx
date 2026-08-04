@@ -142,6 +142,8 @@ const ModrekLibraryPage = lazy(() => import("@/pages/admin/ModrekLibraryPage"));
 const ModrekSourceDetailPage = lazy(() => import("@/pages/admin/ModrekSourceDetailPage"));
 const ModrekAnalyticsPage = lazy(() => import("@/pages/admin/ModrekAnalyticsPage"));
 const AdminLibraryPage = lazy(() => import("@/pages/admin/AdminLibraryPage"));
+const StudentWalletPage = lazy(() => import("@/pages/admin/StudentWalletPage"));
+const StudentDepositDetailPage = lazy(() => import("@/pages/admin/StudentDepositDetailPage"));
 const AdDetailPage = lazy(() => import("@/pages/student/AdDetailPage"));
 const ModrekAiHome = lazy(() => import("@/pages/student/ModrekAiHome"));
 const ModrekAiStudyPage = lazy(() => import("@/pages/student/ModrekAiStudyPage"));
