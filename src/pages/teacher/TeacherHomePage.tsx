@@ -50,7 +50,8 @@ export default function TeacherHomePage() {
   const memberSince = formatArabicDate(user?.created_at);
   const loading = profileLoading || assignLoading;
 
-  const grouped = useMemo(() => groupTeacherAssignments(assignments), [assignments]);
+  const { assignments: catalogAssignments } = useCatalogFilteredAssignments(assignments);
+  const grouped = useMemo(() => groupTeacherAssignments(catalogAssignments), [catalogAssignments]);
   const queryClient = useQueryClient();
   const devGrade = useDevGradeDelete({
     assignments: assignments as any,
