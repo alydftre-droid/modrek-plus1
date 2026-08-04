@@ -1,5 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import StudentLayout from "@/components/student/StudentLayout";
+import AppDownloadSection from "@/components/AppDownloadSection";
+import { useAuth } from "@/hooks/useAuth";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
   BookOpen,
@@ -17,6 +19,7 @@ import {
 } from "lucide-react";
 
 const StudentAboutPage = () => {
+  const { role } = useAuth();
   const values = [
     {
       icon: Target,
@@ -187,6 +190,8 @@ const StudentAboutPage = () => {
             ))}
           </div>
         </section>
+
+        {role === "student" && <AppDownloadSection variant="student" />}
 
         {/* Developer */}
         <section className="px-4 pb-10">
