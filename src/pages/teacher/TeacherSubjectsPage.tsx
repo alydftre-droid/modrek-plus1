@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { gradeDisplayFromAny, stageKeyFromValue, teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
 import { groupTeacherAssignments, getNormalizedTeacherAssignmentGradeKey } from "@/lib/teacherAssignments";
+import { useCatalogFilteredAssignments } from "@/hooks/useSubjectCatalog";
 import { GradeDeleteError, isDeveloperTeacherMode, removeTeacherGradeAssignments, type GradeDeleteDiagnostic } from "@/lib/devTeacherGrades";
 import { DSDialog } from "@/design-system/components/Dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
