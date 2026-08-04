@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import TeacherScopeDialog from "@/components/admin/developer/teacher/TeacherScopeDialog";
 import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
 import { groupTeacherAssignments } from "@/lib/teacherAssignments";
+import { useCatalogFilteredAssignments } from "@/hooks/useSubjectCatalog";
 import { getSubjectVisual } from "@/lib/teacherSubjectVisuals";
 import { SubjectArtwork } from "@/components/teacher/SubjectArtwork";
 import { getGradeArtwork } from "@/lib/teacherGradeArtwork";
