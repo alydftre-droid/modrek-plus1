@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, Ban, Calendar, GraduationCap, Mail, Pencil, Phone, ShieldCheck } from "lucide-react";
+import { ArrowRight, Ban, BookOpen, Calendar, GraduationCap, Mail, Pencil, Phone, ShieldCheck } from "lucide-react";
 import { TeacherOverviewTab } from "@/components/admin/developer/teacher/TeacherOverviewTab";
 import { TeacherLogsTab } from "@/components/admin/developer/teacher/TeacherLogsTab";
 import { TeacherCoursesTab } from "@/components/admin/developer/teacher/TeacherCoursesTab";
@@ -11,6 +11,7 @@ import { TeacherWithdrawalsTab } from "@/components/admin/developer/teacher/Teac
 import { TeacherSecurityTab } from "@/components/admin/developer/teacher/TeacherSecurityTab";
 import { TeacherEditProfileDialog } from "@/components/admin/developer/teacher/TeacherEditProfileDialog";
 import { TeacherBanDialog } from "@/components/admin/developer/teacher/TeacherBanDialog";
+import { TeacherScopeDialog } from "@/components/admin/developer/teacher/TeacherScopeDialog";
 
 const TABS = [
   { key: "overview",    label: "نظرة عامة" },
@@ -52,6 +53,7 @@ export default function DeveloperTeacherDetailPage() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [banOpen, setBanOpen] = useState(false);
+  const [scopeOpen, setScopeOpen] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!teacherId) return;
@@ -78,9 +80,18 @@ export default function DeveloperTeacherDetailPage() {
   return (
     <div dir="rtl" className="tm-root min-h-screen">
       <div className="tm-container py-4 space-y-5">
-        <button type="button" onClick={() => navigate(-1)} className="tm-back-btn">
-          <ArrowRight className="h-4 w-4 rotate-180" /> رجوع
-        </button>
+        <div className="flex items-center justify-between gap-2">
+          <button type="button" onClick={() => navigate(-1)} className="tm-back-btn">
+            <ArrowRight className="h-4 w-4 rotate-180" /> رجوع
+          </button>
+          <button
+            type="button"
+            onClick={() => setScopeOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition hover:bg-primary/20"
+          >
+            <BookOpen className="h-3.5 w-3.5" /> إدارة المواد والصفوف
+          </button>
+        </div>
 
         <div className="tm-profile-shell">
           <div className="tm-profile-banner" />
@@ -160,6 +171,13 @@ export default function DeveloperTeacherDetailPage() {
           open={editOpen}
           onOpenChange={setEditOpen}
           onUpdated={loadProfile}
+        />
+        <TeacherScopeDialog
+          teacherId={teacherId}
+          teacherName={profile?.full_name}
+          open={scopeOpen}
+          onOpenChange={setScopeOpen}
+          onSaved={loadProfile}
         />
         <TeacherBanDialog
           teacherId={teacherId}

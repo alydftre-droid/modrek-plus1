@@ -66,12 +66,14 @@ interface Props {
   formData: TeacherFormData;
   onChange: (data: Partial<TeacherFormData>) => void;
   errors: Record<string, string>;
+  /** Hide school / employee id / phone fields (used by the developer scope editor) */
+  hidePersonalFields?: boolean;
 }
 
 const SCIENCE_SUBJECTS_FOR_INTEGRATED = ["أحياء", "فيزياء", "كيمياء"];
 const FIRST_SECONDARY_GRADE = "الصف الأول الثانوي";
 
-const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
+const TeacherRegistrationForm = ({ formData, onChange, errors, hidePersonalFields = false }: Props) => {
   // Combine grades from all selected stages
   const availableGrades: string[] = [];
   if (formData.stages.includes("preparatory")) {
@@ -149,6 +151,7 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
   return (
     <div className="space-y-5">
       {/* جهة العمل */}
+      {!hidePersonalFields && (
       <div>
         <Label>جهة العمل / المدرسة</Label>
         <div className="relative">
@@ -161,8 +164,10 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         </div>
         {errors.school && <p className="text-sm text-red-500">{errors.school}</p>}
       </div>
+      )}
 
       {/* الرقم الوظيفي */}
+      {!hidePersonalFields && (
       <div>
         <Label>الرقم الوظيفي</Label>
         <div className="relative">
@@ -175,8 +180,10 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         </div>
         {errors.employeeId && <p className="text-sm text-red-500">{errors.employeeId}</p>}
       </div>
+      )}
 
       {/* رقم الهاتف */}
+      {!hidePersonalFields && (
       <div>
         <Label>رقم الهاتف</Label>
         <div className="relative">
@@ -189,6 +196,7 @@ const TeacherRegistrationForm = ({ formData, onChange, errors }: Props) => {
         </div>
         {errors.phone && <p className="text-sm text-red-500">{errors.phone}</p>}
       </div>
+      )}
 
       {/* المرحلة - Checkboxes for multiple selection */}
       <div>
