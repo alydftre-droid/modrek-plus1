@@ -67,7 +67,9 @@ export function subjectFilterFromTeacherSelection(selectionOrKey: string): Teach
   // Restricting by name="الدراسات" or name="العلوم" would hide every real subject.
   if (raw === "المواد العربية") return { categoryKey: "arabic" };
   if (raw === "المواد الشرعية") return { categoryKey: "sharia" };
-  if (raw === "علوم" || raw === "العلوم") return { categoryKey: "science" };
+  // "علوم" is the generic preparatory science subject; secondary science is split
+  // into الفيزياء/الكيمياء/الأحياء, so keep it bound to the generic subject name.
+  if (raw === "علوم" || raw === "العلوم") return { categoryKey: "science", subjectName: "العلوم" };
   if (raw === "دراسات" || raw === "الدراسات") return { categoryKey: "studies" };
   if (raw === "العلوم المتكاملة") return { categoryKey: "integrated_science" };
 
