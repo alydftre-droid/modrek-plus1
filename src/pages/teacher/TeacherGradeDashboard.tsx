@@ -72,11 +72,15 @@ export default function TeacherGradeDashboard() {
       return;
     }
 
-    const { data: subjects } = await supabase
+    let subjectsQuery = supabase
       .from("subjects").select("id")
       .eq("category", subjectFilter.categoryKey)
       .eq("grade", gradeKey)
       .eq("stage", stageKey);
+    if (subjectFilter.subjectName) {
+      subjectsQuery = subjectsQuery.eq("name", subjectFilter.subjectName);
+    }
+    const { data: subjects } = await subjectsQuery;
     const subjectIds = subjects?.map(s => s.id) || [];
 
     // Match TeacherStudentManagement "all" tab: filter by teacher + grade only

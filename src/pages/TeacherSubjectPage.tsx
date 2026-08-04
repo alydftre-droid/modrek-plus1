@@ -111,7 +111,13 @@ const TeacherSubjectPage = () => {
 
   const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
   const filter = useMemo(() => subjectFilterFromTeacherSelection(selection), [selection]);
-  const categoryInfo = CATEGORY_INFO[filter?.categoryKey || ""] || { name: headerTitle || "المواد", icon: BookText, gradient: "linear-gradient(135deg, #64748b, #475569)", shadow: "0 12px 30px -8px rgba(71, 85, 105, 0.55)" };
+  const baseCategoryInfo = CATEGORY_INFO[filter?.categoryKey || ""] || { name: headerTitle || "المواد", icon: BookText, gradient: "linear-gradient(135deg, #64748b, #475569)", shadow: "0 12px 30px -8px rgba(71, 85, 105, 0.55)" };
+  const categoryInfo = {
+    ...baseCategoryInfo,
+    // Keep specialised secondary subjects (geology, biology, physics, etc.)
+    // labelled by their real subject instead of their broad DB category.
+    name: filter?.subjectName || baseCategoryInfo.name,
+  };
   const CategoryIcon = categoryInfo.icon;
 
   // Fetch subjects and groups

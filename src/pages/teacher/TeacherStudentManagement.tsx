@@ -113,12 +113,16 @@ export default function TeacherStudentManagement() {
     setStudents(unique);
 
     // Subscribed students
-    const { data: subjects } = await supabase
+    let subjectsQuery = supabase
       .from("subjects")
       .select("id")
       .eq("category", categoryKey)
       .eq("grade", gradeKey)
       .eq("stage", stageKey);
+    if (subjectFilter?.subjectName) {
+      subjectsQuery = subjectsQuery.eq("name", subjectFilter.subjectName);
+    }
+    const { data: subjects } = await subjectsQuery;
     const subjectIds = subjects?.map(s => s.id) || [];
 
     if (subjectIds.length > 0) {
@@ -165,9 +169,13 @@ export default function TeacherStudentManagement() {
     const subjectFilter = subjectFilterFromTeacherSelection(category);
     const categoryKey = subjectFilter?.categoryKey || category;
 
-    const { data: subjects } = await supabase
+    let subjectsQuery = supabase
       .from("subjects").select("id")
       .eq("category", categoryKey).eq("grade", gradeKey).eq("stage", stageKey);
+    if (subjectFilter?.subjectName) {
+      subjectsQuery = subjectsQuery.eq("name", subjectFilter.subjectName);
+    }
+    const { data: subjects } = await subjectsQuery;
     const subjectIds = subjects?.map(s => s.id) || [];
 
     let purchases: any[] = [];
