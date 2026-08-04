@@ -146,7 +146,7 @@ export default function TeacherSubjectsPage() {
     }
   };
 
-  if (loading) {
+  if (loading || catalogLoading) {
     return (
       <TeacherSidebarLayout title="المواد الدراسية" teacherName={teacherName}>
         <div className="flex items-center justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
