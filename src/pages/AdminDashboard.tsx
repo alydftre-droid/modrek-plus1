@@ -247,6 +247,7 @@ const menuAccent: Record<string, string> = {
   students: "#059669",
   "student-settings": "#0EA5E9",
   deposits: "#EA580C",
+  "student-wallets": "#0D9488",
   "teacher-affairs": "#7C3AED",
   "teacher-withdrawals": "#059669",
   subscriptions: "#2563EB",
