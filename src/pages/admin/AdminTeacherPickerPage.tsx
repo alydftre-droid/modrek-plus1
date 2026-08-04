@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { TeacherScopeDialog } from "@/components/admin/developer/teacher/TeacherScopeDialog";
 import { ChevronLeft, Loader2, User, Upload, BookOpen, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -91,6 +92,7 @@ export default function AdminTeacherPickerPage() {
   const [params] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [teachers, setTeachers] = useState<TeacherRow[]>([]);
+  const [scopeTeacher, setScopeTeacher] = useState<{ id: string; name: string } | null>(null);
   const [enteringId, setEnteringId] = useState<string | null>(null);
 
   const stage = params.get("stage") || "";
@@ -232,15 +234,19 @@ export default function AdminTeacherPickerPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {teachers.map((t, i) => (
-              <motion.button
+              <motion.div
                 key={t.teacher_id}
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.04 }}
-                onClick={() => handleEnter(t)}
-                disabled={enteringId !== null}
-                className="flex items-center gap-3 p-4 rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all text-right disabled:opacity-50"
+                className="flex items-center gap-3 p-4 rounded-2xl bg-card border border-border hover:border-primary/40 hover:shadow-md transition-all text-right"
               >
+                <button
+                  type="button"
+                  onClick={() => handleEnter(t)}
+                  disabled={enteringId !== null}
+                  className="flex items-center gap-3 flex-1 min-w-0 text-right disabled:opacity-50"
+                >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                   {t.avatar_url ? (
                     <img src={t.avatar_url} alt={t.full_name} className="w-full h-full object-cover" />
@@ -254,12 +260,27 @@ export default function AdminTeacherPickerPage() {
                     {t.category}{t.education_type ? ` · ${t.education_type}` : ""}{t.section ? ` · ${t.section}` : ""}
                   </div>
                 </div>
-                {enteringId === t.teacher_id && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-              </motion.button>
+                  {enteringId === t.teacher_id && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScopeTeacher({ id: t.teacher_id, name: t.full_name })}
+                  className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary hover:bg-primary/20"
+                >
+                  الصفوف
+                </button>
+              </motion.div>
             ))}
           </div>
         )}
       </main>
+
+      <TeacherScopeDialog
+        teacherId={scopeTeacher?.id || ""}
+        teacherName={scopeTeacher?.name}
+        open={!!scopeTeacher}
+        onOpenChange={(open) => { if (!open) setScopeTeacher(null); }}
+      />
     </div>
   );
 }
