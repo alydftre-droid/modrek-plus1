@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
 import TeacherRegistrationForm, { TeacherFormData } from "@/components/auth/TeacherRegistrationForm";
+import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
+import { getFreshOriginalDeveloperAccessToken } from "@/lib/devImpersonation";
 
 interface Props {
   teacherId: string;
@@ -35,15 +37,34 @@ export function TeacherScopeDialog({ teacherId, teacherName, open, onOpenChange,
 
   const invoke = useCallback(
     async (payload: Record<string, unknown>) => {
-      const { data, error } = await supabase.functions.invoke("admin-teacher-scope", {
-        body: { teacher_id: teacherId, ...payload },
-      });
+      const body = { teacher_id: teacherId, ...payload };
+
+      // While a developer is impersonating a teacher, the active session belongs to the
+      // teacher (not an admin) — so we must call the service with the developer's own token.
+      if (isDeveloperTeacherMode()) {
+        const devToken = await getFreshOriginalDeveloperAccessToken();
+        const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-teacher-scope`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${devToken}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+          },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || data?.error) throw new Error(data?.error || "فشل الاتصال بالخدمة");
+        return data as Record<string, any>;
+      }
+
+      const { data, error } = await supabase.functions.invoke("admin-teacher-scope", { body });
       if (error) throw new Error(error.message || "فشل الاتصال بالخدمة");
       if (data?.error) throw new Error(data.error);
       return data as Record<string, any>;
     },
     [teacherId],
   );
+
 
   useEffect(() => {
     if (!open || !teacherId) return;
