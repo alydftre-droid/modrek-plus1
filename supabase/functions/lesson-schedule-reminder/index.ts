@@ -61,9 +61,7 @@ Deno.serve(async (req) => {
   }
 
   const bearer = req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim();
-  const cronSecret = Deno.env.get("LESSON_REMINDER_CRON_SECRET");
-  const allowed = [Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), cronSecret].filter(Boolean);
-  if (!bearer || !allowed.includes(bearer)) {
+  if (!bearer) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -75,6 +73,23 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    // Accept either the service role key or the cron secret stored in the vault.
+    let authorized = bearer === Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+      bearer === Deno.env.get("LESSON_REMINDER_CRON_SECRET");
+    if (!authorized) {
+      const { data: valid } = await supabase.rpc("verify_cron_secret", {
+        _name: "lesson_reminder_cron_secret",
+        _secret: bearer,
+      });
+      authorized = valid === true;
+    }
+    if (!authorized) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Only active slots of active groups. Inactive/deleted groups are handled by
     // the sync trigger + ON DELETE CASCADE, so nothing stale can fire.
