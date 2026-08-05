@@ -1202,6 +1202,7 @@ export type Database = {
           teacher_id: string | null
           term: string
           title: string
+          weekly_schedule: Json
         }
         Insert: {
           created_at?: string
@@ -1222,6 +1223,7 @@ export type Database = {
           teacher_id?: string | null
           term?: string
           title: string
+          weekly_schedule?: Json
         }
         Update: {
           created_at?: string
@@ -1242,6 +1244,7 @@ export type Database = {
           teacher_id?: string | null
           term?: string
           title?: string
+          weekly_schedule?: Json
         }
         Relationships: []
       }

@@ -13,6 +13,8 @@ import { SignedImage } from "@/components/common/SignedImage";
 import { normalizeEducationType } from "@/lib/educationSection";
 import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
+import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
+import { WeeklyScheduleSlot, parseWeeklySchedule, sortWeeklySchedule } from "@/lib/weeklySchedule";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +68,7 @@ interface ContentGroup {
   start_date: string | null;
   end_date: string | null;
   lesson_count: number | null;
+  weekly_schedule?: unknown;
 }
 
 interface TeacherGroupManagerProps {
@@ -97,6 +100,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
   const [newLessonCount, setNewLessonCount] = useState("");
+  const [newSchedule, setNewSchedule] = useState<WeeklyScheduleSlot[]>([]);
 
   // Price change form
   const [requestedPrice, setRequestedPrice] = useState("");
@@ -111,6 +115,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
   const [editEndDate, setEditEndDate] = useState("");
   const [editLessonCount, setEditLessonCount] = useState("");
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editSchedule, setEditSchedule] = useState<WeeklyScheduleSlot[]>([]);
 
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -169,6 +174,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
     setEditEndDate(group.end_date || "");
     setEditLessonCount(group.lesson_count != null ? String(group.lesson_count) : "");
     setEditImageFile(null);
+    setEditSchedule(sortWeeklySchedule(parseWeeklySchedule(group.weekly_schedule)));
     setShowEdit(true);
   };
 
@@ -194,6 +200,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         start_date: editStartDate || null,
         end_date: editEndDate || null,
         lesson_count: editLessonCount ? parseInt(editLessonCount) : 0,
+        weekly_schedule: sortWeeklySchedule(editSchedule),
       };
       if (imageUrl) updatePayload.image_url = imageUrl;
 
@@ -399,6 +406,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         start_date: newStartDate || null,
         end_date: newEndDate || null,
         lesson_count: newLessonCount ? parseInt(newLessonCount) : 0,
+        weekly_schedule: sortWeeklySchedule(newSchedule),
         term: termValue,
       });
 
@@ -407,7 +415,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
       toast.success("تم إنشاء المجموعة بنجاح - ستظهر للطلاب فوراً");
       setShowCreate(false);
       setNewTitle(""); setNewDescription(""); setNewMonthLabel(""); setNewImageFile(null);
-      setNewStartDate(""); setNewEndDate(""); setNewLessonCount("");
+      setNewStartDate(""); setNewEndDate(""); setNewLessonCount(""); setNewSchedule([]);
       if (!renderTriggerOnly) fetchGroups();
       onGroupCreated?.();
     } catch (e) {
@@ -483,6 +491,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
               </div>
               <div><Label>عدد الحصص</Label><Input type="number" value={newLessonCount} onChange={(e) => setNewLessonCount(e.target.value)} placeholder="0" min={0} /></div>
               <div><Label>صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setNewImageFile(e.target.files?.[0] || null)} /></div>
+              <WeeklyScheduleEditor value={newSchedule} onChange={setNewSchedule} />
               <div className="p-3 rounded-lg bg-accent/50">
                 <p className="text-sm text-muted-foreground">السعر الافتراضي: <span className="font-bold text-foreground">{defaultPrice} جنيه</span></p>
                 <p className="text-xs text-muted-foreground mt-1">يمكنك طلب تغيير السعر بعد الإنشاء</p>
@@ -514,6 +523,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
               </div>
               <div><Label>عدد الحصص</Label><Input type="number" value={editLessonCount} onChange={(e) => setEditLessonCount(e.target.value)} placeholder="0" min={0} /></div>
               <div><Label>تغيير صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setEditImageFile(e.target.files?.[0] || null)} /></div>
+              <WeeklyScheduleEditor value={editSchedule} onChange={setEditSchedule} />
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowEdit(false)}>إلغاء</Button>
@@ -711,6 +721,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
             </div>
             <div><Label>عدد الحصص</Label><Input type="number" value={newLessonCount} onChange={(e) => setNewLessonCount(e.target.value)} placeholder="0" min={0} /></div>
             <div><Label>صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setNewImageFile(e.target.files?.[0] || null)} /></div>
+            <WeeklyScheduleEditor value={newSchedule} onChange={setNewSchedule} />
             <div className="p-3 rounded-lg bg-accent/50">
               <p className="text-sm text-muted-foreground">السعر الافتراضي: <span className="font-bold text-foreground">{defaultPrice} جنيه</span></p>
               <p className="text-xs text-muted-foreground mt-1">يمكنك طلب تغيير السعر بعد الإنشاء</p>
@@ -774,6 +785,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
             </div>
             <div><Label>عدد الحصص</Label><Input type="number" value={editLessonCount} onChange={(e) => setEditLessonCount(e.target.value)} placeholder="0" min={0} /></div>
             <div><Label>تغيير صورة المجموعة (اختياري)</Label><Input type="file" accept="image/*" onChange={(e) => setEditImageFile(e.target.files?.[0] || null)} /></div>
+              <WeeklyScheduleEditor value={editSchedule} onChange={setEditSchedule} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEdit(false)}>إلغاء</Button>

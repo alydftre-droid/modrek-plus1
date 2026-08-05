@@ -1,0 +1,1 @@
+ALTER TABLE public.content_groups ADD COLUMN IF NOT EXISTS weekly_schedule jsonb NOT NULL DEFAULT '[]'::jsonb;
