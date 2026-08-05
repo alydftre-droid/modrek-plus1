@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import WeeklyScheduleDisplay from "@/components/common/WeeklyScheduleDisplay";
+import { parseWeeklySchedule } from "@/lib/weeklySchedule";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
@@ -102,6 +104,7 @@ interface CourseGroup {
   end_date: string | null;
   content_count: number;
   term?: string | null;
+  weekly_schedule?: unknown;
 }
 
 const normalizeTeacherDisplayName = (name?: string | null) => (name || "").trim();
@@ -591,7 +594,7 @@ const StudentSubjectView = () => {
 
     const { data: rawGroups, error: rawGroupsError } = await supabase
       .from("content_groups")
-      .select("id, title, description, month_label, image_url, price, section_name, subject_id, is_active, lesson_count, start_date, end_date, teacher_id, created_by, term, education_type")
+      .select("id, title, description, month_label, image_url, price, section_name, subject_id, is_active, lesson_count, start_date, end_date, teacher_id, created_by, term, education_type, weekly_schedule")
       .or(`teacher_id.eq.${teacherId},created_by.eq.${teacherId}`)
       .eq("is_active", true)
       .eq("price_approved", true);
@@ -1485,6 +1488,7 @@ const StudentSubjectView = () => {
                             {course.end_date && <span>إلى: {course.end_date}</span>}
                           </div>
                         )}
+                        <WeeklyScheduleDisplay variant="banner" slots={parseWeeklySchedule(course.weekly_schedule)} />
 
                         {isPurchased ? (
                             <Button className="student-cloud-blue-button w-full rounded-xl py-3.5 text-sm font-bold gap-2" onClick={() => enterGroupContent(course)}>
@@ -1693,6 +1697,12 @@ const StudentSubjectView = () => {
           <h1 className="text-3xl font-bold text-foreground mb-2">{activeGroup?.title || "محتوى المجموعة"}</h1>
           {activeGroup?.month_label && <Badge variant="secondary" className="mb-2">{activeGroup.month_label}</Badge>}
           {activeGroup?.description && <p className="text-muted-foreground">{activeGroup.description}</p>}
+          <WeeklyScheduleDisplay
+            variant="banner"
+            className="mt-3"
+            slots={parseWeeklySchedule(activeGroup?.weekly_schedule)}
+          />
+          <WeeklyScheduleDisplay className="mt-3" slots={parseWeeklySchedule(activeGroup?.weekly_schedule)} />
           {!activeGroupPurchased && (
             <div className="mt-4 p-4 rounded-lg bg-accent border border-border">
               <p className="text-foreground text-sm font-medium flex items-center gap-2">
