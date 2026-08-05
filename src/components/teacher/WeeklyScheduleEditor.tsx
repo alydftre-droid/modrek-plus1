@@ -14,13 +14,32 @@ import {
   formatArabicTime,
   joinTime,
   splitTime,
+  validateWeeklySchedule,
+  hasSlotConflict,
+  DEFAULT_TIMEZONE,
 } from "@/lib/weeklySchedule";
+import { AlertTriangle } from "lucide-react";
 
 const MINUTES = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
 const MAX_SLOTS = 7;
 
-const DEFAULT_SLOT: WeeklyScheduleSlot = { day: "Saturday", time: "19:00" };
+const DEFAULT_SLOT: WeeklyScheduleSlot = { day: "Saturday", time: "19:00", timezone: DEFAULT_TIMEZONE };
+
+/** Finds the first free slot for a day so added rows never clash. */
+const nextFreeSlot = (slots: WeeklyScheduleSlot[]): WeeklyScheduleSlot => {
+  for (const day of WEEK_DAYS) {
+    for (let hour = 14; hour <= 22; hour++) {
+      const candidate: WeeklyScheduleSlot = {
+        day: day.key,
+        time: `${String(hour).padStart(2, "0")}:00`,
+        timezone: DEFAULT_TIMEZONE,
+      };
+      if (!hasSlotConflict(slots, candidate)) return candidate;
+    }
+  }
+  return { ...DEFAULT_SLOT };
+};
 
 interface Props {
   value: WeeklyScheduleSlot[];
@@ -32,8 +51,7 @@ const WeeklyScheduleEditor = ({ value, onChange }: Props) => {
     const next = [...value];
     if (count > next.length) {
       while (next.length < count) {
-        const dayIndex = next.length % WEEK_DAYS.length;
-        next.push({ day: WEEK_DAYS[dayIndex].key, time: DEFAULT_SLOT.time });
+        next.push(nextFreeSlot(next));
       }
     } else {
       next.length = count;
@@ -44,6 +62,9 @@ const WeeklyScheduleEditor = ({ value, onChange }: Props) => {
   const updateSlot = (index: number, patch: Partial<WeeklyScheduleSlot>) => {
     onChange(value.map((slot, i) => (i === index ? { ...slot, ...patch } : slot)));
   };
+
+  const validation = validateWeeklySchedule(value);
+  const conflicting = new Set(validation.indexes || []);
 
   const removeSlot = (index: number) => {
     onChange(value.filter((_, i) => i !== index));
@@ -58,6 +79,13 @@ const WeeklyScheduleEditor = ({ value, onChange }: Props) => {
         </h4>
         <span className="text-[11px] text-muted-foreground">اختياري</span>
       </div>
+
+      {!validation.ok && (
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2 text-[11px] font-medium text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{validation.error}</span>
+        </div>
+      )}
 
       <div>
         <Label className="text-xs">عدد الحصص في الأسبوع</Label>
@@ -79,7 +107,10 @@ const WeeklyScheduleEditor = ({ value, onChange }: Props) => {
       {value.map((slot, index) => {
         const { hour12, minute, period } = splitTime(slot.time);
         return (
-          <div key={index} className="rounded-lg border border-border bg-background p-3 space-y-2">
+          <div
+            key={index}
+            className={`rounded-lg border bg-background p-3 space-y-2 ${conflicting.has(index) ? "border-destructive" : "border-border"}`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-primary">الحصة {index + 1}</span>
               <div className="flex items-center gap-2">
@@ -164,7 +195,7 @@ const WeeklyScheduleEditor = ({ value, onChange }: Props) => {
           variant="outline"
           size="sm"
           className="w-full gap-1"
-          onClick={() => onChange([...value, { ...DEFAULT_SLOT, day: WEEK_DAYS[value.length % WEEK_DAYS.length].key }])}
+          onClick={() => onChange([...value, nextFreeSlot(value)])}
         >
           <Plus className="h-4 w-4" />
           إضافة موعد
