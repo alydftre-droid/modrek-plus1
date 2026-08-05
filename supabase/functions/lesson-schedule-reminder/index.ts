@@ -1,6 +1,9 @@
-// Sends a reminder notification ~30 minutes before each weekly lesson slot
-// of a course group, to every student who purchased that group.
-// Intended to be invoked by a scheduled job every 15 minutes.
+// Timezone-aware weekly lesson reminders.
+// Reads the normalized public.group_weekly_schedule table (mirrored from
+// content_groups.weekly_schedule), finds slots starting within the next ~30
+// minutes in each slot's own timezone, and notifies purchasers exactly once
+// per occurrence (guarded by public.group_lesson_reminder_log).
+// Designed to be invoked every 1-5 minutes.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
@@ -8,16 +11,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-const DAY_KEYS = [
-  "Sunday",
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-];
 
 const DAY_LABELS: Record<string, string> = {
   Saturday: "السبت",
@@ -29,6 +22,9 @@ const DAY_LABELS: Record<string, string> = {
   Friday: "الجمعة",
 };
 
+const LEAD_MINUTES = 30; // notify this long before the lesson
+const WINDOW_MINUTES = 6; // tolerance so a 1-5 min cron never misses a slot
+
 function formatArabicTime(time: string) {
   const [h, m] = time.split(":");
   const h24 = Number(h);
@@ -37,20 +33,26 @@ function formatArabicTime(time: string) {
   return `${h12}:${m} ${period}`;
 }
 
-/** Current time in Africa/Cairo as { dayKey, minutes-since-midnight }. */
-function cairoNow() {
+/** Current wall-clock in a given IANA timezone. */
+function nowInTimezone(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Africa/Cairo",
+    timeZone,
     weekday: "long",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).formatToParts(new Date());
   const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
-  const weekday = get("weekday");
-  const dayKey = DAY_KEYS.find((d) => d === weekday) || weekday;
-  const minutes = Number(get("hour")) * 60 + Number(get("minute"));
-  return { dayKey, minutes };
+  return {
+    dayKey: get("weekday"),
+    minutes: Number(get("hour")) * 60 + Number(get("minute")),
+  };
+}
+
+function slotMinutes(time: string): number | null {
+  const [h, m] = String(time).split(":");
+  const value = Number(h) * 60 + Number(m);
+  return Number.isFinite(value) ? value : null;
 }
 
 Deno.serve(async (req) => {
@@ -72,41 +74,86 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { dayKey, minutes } = cairoNow();
-    const windowStart = minutes + 20;
-    const windowEnd = minutes + 40;
-
-    const { data: groups, error: groupsError } = await supabase
-      .from("content_groups")
-      .select("id, title, weekly_schedule, subject_id")
+    // Only active slots of active groups. Inactive/deleted groups are handled by
+    // the sync trigger + ON DELETE CASCADE, so nothing stale can fire.
+    const { data: slots, error: slotsError } = await supabase
+      .from("group_weekly_schedule")
+      .select("id, group_id, day_of_week, time, timezone, content_groups!inner(id, title, is_active)")
       .eq("is_active", true)
-      .not("weekly_schedule", "is", null);
+      .eq("content_groups.is_active", true);
 
-    if (groupsError) throw groupsError;
+    if (slotsError) throw slotsError;
 
-    const due: { groupId: string; title: string; time: string }[] = [];
-    for (const group of groups || []) {
-      const slots = Array.isArray(group.weekly_schedule) ? group.weekly_schedule : [];
-      for (const slot of slots as { day?: string; time?: string }[]) {
-        if (!slot?.day || !slot?.time || slot.day !== dayKey) continue;
-        const [h, m] = String(slot.time).split(":");
-        const slotMinutes = Number(h) * 60 + Number(m);
-        if (Number.isNaN(slotMinutes)) continue;
-        if (slotMinutes >= windowStart && slotMinutes < windowEnd) {
-          due.push({ groupId: group.id, title: group.title, time: slot.time });
+    // Minute-floored "now" keeps occurrence_at deterministic across runs, so the
+    // unique index on (schedule_id, occurrence_at) makes sending idempotent.
+    const nowFloorMs = Math.floor(Date.now() / 60000) * 60000;
+
+    type Due = {
+      scheduleId: string;
+      groupId: string;
+      title: string;
+      time: string;
+      dayKey: string;
+      occurrenceAt: string;
+    };
+    const due: Due[] = [];
+    const tzCache = new Map<string, { dayKey: string; minutes: number }>();
+
+    for (const slot of slots || []) {
+      const tz = slot.timezone || "Africa/Cairo";
+      if (!tzCache.has(tz)) {
+        try {
+          tzCache.set(tz, nowInTimezone(tz));
+        } catch {
+          tzCache.set(tz, nowInTimezone("Africa/Cairo"));
         }
       }
+      const now = tzCache.get(tz)!;
+      if (slot.day_of_week !== now.dayKey) continue;
+
+      const target = slotMinutes(slot.time);
+      if (target === null) continue;
+
+      const deltaMinutes = target - now.minutes;
+      const lower = LEAD_MINUTES - WINDOW_MINUTES / 2;
+      const upper = LEAD_MINUTES + WINDOW_MINUTES / 2;
+      if (deltaMinutes < lower || deltaMinutes >= upper) continue;
+
+      const group = (slot as any).content_groups;
+      due.push({
+        scheduleId: slot.id,
+        groupId: slot.group_id,
+        title: group?.title || "الكورس",
+        time: slot.time,
+        dayKey: slot.day_of_week,
+        occurrenceAt: new Date(nowFloorMs + deltaMinutes * 60000).toISOString(),
+      });
     }
 
     if (due.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, notificationsSent: 0, message: "No lessons due" }),
+        JSON.stringify({ success: true, notificationsSent: 0, lessonsDue: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     let sent = 0;
+    let skipped = 0;
+
     for (const item of due) {
+      // Claim the occurrence first — the unique index guarantees one send only.
+      const { error: claimError } = await supabase
+        .from("group_lesson_reminder_log")
+        .insert({
+          schedule_id: item.scheduleId,
+          group_id: item.groupId,
+          occurrence_at: item.occurrenceAt,
+        });
+      if (claimError) {
+        skipped++; // already claimed by an earlier run
+        continue;
+      }
+
       const { data: purchases } = await supabase
         .from("student_group_purchases")
         .select("student_id")
@@ -116,40 +163,38 @@ Deno.serve(async (req) => {
       if (studentIds.length === 0) continue;
 
       const title = "📅 موعد نزول الحصة قريباً";
-      const message = `حصة مجموعة "${item.title}" تنزل اليوم ${DAY_LABELS[dayKey] || dayKey} الساعة ${formatArabicTime(item.time)}.`;
+      const message = `حصة مجموعة "${item.title}" تنزل اليوم ${DAY_LABELS[item.dayKey] || item.dayKey} الساعة ${formatArabicTime(item.time)}.`;
 
-      // Avoid duplicates for the same group within the last 2 hours.
-      const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-      const { data: existing } = await supabase
-        .from("notifications")
-        .select("user_id")
-        .eq("title", title)
-        .eq("message", message)
-        .gte("created_at", since);
-      const alreadyNotified = new Set((existing || []).map((n) => n.user_id));
-
-      const rows = studentIds
-        .filter((id) => !alreadyNotified.has(id))
-        .map((id) => ({
-          user_id: id,
-          title,
-          message,
-          notification_type: "lesson_schedule",
-          is_read: false,
-        }));
-
-      if (rows.length === 0) continue;
+      const rows = studentIds.map((id) => ({
+        user_id: id,
+        title,
+        message,
+        notification_type: "lesson_schedule",
+        is_read: false,
+      }));
 
       const { error: insertError } = await supabase.from("notifications").insert(rows);
       if (insertError) {
         console.error("Failed inserting reminders:", insertError);
         continue;
       }
+
+      await supabase
+        .from("group_lesson_reminder_log")
+        .update({ recipients: rows.length })
+        .eq("schedule_id", item.scheduleId)
+        .eq("occurrence_at", item.occurrenceAt);
+
       sent += rows.length;
     }
 
     return new Response(
-      JSON.stringify({ success: true, notificationsSent: sent, lessonsDue: due.length }),
+      JSON.stringify({
+        success: true,
+        notificationsSent: sent,
+        lessonsDue: due.length,
+        alreadyNotified: skipped,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: unknown) {
