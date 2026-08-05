@@ -45,7 +45,8 @@ export function parseWeeklySchedule(raw: unknown): WeeklyScheduleSlot[] {
       if (!DAY_ORDER.has(day) || !TIME_RE.test(time)) return null;
       const [h, m] = time.split(":");
       const timezone = String((item as any).timezone || "").trim() || "Africa/Cairo";
-      return { day, time: `${h.padStart(2, "0")}:${m}`, timezone } satisfies WeeklyScheduleSlot;
+      const slot: WeeklyScheduleSlot = { day, time: `${h.padStart(2, "0")}:${m}`, timezone };
+      return slot;
     })
     .filter((slot): slot is WeeklyScheduleSlot => slot !== null);
 }
