@@ -14,7 +14,13 @@ import { normalizeEducationType } from "@/lib/educationSection";
 import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
-import { WeeklyScheduleSlot, parseWeeklySchedule, sortWeeklySchedule } from "@/lib/weeklySchedule";
+import {
+  WeeklyScheduleSlot,
+  parseWeeklySchedule,
+  sortWeeklySchedule,
+  serializeWeeklySchedule,
+  validateWeeklySchedule,
+} from "@/lib/weeklySchedule";
 import {
   Dialog,
   DialogContent,
@@ -180,6 +186,11 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
   const handleUpdateGroup = async () => {
     if (!effectiveUserId || !selectedGroup || !editTitle.trim()) return;
+    const editValidation = validateWeeklySchedule(editSchedule);
+    if (!editValidation.ok) {
+      toast.error(editValidation.error || "جدول الحصص غير صالح");
+      return;
+    }
     setSaving(true);
     try {
       let imageUrl: string | undefined;
@@ -200,7 +211,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         start_date: editStartDate || null,
         end_date: editEndDate || null,
         lesson_count: editLessonCount ? parseInt(editLessonCount) : 0,
-        weekly_schedule: sortWeeklySchedule(editSchedule),
+        weekly_schedule: serializeWeeklySchedule(editSchedule),
       };
       if (imageUrl) updatePayload.image_url = imageUrl;
 
@@ -373,6 +384,11 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
   const handleCreateGroup = async () => {
     if (!effectiveUserId || !newTitle.trim()) return;
+    const createValidation = validateWeeklySchedule(newSchedule);
+    if (!createValidation.ok) {
+      toast.error(createValidation.error || "جدول الحصص غير صالح");
+      return;
+    }
     setSaving(true);
     try {
       let imageUrl: string | null = null;
@@ -406,7 +422,7 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
         start_date: newStartDate || null,
         end_date: newEndDate || null,
         lesson_count: newLessonCount ? parseInt(newLessonCount) : 0,
-        weekly_schedule: sortWeeklySchedule(newSchedule),
+        weekly_schedule: serializeWeeklySchedule(newSchedule),
         term: termValue,
       });
 

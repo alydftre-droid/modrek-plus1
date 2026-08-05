@@ -4,6 +4,8 @@
 export type WeeklyScheduleSlot = {
   day: string;
   time: string;
+  /** IANA timezone the time is expressed in (defaults to Africa/Cairo). */
+  timezone?: string;
 };
 
 export const WEEK_DAYS: { key: string; label: string }[] = [
@@ -42,7 +44,9 @@ export function parseWeeklySchedule(raw: unknown): WeeklyScheduleSlot[] {
       const time = String((item as any).time || "").trim();
       if (!DAY_ORDER.has(day) || !TIME_RE.test(time)) return null;
       const [h, m] = time.split(":");
-      return { day, time: `${h.padStart(2, "0")}:${m}` } satisfies WeeklyScheduleSlot;
+      const timezone = String((item as any).timezone || "").trim() || "Africa/Cairo";
+      const slot: WeeklyScheduleSlot = { day, time: `${h.padStart(2, "0")}:${m}`, timezone };
+      return slot;
     })
     .filter((slot): slot is WeeklyScheduleSlot => slot !== null);
 }
@@ -84,4 +88,91 @@ export function joinTime(hour12: number, minute: string, period: "am" | "pm"): s
 
 export function formatSlot(slot: WeeklyScheduleSlot): string {
   return `${dayLabel(slot.day)} — ${formatArabicTime(slot.time)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Scaling layer: timezone awareness, conflict validation, and a repository that
+// prefers the normalized `group_weekly_schedule` table while staying backwards
+// compatible with the `content_groups.weekly_schedule` JSON column.
+// ---------------------------------------------------------------------------
+
+export const DEFAULT_TIMEZONE = "Africa/Cairo";
+/** Minimum gap (minutes) allowed between two lessons on the same day. */
+export const MIN_SLOT_GAP_MINUTES = 30;
+
+export function slotMinutes(time: string): number {
+  const [h, m] = time.split(":");
+  return Number(h) * 60 + Number(m);
+}
+
+export type ScheduleValidation = { ok: boolean; error?: string; indexes?: number[] };
+
+/** Rejects duplicate day+time and overlapping slots (mirrors the DB trigger). */
+export function validateWeeklySchedule(slots: WeeklyScheduleSlot[]): ScheduleValidation {
+  for (let i = 0; i < slots.length; i++) {
+    for (let j = i + 1; j < slots.length; j++) {
+      if (slots[i].day !== slots[j].day) continue;
+      const diff = Math.abs(slotMinutes(slots[i].time) - slotMinutes(slots[j].time));
+      if (diff === 0) {
+        return {
+          ok: false,
+          error: `لا يمكن تكرار نفس اليوم ونفس الوقت (${dayLabel(slots[i].day)} — ${formatArabicTime(slots[i].time)})`,
+          indexes: [i, j],
+        };
+      }
+      if (diff < MIN_SLOT_GAP_MINUTES) {
+        return {
+          ok: false,
+          error: `يوجد تعارض بين حصتين يوم ${dayLabel(slots[i].day)} — يجب ${MIN_SLOT_GAP_MINUTES} دقيقة على الأقل بين الحصص`,
+          indexes: [i, j],
+        };
+      }
+    }
+  }
+  return { ok: true };
+}
+
+/** True when the candidate slot conflicts with the existing ones. */
+export function hasSlotConflict(
+  slots: WeeklyScheduleSlot[],
+  candidate: WeeklyScheduleSlot,
+  ignoreIndex = -1,
+): boolean {
+  return slots.some((slot, index) => {
+    if (index === ignoreIndex || slot.day !== candidate.day) return false;
+    return Math.abs(slotMinutes(slot.time) - slotMinutes(candidate.time)) < MIN_SLOT_GAP_MINUTES;
+  });
+}
+
+/** Payload written to the database (timezone included for future migration). */
+export function serializeWeeklySchedule(
+  slots: WeeklyScheduleSlot[],
+  timezone: string = DEFAULT_TIMEZONE,
+): { day: string; time: string; timezone: string }[] {
+  return sortWeeklySchedule(slots).map((slot) => ({
+    day: slot.day,
+    time: slot.time,
+    timezone: slot.timezone || timezone,
+  }));
+}
+
+/** Normalized rows as stored in public.group_weekly_schedule. */
+export type GroupScheduleRow = {
+  group_id: string;
+  day_of_week: string;
+  time: string;
+  timezone: string | null;
+  is_active: boolean | null;
+};
+
+export function rowsToSlots(rows: GroupScheduleRow[]): WeeklyScheduleSlot[] {
+  return sortWeeklySchedule(
+    rows
+      .filter((row) => row.is_active !== false)
+      .map((row) => ({
+        day: row.day_of_week,
+        time: row.time,
+        timezone: row.timezone || DEFAULT_TIMEZONE,
+      })),
+  );
 }

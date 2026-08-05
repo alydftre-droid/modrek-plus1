@@ -2023,6 +2023,89 @@ export type Database = {
         }
         Relationships: []
       }
+      group_lesson_reminder_log: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          occurrence_at: string
+          recipients: number
+          schedule_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          occurrence_at: string
+          recipients?: number
+          schedule_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          occurrence_at?: string
+          recipients?: number
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_lesson_reminder_log_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_lesson_reminder_log_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "group_weekly_schedule"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_weekly_schedule: {
+        Row: {
+          created_at: string
+          day_of_week: string
+          group_id: string
+          id: string
+          is_active: boolean
+          time: string
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: string
+          group_id: string
+          id?: string
+          is_active?: boolean
+          time: string
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: string
+          group_id?: string
+          id?: string
+          is_active?: boolean
+          time?: string
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_weekly_schedule_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_source_assets: {
         Row: {
           asset_id: string
@@ -7555,6 +7638,10 @@ export type Database = {
           id: string
           is_valid: boolean
         }[]
+      }
+      verify_cron_secret: {
+        Args: { _name: string; _secret: string }
+        Returns: boolean
       }
       voice_answers_find_similar: {
         Args: {
