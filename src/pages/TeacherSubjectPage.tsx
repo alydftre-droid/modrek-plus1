@@ -9,6 +9,8 @@ import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 import { SignedImage } from "@/components/common/SignedImage";
+import WeeklyScheduleDisplay from "@/components/common/WeeklyScheduleDisplay";
+import { parseWeeklySchedule } from "@/lib/weeklySchedule";
 
 import {
   Loader2,
@@ -66,6 +68,7 @@ type GroupRow = {
   lesson_count: number | null;
   start_date: string | null;
   end_date: string | null;
+  weekly_schedule?: unknown;
 };
 
 const CATEGORY_INFO: Record<string, { name: string; icon: typeof BookText; gradient: string; shadow: string }> = {
@@ -372,6 +375,7 @@ const TeacherSubjectPage = () => {
                       {group.start_date && <span>من: {group.start_date}</span>}
                       {group.end_date && <span>إلى: {group.end_date}</span>}
                     </div>
+                    <WeeklyScheduleDisplay variant="banner" slots={parseWeeklySchedule(group.weekly_schedule)} />
                     {group.price_approved === false && (
                       <Badge variant="secondary" className="gap-1 text-xs">
                         <AlertTriangle className="h-3 w-3" />
