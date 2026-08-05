@@ -7639,6 +7639,10 @@ export type Database = {
           is_valid: boolean
         }[]
       }
+      verify_cron_secret: {
+        Args: { _name: string; _secret: string }
+        Returns: boolean
+      }
       voice_answers_find_similar: {
         Args: {
           p_grade: string
