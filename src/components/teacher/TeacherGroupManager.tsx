@@ -186,6 +186,11 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
   const handleUpdateGroup = async () => {
     if (!effectiveUserId || !selectedGroup || !editTitle.trim()) return;
+    const editValidation = validateWeeklySchedule(editSchedule);
+    if (!editValidation.ok) {
+      toast.error(editValidation.error || "جدول الحصص غير صالح");
+      return;
+    }
     setSaving(true);
     try {
       let imageUrl: string | undefined;
@@ -379,6 +384,11 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
 
   const handleCreateGroup = async () => {
     if (!effectiveUserId || !newTitle.trim()) return;
+    const createValidation = validateWeeklySchedule(newSchedule);
+    if (!createValidation.ok) {
+      toast.error(createValidation.error || "جدول الحصص غير صالح");
+      return;
+    }
     setSaving(true);
     try {
       let imageUrl: string | null = null;
