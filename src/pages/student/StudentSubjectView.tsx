@@ -1702,7 +1702,6 @@ const StudentSubjectView = () => {
             className="mt-3"
             slots={parseWeeklySchedule(activeGroup?.weekly_schedule)}
           />
-          <WeeklyScheduleDisplay className="mt-3" slots={parseWeeklySchedule(activeGroup?.weekly_schedule)} />
           {!activeGroupPurchased && (
             <div className="mt-4 p-4 rounded-lg bg-accent border border-border">
               <p className="text-foreground text-sm font-medium flex items-center gap-2">
