@@ -357,13 +357,15 @@ const TeacherSubjectPage = () => {
                               <Pencil className="h-4 w-4 ml-2" />
                               تعديل المجموعة
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={(e) => { e.stopPropagation(); setDeletingGroup(group); }}
-                            >
-                              <Trash2 className="h-4 w-4 ml-2" />
-                              حذف المجموعة
-                            </DropdownMenuItem>
+                            {canDeleteGroups && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); setDeletingGroup(group); }}
+                              >
+                                <Trash2 className="h-4 w-4 ml-2" />
+                                حذف المجموعة
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
