@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { queueExternalSync } from "@/lib/externalSync";
 import { SignedImage } from "@/components/common/SignedImage";
 import { normalizeEducationType } from "@/lib/educationSection";
+import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
 import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
