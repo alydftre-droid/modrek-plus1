@@ -111,6 +111,8 @@ const TeacherSubjectPage = () => {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [editingGroup, setEditingGroup] = useState<GroupRow | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<GroupRow | null>(null);
+  // Only a developer impersonating a teacher may delete groups.
+  const canDeleteGroups = isDeveloperTeacherMode();
 
   const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
   const filter = useMemo(() => subjectFilterFromTeacherSelection(selection), [selection]);
