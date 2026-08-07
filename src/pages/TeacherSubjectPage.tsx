@@ -11,6 +11,7 @@ import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 import { SignedImage } from "@/components/common/SignedImage";
 import WeeklyScheduleDisplay from "@/components/common/WeeklyScheduleDisplay";
 import { parseWeeklySchedule } from "@/lib/weeklySchedule";
+import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
 
 import {
   Loader2,
