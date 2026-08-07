@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { queueExternalSync } from "@/lib/externalSync";
 import { SignedImage } from "@/components/common/SignedImage";
 import { normalizeEducationType } from "@/lib/educationSection";
+import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
 import { gradeKeyFromArabicLabel, stageKeyFromValue } from "@/lib/teacherSubjectUtils";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import WeeklyScheduleEditor from "@/components/teacher/WeeklyScheduleEditor";
@@ -91,6 +92,9 @@ interface TeacherGroupManagerProps {
 const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated, externalEditGroup, externalDeleteGroup, onExternalActionDone }: TeacherGroupManagerProps) => {
   const { user } = useAuth();
   const effectiveUserId = teacherIdOverride || user?.id;
+  // Deleting groups is a developer-only action (also allowed when a developer
+  // operates inside a teacher account through an override / impersonation).
+  const canDeleteGroups = !!teacherIdOverride || isDeveloperTeacherMode();
   const [groups, setGroups] = useState<ContentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -665,17 +669,19 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                           <Pencil className="h-4 w-4" />
                           تعديل المجموعة
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="gap-2 text-destructive focus:text-destructive"
-                          onClick={() => {
-                            setPressedGroupId(null);
-                            setSelectedGroup(group);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          حذف المجموعة
-                        </DropdownMenuItem>
+                        {canDeleteGroups && (
+                          <DropdownMenuItem
+                            className="gap-2 text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setPressedGroupId(null);
+                              setSelectedGroup(group);
+                              setShowDeleteConfirm(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            حذف المجموعة
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>

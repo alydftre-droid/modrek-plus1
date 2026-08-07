@@ -11,6 +11,7 @@ import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 import { SignedImage } from "@/components/common/SignedImage";
 import WeeklyScheduleDisplay from "@/components/common/WeeklyScheduleDisplay";
 import { parseWeeklySchedule } from "@/lib/weeklySchedule";
+import { isDeveloperTeacherMode } from "@/lib/devTeacherGrades";
 
 import {
   Loader2,
@@ -111,6 +112,8 @@ const TeacherSubjectPage = () => {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [editingGroup, setEditingGroup] = useState<GroupRow | null>(null);
   const [deletingGroup, setDeletingGroup] = useState<GroupRow | null>(null);
+  // Only a developer impersonating a teacher may delete groups.
+  const canDeleteGroups = isDeveloperTeacherMode();
 
   const headerTitle = useMemo(() => teacherSelectionLabel(selection), [selection]);
   const filter = useMemo(() => subjectFilterFromTeacherSelection(selection), [selection]);
@@ -357,13 +360,15 @@ const TeacherSubjectPage = () => {
                               <Pencil className="h-4 w-4 ml-2" />
                               تعديل المجموعة
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={(e) => { e.stopPropagation(); setDeletingGroup(group); }}
-                            >
-                              <Trash2 className="h-4 w-4 ml-2" />
-                              حذف المجموعة
-                            </DropdownMenuItem>
+                            {canDeleteGroups && (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={(e) => { e.stopPropagation(); setDeletingGroup(group); }}
+                              >
+                                <Trash2 className="h-4 w-4 ml-2" />
+                                حذف المجموعة
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
