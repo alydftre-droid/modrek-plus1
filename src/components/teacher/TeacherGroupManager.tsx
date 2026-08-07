@@ -665,17 +665,19 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
                           <Pencil className="h-4 w-4" />
                           تعديل المجموعة
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="gap-2 text-destructive focus:text-destructive"
-                          onClick={() => {
-                            setPressedGroupId(null);
-                            setSelectedGroup(group);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          حذف المجموعة
-                        </DropdownMenuItem>
+                        {canDeleteGroups && (
+                          <DropdownMenuItem
+                            className="gap-2 text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setPressedGroupId(null);
+                              setSelectedGroup(group);
+                              setShowDeleteConfirm(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            حذف المجموعة
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
