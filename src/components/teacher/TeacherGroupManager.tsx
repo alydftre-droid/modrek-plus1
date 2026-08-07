@@ -91,6 +91,9 @@ interface TeacherGroupManagerProps {
 const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, renderTriggerOnly, onGroupCreated, externalEditGroup, externalDeleteGroup, onExternalActionDone }: TeacherGroupManagerProps) => {
   const { user } = useAuth();
   const effectiveUserId = teacherIdOverride || user?.id;
+  // Deleting groups is a developer-only action (also allowed when a developer
+  // operates inside a teacher account through an override / impersonation).
+  const canDeleteGroups = !!teacherIdOverride || isDeveloperTeacherMode();
   const [groups, setGroups] = useState<ContentGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
