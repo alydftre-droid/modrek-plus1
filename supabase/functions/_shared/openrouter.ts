@@ -139,16 +139,34 @@ function responseHeadersToObject(headers: Headers): Record<string, string> {
   return out;
 }
 
+/**
+ * توحيد الأسلوب: أي `instructions` من المُتصل تُعامَل كتلميح إضافي فقط،
+ * والهوية الصوتية (Voice Prompt + Prosody) تُوضَع أولاً دائمًا حتى لا يتغير
+ * الصوت من درس لآخر.
+ */
+export function buildModrekTtsStyleBlock(extraHint?: string): string {
+  const hint = String(extraHint || "").trim();
+  const cleanHint = hint && !hint.startsWith(MODREK_TTS_VOICE_PROMPT.slice(0, 24))
+    ? hint.slice(0, 300)
+    : "";
+  return [
+    "هوية الصوت الثابتة لمنصة Modrek Plus (التزم بها حرفيًا في كل تسجيل):",
+    EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
+    cleanHint ? `تلميح إضافي لهذا المقطع فقط (بدون تغيير هوية الصوت): ${cleanHint}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 function buildGeminiTtsInput(input: string, instructions: string): string {
   const cleanInput = String(input || "").trim();
-  const cleanInstructions = String(instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS).trim();
   return [
-    cleanInstructions,
-    "اقرأ النص التالي فقط بصوت معلم مصري طبيعي. لا تنطق تعليمات الأسلوب، ولا تضف مقدمة أو خاتمة.",
+    buildModrekTtsStyleBlock(instructions),
+    "اقرأ النص التالي فقط بصوت معلم Modrek Plus المصري الطبيعي، مع الالتزام بالتنغيم والوقفات والسرعة المذكورة أعلاه.",
+    "لا تنطق تعليمات الأسلوب ولا كلمة «النص»، ولا تضف مقدمة أو خاتمة أو تعليقًا.",
     "النص:",
     cleanInput,
   ].join("\n");
 }
+
 
 const SCIENCE_PRONUNCIATION: Array<[RegExp, string]> = [
   [/\bDNA\b/gi, "دي إن إيه"],
