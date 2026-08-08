@@ -307,7 +307,9 @@ async function speakWithOpenRouter(
     return;
   }
 
-  const speed = Math.max(0.75, Math.min(1.05, rate || 0.92));
+  // السرعة والهوية الصوتية موحّدتان في الباك-إند (معلم Modrek Plus)؛
+  // لا نرسل أي أسلوب من الواجهة حتى لا يتغير الصوت من درس لآخر.
+  const speed = Math.max(0.8, Math.min(1.1, rate || 0.94));
   const controllers: AbortController[] = [];
 
   const fetchChunk = (index: number) => {
@@ -319,7 +321,7 @@ async function speakWithOpenRouter(
       speed,
       format: "wav",
       voice: "Charon",
-      instructions: "لهجة مصرية طبيعية، معلم مصري رجولي دافئ وواضح، وقفات طبيعية، نبرة غير رتيبة، شرح مفهوم وليس قراءة آلية.",
+
       subjectId: context.subjectId,
       stage: context.stage,
       grade: context.grade,
