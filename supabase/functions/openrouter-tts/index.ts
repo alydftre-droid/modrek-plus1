@@ -194,10 +194,13 @@ serve(async (req) => {
   const rawFormat = typeof body?.format === "string" ? body.format.toLowerCase().trim() : "mp3";
   const format = (ALLOWED_FORMATS.has(rawFormat) ? rawFormat : "mp3") as
     | "mp3" | "opus" | "aac" | "flac" | "wav" | "pcm";
+  // هوية الصوت الموحّدة تُطبَّق داخل `openRouterTts` نفسها، فنمرر هنا تلميحًا
+  // إضافيًا فقط (إن وُجد) بدون أي أسلوب بديل يغيّر شخصية المعلم.
   const instructions = typeof body?.instructions === "string" && body.instructions.trim()
-    ? `${EGYPTIAN_TEACHER_TTS_INSTRUCTIONS} ${body.instructions.slice(0, 500)}`
-    : EGYPTIAN_TEACHER_TTS_INSTRUCTIONS;
-  const speed = typeof body?.speed === "number" ? Math.max(0.75, Math.min(1.05, body.speed)) : 0.92;
+    ? body.instructions.slice(0, 300)
+    : "";
+  const speed = typeof body?.speed === "number" ? Math.max(0.8, Math.min(1.1, body.speed)) : MODREK_TTS_SETTINGS.speed;
+
   const model = typeof body?.model === "string" && body.model.trim()
     ? body.model.trim()
     : OPENROUTER_DEFAULT_TTS_MODEL;
