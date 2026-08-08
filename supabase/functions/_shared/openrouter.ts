@@ -381,21 +381,30 @@ export async function openRouterTts(opts: {
   const requestUrl = `${ttsBaseUrl}/audio/speech`;
   const started = performance.now();
   try {
-    const model = toOpenRouterTtsModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
-    const requested = opts.format || "pcm";
+    const model = toOpenRouterTtsModelId(opts.model || MODREK_TTS_SETTINGS.model);
+    const requested = opts.format || MODREK_TTS_SETTINGS.format;
     const isGeminiTts = model.toLowerCase().includes("gemini");
     const format = isGeminiTts ? "pcm" : requested === "pcm" ? "pcm" : "mp3";
+    // Every path goes through the same normalizer + the same voice identity, so
+    // the "معلم Modrek Plus" voice never drifts between lessons or callers.
+    const spokenText = preprocessSpeechForTeacher(opts.input);
     const body: Record<string, unknown> = {
       model,
       input: isGeminiTts
-        ? buildGeminiTtsInput(opts.input, opts.instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS)
-        : opts.input,
-      voice: opts.voice || OPENROUTER_DEFAULT_TTS_VOICE,
+        ? buildGeminiTtsInput(spokenText, opts.instructions || "")
+        : spokenText,
+      voice: opts.voice || MODREK_TTS_SETTINGS.voice,
       response_format: format,
     };
     // OpenRouter documents `speed` for OpenAI-compatible voices. Gemini TTS ignores
-    // or may reject unknown provider fields, so we keep Gemini requests minimal.
-    if (!isGeminiTts && typeof opts.speed === "number") body.speed = opts.speed;
+    // or may reject unknown provider fields, so we keep Gemini requests minimal
+    // (its pacing is driven by the prosody rules inside the style block).
+    if (!isGeminiTts) {
+      const speed = typeof opts.speed === "number" ? opts.speed : MODREK_TTS_SETTINGS.speed;
+      body.speed = Math.max(0.8, Math.min(1.1, speed));
+      body.instructions = buildModrekTtsStyleBlock(opts.instructions || "");
+    }
+
     const headers = buildOpenRouterHeaders(ttsApiKey);
     const debug: OpenRouterDebugInfo = {
       requestUrl,
