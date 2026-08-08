@@ -10,7 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import { getActiveAiApiKey } from "../_shared/aiProvider.ts";
 import {
-  EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
+  MODREK_TTS_SETTINGS,
   estimatePcmDurationSeconds,
   openRouterTts,
   pcmToWav,
@@ -114,7 +114,7 @@ async function synthesizeTeacherWav(opts: {
       input: opts.input,
       voice: opts.voice,
       format: "pcm",
-      instructions: attempt === 1 ? opts.instructions : `${opts.instructions} أعد الإلقاء بشكل أوضح وأبطأ قليلاً مع مخارج حروف كاملة ووقفات طبيعية.`,
+      instructions: attempt === 1 ? opts.instructions : `${opts.instructions} أعد الإلقاء بشكل أوضح وأبطأ قليلاً مع مخارج حروف كاملة ووقفات طبيعية.`.trim(),
       speed: opts.speed,
       timeoutMs: 120_000,
     });
