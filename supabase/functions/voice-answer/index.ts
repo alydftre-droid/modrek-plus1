@@ -25,6 +25,7 @@ import {
   OPENROUTER_DEFAULT_CHAT_MODEL,
   OPENROUTER_DEFAULT_TTS_MODEL,
   OPENROUTER_DEFAULT_TTS_VOICE,
+  MODREK_TTS_SETTINGS,
   OPENROUTER_TTS_QUALITY,
   preprocessSpeechForTeacher,
 } from "../_shared/openrouter.ts";
@@ -279,7 +280,7 @@ Deno.serve(async (req) => {
     provider: "openrouter",
     model: OPENROUTER_DEFAULT_TTS_MODEL,
     voice,
-    speed: 0.92,
+    speed: MODREK_TTS_SETTINGS.speed,
     format: "pcm",
     instructions: EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
     preprocessor: "Speech Preprocessor v1",
@@ -295,10 +296,11 @@ Deno.serve(async (req) => {
       input: speechText,
       voice,
       format: "pcm",
+      // هوية الصوت تُضاف داخل openRouterTts؛ هنا تلميح إعادة المحاولة فقط.
       instructions: attempt === 1
-        ? EGYPTIAN_TEACHER_TTS_INSTRUCTIONS
-        : `${EGYPTIAN_TEACHER_TTS_INSTRUCTIONS} أعد توليد الجزء بنطق أوضح ووقفات أفضل، بدون ابتلاع حروف أو سرعة زائدة.`,
-      speed: 0.92,
+        ? ""
+        : "أعد الإلقاء بنطق أوضح ووقفات أفضل وسرعة أهدأ قليلاً، بدون ابتلاع حروف.",
+      speed: MODREK_TTS_SETTINGS.speed,
       timeoutMs: 120_000,
     });
     if (!tts.ok) {

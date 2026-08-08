@@ -22,13 +22,53 @@ const OPENROUTER_TTS_MODEL_ALLOWLIST = new Set([
   "google/gemini-3.1-flash-tts-preview",
 ]);
 
-export const EGYPTIAN_TEACHER_TTS_INSTRUCTIONS = [
-  "تحدث بالعربية بلهجة مصرية طبيعية خفيفة ومفهومة، كمعلم مصري محترف يشرح لطالب أمامه.",
-  "الصوت رجولي دافئ وواضح، السرعة طبيعية، والوقفات محسوبة بدون رتابة أو تقطيع للكلمات.",
-  "ارفع النبرة قليلاً عند التعريفات والنقاط المهمة، واهدأ أثناء الشرح، وأضف حماساً بسيطاً عند الأمثلة.",
-  "انطق الفصحى والآيات القرآنية بوضوح واحترام، ولا تغيّر كلمات الآيات أو تشكيلها.",
-  "انطق المصطلحات العلمية والإنجليزية داخل الشرح بنطق عربي مصري مفهوم دون تهجئة عشوائية.",
+/**
+ * ==========================================================================
+ * "صوت معلم Modrek Plus" — هوية صوتية واحدة ثابتة لكل عمليات TTS في المنصة.
+ * أي تغيير هنا يغيّر الصوت في كل الدروس دفعة واحدة. لا تُمرّر أسلوباً بديلاً
+ * من الواجهة: أي `instructions` من المُتصل تُضاف كتلميح صغير بعد هذه الهوية.
+ * ==========================================================================
+ */
+export const MODREK_TTS_VOICE_PROMPT = [
+  "صوت معلم مصري محترف يتحدث باللهجة المصرية الطبيعية، بصوت بشري واقعي جدًا ودافئ وواضح ونقي.",
+  "يتحدث بهدوء وثقة وبأسلوب تعليمي جذاب ومريح للطلاب.",
+  "استخدم نطقًا مصريًا طبيعيًا، وتنغيمًا بشريًا واقعيًا، ووقفات قصيرة طبيعية بين الجمل،",
+  "مع تغيير النبرة والسرعة بشكل مناسب لمعنى الكلام.",
+  "لا تتحدث بنبرة آلية أو روبوتية، ولا تقرأ النص بطريقة مسطحة.",
+  "اجعل الأداء يبدو كمعلم مصري حقيقي يشرح درسًا أمام طلابه.",
+  "حافظ على وضوح مخارج الحروف، ونقاء الصوت، وسرعة معتدلة، ونبرة تعليمية مميزة وثابتة في جميع التسجيلات.",
 ].join(" ");
+
+/** قواعد الأداء (Prosody) — تُرسل مع كل طلب صوت بدون استثناء. */
+export const MODREK_TTS_PROSODY_RULES = [
+  "اللهجة: مصرية عامية طبيعية للشرح (مش فصحى متكلفة)، ومع ذلك انطق الآيات القرآنية والنصوص المُشكّلة بالفصحى الصحيحة كما هي بدون تغيير.",
+  "السرعة: متوسطة ومريحة (حوالي ١٤٠ كلمة في الدقيقة)، وابطؤ قليلاً عند التعريفات والأرقام والمصطلحات.",
+  "الوقفات: وقفة قصيرة بعد الفاصلة، وأطول قليلاً بعد النقطة، ووقفة واضحة بين الفقرات وقبل التعريف أو النقطة المهمة.",
+  "التنغيم: ارفع النبرة في نهاية السؤال، واثبت وانزل بها في نهاية الجملة الخبرية، وأكِّد بنبرة أعلى قليلاً على الكلمة المفتاحية في كل جملة.",
+  "الحالة حسب المعنى: الشرح بنبرة هادئة موضحة، السؤال بنبرة استفهام حقيقية، المعلومة المهمة بنبرة تأكيد أبطأ، التنبيه بنبرة جدية قصيرة، المثال بنبرة أخف وأقرب للحديث اليومي.",
+  "لا تجعل كل الجمل بنفس السرعة أو نفس طبقة الصوت؛ غيّر الإيقاع بشكل طبيعي بين الجمل.",
+  "بدون مبالغة أو تمثيل أو حماس زائد، وبدون همس أو صراخ.",
+  "نطق الأرقام والمصطلحات العلمية كاملاً وبوضوح، والحروف اللاتينية تُنطق بشكل عربي مفهوم.",
+  "صوت نظيف تمامًا: بدون ضوضاء أو صدى أو موسيقى أو مؤثرات، ولا تبتلع أواخر الكلمات.",
+  "لا تنطق أي تعليمات أو رموز أو علامات ترقيم، ولا تضف مقدمة أو خاتمة أو تعليقًا من عندك.",
+].join(" ");
+
+/** الهوية الكاملة (Prompt + Prosody). الاسم القديم محفوظ للتوافق. */
+export const EGYPTIAN_TEACHER_TTS_INSTRUCTIONS = `${MODREK_TTS_VOICE_PROMPT} ${MODREK_TTS_PROSODY_RULES}`;
+
+/** الإعدادات النهائية الموحّدة لكل عمليات تحويل النص إلى صوت. */
+export const MODREK_TTS_SETTINGS = {
+  model: OPENROUTER_DEFAULT_TTS_MODEL,
+  voice: OPENROUTER_DEFAULT_TTS_VOICE,
+  /** يُستخدم مع أصوات OpenAI فقط؛ Gemini TTS يضبط السرعة من نص الأسلوب. */
+  speed: 0.94,
+  format: "pcm" as const,
+  sampleRate: 24000,
+  channels: 1,
+  bitsPerSample: 16,
+  quality: OPENROUTER_TTS_QUALITY,
+} as const;
+
 
 const OPENROUTER_REFERRER = "https://modrekplus.com";
 const OPENROUTER_APP_TITLE = "Modrek Plus";
@@ -99,16 +139,34 @@ function responseHeadersToObject(headers: Headers): Record<string, string> {
   return out;
 }
 
+/**
+ * توحيد الأسلوب: أي `instructions` من المُتصل تُعامَل كتلميح إضافي فقط،
+ * والهوية الصوتية (Voice Prompt + Prosody) تُوضَع أولاً دائمًا حتى لا يتغير
+ * الصوت من درس لآخر.
+ */
+export function buildModrekTtsStyleBlock(extraHint?: string): string {
+  const hint = String(extraHint || "").trim();
+  const cleanHint = hint && !hint.startsWith(MODREK_TTS_VOICE_PROMPT.slice(0, 24))
+    ? hint.slice(0, 300)
+    : "";
+  return [
+    "هوية الصوت الثابتة لمنصة Modrek Plus (التزم بها حرفيًا في كل تسجيل):",
+    EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
+    cleanHint ? `تلميح إضافي لهذا المقطع فقط (بدون تغيير هوية الصوت): ${cleanHint}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 function buildGeminiTtsInput(input: string, instructions: string): string {
   const cleanInput = String(input || "").trim();
-  const cleanInstructions = String(instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS).trim();
   return [
-    cleanInstructions,
-    "اقرأ النص التالي فقط بصوت معلم مصري طبيعي. لا تنطق تعليمات الأسلوب، ولا تضف مقدمة أو خاتمة.",
+    buildModrekTtsStyleBlock(instructions),
+    "اقرأ النص التالي فقط بصوت معلم Modrek Plus المصري الطبيعي، مع الالتزام بالتنغيم والوقفات والسرعة المذكورة أعلاه.",
+    "لا تنطق تعليمات الأسلوب ولا كلمة «النص»، ولا تضف مقدمة أو خاتمة أو تعليقًا.",
     "النص:",
     cleanInput,
   ].join("\n");
 }
+
 
 const SCIENCE_PRONUNCIATION: Array<[RegExp, string]> = [
   [/\bDNA\b/gi, "دي إن إيه"],
@@ -196,12 +254,19 @@ export function preprocessSpeechForTeacher(input: string): string {
   text = text.replace(/\b\d+[\d,]*(?:\.\d+)?\b/g, (n) => numberToArabicWords(n));
 
   text = text
+    // وقفة طبيعية قصيرة بعد النقطتين وقبل الكلمات الدالة على تعريف/مثال/تنبيه،
+    // فتخرج الجملة بتنغيم معلم حقيقي بدل قراءة مسطحة.
+    // النقطتان تتحولان لوقفة + سطر جديد (تعريف: ... / خلاصة: ...) بدل قراءة الرمز.
+    .replace(/\s*:\s*/g, "،\n")
     .replace(/\b(تعالوا|تعالى|خلينا|ركز معايا|خد بالك)\b/gu, "$1...")
+
     .replace(/\s*\.\s*/g, ".\n")
     .replace(/\s*؟\s*/g, "؟\n")
     .replace(/\s*!\s*/g, "!\n")
     .replace(/\s+،/g, "،")
+    .replace(/،(\s*،)+/g, "،")
     .replace(/،\s*/g, "، ")
+
     .replace(/\.{4,}/g, "...")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ ]{2,}/g, " ")
@@ -323,21 +388,30 @@ export async function openRouterTts(opts: {
   const requestUrl = `${ttsBaseUrl}/audio/speech`;
   const started = performance.now();
   try {
-    const model = toOpenRouterTtsModelId(opts.model || OPENROUTER_DEFAULT_TTS_MODEL);
-    const requested = opts.format || "pcm";
+    const model = toOpenRouterTtsModelId(opts.model || MODREK_TTS_SETTINGS.model);
+    const requested = opts.format || MODREK_TTS_SETTINGS.format;
     const isGeminiTts = model.toLowerCase().includes("gemini");
     const format = isGeminiTts ? "pcm" : requested === "pcm" ? "pcm" : "mp3";
+    // Every path goes through the same normalizer + the same voice identity, so
+    // the "معلم Modrek Plus" voice never drifts between lessons or callers.
+    const spokenText = preprocessSpeechForTeacher(opts.input);
     const body: Record<string, unknown> = {
       model,
       input: isGeminiTts
-        ? buildGeminiTtsInput(opts.input, opts.instructions || EGYPTIAN_TEACHER_TTS_INSTRUCTIONS)
-        : opts.input,
-      voice: opts.voice || OPENROUTER_DEFAULT_TTS_VOICE,
+        ? buildGeminiTtsInput(spokenText, opts.instructions || "")
+        : spokenText,
+      voice: opts.voice || MODREK_TTS_SETTINGS.voice,
       response_format: format,
     };
     // OpenRouter documents `speed` for OpenAI-compatible voices. Gemini TTS ignores
-    // or may reject unknown provider fields, so we keep Gemini requests minimal.
-    if (!isGeminiTts && typeof opts.speed === "number") body.speed = opts.speed;
+    // or may reject unknown provider fields, so we keep Gemini requests minimal
+    // (its pacing is driven by the prosody rules inside the style block).
+    if (!isGeminiTts) {
+      const speed = typeof opts.speed === "number" ? opts.speed : MODREK_TTS_SETTINGS.speed;
+      body.speed = Math.max(0.8, Math.min(1.1, speed));
+      body.instructions = buildModrekTtsStyleBlock(opts.instructions || "");
+    }
+
     const headers = buildOpenRouterHeaders(ttsApiKey);
     const debug: OpenRouterDebugInfo = {
       requestUrl,
