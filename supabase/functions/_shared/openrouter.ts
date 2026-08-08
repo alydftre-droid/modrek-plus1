@@ -254,7 +254,12 @@ export function preprocessSpeechForTeacher(input: string): string {
   text = text.replace(/\b\d+[\d,]*(?:\.\d+)?\b/g, (n) => numberToArabicWords(n));
 
   text = text
+    // وقفة طبيعية قصيرة بعد النقطتين وقبل الكلمات الدالة على تعريف/مثال/تنبيه،
+    // فتخرج الجملة بتنغيم معلم حقيقي بدل قراءة مسطحة.
+    .replace(/\s*:\s*/g, "،\n")
+    .replace(/(^|\n|\s)(مثال|مثلاً|ملاحظة|لاحظ|مهم|تنبيه|خلاصة|بمعنى|يعني|تعريف)(\s|:|،)/gu, "$1$2،$3")
     .replace(/\b(تعالوا|تعالى|خلينا|ركز معايا|خد بالك)\b/gu, "$1...")
+
     .replace(/\s*\.\s*/g, ".\n")
     .replace(/\s*؟\s*/g, "؟\n")
     .replace(/\s*!\s*/g, "!\n")
