@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
-import { extractBunnyVideoId, getBunnyThumbnailUrl, isBunnyVideo } from "@/lib/bunnyStream";
+import { isBunnyVideo } from "@/lib/bunnyStream";
+import { getSignedThumbnail } from "@/lib/bunnyPlayback";
 
 interface Props {
   url: string;
@@ -14,22 +15,31 @@ interface Props {
 /**
  * Smart video thumbnail. Picks, in order:
  *   1. Teacher's manually uploaded thumbnail
- *   2. Bunny Stream auto thumbnail
- *   3. Frame extracted from the actual video
+ *   2. Bunny Stream signed poster (the plain CDN thumbnail URL is 403 because
+ *      the pull zone uses token authentication)
+ *   3. Frame extracted from the actual video (non-Bunny sources)
  *   4. A play-icon placeholder
  */
 export default function VideoThumb({ url, thumbnailUrl, className, rounded = "rounded-xl" }: Props) {
   const [extracted, setExtracted] = useState<string | null>(null);
+  const [bunnyThumb, setBunnyThumb] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const bunnyThumb = useMemo(() => {
-    if (!isBunnyVideo(url)) return null;
-    const id = extractBunnyVideoId(url);
-    return id ? getBunnyThumbnailUrl(id) : null;
-  }, [url]);
-
+  // Bunny videos: ask the backend for a signed poster URL.
   useEffect(() => {
-    if (thumbnailUrl || bunnyThumb || failed || !url || isBunnyVideo(url)) return;
+    let cancelled = false;
+    setBunnyThumb(null);
+    setFailed(false);
+    if (thumbnailUrl || !url || !isBunnyVideo(url)) return;
+    getSignedThumbnail(url).then((u) => {
+      if (!cancelled) setBunnyThumb(u);
+    });
+    return () => { cancelled = true; };
+  }, [url, thumbnailUrl]);
+
+  // Non-Bunny videos: grab a frame from the file itself.
+  useEffect(() => {
+    if (thumbnailUrl || failed || !url || isBunnyVideo(url)) return;
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
     video.preload = "metadata";
@@ -59,7 +69,7 @@ export default function VideoThumb({ url, thumbnailUrl, className, rounded = "ro
       video.removeEventListener("seeked", onSeek);
       video.remove();
     };
-  }, [url, thumbnailUrl, bunnyThumb, failed]);
+  }, [url, thumbnailUrl, failed]);
 
   const src = thumbnailUrl || (failed ? null : bunnyThumb) || extracted;
   const wrapperClass = className || "w-20 h-14 shrink-0";

@@ -145,3 +145,45 @@ export function clearPlaybackCache(videoId?: string) {
   if (videoId) cache.delete(videoId);
   else cache.clear();
 }
+
+/* ------------------------------------------------------------------ */
+/*  Signed thumbnails (video covers)                                   */
+/* ------------------------------------------------------------------ */
+
+const thumbCache = new Map<string, { url: string | null; at: number }>();
+const thumbInflight = new Map<string, Promise<string | null>>();
+
+/**
+ * Bunny pull zone uses token authentication, so the plain
+ * `https://<cdn>/<videoId>/thumbnail.jpg` URL always returns 403.
+ * The `sign-playback` action resolves a real (signed) poster URL, so use it
+ * for every video cover shown to teachers and students.
+ */
+export async function getSignedThumbnail(fileUrlOrVideoId: string): Promise<string | null> {
+  const videoId = isBunnyVideo(fileUrlOrVideoId)
+    ? extractBunnyVideoId(fileUrlOrVideoId)
+    : fileUrlOrVideoId;
+  if (!videoId) return null;
+
+  const cached = thumbCache.get(videoId);
+  if (cached && Date.now() - cached.at < 30 * 60 * 1000) return cached.url;
+
+  const existing = thumbInflight.get(videoId);
+  if (existing) return existing;
+
+  const task = (async () => {
+    try {
+      const sp = await getSignedPlayback(videoId);
+      const url = sp?.thumbnailUrl || null;
+      thumbCache.set(videoId, { url, at: Date.now() });
+      return url;
+    } catch {
+      thumbCache.set(videoId, { url: null, at: Date.now() });
+      return null;
+    } finally {
+      thumbInflight.delete(videoId);
+    }
+  })();
+  thumbInflight.set(videoId, task);
+  return task;
+}
