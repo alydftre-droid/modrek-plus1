@@ -12,3 +12,8 @@ Deno.test("Stream validates signing-key JWT claims in code", () => {
   assertStringIncludes(source, "sb.auth.getClaims(token)");
   assertStringIncludes(source, "data?.claims?.sub");
 });
+
+Deno.test("catalogue thumbnails use a dedicated CDN-signed action", () => {
+  assertStringIncludes(source, 'action === "sign-thumbnail"');
+  assertStringIncludes(source, "getCdnToken(cdnTokenKey, path, expires)");
+});
