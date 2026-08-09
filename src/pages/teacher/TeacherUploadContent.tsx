@@ -177,83 +177,11 @@ const SectionFilter = ({
   );
 };
 
-// Video thumbnail component
-const VideoThumbnail = ({ url }: { url: string }) => {
-  const [thumb, setThumb] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+// Video thumbnail component (shared logic: signed Bunny poster + frame fallback)
+const VideoThumbnail = ({ url }: { url: string }) => (
+  <VideoThumb url={url} className="w-[60px] h-[42px] shrink-0" rounded="rounded-lg" />
+);
 
-  // If it's a Bunny video, use Bunny's thumbnail
-  const bunnyThumb = useMemo(() => {
-    if (isBunnyVideo(url)) {
-      const videoId = extractBunnyVideoId(url);
-      return videoId ? getBunnyThumbnailUrl(videoId) : null;
-    }
-    return null;
-  }, [url]);
-
-  useEffect(() => {
-    if (bunnyThumb || !url || failed || isBunnyVideo(url)) return;
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.preload = "metadata";
-    video.muted = true;
-    
-    const handleLoaded = () => {
-      video.currentTime = Math.min(1, video.duration * 0.1);
-    };
-    
-    const handleSeeked = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = 120;
-        canvas.height = 68;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          setThumb(canvas.toDataURL("image/jpeg", 0.6));
-        }
-      } catch {
-        setFailed(true);
-      }
-      video.remove();
-    };
-    
-    video.addEventListener("loadedmetadata", handleLoaded);
-    video.addEventListener("seeked", handleSeeked);
-    video.addEventListener("error", () => setFailed(true));
-    video.src = url;
-    
-    return () => {
-      video.removeEventListener("loadedmetadata", handleLoaded);
-      video.removeEventListener("seeked", handleSeeked);
-      video.remove();
-    };
-  }, [url, failed, bunnyThumb]);
-
-  const displayThumb = (failed ? null : bunnyThumb) || thumb;
-
-  if (displayThumb) {
-    return (
-      <div className="relative w-[60px] h-[42px] rounded-lg overflow-hidden shrink-0">
-        <img
-          src={displayThumb}
-          alt=""
-          className="w-full h-full object-cover"
-          onError={() => setFailed(true)}
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-          <Play className="h-4 w-4 text-white fill-white" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-3 rounded-lg bg-primary text-primary-foreground shrink-0">
-      <Play className="h-6 w-6" />
-    </div>
-  );
-};
 
 const TeacherUploadContent = () => {
   const navigate = useNavigate();
