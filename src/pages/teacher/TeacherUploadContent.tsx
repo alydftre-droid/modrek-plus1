@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isBunnyVideo, getBunnyThumbnailUrl, extractBunnyVideoId } from "@/lib/bunnyStream";
+import VideoThumb from "@/components/student/VideoThumb";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
