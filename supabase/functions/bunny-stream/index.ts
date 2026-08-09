@@ -80,6 +80,15 @@ async function getEmbedToken(tokenKey: string, videoId: string, expires: number)
   return await sha256Hex(`${tokenKey}${videoId}${expires}`);
 }
 
+async function getCdnToken(tokenKey: string, path: string, expires: number) {
+  if (!tokenKey) return null;
+  const input = new TextEncoder().encode(`${tokenKey}${path}${expires}`);
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", input));
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
 async function fetchPlaybackFromBunnyEmbed(embedUrl: string) {
   try {
     const res = await fetch(embedUrl, {
@@ -231,7 +240,7 @@ Deno.serve(async (req) => {
 
   // sign-playback + health don't need the write API key — only library + cdn (+ optional token key).
   // Other actions (create/get/delete-video) need the full config.
-  const readOnlyAction = action === "sign-playback" || action === "health";
+    const readOnlyAction = action === "sign-playback" || action === "sign-thumbnail" || action === "health";
   const missingForAction = readOnlyAction
     ? bunny.missing.filter((m) => m !== "BUNNY_STREAM_API_KEY")
     : bunny.missing;
@@ -342,6 +351,30 @@ Deno.serve(async (req) => {
         expiresAt: expires,
         signed,
       });
+    }
+
+    // Covers are intentionally available to every authenticated viewer who has
+    // received the opaque video id in the student catalogue. Playback remains
+    // protected by the stricter sign-playback access check above.
+    if (action === "sign-thumbnail") {
+      let body: any = {};
+      try { body = await req.json(); } catch { body = {}; }
+      const videoId: string | undefined = body?.videoId;
+      if (!videoId || typeof videoId !== "string" || !/^[a-zA-Z0-9-]{8,64}$/.test(videoId)) {
+        return jsonResponse({ error: "videoId is required" }, 400);
+      }
+
+      const expires = Math.floor(Date.now() / 1000) + 60 * 60 * 4;
+      const path = `/${videoId}/thumbnail.jpg`;
+      const cdnTokenKey = Deno.env.get("BUNNY_CDN_TOKEN_KEY")
+        || Deno.env.get("BUNNY_STREAM_TOKEN_KEY")
+        || "";
+      const token = await getCdnToken(cdnTokenKey, path, expires);
+      const thumbnailUrl = token
+        ? `https://${bunny.cdnHostname}${path}?token=${token}&expires=${expires}`
+        : `https://${bunny.cdnHostname}${path}`;
+
+      return jsonResponse({ videoId, thumbnailUrl, expiresAt: expires, signed: Boolean(token) });
     }
 
     // Action: video-status — encoding status for the player (students + teachers).

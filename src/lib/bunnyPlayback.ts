@@ -173,8 +173,16 @@ export async function getSignedThumbnail(fileUrlOrVideoId: string): Promise<stri
 
   const task = (async () => {
     try {
-      const sp = await getSignedPlayback(videoId);
-      const url = sp?.thumbnailUrl || null;
+      // Thumbnail signing is separate from playback authorization so covers can
+      // render in the catalogue before the student purchases the group.
+      const { data, error } = await supabase.functions.invoke("bunny-stream?action=sign-thumbnail", {
+        body: { videoId },
+      });
+      let url = !error && data?.thumbnailUrl ? String(data.thumbnailUrl) : null;
+      if (!url) {
+        const sp = await getSignedPlayback(videoId);
+        url = sp?.thumbnailUrl || null;
+      }
       thumbCache.set(videoId, { url, at: Date.now() });
       return url;
     } catch {
