@@ -6,19 +6,21 @@ import {
   Landmark, Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
+import {
+  getScientificSubjectNames,
+  subjectCategoryOverrideForScope,
+  isMathSpecialty,
+  isScienceSpecialty,
+} from "@/lib/educationSection";
 
-const SCIENCE_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
-  { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" },
-];
+const SCIENTIFIC_SUBJECT_CARDS: Record<string, { id: string; name: string; icon: typeof Atom; gradient: string; emoji: string }> = {
+  "الفيزياء": { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
+  "الكيمياء": { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
+  "الأحياء": { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" },
+  "الرياضيات": { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
+  "التاريخ": { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "linear-gradient(135deg, hsl(35 90% 50%), hsl(45 85% 45%))", emoji: "📜" },
+};
 
-const MATH_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
-];
 
 const LITERARY_SUBJECTS = [
   { id: "history_geo_combo", name: "التاريخ والجغرافيا", icon: Landmark, gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))", emoji: "📜" },
@@ -62,16 +64,9 @@ export default function CategorySubjectsPage() {
 
   const scientificSubjects = isFirstSecondary
     ? FIRST_SECONDARY_SCIENTIFIC
-    : isMathSpecialty(section)
-      ? MATH_SPECIALTY_SUBJECTS
-      : isScienceSpecialty(section)
-        ? SCIENCE_SPECIALTY_SUBJECTS
-        : getGeneralScientificSubjectNames(section).map((name) => {
-            if (name === "الفيزياء") return { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" };
-            if (name === "الكيمياء") return { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" };
-            if (name === "الأحياء") return { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" };
-            return { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" };
-          });
+    : getScientificSubjectNames({ stage, grade, section })
+        .map((name) => SCIENTIFIC_SUBJECT_CARDS[name])
+        .filter(Boolean);
 
   let subjects = isScientific ? scientificSubjects
     : isLiterary ? LITERARY_SUBJECTS
@@ -90,6 +85,7 @@ export default function CategorySubjectsPage() {
     : isHistoryGeo ? "التاريخ والجغرافيا"
     : isScience ? "العلوم" : "الدراسات";
 
+
   const bundleId = params.get("bundleId") || "";
   const bundleCategory = params.get("bundleCategory") || "";
   const returnTo = params.get("returnTo") || "";
@@ -104,7 +100,10 @@ export default function CategorySubjectsPage() {
       return;
     }
     // For history_geo sub-cards, route to literary category with subject_name
-    const targetCategory = isHistoryGeo ? "literary" : category;
+    // Subjects swapped in by an official curriculum update can live in another
+    // DB category (التاريخ للصف الثاني الثانوي علمي → literary).
+    const overrideCategory = subjectCategoryOverrideForScope(subjectId, { stage, grade, section });
+    const targetCategory = isHistoryGeo ? "literary" : overrideCategory || category;
     navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${targetCategory}&subject_name=${encodeURIComponent(subjectId)}${bundleSuffix}`);
   };
 

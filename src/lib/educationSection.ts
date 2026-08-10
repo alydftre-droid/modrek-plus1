@@ -111,6 +111,99 @@ export function getGeneralScientificSubjectNames(section: StudentSectionValue) {
   return ["الفيزياء", "الكيمياء", "الأحياء", "الرياضيات"];
 }
 
+/* ------------------------------------------------------------------------- */
+/* Curriculum overrides (official 2026/2027 update)                          */
+/* ------------------------------------------------------------------------- */
+
+export type CurriculumScope = {
+  stage?: string | null;
+  grade?: string | null;
+  section?: StudentSectionValue;
+};
+
+function normalizeCurriculumStage(stage: string | null | undefined) {
+  const v = (stage || "").trim();
+  if (v === "secondary" || v.includes("ثانوي")) return "secondary";
+  if (v === "preparatory" || v.includes("إعداد") || v.includes("اعداد")) return "preparatory";
+  return "";
+}
+
+function normalizeCurriculumGrade(grade: string | null | undefined) {
+  const v = (grade || "").trim();
+  if (["first", "second", "third"].includes(v)) return v;
+  if (v.includes("الأول") || v.includes("الاول") || v === "1") return "first";
+  if (v.includes("الثاني") || v === "2") return "second";
+  if (v.includes("الثالث") || v === "3") return "third";
+  return "";
+}
+
+/**
+ * Subject swaps applied to an exact (stage + grade + section) cell only.
+ * Nothing else in the platform is affected: other grades, other sections and
+ * other stages keep their original subjects.
+ */
+const CURRICULUM_SUBJECT_SWAPS: Array<{
+  stage: string;
+  grade: string;
+  section: "scientific" | "literary";
+  from: string;
+  to: string;
+  /** subjects.category of the replacement subject row in the DB */
+  toCategory: string;
+}> = [
+  {
+    stage: "secondary",
+    grade: "second",
+    section: "scientific",
+    from: "الأحياء",
+    to: "التاريخ",
+    toCategory: "literary",
+  },
+];
+
+function findSwap(scope: CurriculumScope, subjectName?: string) {
+  const stage = normalizeCurriculumStage(scope.stage);
+  const grade = normalizeCurriculumGrade(scope.grade);
+  const section = normalizeSectionForSubjects(scope.section);
+
+  return CURRICULUM_SUBJECT_SWAPS.find(
+    (swap) =>
+      swap.stage === stage &&
+      swap.grade === grade &&
+      swap.section === section &&
+      (!subjectName || subjectName.trim() === swap.from || subjectName.trim() === swap.to),
+  );
+}
+
+/** True when this subject name is retired for this exact configuration. */
+export function isSubjectRetiredForScope(subjectName: string, scope: CurriculumScope) {
+  const swap = findSwap(scope, subjectName);
+  return !!swap && subjectName.trim() === swap.from;
+}
+
+/**
+ * DB `subjects.category` to use for a subject inside a given scope.
+ * Needed when a replacement subject lives in another category
+ * (e.g. التاريخ is a `literary` row even for the scientific section).
+ */
+export function subjectCategoryOverrideForScope(subjectName: string, scope: CurriculumScope) {
+  const swap = findSwap(scope, subjectName);
+  if (swap && subjectName.trim() === swap.to) return swap.toCategory;
+  return null;
+}
+
+/**
+ * Scientific-section subject names for a specific stage/grade/section,
+ * with the official curriculum swaps applied.
+ */
+export function getScientificSubjectNames(scope: CurriculumScope) {
+  const base = getGeneralScientificSubjectNames(scope.section);
+  const swap = findSwap(scope);
+  if (!swap) return base;
+  return base.map((name) => (name === swap.from ? swap.to : name));
+}
+
+
 /** Normalize education_type to canonical form */
 export function normalizeEducationType(eduType: string | null | undefined): "عام" | "أزهر" | null {
   const v = (eduType || "").trim().replace(/\s+/g, " ").toLowerCase();
