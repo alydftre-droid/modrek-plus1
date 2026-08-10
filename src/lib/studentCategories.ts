@@ -261,6 +261,7 @@ const SCIENTIFIC_SUBJECT_CHOICES: Record<string, BundleSubjectChoice> = {
   "الكيمياء": { id: "chemistry", name: "الكيمياء", emoji: "🧪" },
   "الأحياء": { id: "biology", name: "الأحياء", emoji: "🔬" },
   "الرياضيات": { id: "math", name: "الرياضيات", emoji: "📐" },
+  "التاريخ": { id: "history", name: "التاريخ", emoji: "📜" },
 };
 
 function normalizeSubjectNameForMatch(value: string) {
@@ -284,11 +285,7 @@ export function getBundleSubjectChoices(categoryKey: string, ctx: {
   if (categoryKey !== "scientific") return [];
 
   const section = ctx.section || "";
-  const names = isMathSpecialty(section)
-    ? ["الفيزياء", "الكيمياء", "الرياضيات"]
-    : isScienceSpecialty(section)
-      ? ["الفيزياء", "الكيمياء", "الأحياء"]
-      : getGeneralScientificSubjectNames(section);
+  const names = getScientificSubjectNames({ stage: ctx.stage, grade: ctx.grade, section });
 
   return names
     .map((name) => SCIENTIFIC_SUBJECT_CHOICES[normalizeSubjectSelectionName(name)])
@@ -307,10 +304,14 @@ export async function fetchBundleSubjects(supabase: any, categoryKey: string, ct
 
     let q = supabase.from("subjects").select("id, name, category, section, stage, grade, is_active")
       .eq("is_active", true)
-      .in("category", ["science", "scientific", "math"]);
+      // `literary` is included because an official curriculum swap can bring a
+      // literary-category subject (التاريخ) into the scientific section; the
+      // allowed-names filter below keeps the result scoped.
+      .in("category", ["science", "scientific", "math", "literary"]);
 
     if (stage) q = q.eq("stage", stage);
     if (grade) q = q.eq("grade", grade);
+
 
     const { data } = await q;
     const allowedNames = (normalizedSubjectName
