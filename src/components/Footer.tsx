@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
 const Footer = () => {
