@@ -100,7 +100,10 @@ export default function CategorySubjectsPage() {
       return;
     }
     // For history_geo sub-cards, route to literary category with subject_name
-    const targetCategory = isHistoryGeo ? "literary" : category;
+    // Subjects swapped in by an official curriculum update can live in another
+    // DB category (التاريخ للصف الثاني الثانوي علمي → literary).
+    const overrideCategory = subjectCategoryOverrideForScope(subjectId, { stage, grade, section });
+    const targetCategory = isHistoryGeo ? "literary" : overrideCategory || category;
     navigate(`/student-subject?stage=${stage}&grade=${grade}${section ? `&section=${section}` : ""}&category=${targetCategory}&subject_name=${encodeURIComponent(subjectId)}${bundleSuffix}`);
   };
 
