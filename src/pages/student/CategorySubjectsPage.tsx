@@ -6,19 +6,16 @@ import {
   Landmark, Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
+import { getScientificSubjectNames, subjectCategoryOverrideForScope } from "@/lib/educationSection";
 
-const SCIENCE_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
-  { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" },
-];
+const SCIENTIFIC_SUBJECT_CARDS: Record<string, { id: string; name: string; icon: typeof Atom; gradient: string; emoji: string }> = {
+  "الفيزياء": { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
+  "الكيمياء": { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
+  "الأحياء": { id: "الأحياء", name: "الأحياء", icon: Microscope, gradient: "linear-gradient(135deg, hsl(140 70% 45%), hsl(95 70% 45%))", emoji: "🔬" },
+  "الرياضيات": { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
+  "التاريخ": { id: "التاريخ", name: "التاريخ", icon: Landmark, gradient: "linear-gradient(135deg, hsl(35 90% 50%), hsl(45 85% 45%))", emoji: "📜" },
+};
 
-const MATH_SPECIALTY_SUBJECTS = [
-  { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
-  { id: "الكيمياء", name: "الكيمياء", icon: FlaskConical, gradient: "linear-gradient(135deg, hsl(160 75% 45%), hsl(175 80% 40%))", emoji: "🧪" },
-  { id: "الرياضيات", name: "الرياضيات", icon: Beaker, gradient: "linear-gradient(135deg, hsl(265 80% 60%), hsl(255 75% 50%))", emoji: "📐" },
-];
 
 const LITERARY_SUBJECTS = [
   { id: "history_geo_combo", name: "التاريخ والجغرافيا", icon: Landmark, gradient: "linear-gradient(135deg, hsl(28 90% 55%), hsl(20 85% 45%))", emoji: "📜" },
