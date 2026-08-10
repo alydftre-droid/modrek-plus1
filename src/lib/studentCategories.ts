@@ -1,6 +1,6 @@
 import { BookText, BookMarked, Beaker, Atom, Languages, Globe, Microscope, FlaskConical, Palette, type LucideIcon } from "lucide-react";
 import { normalizeBundleStage, normalizeBundleGrade, normalizeBundleSection } from "@/lib/bundledPackages";
-import { getGeneralScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
+import { getGeneralScientificSubjectNames, getScientificSubjectNames, isMathSpecialty, isScienceSpecialty } from "@/lib/educationSection";
 import { normalizeSubjectSelectionName } from "@/lib/teacherSubjectUtils";
 
 export interface CategoryDef {
