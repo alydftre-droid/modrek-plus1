@@ -69,7 +69,7 @@ export default function DeleteAccount() {
           <p className="text-sm leading-7 text-muted-foreground">
             إذا لم تتمكن من تسجيل الدخول، أو كان حسابك حساب معلم، أرسل طلب حذف الحساب من البريد الإلكتروني
             المسجَّل في الحساب إلى:{" "}
-            <a className="font-semibold text-primary" href="mailto:alyedaft@gmail.com" dir="ltr">alyedaft@gmail.com</a>{" "}
+            <a className="font-semibold text-primary" href="mailto:modrekplus@gmail.com" dir="ltr">modrekplus@gmail.com</a>{" "}
             وسنقوم بتنفيذ الحذف خلال 30 يوماً كحد أقصى.
           </p>
           <p className="mt-3 text-sm leading-7 text-muted-foreground">

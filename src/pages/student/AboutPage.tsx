@@ -12,7 +12,7 @@ import {
   Award,
   Mail,
   Phone,
-  MapPin,
+  
   Sparkles,
   ShieldCheck,
   Rocket,
