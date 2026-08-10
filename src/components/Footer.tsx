@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone } from "lucide-react";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
 const Footer = () => {
@@ -45,18 +45,14 @@ const Footer = () => {
           <div className="space-y-4">
             <h3 className="font-bold text-foreground">تواصل معنا</h3>
             <div className="flex flex-col gap-3">
-              <a href="mailto:alyedaft@gmail.com" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <a href="mailto:modrekplus@gmail.com" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
                 <Mail className="h-4 w-4" />
-                alyedaft@gmail.com
+                modrekplus@gmail.com
               </a>
-              <a href="https://wa.me/201223909712" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+              <a href="https://wa.me/201155941352" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors" dir="ltr">
                 <Phone className="h-4 w-4" />
-                01223909712
+                011 55941352
               </a>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                بني سويف، مصر
-              </div>
             </div>
           </div>
         </div>
@@ -68,8 +64,7 @@ const Footer = () => {
             <Link to="/about" className="text-muted-foreground hover:text-primary transition-colors">عن المنصة</Link>
           </nav>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} مدرك Plus. جميع الحقوق محفوظة. تطوير{" "}
-            <span className="font-semibold text-primary">علي محمد علي</span>
+            © {new Date().getFullYear()} مدرك Plus. جميع الحقوق محفوظة.
           </p>
         </div>
       </div>

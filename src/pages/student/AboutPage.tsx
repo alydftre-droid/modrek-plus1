@@ -12,7 +12,7 @@ import {
   Award,
   Mail,
   Phone,
-  MapPin,
+  
   Sparkles,
   ShieldCheck,
   Rocket,
@@ -193,76 +193,41 @@ const StudentAboutPage = () => {
 
         {role === "student" && <AppDownloadSection variant="student" />}
 
-        {/* Developer */}
+        {/* تواصل معنا */}
         <section className="px-4 pb-10">
           <Card
             className="overflow-hidden"
             style={{
-              background:
-                "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
+              background: "linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)",
               border: "1px solid #E2E8F0",
               boxShadow: "0 12px 30px -18px rgba(22,163,74,0.35)",
             }}
           >
-            <div
-              className="h-1.5"
-              style={{ background: "linear-gradient(90deg, #16A34A, #2563EB)" }}
-            />
+            <div className="h-1.5" style={{ background: "linear-gradient(90deg, #16A34A, #2563EB)" }} />
             <CardContent className="p-6 text-center">
-              <div
-                className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl shadow-md"
-                style={{
-                  background: "linear-gradient(135deg, #16A34A, #15803D)",
-                }}
-              >
-                <span className="text-2xl font-extrabold" style={{ color: "#FFFFFF" }}>
-                  ع
-                </span>
-              </div>
-              <h2 className="text-lg font-bold mb-1" style={{ color: "#1E293B" }}>
-                علي محمد علي
+              <h2 className="text-lg font-bold mb-4" style={{ color: "#1E293B" }}>
+                تواصل معنا
               </h2>
-              <p className="text-xs font-medium mb-5" style={{ color: "#16A34A" }}>
-                مطور ومؤسس منصة مدرك Plus
-              </p>
               <div className="space-y-2">
                 <a
-                  href="mailto:alyedaft@gmail.com"
+                  href="mailto:modrekplus@gmail.com"
                   className="flex items-center justify-center gap-2 text-xs rounded-xl py-2"
-                  style={{
-                    background: "#F8FAFC",
-                    border: "1px solid #E2E8F0",
-                    color: "#334155",
-                  }}
+                  style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", color: "#334155" }}
                 >
                   <Mail className="h-4 w-4" style={{ color: "#2563EB" }} />
-                  alyedaft@gmail.com
+                  modrekplus@gmail.com
                 </a>
                 <a
-                  href="https://wa.me/201223909712"
+                  href="https://wa.me/201155941352"
                   target="_blank"
                   rel="noopener noreferrer"
+                  dir="ltr"
                   className="flex items-center justify-center gap-2 text-xs rounded-xl py-2"
-                  style={{
-                    background: "#F0FDF4",
-                    border: "1px solid #BBF7D0",
-                    color: "#166534",
-                  }}
+                  style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", color: "#166534" }}
                 >
                   <Phone className="h-4 w-4" style={{ color: "#16A34A" }} />
-                  01223909712
+                  011 55941352
                 </a>
-                <div
-                  className="flex items-center justify-center gap-2 text-xs rounded-xl py-2"
-                  style={{
-                    background: "#F8FAFC",
-                    border: "1px solid #E2E8F0",
-                    color: "#334155",
-                  }}
-                >
-                  <MapPin className="h-4 w-4" style={{ color: "#EA580C" }} />
-                  بني سويف، مصر
-                </div>
               </div>
             </CardContent>
           </Card>
