@@ -6,7 +6,12 @@ import {
   Landmark, Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getScientificSubjectNames, subjectCategoryOverrideForScope } from "@/lib/educationSection";
+import {
+  getScientificSubjectNames,
+  subjectCategoryOverrideForScope,
+  isMathSpecialty,
+  isScienceSpecialty,
+} from "@/lib/educationSection";
 
 const SCIENTIFIC_SUBJECT_CARDS: Record<string, { id: string; name: string; icon: typeof Atom; gradient: string; emoji: string }> = {
   "الفيزياء": { id: "الفيزياء", name: "الفيزياء", icon: Atom, gradient: "linear-gradient(135deg, hsl(220 85% 55%), hsl(245 80% 50%))", emoji: "⚡" },
