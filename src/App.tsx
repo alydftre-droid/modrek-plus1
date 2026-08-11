@@ -13,6 +13,8 @@ import PageTransition from "@/components/PageTransition";
 import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
+import MetaPixelTracker from "@/components/MetaPixelTracker";
+
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import LazyRouteBoundary from "@/components/LazyRouteBoundary";
@@ -447,6 +449,8 @@ function App() {
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
+          <MetaPixelTracker />
+
           <IntegrityGuardMount />
           <AdminDsScope />
           <TeacherDsScope />

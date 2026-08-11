@@ -10,8 +10,8 @@ android {
         applicationId "com.modrek.plus"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 36
-        versionName "1.1.33"
+        versionCode 37
+        versionName "1.1.34"
 
         // لا يوجد كود أصلي (NDK) في التطبيق، لذلك لا نضع أي فلاتر ABI
         // ولا فلاتر كثافة/لغة — أي فلتر هنا يحجب أجهزة عن التثبيت.
