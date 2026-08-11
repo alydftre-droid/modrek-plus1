@@ -1322,6 +1322,9 @@ const Auth = () => {
           setOtpOpen(false);
           if (pendingMode === "register-teacher") {
             navigate("/pending-approval", { replace: true });
+          } else if (pendingMode === "register") {
+            // Student account confirmed → single CompleteRegistration per account
+            trackCompleteRegistration(otpEmail || "student", { content_name: "student_registration" });
           }
         }}
         onClose={() => setOtpOpen(false)}
