@@ -117,6 +117,28 @@ export default function BundleCheckoutPage() {
     return keys.length > 0 && keys.every((key) => selected[key]?.groupId);
   }, [pkg, selected]);
 
+  // ---- Meta Pixel: ViewContent once per bundle page view ----
+  useEffect(() => {
+    if (loading || !pkg?.id) return;
+    trackViewContent(`bundle:${pkg.id}`, {
+      content_type: "product_group",
+      content_name: pkg.name || "bundle",
+      content_ids: [String(pkg.id)],
+    });
+  }, [loading, pkg?.id, pkg?.name]);
+
+  // ---- Meta Pixel: InitiateCheckout when the bundle confirmation dialog opens ----
+  useEffect(() => {
+    if (!confirmOpen || !pkg?.id) return;
+    trackInitiateCheckout(`bundle:${pkg.id}`, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_name: pkg.name || "bundle",
+      content_ids: [String(pkg.id)],
+    });
+  }, [confirmOpen, pkg?.id, pkg?.name, totals.final]);
+
+
   const openRealSubjectFlow = (button: StudentDashboardButton) => {
     if (!profile || !bundleId) return;
 
