@@ -882,6 +882,14 @@ const StudentSubjectView = () => {
       }
       setWalletBalance(result.remaining_balance ?? (walletBalance - selectedCourse.price));
       setPurchasedGroups(prev => new Set([...prev, selectedCourse.id]));
+      // Purchase fires only here: wallet payment + subscription confirmed by the server
+      trackPurchase(`${user.id}:${selectedCourse.id}`, {
+        value: Number(selectedCourse.price || 0),
+        content_type: "product",
+        content_name: selectedCourse.title,
+        content_category: category,
+        content_ids: [selectedCourse.id],
+      });
       toast.success("تم الاشتراك بنجاح!");
       setShowSubscribeConfirm(false);
       setSelectedCourse(null);
