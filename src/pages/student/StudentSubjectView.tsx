@@ -901,6 +901,30 @@ const StudentSubjectView = () => {
     }
   };
 
+  // ---- Meta Pixel: ViewContent when the subject/teacher course list is shown ----
+  useEffect(() => {
+    if (loading || step === "teacher_selection") return;
+    trackViewContent(`subject:${category}:${chosenTeacherName || "-"}`, {
+      content_type: "product_group",
+      content_name: subjectNameFilter || category,
+      content_category: category,
+    });
+  }, [loading, step, category, subjectNameFilter, chosenTeacherName]);
+
+  // ---- Meta Pixel: InitiateCheckout when the subscription confirmation opens ----
+  useEffect(() => {
+    if (!showSubscribeConfirm || !selectedCourse) return;
+    trackInitiateCheckout(selectedCourse.id, {
+      value: Number(selectedCourse.price || 0),
+      content_type: "product",
+      content_name: selectedCourse.title,
+      content_category: category,
+      content_ids: [selectedCourse.id],
+    });
+  }, [showSubscribeConfirm, selectedCourse, category]);
+
+
+
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
     const { data, error } = await supabase
       .from("sub_subjects")
