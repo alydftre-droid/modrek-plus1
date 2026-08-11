@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { CURRENT_TEACHER_TERMS_VERSION } from "@/lib/teacherTerms";
+import { trackCompleteRegistration } from "@/lib/metaPixel";
 import {
   buildGoogleOAuthWebRedirectUri,
   finalizeGoogleOAuthAttempt,
@@ -1322,6 +1323,9 @@ const Auth = () => {
           setOtpOpen(false);
           if (pendingMode === "register-teacher") {
             navigate("/pending-approval", { replace: true });
+          } else if (pendingMode === "register") {
+            // Student account confirmed → single CompleteRegistration per account
+            trackCompleteRegistration(otpEmail || "student", { content_name: "student_registration" });
           }
         }}
         onClose={() => setOtpOpen(false)}

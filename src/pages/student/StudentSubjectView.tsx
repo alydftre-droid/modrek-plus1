@@ -24,6 +24,7 @@ import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { toast } from "sonner";
+import { trackViewContent, trackInitiateCheckout, trackPurchase } from "@/lib/metaPixel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -881,6 +882,14 @@ const StudentSubjectView = () => {
       }
       setWalletBalance(result.remaining_balance ?? (walletBalance - selectedCourse.price));
       setPurchasedGroups(prev => new Set([...prev, selectedCourse.id]));
+      // Purchase fires only here: wallet payment + subscription confirmed by the server
+      trackPurchase(`${user.id}:${selectedCourse.id}`, {
+        value: Number(selectedCourse.price || 0),
+        content_type: "product",
+        content_name: selectedCourse.title,
+        content_category: category,
+        content_ids: [selectedCourse.id],
+      });
       toast.success("تم الاشتراك بنجاح!");
       setShowSubscribeConfirm(false);
       setSelectedCourse(null);
@@ -891,6 +900,30 @@ const StudentSubjectView = () => {
       setSubscribing(false);
     }
   };
+
+  // ---- Meta Pixel: ViewContent when the subject/teacher course list is shown ----
+  useEffect(() => {
+    if (loading || step === "teacher_selection") return;
+    trackViewContent(`subject:${category}:${chosenTeacherName || "-"}`, {
+      content_type: "product_group",
+      content_name: subjectNameFilter || category,
+      content_category: category,
+    });
+  }, [loading, step, category, subjectNameFilter, chosenTeacherName]);
+
+  // ---- Meta Pixel: InitiateCheckout when the subscription confirmation opens ----
+  useEffect(() => {
+    if (!showSubscribeConfirm || !selectedCourse) return;
+    trackInitiateCheckout(selectedCourse.id, {
+      value: Number(selectedCourse.price || 0),
+      content_type: "product",
+      content_name: selectedCourse.title,
+      content_category: category,
+      content_ids: [selectedCourse.id],
+    });
+  }, [showSubscribeConfirm, selectedCourse, category]);
+
+
 
   const shouldShowSubSubjectsForGroup = async (groupId: string) => {
     const { data, error } = await supabase

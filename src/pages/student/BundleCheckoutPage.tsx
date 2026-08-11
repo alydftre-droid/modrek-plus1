@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { hexToRgba } from "@/lib/bundledPackages";
 import { buildStudentCategoryPath, getCategoryDef, getStudentDashboardButtons, type StudentDashboardButton } from "@/lib/studentCategories";
+import { trackViewContent, trackInitiateCheckout, trackPurchase } from "@/lib/metaPixel";
 
 interface BundleSelection {
   categoryKey: string;
@@ -116,6 +117,28 @@ export default function BundleCheckoutPage() {
     return keys.length > 0 && keys.every((key) => selected[key]?.groupId);
   }, [pkg, selected]);
 
+  // ---- Meta Pixel: ViewContent once per bundle page view ----
+  useEffect(() => {
+    if (loading || !pkg?.id) return;
+    trackViewContent(`bundle:${pkg.id}`, {
+      content_type: "product_group",
+      content_name: pkg.name || "bundle",
+      content_ids: [String(pkg.id)],
+    });
+  }, [loading, pkg?.id, pkg?.name]);
+
+  // ---- Meta Pixel: InitiateCheckout when the bundle confirmation dialog opens ----
+  useEffect(() => {
+    if (!confirmOpen || !pkg?.id) return;
+    trackInitiateCheckout(`bundle:${pkg.id}`, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_name: pkg.name || "bundle",
+      content_ids: [String(pkg.id)],
+    });
+  }, [confirmOpen, pkg?.id, pkg?.name, totals.final]);
+
+
   const openRealSubjectFlow = (button: StudentDashboardButton) => {
     if (!profile || !bundleId) return;
 
@@ -176,6 +199,13 @@ export default function BundleCheckoutPage() {
     if (typeof window !== "undefined") {
       window.sessionStorage.removeItem(storageKey);
     }
+    // Purchase fires only after the server confirms the bundle subscription
+    trackPurchase(`bundle:${user?.id || "anon"}:${bundleId}:${result.subscription_id || result.id || ""}`, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_name: pkg.name || "bundle",
+      content_ids: [String(bundleId)],
+    });
     toast.success("تم الاشتراك في الباقة بنجاح");
     navigate("/my-courses");
   };
