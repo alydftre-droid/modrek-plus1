@@ -199,6 +199,13 @@ export default function BundleCheckoutPage() {
     if (typeof window !== "undefined") {
       window.sessionStorage.removeItem(storageKey);
     }
+    // Purchase fires only after the server confirms the bundle subscription
+    trackPurchase(`bundle:${user?.id || "anon"}:${bundleId}:${result.subscription_id || result.id || ""}`, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_name: pkg.name || "bundle",
+      content_ids: [String(bundleId)],
+    });
     toast.success("تم الاشتراك في الباقة بنجاح");
     navigate("/my-courses");
   };
