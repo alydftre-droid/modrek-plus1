@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { hexToRgba } from "@/lib/bundledPackages";
 import { buildStudentCategoryPath, getCategoryDef, getStudentDashboardButtons, type StudentDashboardButton } from "@/lib/studentCategories";
+import { trackViewContent, trackInitiateCheckout, trackPurchase } from "@/lib/metaPixel";
 
 interface BundleSelection {
   categoryKey: string;
