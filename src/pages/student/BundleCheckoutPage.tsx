@@ -126,9 +126,14 @@ export default function BundleCheckoutPage() {
       content_name: pkg.name || "bundle",
       content_ids: [String(pkg.id)],
     });
+    trackTikTokViewContent(`bundle:${pkg.id}`, {
+      content_type: "product_group",
+      content_id: String(pkg.id),
+      content_name: pkg.name || "bundle",
+    });
   }, [loading, pkg?.id, pkg?.name]);
 
-  // ---- Meta Pixel: InitiateCheckout when the bundle confirmation dialog opens ----
+  // ---- InitiateCheckout when the bundle confirmation dialog opens ----
   useEffect(() => {
     if (!confirmOpen || !pkg?.id) return;
     trackInitiateCheckout(`bundle:${pkg.id}`, {
@@ -137,7 +142,14 @@ export default function BundleCheckoutPage() {
       content_name: pkg.name || "bundle",
       content_ids: [String(pkg.id)],
     });
+    trackTikTokInitiateCheckout(`bundle:${pkg.id}`, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_id: String(pkg.id),
+      content_name: pkg.name || "bundle",
+    });
   }, [confirmOpen, pkg?.id, pkg?.name, totals.final]);
+
 
 
   const openRealSubjectFlow = (button: StudentDashboardButton) => {
