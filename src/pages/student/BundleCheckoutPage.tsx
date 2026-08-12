@@ -213,11 +213,19 @@ export default function BundleCheckoutPage() {
       window.sessionStorage.removeItem(storageKey);
     }
     // Purchase fires only after the server confirms the bundle subscription
-    trackPurchase(`bundle:${user?.id || "anon"}:${bundleId}:${result.subscription_id || result.id || ""}`, {
+    const txKey = `bundle:${user?.id || "anon"}:${bundleId}:${result.subscription_id || result.id || ""}`;
+    trackPurchase(txKey, {
       value: Number(totals.final || 0),
       content_type: "product_group",
       content_name: pkg.name || "bundle",
       content_ids: [String(bundleId)],
+    });
+    trackTikTokCompletePayment(txKey, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_id: String(bundleId),
+      content_name: pkg.name || "bundle",
+      quantity: 1,
     });
     toast.success("تم الاشتراك في الباقة بنجاح");
     navigate("/my-courses");
