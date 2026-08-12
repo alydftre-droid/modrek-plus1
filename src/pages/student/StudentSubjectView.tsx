@@ -25,6 +25,7 @@ import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { toast } from "sonner";
 import { trackViewContent, trackInitiateCheckout, trackPurchase } from "@/lib/metaPixel";
+import { trackTikTokViewContent, trackTikTokInitiateCheckout, trackTikTokCompletePayment } from "@/lib/tiktokPixel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
