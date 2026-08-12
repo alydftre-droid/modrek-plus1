@@ -891,6 +891,14 @@ const StudentSubjectView = () => {
         content_category: category,
         content_ids: [selectedCourse.id],
       });
+      trackTikTokCompletePayment(`${user.id}:${selectedCourse.id}`, {
+        value: Number(selectedCourse.price || 0),
+        content_type: "product",
+        content_id: String(selectedCourse.id),
+        content_name: selectedCourse.title,
+        content_category: category,
+        quantity: 1,
+      });
       toast.success("تم الاشتراك بنجاح!");
       setShowSubscribeConfirm(false);
       setSelectedCourse(null);
