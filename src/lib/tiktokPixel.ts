@@ -144,7 +144,9 @@ export function trackTikTokCompletePayment(
   params: TikTokContentParams & { value: number },
 ): void {
   if (!isTikTokPixelReady()) return;
-  if (firedOnceEver(`CompletePayment:${transactionKey}`)) return;
-  trackTikTokEvent("CompletePayment", { currency: "EGP", ...params }, `cp_${transactionKey}`);
+  if (firedOnceEver(`Purchase:${transactionKey}`)) return;
+  // "Purchase" is used instead of "CompletePayment": the pixel SDK drops
+  // CompletePayment without advanced matching (which needs personal data).
+  trackTikTokEvent("Purchase", { currency: "EGP", ...params }, `pur_${transactionKey}`);
 }
 
