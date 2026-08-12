@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { hexToRgba } from "@/lib/bundledPackages";
 import { buildStudentCategoryPath, getCategoryDef, getStudentDashboardButtons, type StudentDashboardButton } from "@/lib/studentCategories";
 import { trackViewContent, trackInitiateCheckout, trackPurchase } from "@/lib/metaPixel";
+import { trackTikTokViewContent, trackTikTokInitiateCheckout, trackTikTokCompletePayment } from "@/lib/tiktokPixel";
 
 interface BundleSelection {
   categoryKey: string;
@@ -125,9 +126,14 @@ export default function BundleCheckoutPage() {
       content_name: pkg.name || "bundle",
       content_ids: [String(pkg.id)],
     });
+    trackTikTokViewContent(`bundle:${pkg.id}`, {
+      content_type: "product_group",
+      content_id: String(pkg.id),
+      content_name: pkg.name || "bundle",
+    });
   }, [loading, pkg?.id, pkg?.name]);
 
-  // ---- Meta Pixel: InitiateCheckout when the bundle confirmation dialog opens ----
+  // ---- InitiateCheckout when the bundle confirmation dialog opens ----
   useEffect(() => {
     if (!confirmOpen || !pkg?.id) return;
     trackInitiateCheckout(`bundle:${pkg.id}`, {
@@ -136,7 +142,14 @@ export default function BundleCheckoutPage() {
       content_name: pkg.name || "bundle",
       content_ids: [String(pkg.id)],
     });
+    trackTikTokInitiateCheckout(`bundle:${pkg.id}`, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_id: String(pkg.id),
+      content_name: pkg.name || "bundle",
+    });
   }, [confirmOpen, pkg?.id, pkg?.name, totals.final]);
+
 
 
   const openRealSubjectFlow = (button: StudentDashboardButton) => {
@@ -200,11 +213,19 @@ export default function BundleCheckoutPage() {
       window.sessionStorage.removeItem(storageKey);
     }
     // Purchase fires only after the server confirms the bundle subscription
-    trackPurchase(`bundle:${user?.id || "anon"}:${bundleId}:${result.subscription_id || result.id || ""}`, {
+    const txKey = `bundle:${user?.id || "anon"}:${bundleId}:${result.subscription_id || result.id || ""}`;
+    trackPurchase(txKey, {
       value: Number(totals.final || 0),
       content_type: "product_group",
       content_name: pkg.name || "bundle",
       content_ids: [String(bundleId)],
+    });
+    trackTikTokCompletePayment(txKey, {
+      value: Number(totals.final || 0),
+      content_type: "product_group",
+      content_id: String(bundleId),
+      content_name: pkg.name || "bundle",
+      quantity: 1,
     });
     toast.success("تم الاشتراك في الباقة بنجاح");
     navigate("/my-courses");

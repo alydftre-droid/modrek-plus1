@@ -63,11 +63,90 @@ export function trackTikTokPageView(): void {
 }
 
 /** Track a TikTok standard/custom event with sanitized params. */
-export function trackTikTokEvent(event: string, params?: Record<string, unknown>): void {
+export function trackTikTokEvent(
+  event: string,
+  params?: Record<string, unknown>,
+  eventId?: string,
+): void {
   if (!isTikTokPixelReady()) return;
   try {
-    window.ttq!.track(event, sanitize(params));
+    if (eventId) {
+      window.ttq!.track(event, sanitize(params), { event_id: eventId });
+    } else {
+      window.ttq!.track(event, sanitize(params));
+    }
   } catch (err) {
     console.debug("[tiktok-pixel] track failed", err);
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Deduplication                                                             */
+/* -------------------------------------------------------------------------- */
+
+const firedInSession = new Set<string>();
+const STORAGE_PREFIX = "ttq_evt:";
+
+/** Once per page session (memory only) — ViewContent / InitiateCheckout. */
+function firedOnceInSession(key: string): boolean {
+  if (firedInSession.has(key)) return true;
+  firedInSession.add(key);
+  return false;
+}
+
+/** Once per browser (persisted) — successful payments only. */
+function firedOnceEver(key: string): boolean {
+  const storageKey = STORAGE_PREFIX + key;
+  try {
+    if (window.localStorage.getItem(storageKey)) return true;
+    window.localStorage.setItem(storageKey, "1");
+    return false;
+  } catch {
+    return firedOnceInSession(storageKey);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Standard events (non-personal params only)                                */
+/* -------------------------------------------------------------------------- */
+
+interface TikTokContentParams {
+  content_id?: string;
+  content_ids?: string[];
+  content_type?: string;
+  content_name?: string;
+  content_category?: string;
+  quantity?: number;
+  price?: number;
+  value?: number;
+}
+
+/** Subject / course / bundle page shown. */
+export function trackTikTokViewContent(dedupeKey: string, params: TikTokContentParams = {}): void {
+  if (!isTikTokPixelReady()) return;
+  if (firedOnceInSession(`ViewContent:${dedupeKey}`)) return;
+  trackTikTokEvent("ViewContent", { currency: "EGP", ...params });
+}
+
+/** Student actually started the subscription/payment step. */
+export function trackTikTokInitiateCheckout(dedupeKey: string, params: TikTokContentParams = {}): void {
+  if (!isTikTokPixelReady()) return;
+  if (firedOnceInSession(`InitiateCheckout:${dedupeKey}`)) return;
+  trackTikTokEvent("InitiateCheckout", { currency: "EGP", ...params });
+}
+
+/**
+ * Fires ONLY after the server confirmed the payment/subscription.
+ * `transactionKey` becomes the stable `event_id` so retries/reloads never duplicate.
+ */
+export function trackTikTokCompletePayment(
+  transactionKey: string,
+  params: TikTokContentParams & { value: number },
+): void {
+  if (!isTikTokPixelReady()) return;
+  if (firedOnceEver(`Purchase:${transactionKey}`)) return;
+  // "Purchase" is used instead of "CompletePayment": the pixel SDK drops
+  // CompletePayment without advanced matching (which needs personal data).
+  trackTikTokEvent("Purchase", { currency: "EGP", ...params }, `pur_${transactionKey}`);
+}
+

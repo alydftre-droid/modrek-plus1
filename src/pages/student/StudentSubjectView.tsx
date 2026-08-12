@@ -25,6 +25,7 @@ import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { toast } from "sonner";
 import { trackViewContent, trackInitiateCheckout, trackPurchase } from "@/lib/metaPixel";
+import { trackTikTokViewContent, trackTikTokInitiateCheckout, trackTikTokCompletePayment } from "@/lib/tiktokPixel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -890,6 +891,14 @@ const StudentSubjectView = () => {
         content_category: category,
         content_ids: [selectedCourse.id],
       });
+      trackTikTokCompletePayment(`${user.id}:${selectedCourse.id}`, {
+        value: Number(selectedCourse.price || 0),
+        content_type: "product",
+        content_id: String(selectedCourse.id),
+        content_name: selectedCourse.title,
+        content_category: category,
+        quantity: 1,
+      });
       toast.success("تم الاشتراك بنجاح!");
       setShowSubscribeConfirm(false);
       setSelectedCourse(null);
@@ -901,7 +910,7 @@ const StudentSubjectView = () => {
     }
   };
 
-  // ---- Meta Pixel: ViewContent when the subject/teacher course list is shown ----
+  // ---- ViewContent when the subject/teacher course list is shown ----
   useEffect(() => {
     if (loading || step === "teacher_selection") return;
     trackViewContent(`subject:${category}:${chosenTeacherName || "-"}`, {
@@ -909,9 +918,15 @@ const StudentSubjectView = () => {
       content_name: subjectNameFilter || category,
       content_category: category,
     });
+    trackTikTokViewContent(`subject:${category}:${subjectNameFilter || "-"}`, {
+      content_type: "product_group",
+      content_id: `subject:${category}`,
+      content_name: subjectNameFilter || category,
+      content_category: category,
+    });
   }, [loading, step, category, subjectNameFilter, chosenTeacherName]);
 
-  // ---- Meta Pixel: InitiateCheckout when the subscription confirmation opens ----
+  // ---- InitiateCheckout when the subscription confirmation opens ----
   useEffect(() => {
     if (!showSubscribeConfirm || !selectedCourse) return;
     trackInitiateCheckout(selectedCourse.id, {
@@ -920,6 +935,14 @@ const StudentSubjectView = () => {
       content_name: selectedCourse.title,
       content_category: category,
       content_ids: [selectedCourse.id],
+    });
+    trackTikTokInitiateCheckout(selectedCourse.id, {
+      value: Number(selectedCourse.price || 0),
+      content_type: "product",
+      content_id: String(selectedCourse.id),
+      content_name: selectedCourse.title,
+      content_category: category,
+      quantity: 1,
     });
   }, [showSubscribeConfirm, selectedCourse, category]);
 
