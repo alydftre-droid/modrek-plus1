@@ -14,6 +14,7 @@ import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
 import MetaPixelTracker from "@/components/MetaPixelTracker";
+import TikTokPixelTracker from "@/components/TikTokPixelTracker";
 
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
