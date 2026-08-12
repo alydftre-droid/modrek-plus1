@@ -450,6 +450,7 @@ function App() {
           <ScrollToTop />
           <RouteActivityTracker />
           <MetaPixelTracker />
+          <TikTokPixelTracker />
 
           <IntegrityGuardMount />
           <AdminDsScope />
