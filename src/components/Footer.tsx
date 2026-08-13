@@ -24,6 +24,8 @@ const Footer = () => {
             <nav className="flex flex-col gap-2">
               <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">الرئيسية</Link>
               <Link to="/about" className="text-sm text-muted-foreground hover:text-primary transition-colors">عن المنصة</Link>
+              <Link to="/education" className="text-sm text-muted-foreground hover:text-primary transition-colors">المراحل والمواد الدراسية</Link>
+              <Link to="/teachers" className="text-sm text-muted-foreground hover:text-primary transition-colors">المعلمون على المنصة</Link>
               <Link to="/auth" className="text-sm text-muted-foreground hover:text-primary transition-colors">تسجيل الدخول</Link>
               <Link to="/auth?mode=register" className="text-sm text-muted-foreground hover:text-primary transition-colors">إنشاء حساب</Link>
               <Link to="/privacy-policy" className="text-sm text-muted-foreground hover:text-primary transition-colors">سياسة الخصوصية</Link>
@@ -33,11 +35,14 @@ const Footer = () => {
 
           {/* المراحل الدراسية */}
           <div className="space-y-4">
-            <h3 className="font-bold text-foreground">المراحل الدراسية</h3>
+            <h3 className="font-bold text-foreground">المراحل والأقسام</h3>
             <nav className="flex flex-col gap-2">
-              <span className="text-sm text-muted-foreground">المرحلة الإعدادية</span>
-              <span className="text-sm text-muted-foreground">المرحلة الثانوية - علمي</span>
-              <span className="text-sm text-muted-foreground">المرحلة الثانوية - أدبي</span>
+              <Link to="/education/secondary-general" className="text-sm text-muted-foreground hover:text-primary transition-colors">الثانوية العامة</Link>
+              <Link to="/education/secondary-azhari" className="text-sm text-muted-foreground hover:text-primary transition-colors">الثانوية الأزهرية</Link>
+              <Link to="/education/preparatory" className="text-sm text-muted-foreground hover:text-primary transition-colors">المرحلة الإعدادية</Link>
+              <Link to="/features/ai-assistant" className="text-sm text-muted-foreground hover:text-primary transition-colors">المساعد الذكي</Link>
+              <Link to="/features/books" className="text-sm text-muted-foreground hover:text-primary transition-colors">الكتب والمناهج</Link>
+              <Link to="/features/exams" className="text-sm text-muted-foreground hover:text-primary transition-colors">الامتحانات والمراجعات</Link>
             </nav>
           </div>
 
