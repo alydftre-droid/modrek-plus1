@@ -385,4 +385,31 @@ export const seoPages = [
   },
 ];
 
+/**
+ * Public routes rendered by their own React page: prerender needs their head tags.
+ * Keep in sync with the <Seo /> props inside each page component.
+ */
+export const headOnlyMeta = {
+  "/about": {
+    title: "عن منصة مدرك Plus | منصة تعليمية مصرية للثانوية العامة والأزهرية",
+    description:
+      "تعرّف على منصة مدرك Plus التعليمية: فكرة المنصة، المراحل والمواد التي تغطيها، أدوات المذاكرة من دروس وكتب وامتحانات ومساعد ذكي لطلاب التعليم العام والأزهري في مصر.",
+  },
+  "/teacher-register": {
+    title: "تسجيل معلم جديد | منصة مدرك Plus التعليمية",
+    description:
+      "انضم كمعلم إلى منصة مدرك Plus: ارفع دروسك وكتبك، أنشئ مجموعات وامتحانات إلكترونية، وتابع نتائج طلابك في التعليم العام والأزهري.",
+  },
+  "/privacy-policy": {
+    title: "سياسة الخصوصية | منصة مدرك Plus",
+    description:
+      "سياسة الخصوصية الخاصة بمنصة مدرك Plus: البيانات التي نجمعها، طريقة استخدامها وحمايتها، وحقوق المستخدم في التحكم في بياناته.",
+  },
+  "/terms-of-service": {
+    title: "شروط الخدمة | منصة مدرك Plus",
+    description:
+      "شروط استخدام منصة مدرك Plus التعليمية: حقوق وواجبات الطلاب والمعلمين، الاشتراكات، وحقوق الملكية الفكرية للمحتوى التعليمي.",
+  },
+};
+
 export const getSeoPage = (slug) => seoPages.find((p) => p.slug === slug);

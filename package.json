@@ -4,7 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/seo-build.mjs sitemap",
     "dev": "vite",
+    "prebuild": "node scripts/seo-build.mjs sitemap",
+    "postbuild": "node scripts/seo-build.mjs prerender",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

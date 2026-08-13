@@ -14,4 +14,3 @@ User-agent: facebookexternalhit
 Allow: /
 
 Sitemap: https://modrekplus.com/sitemap.xml
-Host: https://modrekplus.com
