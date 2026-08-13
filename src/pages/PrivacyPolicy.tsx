@@ -37,8 +37,8 @@ const sections = [
 
 export default function PrivacyPolicy() {
   return (
-      <Seo title="سياسة الخصوصية | منصة مدرك Plus" description="سياسة الخصوصية الخاصة بمنصة مدرك Plus: البيانات التي نجمعها، طريقة استخدامها وحمايتها، وحقوق المستخدم في التحكم في بياناته." path="/privacy-policy" />
     <div className="min-h-screen bg-background text-foreground">
+      <Seo title="سياسة الخصوصية | منصة مدرك Plus" description="سياسة الخصوصية الخاصة بمنصة مدرك Plus: البيانات التي نجمعها، طريقة استخدامها وحمايتها، وحقوق المستخدم في التحكم في بياناته." path="/privacy-policy" />
       <Header />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-10 md:px-6">
         <header className="space-y-3 text-right">
