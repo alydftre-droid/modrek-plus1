@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import Seo from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -286,6 +287,20 @@ const Index = () => {
 
   return (
     <div dir="rtl" className="min-h-screen flex flex-col overflow-x-hidden bg-[#FAFBFC] text-slate-900 selection:bg-emerald-200 selection:text-emerald-950 font-cairo">
+      <Seo
+        title="مدرك Plus | منصة تعليمية للثانوية العامة والأزهرية في مصر"
+        description="مدرك Plus منصة تعليمية مصرية للتعليم العام والأزهري: دروس فيديو، كتب ومناهج PDF، امتحانات إلكترونية بتصحيح فوري، مراجعات، ومساعد ذكي للطلاب في المرحلتين الإعدادية والثانوية."
+        path="/"
+        jsonLd={[{
+          "@context": "https://schema.org",
+          "@type": "WebPage",
+          name: "مدرك Plus — منصة تعليمية للثانوية العامة والأزهرية",
+          url: "https://modrekplus.com/",
+          inLanguage: "ar",
+          isPartOf: { "@type": "WebSite", name: "مدرك Plus", url: "https://modrekplus.com/" },
+          about: ["منصة تعليمية", "الثانوية العامة", "الثانوية الأزهرية", "التعليم الإلكتروني في مصر"],
+        }]}
+      />
       <Header />
 
       <main className="flex-1">
@@ -464,6 +479,33 @@ const Index = () => {
                 </div>
               ))}
             </div>
+
+            {/* Crawlable internal links to the stage / feature hub pages */}
+            <nav aria-label="أقسام المنصة" className="relative mt-10 rounded-3xl bg-white/85 border border-white/80 backdrop-blur-xl p-6 shadow-[0_18px_60px_-32px_rgba(37,99,235,0.28)]">
+              <h3 className="text-base font-black text-slate-900">تعرّف على أقسام المنصة</h3>
+              <ul className="mt-4 flex flex-wrap gap-2.5">
+                {[
+                  { label: "المراحل والمواد الدراسية", path: "/education" },
+                  { label: "منصة تعليمية للثانوية العامة", path: "/education/secondary-general" },
+                  { label: "منصة تعليمية للثانوية الأزهرية", path: "/education/secondary-azhari" },
+                  { label: "المرحلة الإعدادية", path: "/education/preparatory" },
+                  { label: "المساعد الذكي Modrek AI", path: "/features/ai-assistant" },
+                  { label: "الكتب والمناهج", path: "/features/books" },
+                  { label: "الامتحانات والمراجعات", path: "/features/exams" },
+                  { label: "المعلمون على المنصة", path: "/teachers" },
+                ].map((l) => (
+                  <li key={l.path}>
+                    <Link
+                      to={l.path}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-[#F8FAFC] px-4 py-2 text-[13px] font-bold text-slate-700 hover:border-emerald-300 hover:text-emerald-700 transition-colors"
+                    >
+                      {l.label}
+                      <ArrowLeft className="h-3.5 w-3.5 opacity-60" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
         </section>
 

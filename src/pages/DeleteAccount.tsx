@@ -1,3 +1,4 @@
+import Seo from "@/components/seo/Seo";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Link } from "react-router-dom";
@@ -28,6 +29,7 @@ const retained = [
 export default function DeleteAccount() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Seo title="حذف حساب مدرك Plus" description="طريقة حذف حساب منصة مدرك Plus والبيانات المرتبطة به." path="/delete-account" noindex />
       <Header />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-10 md:px-6" dir="rtl">
         <header className="space-y-3 text-right">

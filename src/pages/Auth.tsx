@@ -1,3 +1,4 @@
+import Seo from "@/components/seo/Seo";
 import { useState, useEffect } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -677,6 +678,7 @@ const Auth = () => {
 
   return (
     <div className="auth2026-page safe-area-top safe-area-x min-h-screen flex items-start md:items-center justify-center px-4 pt-10 pb-8 md:py-10 relative overflow-hidden">
+      <Seo title="تسجيل الدخول وإنشاء حساب | مدرك Plus" description="سجّل الدخول إلى حسابك على منصة مدرك Plus أو أنشئ حساب طالب جديد للوصول إلى الدروس والكتب والامتحانات." path="/auth" noindex />
       <div className="auth2026-panel-wrap w-full max-w-md relative z-10">
         {/* الشعار */}
         <Link to="/" className="auth2026-brand-link group">

@@ -36,6 +36,8 @@ import AuthCallback from "@/pages/AuthCallback";
 // New exams system pages
 
 import NotFound from "@/pages/NotFound";
+import SeoLandingPage from "@/pages/seo/SeoLandingPage";
+import { seoPages } from "@/content/seoPages";
 
 // Admin pages
 
@@ -222,6 +224,13 @@ function AnimatedRoutes() {
               <Route path="/terms" element={<Navigate to="/terms-of-service" replace />} />
               <Route path="/delete-account" element={<DeleteAccount />} />
               <Route path="/account/delete" element={<Navigate to="/delete-account" replace />} />
+
+              {/* Public SEO / discovery pages */}
+              {seoPages.map((page) => (
+                <Route key={page.slug} path={page.slug} element={<SeoLandingPage page={page} />} />
+              ))}
+              <Route path="/education/azhari" element={<Navigate to="/education/secondary-azhari" replace />} />
+              <Route path="/education/general" element={<Navigate to="/education/secondary-general" replace />} />
 
               <Route path="/teacher-register" element={<TeacherRegister />} />
               <Route path="/teacher/terms" element={<TeacherTerms />} />

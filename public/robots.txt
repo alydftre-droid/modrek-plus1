@@ -1,5 +1,21 @@
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /my-courses
+Disallow: /my-library
+Disallow: /wallet
+Disallow: /notifications
+Disallow: /profile
+Disallow: /ai/
+Disallow: /support
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /auth/callback
+Disallow: /oauth/
+Disallow: /.lovable/
 
 User-agent: Googlebot
 Allow: /
@@ -14,4 +30,3 @@ User-agent: facebookexternalhit
 Allow: /
 
 Sitemap: https://modrekplus.com/sitemap.xml
-Host: https://modrekplus.com

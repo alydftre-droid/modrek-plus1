@@ -1,3 +1,4 @@
+import Seo from "@/components/seo/Seo";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,7 @@ const About = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <Seo title="عن منصة مدرك Plus | منصة تعليمية مصرية للثانوية العامة والأزهرية" description="تعرّف على منصة مدرك Plus التعليمية: فكرة المنصة، المراحل والمواد التي تغطيها، أدوات المذاكرة من دروس وكتب وامتحانات ومساعد ذكي لطلاب التعليم العام والأزهري في مصر." path="/about" />
       <Header />
 
       <main className="flex-1" style={{ background: "#FFFFFF" }}>
