@@ -1,3 +1,4 @@
+import Seo from "@/components/seo/Seo";
 import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ const NotFound = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 pattern-islamic p-4">
+      <Seo title="الصفحة غير موجودة | مدرك Plus" description="الصفحة المطلوبة غير موجودة على منصة مدرك Plus." path="/404" noindex />
       <div className="text-center animate-scale-in">
         {/* الشعار */}
         <Link to="/" className="inline-flex items-center gap-3 mb-8 group">

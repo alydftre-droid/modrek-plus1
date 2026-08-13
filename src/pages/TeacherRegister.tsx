@@ -1,5 +1,6 @@
 // src/pages/TeacherRegister.tsx
 
+import Seo from "@/components/seo/Seo";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -317,6 +318,7 @@ const TeacherRegister = () => {
 
   return (
     <div className="min-h-screen bg-muted/30 py-8 px-4">
+      <Seo title="تسجيل معلم جديد | منصة مدرك Plus التعليمية" description="انضم كمعلم إلى منصة مدرك Plus: ارفع دروسك وكتبك، أنشئ مجموعات وامتحانات إلكترونية، وتابع نتائج طلابك في التعليم العام والأزهري." path="/teacher-register" />
       <div className="max-w-xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
