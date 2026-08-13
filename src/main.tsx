@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
+import { HelmetProvider } from "react-helmet-async";
 import App from "./App";
 import "./index.css";
 import { initCapacitor } from "./capacitor-init";
@@ -80,6 +81,8 @@ initCapacitor();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
   </StrictMode>
 );
