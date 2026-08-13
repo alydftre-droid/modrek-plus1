@@ -1,3 +1,4 @@
+import Seo from "@/components/seo/Seo";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
@@ -35,6 +36,7 @@ const sections = [
 
 export default function TermsOfService() {
   return (
+      <Seo title="شروط الخدمة | منصة مدرك Plus" description="شروط استخدام منصة مدرك Plus التعليمية: حقوق وواجبات الطلاب والمعلمين، الاشتراكات، وحقوق الملكية الفكرية للمحتوى التعليمي." path="/terms-of-service" />
     <div className="min-h-screen bg-background text-foreground">
       <Header />
       <main className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-4 py-10 md:px-6">
