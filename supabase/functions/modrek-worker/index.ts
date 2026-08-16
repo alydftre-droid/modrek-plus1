@@ -2091,7 +2091,7 @@ async function markPagesState(
   pageFrom: number,
   pageTo: number,
   patch: Record<string, unknown>,
-  bumpRetry = false,
+  _bumpRetry = false,
 ) {
   if (!versionId || !pageFrom) return;
   const rows: any[] = [];
@@ -2106,14 +2106,6 @@ async function markPagesState(
   if (error) {
     console.warn("[modrek:warn] page state upsert failed", error.message);
     return;
-  }
-  if (bumpRetry) {
-    await admin.rpc("modrek_log_event", {
-      p_job_id: null,
-      p_level: "info",
-      p_message: "page state retry recorded",
-      p_data: { version_id: versionId, page_from: pageFrom, page_to: last },
-    }).catch?.(() => undefined);
   }
 }
 
