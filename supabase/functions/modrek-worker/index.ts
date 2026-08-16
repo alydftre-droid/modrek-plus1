@@ -46,15 +46,27 @@ const AI_REQUEST_TIMEOUT_MS = 60_000;
 // return cleanly and requeue instead of crashing.
 const PDF_PAGE_EXTRACT_TIMEOUT_MS = 110_000;
 const FILE_API_TIMEOUT_MS = 80_000;
-const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
+// Books above this size go through the Gemini File API instead of being sent
+// inline as base64. The old 80MB threshold pushed 15-80MB scanned books through
+// base64 chat requests, which is what produced the OpenRouter 402
+// "requires more credits / requested up to 65536 tokens" storm.
+const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 15 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
+// Hard ceiling for a single OCR request payload (one page only).
+const OCR_SUBSET_MAX_BYTES = 2 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 1;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 const PDF_EXTRACT_MAX_OUTPUT_TOKENS = 16_384;
-const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
+const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
+
+/** Output-token budget derived from the real page count, never a flat huge value. */
+function outputTokenBudgetForPages(pages: number): number {
+  const perPage = 1_800;
+  return Math.max(1_024, Math.min(8_192, Math.max(1, pages) * perPage));
+}
 const RATE_LIMIT_MIN_BACKOFF_MS = 10 * 60_000;
 const RATE_LIMIT_MAX_BACKOFF_MS = 60 * 60_000;
 const QUOTA_EXHAUSTED_MIN_BACKOFF_MS = 6 * 60 * 60_000;
