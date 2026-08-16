@@ -1163,7 +1163,7 @@ async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
   return await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename, /*ocr*/ true);
 }
 
-async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mime: string, filename: string, ocr = false): Promise<string> {
+async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mime: string, filename: string, ocr = false, maxOutputTokens?: number): Promise<string> {
   const b64 = base64Encode(bin);
   const prompt = ocr
     ? "قم بتنفيذ OCR كامل لهذا الملف مع الحفاظ على ترتيب الصفحات والجداول والمعادلات والأسئلة متعددة الاختيار. أعد النص فقط بدون تعليق."
@@ -1177,6 +1177,9 @@ async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mi
   const jr = await runChatCompletion(admin, {
     model: ocr ? VISION_MODEL : STRUCTURE_MODEL,
     messages: [{ role: "user", content }],
+    // Always send an explicit, small output budget. Providers price the request
+    // as (input + max_tokens); an implicit 65k default is what triggered 402.
+    max_tokens: maxOutputTokens ?? outputTokenBudgetForPages(1),
   });
   return jr.choices?.[0]?.message?.content ?? "";
 }
