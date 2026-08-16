@@ -470,48 +470,53 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
     const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
     if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
+      // OCR is the only paid step here, so it must be tiny and predictable:
+      // ONE page per request, and never more than OCR_SUBSET_MAX_BYTES.
+      // Sending whole multi-page batches as base64 was the root cause of the
+      // provider 402 ("requires more credits … up to 65536 tokens").
+      if (pageTo > pageFrom) {
+        for (let p = pageFrom; p <= pageTo; p++) {
+          await enqueue(admin, job.version_id, "extract_page", 21, {
+            ...input,
+            extractor: "local_pdfjs",
+            gemini_file: null,
+            page_from: p,
+            page_to: p,
+            __split_depth: Number(input.__split_depth ?? 0) + 1,
+          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+        }
+        await log(admin, job.id, "info", "splitting batch into single pages before OCR", {
+          page_from: pageFrom,
+          page_to: pageTo,
+        });
+        await succeedJob(admin, job, { mode: "split_for_single_page_ocr", page_from: pageFrom, page_to: pageTo });
+        return;
+      }
+
       const subset = await withTimeout(
         createPdfPageSubset(bytes, pageFrom, pageTo),
         25_000,
-        `تعذر تجهيز صفحات OCR ${pageFrom}-${pageTo} خلال المهلة`,
+        `تعذر تجهيز صفحة OCR ${pageFrom} خلال المهلة`,
       );
-      if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
+
+      if (subset.byteLength > OCR_SUBSET_MAX_BYTES) {
         if (assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
           const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
           batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
-        } else if (pageFrom < pageTo) {
-          const rangeSize = pageTo - pageFrom + 1;
-          const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
-          await log(admin, job.id, "warn", "PDF OCR subset too large for direct OpenRouter; splitting local batch", {
-            page_from: pageFrom,
-            page_to: pageTo,
-            subset_bytes: subset.byteLength,
-          });
-          await enqueue(admin, job.version_id, "extract_page", 21, {
-            ...input,
-            extractor: "local_pdfjs",
-            gemini_file: null,
-            page_from: pageFrom,
-            page_to: mid,
-            __split_depth: Number(input.__split_depth ?? 0) + 1,
-          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-          await enqueue(admin, job.version_id, "extract_page", 21, {
-            ...input,
-            extractor: "local_pdfjs",
-            gemini_file: null,
-            page_from: mid + 1,
-            page_to: pageTo,
-            __split_depth: Number(input.__split_depth ?? 0) + 1,
-          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-          await succeedJob(admin, job, { mode: "split_large_openrouter_subset", page_from: pageFrom, page_to: pageTo, split_at: mid });
-          return;
+          ocrStatus = "done_file_api";
         } else {
-          throw new Error(`صفحة PDF ${pageFrom} كبيرة جداً لإرسالها مباشرة إلى OpenRouter (${subset.byteLength} bytes). أعد ضغط ملف PDF أو ارفع نسخة نصية أوضح.`);
+          // Never fail the whole book over one heavy page: keep the text layer.
+          await log(admin, job.id, "warn", "OCR skipped: single-page payload above the provider budget", {
+            page_from: pageFrom,
+            subset_bytes: subset.byteLength,
+            limit_bytes: OCR_SUBSET_MAX_BYTES,
+          });
+          ocrStatus = "skipped_too_large";
+          if (!batchText) batchText = `--- صفحة ${pageFrom} ---\n(لم يتم استخراج نص من هذه الصفحة)`;
         }
       } else {
-        await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
+        await log(admin, job.id, "info", "PDF text layer too small; running single-page OCR", {
           page_from: pageFrom,
-          page_to: pageTo,
           subset_bytes: subset.byteLength,
           text_layer_chars: batchText.length,
         });
@@ -519,11 +524,15 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
           admin,
           subset,
           "application/pdf",
-          `${asset.original_filename || "document"}-pages-${pageFrom}-${pageTo}.pdf`,
+          `${asset.original_filename || "document"}-page-${pageFrom}.pdf`,
           true,
+          outputTokenBudgetForPages(1),
         );
         if (ocrText.trim().length > batchText.length) {
-          batchText = `--- صفحات ${pageFrom}-${pageTo} OCR ---\n${ocrText.trim()}`;
+          batchText = `--- صفحة ${pageFrom} OCR ---\n${ocrText.trim()}`;
+          ocrStatus = "done";
+        } else {
+          ocrStatus = "low_yield";
         }
       }
     }
