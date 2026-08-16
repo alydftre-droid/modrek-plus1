@@ -1664,6 +1664,25 @@ async function recoverTransientModrekJobs(admin: SupabaseClient) {
   });
 }
 
+/**
+ * Provider says the account cannot pay for the request (HTTP 402). This is a
+ * TERMINAL error: retrying burns nothing but time and keeps failing, so we stop
+ * the whole version instead of hammering the gateway 30 times per page.
+ */
+function isInsufficientCreditsError(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return [
+    "402",
+    "requires more credits",
+    "more credits",
+    "can only afford",
+    "insufficient credit",
+    "insufficient_credits",
+    "payment required",
+    "add credits",
+  ].some((token) => msg.includes(token));
+}
+
 function isRateLimitError(error: unknown): boolean {
   const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
   return [
