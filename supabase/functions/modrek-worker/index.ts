@@ -2007,6 +2007,25 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     max_attempts: effectiveMaxAttempts,
     next_run_at: nextRunAt,
   });
+
+  if (job.kind === "extract_page") {
+    const input = job.input ?? {};
+    const pageFrom = Number(input.page_from ?? input.page_no ?? 0);
+    const pageTo = Number(input.page_to ?? pageFrom);
+    if (pageFrom > 0) {
+      await markPagesState(admin, job.version_id, pageFrom, pageTo, {
+        extraction_status: canRetry ? "pending" : "failed",
+        error_category: diagnostic.category,
+        error_message: diagnostic.rawMessage.slice(0, 500),
+      }, /*bumpRetry*/ true);
+    }
+  }
+
+  if (diagnostic.category === "insufficient_credits") {
+    await applyCreditBlock(admin, job, message);
+    return;
+  }
+
   if (canRetry) {
     await admin.from("knowledge_source_versions").update({
       error_message: message,
@@ -2021,6 +2040,80 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     const { data: v } = await admin.from("knowledge_source_versions")
       .select("source_id").eq("id", job.version_id).single();
     if (v) await admin.from("knowledge_sources").update({ status: "failed" }).eq("id", v.source_id);
+  }
+}
+
+/**
+ * Circuit breaker for provider credit exhaustion: freeze the whole version,
+ * cancel every queued job for it, and keep all work already done. One 402 must
+ * never turn into hundreds of paid-but-failing retries.
+ */
+async function applyCreditBlock(admin: SupabaseClient, job: any, message: string) {
+  const nowIso = new Date().toISOString();
+  await admin.from("knowledge_source_versions").update({
+    credits_blocked_at: nowIso,
+    credits_blocked_reason: message.slice(0, 1000),
+    error_message: message,
+    updated_at: nowIso,
+  }).eq("id", job.version_id);
+
+  const { data: cancelled } = await admin.from("processing_jobs")
+    .update({
+      status: "cancelled",
+      error: "تم الإيقاف تلقائياً: رصيد مزود الذكاء غير كافٍ",
+      finished_at: nowIso,
+      next_run_at: null,
+      updated_at: nowIso,
+    })
+    .eq("version_id", job.version_id)
+    .in("status", ["pending", "running", "retrying"] as any)
+    .neq("id", job.id)
+    .select("id");
+
+  await log(admin, job.id, "error", "processing paused: insufficient AI provider credits", {
+    cancelled_jobs: cancelled?.length ?? 0,
+    version_id: job.version_id,
+  });
+}
+
+/** Is this version frozen by the credit circuit breaker? */
+async function isVersionCreditBlocked(admin: SupabaseClient, versionId: string): Promise<boolean> {
+  if (!versionId) return false;
+  const { data } = await admin.from("knowledge_source_versions")
+    .select("credits_blocked_at").eq("id", versionId).maybeSingle();
+  return !!data?.credits_blocked_at;
+}
+
+/** Per-page pipeline state so the developer can resume / retry failed pages only. */
+async function markPagesState(
+  admin: SupabaseClient,
+  versionId: string,
+  pageFrom: number,
+  pageTo: number,
+  patch: Record<string, unknown>,
+  bumpRetry = false,
+) {
+  if (!versionId || !pageFrom) return;
+  const rows: any[] = [];
+  const last = Math.max(pageFrom, pageTo || pageFrom);
+  for (let page = pageFrom; page <= last && page - pageFrom < 64; page++) {
+    rows.push({ version_id: versionId, page_number: page, page_to: last, ...patch });
+  }
+  if (!rows.length) return;
+  const { error } = await admin
+    .from("knowledge_page_state")
+    .upsert(rows, { onConflict: "version_id,page_number" });
+  if (error) {
+    console.warn("[modrek:warn] page state upsert failed", error.message);
+    return;
+  }
+  if (bumpRetry) {
+    await admin.rpc("modrek_log_event", {
+      p_job_id: null,
+      p_level: "info",
+      p_message: "page state retry recorded",
+      p_data: { version_id: versionId, page_from: pageFrom, page_to: last },
+    }).catch?.(() => undefined);
   }
 }
 
