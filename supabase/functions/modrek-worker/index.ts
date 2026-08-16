@@ -1731,7 +1731,8 @@ function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const lineNumber = lineMatch?.[1] ? Number(lineMatch[1]) : null;
 
   let category: FailureDiagnostic["category"] = "unknown";
-  if (isQuotaExhaustedError(err)) category = "quota_exhausted";
+  if (isInsufficientCreditsError(err)) category = "insufficient_credits";
+  else if (isQuotaExhaustedError(err)) category = "quota_exhausted";
   else if (isRateLimitError(err)) category = "rate_limit";
   else if (lower.includes("timeout") || lower.includes("مهلة")) category = "timeout";
   else if (lower.includes("gemini") || lower.includes("openrouter") || lower.includes("ai gateway") || lower.includes("generation failed")) category = "provider";
@@ -1742,7 +1743,9 @@ function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const file = String(input.filename || input.file_name || input.asset_id || job?.asset_id || "unknown-file");
   const pageRange = input.page_from ? ` — الصفحات ${input.page_from}-${input.page_to ?? input.page_from}` : "";
   const retryable = category === "quota_exhausted" || category === "rate_limit" || category === "timeout" || category === "provider";
-  const userMessage = category === "quota_exhausted"
+  const userMessage = category === "insufficient_credits"
+    ? `رصيد مزود الذكاء غير كافٍ لإكمال معالجة ${file}${pageRange}. تم إيقاف المعالجة فوراً لحفظ ما تم إنجازه ومنع استهلاك المزيد من الطلبات الفاشلة. أضف رصيداً ثم اضغط «إعادة معالجة الصفحات الفاشلة فقط».`
+    : category === "quota_exhausted"
     ? `تم استهلاك الحصة اليومية/الحالية لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب أو تكرار الفشل على باقي الصفحات؛ تم إيقاف استخراج الصفحات مؤقتاً وسيستأنف تلقائياً بعد عودة الحصة.`
     : category === "rate_limit"
     ? `تم الوصول لحد الحصة/الطلبات لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب؛ ستتم إعادة المحاولة تلقائياً بتهدئة أبطأ.`
