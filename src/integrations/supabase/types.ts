@@ -2106,6 +2106,144 @@ export type Database = {
           },
         ]
       }
+      knowledge_lesson_index: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          lesson_number: number | null
+          normalized_title: string | null
+          ordinal: number
+          page_end: number | null
+          page_start: number | null
+          source_id: string
+          title: string
+          unit_id: string | null
+          unit_number: number | null
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          lesson_number?: number | null
+          normalized_title?: string | null
+          ordinal?: number
+          page_end?: number | null
+          page_start?: number | null
+          source_id: string
+          title: string
+          unit_id?: string | null
+          unit_number?: number | null
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          lesson_number?: number | null
+          normalized_title?: string | null
+          ordinal?: number
+          page_end?: number | null
+          page_start?: number | null
+          source_id?: string
+          title?: string
+          unit_id?: string | null
+          unit_number?: number | null
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_lesson_index_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_lesson_index_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_lesson_index_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_page_state: {
+        Row: {
+          char_count: number
+          chunk_status: string
+          content_hash: string | null
+          created_at: string
+          embedding_status: string
+          error_category: string | null
+          error_message: string | null
+          extraction_status: string
+          extractor: string | null
+          id: string
+          ocr_status: string
+          page_number: number
+          page_to: number | null
+          retry_count: number
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          char_count?: number
+          chunk_status?: string
+          content_hash?: string | null
+          created_at?: string
+          embedding_status?: string
+          error_category?: string | null
+          error_message?: string | null
+          extraction_status?: string
+          extractor?: string | null
+          id?: string
+          ocr_status?: string
+          page_number: number
+          page_to?: number | null
+          retry_count?: number
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          char_count?: number
+          chunk_status?: string
+          content_hash?: string | null
+          created_at?: string
+          embedding_status?: string
+          error_category?: string | null
+          error_message?: string | null
+          extraction_status?: string
+          extractor?: string | null
+          id?: string
+          ocr_status?: string
+          page_number?: number
+          page_to?: number | null
+          retry_count?: number
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_page_state_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_source_assets: {
         Row: {
           asset_id: string
@@ -2208,9 +2346,12 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          credits_blocked_at: string | null
+          credits_blocked_reason: string | null
           error_message: string | null
           extracted_language: string | null
           extracted_text: string | null
+          failed_pages: Json
           id: string
           is_current: boolean
           notes: string | null
@@ -2226,9 +2367,12 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          credits_blocked_at?: string | null
+          credits_blocked_reason?: string | null
           error_message?: string | null
           extracted_language?: string | null
           extracted_text?: string | null
+          failed_pages?: Json
           id?: string
           is_current?: boolean
           notes?: string | null
@@ -2244,9 +2388,12 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          credits_blocked_at?: string | null
+          credits_blocked_reason?: string | null
           error_message?: string | null
           extracted_language?: string | null
           extracted_text?: string | null
+          failed_pages?: Json
           id?: string
           is_current?: boolean
           notes?: string | null
@@ -7400,10 +7547,18 @@ export type Database = {
         Args: { p_version_id: string }
         Returns: Json
       }
+      modrek_retry_failed_pages: {
+        Args: { p_version_id: string }
+        Returns: Json
+      }
       modrek_search_cache_cleanup: { Args: never; Returns: undefined }
       modrek_subjects_equivalent: {
         Args: { _left: string; _right: string }
         Returns: boolean
+      }
+      modrek_version_page_summary: {
+        Args: { p_version_id: string }
+        Returns: Json
       }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
       move_to_dlq: {

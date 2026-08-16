@@ -46,22 +46,34 @@ const AI_REQUEST_TIMEOUT_MS = 60_000;
 // return cleanly and requeue instead of crashing.
 const PDF_PAGE_EXTRACT_TIMEOUT_MS = 110_000;
 const FILE_API_TIMEOUT_MS = 80_000;
-const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 80 * 1024 * 1024;
+// Books above this size go through the Gemini File API instead of being sent
+// inline as base64. The old 80MB threshold pushed 15-80MB scanned books through
+// base64 chat requests, which is what produced the OpenRouter 402
+// "requires more credits / requested up to 65536 tokens" storm.
+const PDF_LOCAL_FALLBACK_LIMIT_BYTES = 15 * 1024 * 1024;
 const DIRECT_AI_FILE_LIMIT_BYTES = 7 * 1024 * 1024;
+// Hard ceiling for a single OCR request payload (one page only).
+const OCR_SUBSET_MAX_BYTES = 2 * 1024 * 1024;
 const FULL_TEXT_CHUNK_SIZE = 3500;
 const FULL_TEXT_CHUNK_OVERLAP = 250;
 const PDF_TEXT_BATCH_PAGES = 1;
 const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 const PDF_EXTRACT_MAX_OUTPUT_TOKENS = 16_384;
-const EXTRACT_PAGE_MAX_ATTEMPTS = 30;
+const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
+
+/** Output-token budget derived from the real page count, never a flat huge value. */
+function outputTokenBudgetForPages(pages: number): number {
+  const perPage = 1_800;
+  return Math.max(1_024, Math.min(8_192, Math.max(1, pages) * perPage));
+}
 const RATE_LIMIT_MIN_BACKOFF_MS = 10 * 60_000;
 const RATE_LIMIT_MAX_BACKOFF_MS = 60 * 60_000;
 const QUOTA_EXHAUSTED_MIN_BACKOFF_MS = 6 * 60 * 60_000;
 const QUOTA_EXHAUSTED_MAX_BACKOFF_MS = 12 * 60 * 60_000;
 
 type FailureDiagnostic = {
-  category: "quota_exhausted" | "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
+  category: "insufficient_credits" | "quota_exhausted" | "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
   userMessage: string;
   rawMessage: string;
   retryable: boolean;
@@ -351,6 +363,7 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
   let batchText = "";
+  let ocrStatus = "not_needed";
   const assetBytes = Number(asset.byte_size ?? 0);
   const requestedGeminiFile = input.extractor === "gemini_file" || !!input.gemini_file?.uri;
   const useGeminiFile = requestedGeminiFile && assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES;
@@ -457,48 +470,53 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
     const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
     if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
+      // OCR is the only paid step here, so it must be tiny and predictable:
+      // ONE page per request, and never more than OCR_SUBSET_MAX_BYTES.
+      // Sending whole multi-page batches as base64 was the root cause of the
+      // provider 402 ("requires more credits … up to 65536 tokens").
+      if (pageTo > pageFrom) {
+        for (let p = pageFrom; p <= pageTo; p++) {
+          await enqueue(admin, job.version_id, "extract_page", 21, {
+            ...input,
+            extractor: "local_pdfjs",
+            gemini_file: null,
+            page_from: p,
+            page_to: p,
+            __split_depth: Number(input.__split_depth ?? 0) + 1,
+          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+        }
+        await log(admin, job.id, "info", "splitting batch into single pages before OCR", {
+          page_from: pageFrom,
+          page_to: pageTo,
+        });
+        await succeedJob(admin, job, { mode: "split_for_single_page_ocr", page_from: pageFrom, page_to: pageTo });
+        return;
+      }
+
       const subset = await withTimeout(
         createPdfPageSubset(bytes, pageFrom, pageTo),
         25_000,
-        `تعذر تجهيز صفحات OCR ${pageFrom}-${pageTo} خلال المهلة`,
+        `تعذر تجهيز صفحة OCR ${pageFrom} خلال المهلة`,
       );
-      if (subset.byteLength > DIRECT_AI_FILE_LIMIT_BYTES) {
+
+      if (subset.byteLength > OCR_SUBSET_MAX_BYTES) {
         if (assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
           const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
           batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
-        } else if (pageFrom < pageTo) {
-          const rangeSize = pageTo - pageFrom + 1;
-          const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
-          await log(admin, job.id, "warn", "PDF OCR subset too large for direct OpenRouter; splitting local batch", {
-            page_from: pageFrom,
-            page_to: pageTo,
-            subset_bytes: subset.byteLength,
-          });
-          await enqueue(admin, job.version_id, "extract_page", 21, {
-            ...input,
-            extractor: "local_pdfjs",
-            gemini_file: null,
-            page_from: pageFrom,
-            page_to: mid,
-            __split_depth: Number(input.__split_depth ?? 0) + 1,
-          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-          await enqueue(admin, job.version_id, "extract_page", 21, {
-            ...input,
-            extractor: "local_pdfjs",
-            gemini_file: null,
-            page_from: mid + 1,
-            page_to: pageTo,
-            __split_depth: Number(input.__split_depth ?? 0) + 1,
-          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-          await succeedJob(admin, job, { mode: "split_large_openrouter_subset", page_from: pageFrom, page_to: pageTo, split_at: mid });
-          return;
+          ocrStatus = "done_file_api";
         } else {
-          throw new Error(`صفحة PDF ${pageFrom} كبيرة جداً لإرسالها مباشرة إلى OpenRouter (${subset.byteLength} bytes). أعد ضغط ملف PDF أو ارفع نسخة نصية أوضح.`);
+          // Never fail the whole book over one heavy page: keep the text layer.
+          await log(admin, job.id, "warn", "OCR skipped: single-page payload above the provider budget", {
+            page_from: pageFrom,
+            subset_bytes: subset.byteLength,
+            limit_bytes: OCR_SUBSET_MAX_BYTES,
+          });
+          ocrStatus = "skipped_too_large";
+          if (!batchText) batchText = `--- صفحة ${pageFrom} ---\n(لم يتم استخراج نص من هذه الصفحة)`;
         }
       } else {
-        await log(admin, job.id, "info", "PDF text layer too small; running OCR for page batch", {
+        await log(admin, job.id, "info", "PDF text layer too small; running single-page OCR", {
           page_from: pageFrom,
-          page_to: pageTo,
           subset_bytes: subset.byteLength,
           text_layer_chars: batchText.length,
         });
@@ -506,11 +524,15 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
           admin,
           subset,
           "application/pdf",
-          `${asset.original_filename || "document"}-pages-${pageFrom}-${pageTo}.pdf`,
+          `${asset.original_filename || "document"}-page-${pageFrom}.pdf`,
           true,
+          outputTokenBudgetForPages(1),
         );
         if (ocrText.trim().length > batchText.length) {
-          batchText = `--- صفحات ${pageFrom}-${pageTo} OCR ---\n${ocrText.trim()}`;
+          batchText = `--- صفحة ${pageFrom} OCR ---\n${ocrText.trim()}`;
+          ocrStatus = "done";
+        } else {
+          ocrStatus = "low_yield";
         }
       }
     }
@@ -546,6 +568,15 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   });
   if (error) throw error;
 
+  await markPagesState(admin, job.version_id, pageFrom, pageTo, {
+    extraction_status: "done",
+    ocr_status: ocrStatus,
+    extractor: useGeminiFile ? "gemini_file" : "local_pdfjs",
+    char_count: batchText.length,
+    error_category: null,
+    error_message: null,
+  });
+
   const versionPct = 28 + Math.floor((Math.min(pageTo, pageCount) / Math.max(1, pageCount)) * 12);
   await admin.from("knowledge_source_versions").update({
     progress_pct: Math.min(40, versionPct),
@@ -553,7 +584,7 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     updated_at: new Date().toISOString(),
   }).eq("id", job.version_id);
 
-  await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch" });
+  await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch", ocr_status: ocrStatus });
 }
 
 // -------- Stage 2a.0: chunked upload of large PDFs to Gemini File API --------
@@ -753,9 +784,29 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     return;
   }
 
-  if (failedPages?.length) {
-    throw new Error(`فشل استخراج ${failedPages.length} جزء من PDF بعد إعادة المحاولة؛ يرجى إعادة رفع نسخة PDF نصية أوضح.`);
+  // Partial success is a success: never drop a whole book because a few pages
+  // failed. Record the failed pages and continue with everything extracted.
+  const failedPageRanges = (failedPages ?? []).map((fp: any) => {
+    const fpInput = fp?.input ?? {};
+    return {
+      job_id: fp?.id ?? null,
+      page_from: Number(fpInput.page_from ?? fpInput.page_no ?? 0) || null,
+      page_to: Number(fpInput.page_to ?? fpInput.page_from ?? 0) || null,
+      error: String(fp?.error ?? "").slice(0, 400),
+    };
+  });
+
+  if (failedPageRanges.length) {
+    await log(admin, job.id, "warn", "merge_text continuing with partial extraction", {
+      failed_batches: failedPageRanges.length,
+      extracted_batches: units?.length ?? 0,
+    });
   }
+
+  await admin.from("knowledge_source_versions").update({
+    failed_pages: failedPageRanges,
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.version_id);
 
   const text = (units ?? [])
     .map((u: any) => String(u.content_text ?? "").trim())
@@ -1112,7 +1163,7 @@ async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
   return await geminiExtractFromBytes(admin, bytes, mime, asset.original_filename, /*ocr*/ true);
 }
 
-async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mime: string, filename: string, ocr = false): Promise<string> {
+async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mime: string, filename: string, ocr = false, maxOutputTokens?: number): Promise<string> {
   const b64 = base64Encode(bin);
   const prompt = ocr
     ? "قم بتنفيذ OCR كامل لهذا الملف مع الحفاظ على ترتيب الصفحات والجداول والمعادلات والأسئلة متعددة الاختيار. أعد النص فقط بدون تعليق."
@@ -1126,6 +1177,9 @@ async function geminiExtractFromBytes(admin: SupabaseClient, bin: Uint8Array, mi
   const jr = await runChatCompletion(admin, {
     model: ocr ? VISION_MODEL : STRUCTURE_MODEL,
     messages: [{ role: "user", content }],
+    // Always send an explicit, small output budget. Providers price the request
+    // as (input + max_tokens); an implicit 65k default is what triggered 402.
+    max_tokens: maxOutputTokens ?? outputTokenBudgetForPages(1),
   });
   return jr.choices?.[0]?.message?.content ?? "";
 }
@@ -1610,6 +1664,25 @@ async function recoverTransientModrekJobs(admin: SupabaseClient) {
   });
 }
 
+/**
+ * Provider says the account cannot pay for the request (HTTP 402). This is a
+ * TERMINAL error: retrying burns nothing but time and keeps failing, so we stop
+ * the whole version instead of hammering the gateway 30 times per page.
+ */
+function isInsufficientCreditsError(error: unknown): boolean {
+  const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+  return [
+    "402",
+    "requires more credits",
+    "more credits",
+    "can only afford",
+    "insufficient credit",
+    "insufficient_credits",
+    "payment required",
+    "add credits",
+  ].some((token) => msg.includes(token));
+}
+
 function isRateLimitError(error: unknown): boolean {
   const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
   return [
@@ -1658,7 +1731,8 @@ function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const lineNumber = lineMatch?.[1] ? Number(lineMatch[1]) : null;
 
   let category: FailureDiagnostic["category"] = "unknown";
-  if (isQuotaExhaustedError(err)) category = "quota_exhausted";
+  if (isInsufficientCreditsError(err)) category = "insufficient_credits";
+  else if (isQuotaExhaustedError(err)) category = "quota_exhausted";
   else if (isRateLimitError(err)) category = "rate_limit";
   else if (lower.includes("timeout") || lower.includes("مهلة")) category = "timeout";
   else if (lower.includes("gemini") || lower.includes("openrouter") || lower.includes("ai gateway") || lower.includes("generation failed")) category = "provider";
@@ -1669,7 +1743,9 @@ function buildFailureDiagnostic(error: unknown, job: any): FailureDiagnostic {
   const file = String(input.filename || input.file_name || input.asset_id || job?.asset_id || "unknown-file");
   const pageRange = input.page_from ? ` — الصفحات ${input.page_from}-${input.page_to ?? input.page_from}` : "";
   const retryable = category === "quota_exhausted" || category === "rate_limit" || category === "timeout" || category === "provider";
-  const userMessage = category === "quota_exhausted"
+  const userMessage = category === "insufficient_credits"
+    ? `رصيد مزود الذكاء غير كافٍ لإكمال معالجة ${file}${pageRange}. تم إيقاف المعالجة فوراً لحفظ ما تم إنجازه ومنع استهلاك المزيد من الطلبات الفاشلة. أضف رصيداً ثم اضغط «إعادة معالجة الصفحات الفاشلة فقط».`
+    : category === "quota_exhausted"
     ? `تم استهلاك الحصة اليومية/الحالية لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب أو تكرار الفشل على باقي الصفحات؛ تم إيقاف استخراج الصفحات مؤقتاً وسيستأنف تلقائياً بعد عودة الحصة.`
     : category === "rate_limit"
     ? `تم الوصول لحد الحصة/الطلبات لمزود الذكاء أثناء معالجة ${file}${pageRange}. لن يتم إسقاط الكتاب؛ ستتم إعادة المحاولة تلقائياً بتهدئة أبطأ.`
@@ -1931,6 +2007,25 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     max_attempts: effectiveMaxAttempts,
     next_run_at: nextRunAt,
   });
+
+  if (job.kind === "extract_page") {
+    const input = job.input ?? {};
+    const pageFrom = Number(input.page_from ?? input.page_no ?? 0);
+    const pageTo = Number(input.page_to ?? pageFrom);
+    if (pageFrom > 0) {
+      await markPagesState(admin, job.version_id, pageFrom, pageTo, {
+        extraction_status: canRetry ? "pending" : "failed",
+        error_category: diagnostic.category,
+        error_message: diagnostic.rawMessage.slice(0, 500),
+      }, /*bumpRetry*/ true);
+    }
+  }
+
+  if (diagnostic.category === "insufficient_credits") {
+    await applyCreditBlock(admin, job, message);
+    return;
+  }
+
   if (canRetry) {
     await admin.from("knowledge_source_versions").update({
       error_message: message,
@@ -1945,6 +2040,72 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     const { data: v } = await admin.from("knowledge_source_versions")
       .select("source_id").eq("id", job.version_id).single();
     if (v) await admin.from("knowledge_sources").update({ status: "failed" }).eq("id", v.source_id);
+  }
+}
+
+/**
+ * Circuit breaker for provider credit exhaustion: freeze the whole version,
+ * cancel every queued job for it, and keep all work already done. One 402 must
+ * never turn into hundreds of paid-but-failing retries.
+ */
+async function applyCreditBlock(admin: SupabaseClient, job: any, message: string) {
+  const nowIso = new Date().toISOString();
+  await admin.from("knowledge_source_versions").update({
+    credits_blocked_at: nowIso,
+    credits_blocked_reason: message.slice(0, 1000),
+    error_message: message,
+    updated_at: nowIso,
+  }).eq("id", job.version_id);
+
+  const { data: cancelled } = await admin.from("processing_jobs")
+    .update({
+      status: "cancelled",
+      error: "تم الإيقاف تلقائياً: رصيد مزود الذكاء غير كافٍ",
+      finished_at: nowIso,
+      next_run_at: null,
+      updated_at: nowIso,
+    })
+    .eq("version_id", job.version_id)
+    .in("status", ["pending", "running", "retrying"] as any)
+    .neq("id", job.id)
+    .select("id");
+
+  await log(admin, job.id, "error", "processing paused: insufficient AI provider credits", {
+    cancelled_jobs: cancelled?.length ?? 0,
+    version_id: job.version_id,
+  });
+}
+
+/** Is this version frozen by the credit circuit breaker? */
+async function isVersionCreditBlocked(admin: SupabaseClient, versionId: string): Promise<boolean> {
+  if (!versionId) return false;
+  const { data } = await admin.from("knowledge_source_versions")
+    .select("credits_blocked_at").eq("id", versionId).maybeSingle();
+  return !!data?.credits_blocked_at;
+}
+
+/** Per-page pipeline state so the developer can resume / retry failed pages only. */
+async function markPagesState(
+  admin: SupabaseClient,
+  versionId: string,
+  pageFrom: number,
+  pageTo: number,
+  patch: Record<string, unknown>,
+  _bumpRetry = false,
+) {
+  if (!versionId || !pageFrom) return;
+  const rows: any[] = [];
+  const last = Math.max(pageFrom, pageTo || pageFrom);
+  for (let page = pageFrom; page <= last && page - pageFrom < 64; page++) {
+    rows.push({ version_id: versionId, page_number: page, page_to: last, ...patch });
+  }
+  if (!rows.length) return;
+  const { error } = await admin
+    .from("knowledge_page_state")
+    .upsert(rows, { onConflict: "version_id,page_number" });
+  if (error) {
+    console.warn("[modrek:warn] page state upsert failed", error.message);
+    return;
   }
 }
 
