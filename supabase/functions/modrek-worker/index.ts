@@ -784,9 +784,29 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     return;
   }
 
-  if (failedPages?.length) {
-    throw new Error(`فشل استخراج ${failedPages.length} جزء من PDF بعد إعادة المحاولة؛ يرجى إعادة رفع نسخة PDF نصية أوضح.`);
+  // Partial success is a success: never drop a whole book because a few pages
+  // failed. Record the failed pages and continue with everything extracted.
+  const failedPageRanges = (failedPages ?? []).map((fp: any) => {
+    const fpInput = fp?.input ?? {};
+    return {
+      job_id: fp?.id ?? null,
+      page_from: Number(fpInput.page_from ?? fpInput.page_no ?? 0) || null,
+      page_to: Number(fpInput.page_to ?? fpInput.page_from ?? 0) || null,
+      error: String(fp?.error ?? "").slice(0, 400),
+    };
+  });
+
+  if (failedPageRanges.length) {
+    await log(admin, job.id, "warn", "merge_text continuing with partial extraction", {
+      failed_batches: failedPageRanges.length,
+      extracted_batches: units?.length ?? 0,
+    });
   }
+
+  await admin.from("knowledge_source_versions").update({
+    failed_pages: failedPageRanges,
+    updated_at: new Date().toISOString(),
+  }).eq("id", job.version_id);
 
   const text = (units ?? [])
     .map((u: any) => String(u.content_text ?? "").trim())
