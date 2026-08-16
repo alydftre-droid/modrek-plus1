@@ -73,7 +73,7 @@ const QUOTA_EXHAUSTED_MIN_BACKOFF_MS = 6 * 60 * 60_000;
 const QUOTA_EXHAUSTED_MAX_BACKOFF_MS = 12 * 60 * 60_000;
 
 type FailureDiagnostic = {
-  category: "quota_exhausted" | "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
+  category: "insufficient_credits" | "quota_exhausted" | "rate_limit" | "timeout" | "provider" | "storage" | "database" | "unknown";
   userMessage: string;
   rawMessage: string;
   retryable: boolean;
