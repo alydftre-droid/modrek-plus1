@@ -363,6 +363,7 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
   let batchText = "";
+  let ocrStatus = "not_needed";
   const assetBytes = Number(asset.byte_size ?? 0);
   const requestedGeminiFile = input.extractor === "gemini_file" || !!input.gemini_file?.uri;
   const useGeminiFile = requestedGeminiFile && assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES;
