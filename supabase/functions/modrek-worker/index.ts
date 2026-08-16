@@ -568,6 +568,15 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   });
   if (error) throw error;
 
+  await markPagesState(admin, job.version_id, pageFrom, pageTo, {
+    extraction_status: "done",
+    ocr_status: ocrStatus,
+    extractor: useGeminiFile ? "gemini_file" : "local_pdfjs",
+    char_count: batchText.length,
+    error_category: null,
+    error_message: null,
+  });
+
   const versionPct = 28 + Math.floor((Math.min(pageTo, pageCount) / Math.max(1, pageCount)) * 12);
   await admin.from("knowledge_source_versions").update({
     progress_pct: Math.min(40, versionPct),
@@ -575,7 +584,7 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     updated_at: new Date().toISOString(),
   }).eq("id", job.version_id);
 
-  await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch" });
+  await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch", ocr_status: ocrStatus });
 }
 
 // -------- Stage 2a.0: chunked upload of large PDFs to Gemini File API --------
