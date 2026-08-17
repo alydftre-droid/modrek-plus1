@@ -287,16 +287,17 @@ export interface LibraryRagResult {
   notes: string[];
 }
 
-let taxonomyCache: { at: number; grades: any[]; tracks: any[]; stages: any[] } | null = null;
+let taxonomyCache: { at: number; grades: any[]; tracks: any[]; stages: any[]; sections: any[] } | null = null;
 
 async function loadTaxonomy(admin: any) {
   if (taxonomyCache && Date.now() - taxonomyCache.at < 5 * 60_000) return taxonomyCache;
-  const [{ data: grades }, { data: tracks }, { data: stages }] = await Promise.all([
+  const [{ data: grades }, { data: tracks }, { data: stages }, { data: sections }] = await Promise.all([
     admin.from("library_grades").select("id, code, name_ar, stage_id"),
     admin.from("library_tracks").select("id, code, name_ar"),
     admin.from("library_stages").select("id, code, name_ar"),
+    admin.from("library_sections").select("id, code, name_ar"),
   ]);
-  taxonomyCache = { at: Date.now(), grades: grades || [], tracks: tracks || [], stages: stages || [] };
+  taxonomyCache = { at: Date.now(), grades: grades || [], tracks: tracks || [], stages: stages || [], sections: sections || [] };
   return taxonomyCache;
 }
 
@@ -311,12 +312,15 @@ function subjectMatches(book: any, subject: string | null): boolean {
 export async function listAccessibleBooks(admin: any, scope: StudentScope): Promise<LibraryBookRef[]> {
   const tax = await loadTaxonomy(admin);
   const gradeRow = tax.grades.find((g: any) => g.code === scope.gradeCode);
-  const trackIds = tax.tracks.filter((t: any) => scope.trackCodes.includes(t.code)).map((t: any) => t.id);
   const stageRow = tax.stages.find((s: any) => s.code === scope.stageCode);
+  const trackIds = tax.tracks.filter((t: any) => scope.trackCodes.includes(t.code) || t.code === "none").map((t: any) => t.id);
+  const allowedSectionIds = tax.sections
+    .filter((s: any) => s.code === "shared" || (scope.sectionCode ? s.code === scope.sectionCode : true))
+    .map((s: any) => s.id);
 
   let q = admin
     .from("library_books")
-    .select("id,title,subject_name_ar,sub_subject_name,term,page_count,access_tier,education_type,grade_id,track_id,stage_id")
+    .select("id,title,subject_name_ar,sub_subject_name,term,page_count,access_tier,education_type,grade_id,track_id,stage_id,section_id")
     .eq("status", "ready")
     .order("created_at", { ascending: false })
     .limit(200);
@@ -330,8 +334,9 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
   const systemLabel = scope.sectionCode === "azhar" ? "ازهر" : scope.sectionCode === "general" ? "عام" : null;
 
   const filtered = (rows || []).filter((b: any) => {
-    // Education system isolation (أزهري vs عام) — shared books stay visible.
-    if (systemLabel && b.education_type) {
+    // Education system isolation (أزهري vs عام) — shared / unset books stay visible.
+    if (b.section_id && allowedSectionIds.length && !allowedSectionIds.includes(b.section_id)) return false;
+    if (!b.section_id && systemLabel && b.education_type) {
       const e = normalizeAr(b.education_type);
       if (!e.includes("مشترك") && !e.includes(systemLabel)) return false;
     }
@@ -339,6 +344,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
     if (b.track_id && trackIds.length && !trackIds.includes(b.track_id)) return false;
     return true;
   });
+
 
   // Access tier check (free is open, otherwise ask the DB).
   const out: LibraryBookRef[] = [];
