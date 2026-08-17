@@ -3,6 +3,13 @@
 // submission and grading stay on the existing exam engine.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import {
+  detectSubject,
+  retrieveFromLibrary,
+  buildLibraryContextBlock,
+  logRagPipeline,
+  MODREK_ASSISTANT_SCOPE_RULES,
+} from "../_shared/modrekLibraryRag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
