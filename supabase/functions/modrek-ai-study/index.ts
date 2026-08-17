@@ -142,19 +142,30 @@ Deno.serve(async (req) => {
         // Tier 1, 3, 4: reuse modrek-retrieve (covers library, question bank, exams tiers)
         try {
           const rCtl = new AbortController();
-          const rTimer = setTimeout(() => rCtl.abort(), 8000);
+          const rTimer = setTimeout(() => rCtl.abort(), 20000);
           const rr = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/modrek-retrieve`, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": auth },
-            body: JSON.stringify({ query: trimmedQ, max_results: 5 }),
+            body: JSON.stringify({
+              query: trimmedQ,
+              max_results: 6,
+              // Curriculum scope is resolved server-side from the student profile;
+              // we only narrow it further with the conversation subject.
+              filters: (conversationContext as any)?.subject_id
+                ? { subject_id: (conversationContext as any).subject_id }
+                : {},
+            }),
             signal: rCtl.signal,
           }).finally(() => clearTimeout(rTimer));
           if (rr.ok) {
             const rj = await rr.json();
             const rows = Array.isArray(rj?.results) ? rj.results : [];
             if (rows.length > 0) {
+              const lessonLabel = rj?.lesson_target?.title
+                ? ` — الدرس المطلوب: ${rj.lesson_target.title}`
+                : "";
               sections.push(
-                "### مصادر داخلية (مكتبة Modrek / بنك الأسئلة / امتحانات المنصة):\n" +
+                `### مصادر داخلية من منهج الطالب${lessonLabel} (مكتبة Modrek / بنك الأسئلة / امتحانات المنصة):\n` +
                 rows.map((r: any, i: number) => `[${i + 1}] ${r.citation?.source_title || "مصدر"}${r.citation?.page_from ? ` — ص${r.citation.page_from}` : ""}\n${(r.text || "").slice(0, 600)}`).join("\n\n")
               );
             }
