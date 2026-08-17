@@ -54,6 +54,11 @@ type ExamDiagnostics = {
     chunkRows?: number;
     snippets?: number;
     reason?: string;
+    libraryBooks?: number;
+    librarySelectedBook?: string | null;
+    libraryLesson?: string | null;
+    libraryPassages?: number;
+    libraryConfidence?: string;
   };
 };
 
