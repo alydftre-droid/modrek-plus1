@@ -38,6 +38,8 @@ export default function ModrekSourceDetailPage() {
   const [events, setEvents] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [chunkStats, setChunkStats] = useState<{ total: number; embedded: number }>({ total: 0, embedded: 0 });
+  const [pageSummary, setPageSummary] = useState<any>(null);
+  const [retryingPages, setRetryingPages] = useState(false);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -67,6 +69,8 @@ export default function ModrekSourceDetailPage() {
     setJobs((j.data ?? []) as any);
     setUnits((u.data ?? []) as any);
     setChunkStats({ total: cAll.count ?? 0, embedded: cEmb.count ?? 0 });
+    const { data: summary } = await supabase.rpc("modrek_version_page_summary" as any, { p_version_id: versionId });
+    setPageSummary(Array.isArray(summary) ? summary[0] ?? null : summary ?? null);
     if (j.data?.length) {
       const jobIds = j.data.map((x: any) => x.id);
       const { data: ev } = await supabase.from("processing_events")
@@ -123,6 +127,20 @@ export default function ModrekSourceDetailPage() {
     });
     if (error) toast.error(error.message); else { toast.success("تم إعادة تشغيل المرحلة"); await loadVersionData(currentVersion.id); }
   };
+  const retryFailedPages = async () => {
+    if (!currentVersion?.id) return;
+    setRetryingPages(true);
+    try {
+      const { error } = await supabase.rpc("modrek_retry_failed_pages" as any, { p_version_id: currentVersion.id });
+      if (error) throw error;
+      await supabase.functions.invoke("modrek-worker", { body: {} }).catch(() => undefined);
+      toast.success("تمت إعادة جدولة الصفحات الفاشلة فقط — لن تُعاد معالجة الصفحات الناجحة");
+      await load();
+    } catch (e: any) {
+      toast.error(e.message || "تعذر إعادة جدولة الصفحات");
+    } finally { setRetryingPages(false); }
+  };
+
   const runNow = async () => {
     const { error } = await supabase.functions.invoke("modrek-worker", { body: {} });
     if (error) toast.error(error.message); else { toast.success("تم تشغيل عامل المعالجة"); await loadVersionData(currentVersion.id); }
@@ -241,6 +259,33 @@ export default function ModrekSourceDetailPage() {
             <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("embed")}>Embeddings</ModrekButton>
             <ModrekButton size="sm" variant="secondary" icon={RefreshCw} onClick={() => restartStage("index")}>الفهرسة</ModrekButton>
           </div>
+
+          {currentVersion?.credits_blocked_at && (
+            <div className="flex flex-col md:flex-row md:items-center gap-3 p-4 rounded-[14px] bg-[#FFFBEB] border border-[#FDE68A]">
+              <AlertCircle className="h-5 w-5 shrink-0 text-[#B45309]" />
+              <div className="flex-1 text-[12px] font-bold text-[#92400E]">
+                تم إيقاف المعالجة تلقائياً لعدم كفاية رصيد مزود الذكاء. كل ما تم استخراجه محفوظ، ولن يتم استهلاك المزيد من الطلبات.
+                بعد إضافة الرصيد اضغط «إعادة معالجة الصفحات الفاشلة فقط».
+              </div>
+              <ModrekButton size="sm" variant="warning" icon={RefreshCw} onClick={retryFailedPages} disabled={retryingPages}>
+                إعادة معالجة الصفحات الفاشلة فقط
+              </ModrekButton>
+            </div>
+          )}
+
+          {pageSummary && (
+            <div className="flex flex-wrap items-center gap-3 p-3 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0]">
+              <span className="text-[11px] font-bold text-[#64748B]">حالة الصفحات:</span>
+              <span className="text-[12px] font-bold text-[#16A34A]">مكتملة {Number(pageSummary.done_pages ?? 0)}</span>
+              <span className="text-[12px] font-bold text-[#DC2626]">فاشلة {Number(pageSummary.failed_pages ?? 0)}</span>
+              <span className="text-[12px] font-bold text-[#2563EB]">قيد الانتظار {Number(pageSummary.pending_pages ?? 0)}</span>
+              {Number(pageSummary.failed_pages ?? 0) > 0 && (
+                <ModrekButton size="sm" variant="warning" icon={RefreshCw} onClick={retryFailedPages} disabled={retryingPages}>
+                  إعادة الصفحات الفاشلة فقط
+                </ModrekButton>
+              )}
+            </div>
+          )}
 
           {currentVersion?.error_message && (
             <div className="flex items-start gap-3 p-4 rounded-[14px] bg-[#FEF2F2] border border-[#FECACA]">
