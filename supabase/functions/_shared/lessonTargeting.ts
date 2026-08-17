@@ -41,7 +41,12 @@ const NORMALIZED_ORDINALS: Record<string, number> = Object.fromEntries(
 
 function ordinalToNumber(token: string): number | null {
   const t = normalizeAr(token);
-  return NORMALIZED_ORDINALS[t] ?? NORMALIZED_ORDINALS[`ال${t}`] ?? null;
+  const bare = t.replace(/ه$/, ""); // الثالثه -> الثالث (feminine form)
+  return NORMALIZED_ORDINALS[t]
+    ?? NORMALIZED_ORDINALS[bare]
+    ?? NORMALIZED_ORDINALS[`ال${t}`]
+    ?? NORMALIZED_ORDINALS[`ال${bare}`]
+    ?? null;
 }
 
 export function parseLessonRequest(
