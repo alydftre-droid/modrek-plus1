@@ -33,6 +33,17 @@ export function normalizeAr(value: string): string {
     .trim();
 }
 
+// Feminine Arabic ordinals ("الوحدة الثالثة") normalize to "الثالثه", so the
+// lookup table is normalized once with the same normalizer used on the query.
+const NORMALIZED_ORDINALS: Record<string, number> = Object.fromEntries(
+  Object.entries(ARABIC_ORDINALS).map(([k, v]) => [normalizeAr(k), v]),
+);
+
+function ordinalToNumber(token: string): number | null {
+  const t = normalizeAr(token);
+  return NORMALIZED_ORDINALS[t] ?? NORMALIZED_ORDINALS[`ال${t}`] ?? null;
+}
+
 export function parseLessonRequest(
   query: string,
   intent?: LessonIntentLike | null,
@@ -44,7 +55,7 @@ export function parseLessonRequest(
     if (!m) return null;
     const token = m[1].trim();
     if (/^[0-9]+$/.test(token)) return Number(token);
-    return ARABIC_ORDINALS[token] ?? ARABIC_ORDINALS[`ال${token}`] ?? null;
+    return ordinalToNumber(token);
   };
   const lesson = /درس/.test(text) ? match("الدرس") ?? match("درس") : null;
   if (lesson) return { kind: "lesson", number: lesson };
