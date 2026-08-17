@@ -12,7 +12,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "test:regression:test-students": "node scripts/test-teacher-test-student-isolation.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:ai:lesson-retrieval": "deno test --allow-env --allow-net supabase/functions/_shared/lessonTargeting_test.ts"
   },
   "dependencies": {
     "@capacitor/android": "6.2.1",
