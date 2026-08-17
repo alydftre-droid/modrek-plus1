@@ -3,6 +3,12 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import {
+  retrieveFromLibrary,
+  buildLibraryContextBlock,
+  logRagPipeline,
+  MODREK_ASSISTANT_SCOPE_RULES,
+} from "../_shared/modrekLibraryRag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -495,6 +501,34 @@ ${g ? `- ${g}.` : ""}
 الهدف: الطالب يحس إنه قاعد مع مدرس حقيقي محترف بيفهمه وبيحببه في المادة.
 `;
     }
+
+    // ---- Unified Modrek library RAG (all subjects: شرعية / عربية / أدبية / لغات / علمية) ----
+    if (!isAdmin && !isLessonStudio) {
+      try {
+        const userTurns = messages
+          .filter((m: any) => m.role === "user")
+          .map((m: any) => normalizeTextContent(m.content))
+          .filter(Boolean);
+        const lastQuery = (userTurns[userTurns.length - 1] || "").trim();
+        if (lastQuery.length >= 3) {
+          const rag = await retrieveFromLibrary(serviceClient, {
+            userId,
+            query: lastQuery,
+            history: userTurns.slice(-6, -1),
+            maxPassages: 8,
+          });
+          logRagPipeline("ai-chat", rag);
+          systemPrompt += `\n\n${MODREK_ASSISTANT_SCOPE_RULES}\n\n${buildLibraryContextBlock(rag)}\n\n${
+            rag.found
+              ? "اعتمد على محتوى المكتبة أعلاه أولًا وبشكل أساسي في الشرح، والتزم بالدرس/الوحدة المطلوبة."
+              : "المكتبة لم ترجع محتوى مطابقًا: وضّح ذلك بجملة قصيرة ثم اشرح من المنهج الرسمي المناسب للصف والنظام، وممنوع اختراع أسماء دروس أو كتب."
+          }\n- لا تسأل الطالب عن صفه أو مرحلته أو نظامه أو شعبته أبدًا؛ كلها معروفة أعلاه.`;
+        }
+      } catch (ragErr) {
+        console.warn("[ai-chat] library rag failed", String(ragErr).slice(0, 250));
+      }
+    }
+
 
     // Build messages with vision support for page images
     const buildMessages = () => {

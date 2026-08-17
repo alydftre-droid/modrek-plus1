@@ -8,6 +8,13 @@ import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } 
 
 import { aiEmbeddings } from "../_shared/aiProvider.ts";
 import { buildScopeFilters, resolveLessonTarget } from "../_shared/lessonTargeting.ts";
+import {
+  resolveStudentScope,
+  resolveLibraryTaxonomyIds,
+  retrieveFromLibrary,
+  logRagPipeline,
+  type LibraryRagResult,
+} from "../_shared/modrekLibraryRag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -127,9 +134,43 @@ Deno.serve(async (req) => {
     // 3) Build filters from user + intent + explicit overrides
     const derivedFilters = buildFilters(userCtx, intent, filters, imageOcr);
 
-    // 3b) SHIELDED RAG guard: a student without a resolved grade must never be
-    // served content from other grades — ask them to complete the profile first.
-    if (userCtx.role === "student" && !derivedFilters.grade_id) {
+    // 3b) LIBRARY FIRST — the unified Modrek library RAG runs before anything
+    // else and works identically for religious, Arabic, literary and scientific
+    // subjects. Its passages always lead the returned context.
+    let libraryRag: LibraryRagResult | null = null;
+    let libraryResults: any[] = [];
+    if (userCtx.user_id) {
+      try {
+        libraryRag = await retrieveFromLibrary(admin, {
+          userId: userCtx.user_id,
+          query: effectiveQuery,
+          contextSubject: (filters as any)?.subject_name ?? null,
+          maxPassages: Math.max(4, Math.min(10, Number(max_results) || 6)),
+        });
+        logRagPipeline("modrek-retrieve", libraryRag);
+        libraryResults = libraryRag.passages.map((p, i) => ({
+          chunk_id: `library:${p.book_id}:${p.page_from ?? i}`,
+          content: p.text,
+          composite_score: Math.max(0.6, Math.min(0.99, p.score)),
+          similarity: p.score,
+          text_rank: null,
+          source_id: p.book_id,
+          source_title: p.book_title,
+          source_type_code: "library_book",
+          unit_id: null,
+          unit_kind: "lesson",
+          unit_title: p.lesson_title,
+          page_from: p.page_from,
+          page_to: p.page_to,
+        }));
+      } catch (libErr) {
+        console.warn("[modrek-retrieve] library rag failed", String(libErr).slice(0, 250));
+      }
+    }
+
+    // 3b-2) SHIELDED RAG guard: a student without a resolved grade must never be
+    // served content from other grades — but only block when the library found nothing.
+    if (userCtx.role === "student" && !derivedFilters.grade_id && libraryResults.length === 0) {
       return json({
         intent: intent.intent,
         user_context: userCtx,
@@ -139,6 +180,7 @@ Deno.serve(async (req) => {
         below_threshold: true,
         suggest_external: false,
         needs_profile_scope: true,
+        library_used: false,
         message: "لم يتم تحديد الصف الدراسي في ملفك بعد، لذلك لا يمكن جلب محتوى المنهج. أكمل بيانات الصف ثم أعد المحاولة.",
       }, 200);
     }
@@ -200,8 +242,13 @@ Deno.serve(async (req) => {
       ];
     }
 
-    // 8) Assemble citation-ready context
-    const context = allResults.slice(0, max_results).map((r) => ({
+    // 8) Assemble citation-ready context — library passages always lead.
+    const seenFinal = new Set(libraryResults.map((r) => r.chunk_id));
+    const mergedResults = [
+      ...libraryResults,
+      ...allResults.filter((r) => !seenFinal.has(r.chunk_id)),
+    ];
+    const context = mergedResults.slice(0, max_results).map((r) => ({
       chunk_id: r.chunk_id,
       text: r.content,
       confidence: round(r.composite_score),
@@ -219,18 +266,26 @@ Deno.serve(async (req) => {
       },
     }));
 
+    const libraryUsed = libraryResults.length > 0;
+    const effectiveBelowThreshold = libraryUsed ? false : belowThreshold;
+
     const payload = {
       intent: intent.intent,
       intent_meta: intent,
       user_context: userCtx,
       filters_used: derivedFilters,
-      tier_used: selectedTier,
+      tier_used: libraryUsed ? "library_first" : selectedTier,
+      library_used: libraryUsed,
+      library_scope: libraryRag?.scope ?? null,
+      library_subject: libraryRag?.understanding?.subject ?? null,
+      library_book: libraryRag?.selected_book?.title ?? null,
+      library_lesson: libraryRag?.lesson?.title ?? null,
       lesson_target: lessonTarget ? { kind: lessonTarget.kind, number: lessonTarget.number, title: lessonTarget.title } : null,
       confidence_threshold: CONFIDENCE_MIN,
-      top_confidence: round(topConfidence),
+      top_confidence: round(libraryUsed ? Math.max(topConfidence, libraryResults[0]?.composite_score ?? 0) : topConfidence),
       results_count: context.length,
-      below_threshold: belowThreshold,
-      suggest_external: belowThreshold,
+      below_threshold: effectiveBelowThreshold,
+      suggest_external: effectiveBelowThreshold,
       image_ocr: imageOcr,
       results: context,
       generated_at: new Date().toISOString(),
@@ -286,15 +341,18 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
     section_id: null, track_id: null, subject_ids: [],
   };
   if (!user_id) return ctx;
-  const { data: profile } = await admin
-    .from("profiles").select("*").eq("user_id", user_id).maybeSingle();
-  if (profile) {
-    ctx.role = (profile.role as string) ?? null;
-    ctx.stage_id = profile.stage_id ?? null;
-    ctx.grade_id = profile.grade_id ?? null;
-    ctx.section_id = profile.section_id ?? null;
-    ctx.track_id = profile.track_id ?? null;
-  }
+
+  // FIX: profiles PK is `id` (not `user_id`) and the curriculum columns are
+  // text labels (`stage`, `grade`, `section`, `education_type`), never *_id.
+  // We resolve them into real library_* taxonomy ids through the shared scope.
+  const scope = await resolveStudentScope(admin, user_id);
+  ctx.role = scope.role;
+  const ids = await resolveLibraryTaxonomyIds(admin, scope);
+  ctx.stage_id = ids.stage_id;
+  ctx.grade_id = ids.grade_id;
+  ctx.section_id = ids.section_id;
+  ctx.track_id = ids.track_id;
+
   // Best-effort subject list — depends on existing tables; safe on missing rows.
   try {
     const { data: subs } = await admin

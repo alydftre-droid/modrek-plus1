@@ -3,6 +3,13 @@
 // submission and grading stay on the existing exam engine.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import {
+  detectSubject,
+  retrieveFromLibrary,
+  buildLibraryContextBlock,
+  logRagPipeline,
+  MODREK_ASSISTANT_SCOPE_RULES,
+} from "../_shared/modrekLibraryRag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +54,11 @@ type ExamDiagnostics = {
     chunkRows?: number;
     snippets?: number;
     reason?: string;
+    libraryBooks?: number;
+    librarySelectedBook?: string | null;
+    libraryLesson?: string | null;
+    libraryPassages?: number;
+    libraryConfidence?: string;
   };
 };
 
@@ -304,15 +316,10 @@ function normalizeArabic(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+// Subject detection is delegated to the shared multi-subject vocabulary so
+// religious/Arabic/literary subjects are recognized exactly like scientific ones.
 function inferSubjectFromText(text: string): string | null {
-  const normalized = normalizeArabic(text);
-  const known = [
-    "الحديث", "القران", "التفسير", "الفقه", "التوحيد", "السيره",
-    "اللغه العربيه", "العربي", "النحو", "الصرف", "البلاغه", "الادب", "النصوص",
-    "الرياضيات", "الجبر", "الهندسه", "الفيزياء", "الكيمياء", "الاحياء", "العلوم",
-    "التاريخ", "الجغرافيا", "الدراسات", "الفلسفه", "المنطق", "الانجليزي", "اللغه الانجليزيه",
-  ];
-  return known.find((name) => normalized.includes(name)) || null;
+  return detectSubject(text);
 }
 
 function stageLabel(stage?: string | null) {
@@ -1361,10 +1368,43 @@ Deno.serve(async (req) => {
     const requestedTotal = mcq + trueFalse + essay + fillBlank;
     if (requestedTotal <= 0) return json({ reply: "حدّد عدد الأسئلة أو نوع الامتحان المطلوب." });
 
-    const studyContext = await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId, diagnostics);
+    // Library FIRST: ground the exam on the student's real Modrek book.
+    // lesson request -> lesson pages only, unit -> unit pages, whole curriculum -> book-wide sampling.
+    let libraryBlock = "";
+    let libraryFound = false;
+    try {
+      if (!userId) throw new Error("no user id for library rag");
+      const historyTexts = (messages as any[])
+        .filter((m: any) => m.role === "user")
+        .map((m: any) => textFromMessage(m))
+        .filter(Boolean)
+        .slice(-6, -1);
+      const rag = await retrieveFromLibrary(admin, {
+        userId,
+        query: `${userText} ${chapter || ""}`.trim(),
+        history: historyTexts,
+        contextSubject: subjectHint || conversationContext?.subject_name || null,
+        maxPassages: 10,
+      });
+      logRagPipeline("modrek-ai-exams", rag, { traceId });
+      libraryFound = rag.found;
+      libraryBlock = buildLibraryContextBlock(rag);
+      diagnostics.rag.libraryBooks = rag.accessible_books.length;
+      diagnostics.rag.librarySelectedBook = rag.selected_book?.title ?? null;
+      diagnostics.rag.libraryLesson = rag.lesson?.title ?? null;
+      diagnostics.rag.libraryPassages = rag.passages.length;
+      diagnostics.rag.libraryConfidence = rag.confidence;
+    } catch (ragError) {
+      logError(traceId, "LIBRARY_RAG_FAILED_NON_BLOCKING", ragError);
+    }
+
+    const studyContext = libraryFound
+      ? ""
+      : await retrieveStudyContext(admin, subjectRow.id, userText, subjectHint, chapter, traceId, diagnostics);
     logStep(traceId, "SUBJECT_AND_RETRIEVAL_READY", {
       subjectId: subjectRow.id,
       subjectName: subjectRow.name,
+      libraryFound,
       hasStudyContext: Boolean(studyContext),
       requestedTotal,
       difficulty,
@@ -1376,13 +1416,20 @@ Deno.serve(async (req) => {
     const genSystem = `أنت منشئ امتحانات عربي محترف داخل منصة مدرك Plus.
 أنشئ امتحاناً تدريبياً لا يؤثر على الدرجات الرسمية، لكنه يجب أن يستخدم نفس جودة امتحانات المعلم.
 
+${MODREK_ASSISTANT_SCOPE_RULES}
+
 بيانات الطالب: ${studentLevel || "غير محدد"}
 المادة: ${subjectHint || subjectRow.name || "المادة المناسبة"}
 ${chapter ? `الدرس/الباب المطلوب: ${chapter}` : ""}
 الصعوبة: ${difficulty}
 
-سياق مسترجع من محتوى المادة/الكتب إن وجد:
-${studyContext || "لا يوجد سياق نصي مسترجع؛ اعتمد على المنهج المناسب للمادة والصف دون ذكر أنك لا تملك سياقاً."}
+## محتوى مكتبة Modrek (المصدر الإلزامي للأسئلة إن وُجد)
+${libraryBlock || "لا يوجد"}
+
+${libraryFound
+      ? "⚠️ إلزامي: كل سؤال يجب أن يكون مبنيًا حرفيًا على المحتوى المسترجع أعلاه (نفس الدرس/الوحدة/المنهج المطلوب فقط). ممنوع توليد أي سؤال من معلومات خارج هذا المحتوى، وممنوع الخروج لدروس أخرى."
+      : `لم يُعثر على محتوى في المكتبة لهذا الطلب. اعتمد على المنهج الرسمي المناسب للمادة والصف والنظام دون اختراع أسماء دروس.\n\nسياق إضافي من محتوى المنصة إن وجد:\n${studyContext || "لا يوجد"}`}
+
 
 أرجع JSON فقط بهذه البنية الصارمة (بدون Markdown، بدون أي نص خارج JSON):
 {
