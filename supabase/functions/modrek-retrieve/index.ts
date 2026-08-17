@@ -8,6 +8,13 @@ import { callGeminiWithFallback, resolveGeminiApiKey, resolveOpenRouterApiKey } 
 
 import { aiEmbeddings } from "../_shared/aiProvider.ts";
 import { buildScopeFilters, resolveLessonTarget } from "../_shared/lessonTargeting.ts";
+import {
+  resolveStudentScope,
+  resolveLibraryTaxonomyIds,
+  retrieveFromLibrary,
+  logRagPipeline,
+  type LibraryRagResult,
+} from "../_shared/modrekLibraryRag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
