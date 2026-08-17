@@ -300,6 +300,21 @@ async function runStage(admin: SupabaseClient, job: any) {
     updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "info", `stage started: ${job.kind}`);
+
+  // Credit circuit breaker: never spend another provider request on a version
+  // that was already frozen for insufficient credits.
+  if (await isVersionCreditBlocked(admin, job.version_id)) {
+    await admin.from("processing_jobs").update({
+      status: "cancelled",
+      error: "تم الإيقاف تلقائياً: رصيد مزود الذكاء غير كافٍ",
+      finished_at: new Date().toISOString(),
+      next_run_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.id);
+    await log(admin, job.id, "warn", "stage skipped: version frozen by credit circuit breaker", { kind: job.kind });
+    return;
+  }
+
   switch (job.kind) {
     case "detect": return await stageDetect(admin, job);
     case "extract_text": return await stageExtractText(admin, job);
@@ -881,26 +896,173 @@ async function stageStructure(admin: SupabaseClient, job: any) {
       if (error) throw error;
     }
   }
-  await succeedJob(admin, job, { units: rows.length, preserved_full_text: true });
+  const lessons = await rebuildLessonIndex(admin, job.version_id, version!.source_id);
+  await succeedJob(admin, job, { units: rows.length, preserved_full_text: true, lesson_index: lessons });
   await enqueue(admin, job.version_id, "chunk", 40, {}, job.asset_id);
+}
+
+
+// -------- Lesson index (query understanding: "اشرح الدرس الخامس") -----------
+const ARABIC_ORDINALS: Record<string, number> = {
+  "الاول": 1, "الأول": 1, "اول": 1, "أول": 1,
+  "الثاني": 2, "الثانى": 2, "ثاني": 2,
+  "الثالث": 3, "ثالث": 3,
+  "الرابع": 4, "رابع": 4,
+  "الخامس": 5, "خامس": 5,
+  "السادس": 6, "سادس": 6,
+  "السابع": 7, "سابع": 7,
+  "الثامن": 8, "ثامن": 8,
+  "التاسع": 9, "تاسع": 9,
+  "العاشر": 10, "عاشر": 10,
+  "الحادي عشر": 11, "الحادى عشر": 11,
+  "الثاني عشر": 12, "الثانى عشر": 12,
+  "الثالث عشر": 13,
+  "الرابع عشر": 14,
+  "الخامس عشر": 15,
+};
+
+function normalizeArabicText(value: string): string {
+  return String(value || "")
+    .replace(/[\u0640\u064B-\u065F\u0670]/g, "")
+    .replace(/[إأآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Reads "الدرس الخامس" / "الوحدة 3" / "الفصل الثاني" out of a title. */
+function parseCurriculumTitle(rawTitle: string): { kind: string; lessonNumber: number | null; unitNumber: number | null } {
+  const title = normalizeArabicText(rawTitle);
+  const numberAfter = (keyword: string): number | null => {
+    const re = new RegExp(`${keyword}\\s*(?:رقم\\s*)?([0-9]{1,2}|[^0-9]{2,14}?)(?=\\s|:|-|$)`);
+    const match = title.match(re);
+    if (!match) return null;
+    const token = match[1].trim();
+    if (/^[0-9]+$/.test(token)) return Number(token);
+    const ordinal = ARABIC_ORDINALS[token] ?? ARABIC_ORDINALS[token.replace(/^ال/, "")] ?? null;
+    return ordinal ?? null;
+  };
+
+  const lessonNumber = /درس/.test(title) ? numberAfter("الدرس") ?? numberAfter("درس") : null;
+  const unitNumber = /وحده|وحدة|باب|فصل/.test(title)
+    ? numberAfter("الوحده") ?? numberAfter("وحده") ?? numberAfter("الباب") ?? numberAfter("باب") ?? numberAfter("الفصل") ?? numberAfter("فصل")
+    : null;
+
+  const kind = lessonNumber !== null || /درس/.test(title)
+    ? "lesson"
+    : /وحده|وحدة/.test(title)
+      ? "unit"
+      : /باب|فصل/.test(title)
+        ? "chapter"
+        : "section";
+
+  return { kind, lessonNumber, unitNumber };
+}
+
+/**
+ * Builds the lesson/unit index for a version straight from the detected unit
+ * titles — no extra AI call, no extra credits.
+ */
+async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sourceId: string): Promise<number> {
+  const { data: units } = await admin.from("knowledge_units")
+    .select("id, kind, title, ordinal, page_from, page_to")
+    .eq("version_id", versionId)
+    .neq("kind", "page")
+    .order("ordinal");
+
+  await admin.from("knowledge_lesson_index").delete().eq("version_id", versionId);
+
+  const rows: any[] = [];
+  let currentUnitNumber: number | null = null;
+  let lessonCounter = 0;
+
+  for (const unit of units ?? []) {
+    const title = String(unit.title || "").trim();
+    if (!title || title.startsWith("مقطع نصي")) continue;
+    const parsed = parseCurriculumTitle(title);
+    if (parsed.unitNumber !== null) currentUnitNumber = parsed.unitNumber;
+    let lessonNumber = parsed.lessonNumber;
+    if (parsed.kind === "lesson") {
+      lessonCounter = lessonNumber ?? lessonCounter + 1;
+      lessonNumber = lessonCounter;
+    }
+    rows.push({
+      source_id: sourceId,
+      version_id: versionId,
+      unit_id: unit.id,
+      kind: parsed.kind,
+      unit_number: currentUnitNumber,
+      lesson_number: lessonNumber,
+      title,
+      normalized_title: normalizeArabicText(title),
+      page_start: unit.page_from ?? null,
+      page_end: unit.page_to ?? null,
+      ordinal: Number(unit.ordinal ?? rows.length),
+    });
+  }
+
+  if (!rows.length) return 0;
+  for (let i = 0; i < rows.length; i += 200) {
+    const { error } = await admin.from("knowledge_lesson_index").insert(rows.slice(i, i + 200));
+    if (error) {
+      console.warn("[modrek:warn] lesson index insert failed", error.message);
+      return 0;
+    }
+  }
+  return rows.length;
 }
 
 // -------- Stage 4: chunk (units -> content_chunks) --------------------------
 async function stageChunk(admin: SupabaseClient, job: any) {
   await setVersionStage(admin, job.version_id, "knowledge_extraction", 70);
   const { data: units } = await admin.from("knowledge_units")
-    .select("id, content_text").eq("version_id", job.version_id).order("ordinal");
+    .select("id, content_text, page_from, page_to").eq("version_id", job.version_id).order("ordinal");
   await admin.from("content_chunks").delete().eq("version_id", job.version_id);
   const { data: version } = await admin.from("knowledge_source_versions")
     .select("source_id").eq("id", job.version_id).single();
+  // Curriculum scope + lesson coordinates travel with every chunk so retrieval
+  // can filter strictly by the student's grade / track / section / subject.
+  const { data: source } = await admin.from("knowledge_sources")
+    .select("id, stage_id, grade_id, section_id, track_id, subject_id, sub_subject_id, term, title")
+    .eq("id", version!.source_id).maybeSingle();
+  const { data: lessonIndex } = await admin.from("knowledge_lesson_index")
+    .select("unit_id, kind, unit_number, lesson_number, title, page_start, page_end")
+    .eq("version_id", job.version_id);
+  const lessonByUnit = new Map<string, any>();
+  for (const row of lessonIndex ?? []) {
+    if (row.unit_id) lessonByUnit.set(String(row.unit_id), row);
+  }
+  const scopeMetadata = {
+    stage_id: source?.stage_id ?? null,
+    grade_id: source?.grade_id ?? null,
+    section_id: source?.section_id ?? null,
+    track_id: source?.track_id ?? null,
+    subject_id: source?.subject_id ?? null,
+    sub_subject_id: source?.sub_subject_id ?? null,
+    term: source?.term ?? null,
+    source_title: source?.title ?? null,
+  };
   const chunks: any[] = [];
   let ord = 0;
   for (const u of units ?? []) {
     const pieces = splitText(u.content_text ?? "", 900, 100);
+    const lesson = lessonByUnit.get(String(u.id));
     for (const p of pieces) {
       chunks.push({
         source_id: version!.source_id, version_id: job.version_id, unit_id: u.id,
         ordinal: ord++, content: p, token_count: Math.ceil(p.length / 4),
+        metadata: {
+          ...scopeMetadata,
+          unit_number: lesson?.unit_number ?? null,
+          lesson_number: lesson?.lesson_number ?? null,
+          lesson_title: lesson?.title ?? null,
+          page_from: u.page_from ?? lesson?.page_start ?? null,
+          page_to: u.page_to ?? lesson?.page_end ?? null,
+        },
       });
     }
     if (ord > 0 && ord % 250 === 0) {
