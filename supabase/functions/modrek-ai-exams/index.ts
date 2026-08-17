@@ -311,15 +311,10 @@ function normalizeArabic(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+// Subject detection is delegated to the shared multi-subject vocabulary so
+// religious/Arabic/literary subjects are recognized exactly like scientific ones.
 function inferSubjectFromText(text: string): string | null {
-  const normalized = normalizeArabic(text);
-  const known = [
-    "الحديث", "القران", "التفسير", "الفقه", "التوحيد", "السيره",
-    "اللغه العربيه", "العربي", "النحو", "الصرف", "البلاغه", "الادب", "النصوص",
-    "الرياضيات", "الجبر", "الهندسه", "الفيزياء", "الكيمياء", "الاحياء", "العلوم",
-    "التاريخ", "الجغرافيا", "الدراسات", "الفلسفه", "المنطق", "الانجليزي", "اللغه الانجليزيه",
-  ];
-  return known.find((name) => normalized.includes(name)) || null;
+  return detectSubject(text);
 }
 
 function stageLabel(stage?: string | null) {
