@@ -249,5 +249,7 @@ Deno.test("student with no resolved grade gets no cross-grade content", async ()
   const scope = await resolveStudentScope(admin, noGrade.id);
   assertEquals(scope.gradeCode, null);
   const rag = await retrieveFromLibrary(admin, { userId: noGrade.id, query: "اشرح الدرس الخامس في الحديث" });
-  assert(rag.notes.some((n) => n.includes("الصف")), "must warn about the missing grade");
+  assertEquals(rag.accessible_books.length, 0, "no book may leak when the scope is unresolved");
+  assertEquals(rag.found, false);
+  assert(rag.notes.some((n) => n.includes("صف")), "must warn about the missing grade");
 });
