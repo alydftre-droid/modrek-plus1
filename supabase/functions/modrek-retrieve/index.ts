@@ -126,6 +126,25 @@ Deno.serve(async (req) => {
     // 3) Build filters from user + intent + explicit overrides
     const derivedFilters = buildFilters(userCtx, intent, filters, imageOcr);
 
+    // 3b) SHIELDED RAG guard: a student without a resolved grade must never be
+    // served content from other grades — ask them to complete the profile first.
+    if (userCtx.role === "student" && !derivedFilters.grade_id) {
+      return json({
+        intent: intent.intent,
+        user_context: userCtx,
+        filters_used: derivedFilters,
+        results: [],
+        results_count: 0,
+        below_threshold: true,
+        suggest_external: false,
+        needs_profile_scope: true,
+        message: "لم يتم تحديد الصف الدراسي في ملفك بعد، لذلك لا يمكن جلب محتوى المنهج. أكمل بيانات الصف ثم أعد المحاولة.",
+      }, 200);
+    }
+
+    // 3c) Lesson/unit targeting: "اشرح الدرس الخامس" resolves to real units.
+    const lessonTarget = await resolveLessonTarget(admin, effectiveQuery, intent, derivedFilters);
+
     // 4) Cache lookup
     const cacheKey = await hashKey({ q: effectiveQuery, f: derivedFilters, i: intent.intent });
     if (!force_refresh) {
@@ -171,6 +190,15 @@ Deno.serve(async (req) => {
     const topConfidence = allResults[0]?.composite_score ?? 0;
     const belowThreshold = topConfidence < CONFIDENCE_MIN;
 
+    // 7b) Lesson-targeted chunks always lead the context for lesson questions.
+    if (lessonTarget?.chunks?.length) {
+      const seen = new Set(lessonTarget.chunks.map((c: any) => c.chunk_id));
+      allResults = [
+        ...lessonTarget.chunks,
+        ...allResults.filter((r) => !seen.has(r.chunk_id)),
+      ];
+    }
+
     // 8) Assemble citation-ready context
     const context = allResults.slice(0, max_results).map((r) => ({
       chunk_id: r.chunk_id,
@@ -196,6 +224,7 @@ Deno.serve(async (req) => {
       user_context: userCtx,
       filters_used: derivedFilters,
       tier_used: selectedTier,
+      lesson_target: lessonTarget ? { kind: lessonTarget.kind, number: lessonTarget.number, title: lessonTarget.title } : null,
       confidence_threshold: CONFIDENCE_MIN,
       top_confidence: round(topConfidence),
       results_count: context.length,
@@ -354,15 +383,22 @@ async function embed(text: string): Promise<number[]> {
 
 function buildFilters(user: UserContext, intent: IntentResult, overrides: any, ocr: any) {
   const f: Record<string, any> = {};
-  // Overrides win
-  if (overrides?.stage_id) f.stage_id = overrides.stage_id;
-  else if (user.stage_id)  f.stage_id = user.stage_id;
-  if (overrides?.grade_id) f.grade_id = overrides.grade_id;
-  else if (user.grade_id)  f.grade_id = user.grade_id;
-  if (overrides?.section_id) f.section_id = overrides.section_id;
-  else if (user.section_id)  f.section_id = user.section_id;
-  if (overrides?.track_id) f.track_id = overrides.track_id;
-  else if (user.track_id)  f.track_id = user.track_id;
+  // SHIELDED RAG: for students the curriculum scope comes from the profile and
+  // can never be widened by the request body. Only admins/teachers may override.
+  const locked = user.role === "student";
+  const pick = (key: "stage_id" | "grade_id" | "section_id" | "track_id") => {
+    if (locked) return (user as any)[key] ?? null;
+    return overrides?.[key] ?? (user as any)[key] ?? null;
+  };
+  const stage_id = pick("stage_id");
+  const grade_id = pick("grade_id");
+  const section_id = pick("section_id");
+  const track_id = pick("track_id");
+  if (stage_id) f.stage_id = stage_id;
+  if (grade_id) f.grade_id = grade_id;
+  if (section_id) f.section_id = section_id;
+  if (track_id) f.track_id = track_id;
+  f._scope_locked = locked;
   if (overrides?.subject_id) f.subject_id = overrides.subject_id;
   if (Array.isArray(overrides?.source_ids) && overrides.source_ids.length > 0) f.source_ids = overrides.source_ids;
   // Hints (kept in metadata, useful for future matching)
@@ -425,4 +461,98 @@ async function writeCache(admin: any, key: string, query: string, intent: string
 async function logSearch(admin: any, row: any) {
   try { await admin.from("modrek_search_logs").insert(row); }
   catch (e) { console.warn("log_search_failed", e); }
+}
+
+
+// ---------- lesson targeting ----------
+
+const RETRIEVE_ARABIC_ORDINALS: Record<string, number> = {
+  "الاول": 1, "الأول": 1, "اول": 1, "الثاني": 2, "الثانى": 2, "الثالث": 3,
+  "الرابع": 4, "الخامس": 5, "السادس": 6, "السابع": 7, "الثامن": 8,
+  "التاسع": 9, "العاشر": 10, "الحادي عشر": 11, "الثاني عشر": 12,
+};
+
+function normalizeAr(value: string): string {
+  return String(value || "")
+    .replace(/[\u0640\u064B-\u065F\u0670]/g, "")
+    .replace(/[إأآٱ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/ة/g, "ه")
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseLessonRequest(query: string, intent: IntentResult): { kind: "lesson" | "unit"; number: number } | null {
+  const text = normalizeAr(`${query} ${intent?.lesson_hint ?? ""}`);
+  const match = (keyword: string) => {
+    const re = new RegExp(`${keyword}\\s*(?:رقم\\s*)?([0-9]{1,2}|[^0-9]{2,14}?)(?=\\s|$|\\.|،|:)`);
+    const m = text.match(re);
+    if (!m) return null;
+    const token = m[1].trim();
+    if (/^[0-9]+$/.test(token)) return Number(token);
+    return RETRIEVE_ARABIC_ORDINALS[token] ?? RETRIEVE_ARABIC_ORDINALS[`ال${token}`] ?? null;
+  };
+  const lesson = /درس/.test(text) ? match("الدرس") ?? match("درس") : null;
+  if (lesson) return { kind: "lesson", number: lesson };
+  const unit = /وحده|باب|فصل/.test(text)
+    ? match("الوحده") ?? match("وحده") ?? match("الباب") ?? match("باب") ?? match("الفصل") ?? match("فصل")
+    : null;
+  if (unit) return { kind: "unit", number: unit };
+  return null;
+}
+
+/** Resolves "الدرس الخامس" to the real unit inside the student's own curriculum. */
+async function resolveLessonTarget(admin: any, query: string, intent: IntentResult, filters: any) {
+  const asked = parseLessonRequest(query, intent);
+  if (!asked) return null;
+  try {
+    let sourceQuery = admin.from("knowledge_sources").select("id").eq("status", "ready");
+    if (filters.grade_id) sourceQuery = sourceQuery.eq("grade_id", filters.grade_id);
+    if (filters.stage_id) sourceQuery = sourceQuery.eq("stage_id", filters.stage_id);
+    if (filters.subject_id) sourceQuery = sourceQuery.eq("subject_id", filters.subject_id);
+    const { data: sources } = await sourceQuery.limit(50);
+    const sourceIds = (sources ?? []).map((r: any) => r.id);
+    if (!sourceIds.length) return null;
+
+    let lessonQuery = admin.from("knowledge_lesson_index")
+      .select("unit_id, kind, unit_number, lesson_number, title, page_start, page_end, source_id")
+      .in("source_id", sourceIds);
+    lessonQuery = asked.kind === "lesson"
+      ? lessonQuery.eq("lesson_number", asked.number)
+      : lessonQuery.eq("unit_number", asked.number).in("kind", ["unit", "chapter"]);
+    const { data: lessons } = await lessonQuery.limit(3);
+    const lesson = (lessons ?? [])[0];
+    if (!lesson?.unit_id) return null;
+
+    const { data: chunks } = await admin.from("content_chunks")
+      .select("id, content, unit_id, source_id")
+      .eq("unit_id", lesson.unit_id)
+      .order("ordinal")
+      .limit(4);
+
+    return {
+      kind: asked.kind,
+      number: asked.number,
+      title: lesson.title,
+      chunks: (chunks ?? []).map((c: any) => ({
+        chunk_id: c.id,
+        content: c.content,
+        composite_score: 0.99,
+        similarity: 0.99,
+        text_rank: null,
+        source_id: c.source_id,
+        source_title: null,
+        source_type_code: "book",
+        unit_id: lesson.unit_id,
+        unit_kind: lesson.kind,
+        unit_title: lesson.title,
+        page_from: lesson.page_start,
+        page_to: lesson.page_end,
+      })),
+    };
+  } catch (e) {
+    console.warn("lesson_target_failed", e);
+    return null;
+  }
 }
