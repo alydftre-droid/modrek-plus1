@@ -13,7 +13,7 @@ import {
   planPdfParts,
   resolvePdfPageCount,
   tokenBudgetForStage,
-} from "../_shared/pdfPipeline.ts";
+} from "./pdfPipeline.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
