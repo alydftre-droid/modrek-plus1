@@ -1,0 +1,1 @@
+ALTER TYPE public.processing_job_kind ADD VALUE IF NOT EXISTS 'split_pdf';

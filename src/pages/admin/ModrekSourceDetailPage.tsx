@@ -215,10 +215,30 @@ export default function ModrekSourceDetailPage() {
               <div className="text-[11px] text-[#94A3B8]">مراحل تحويل الملف إلى معرفة قابلة للبحث</div>
             </div>
           </div>
-          <ModrekPill tone="blue">{currentVersion?.progress_pct ?? 0}%</ModrekPill>
+          <div className="flex items-center gap-2">
+            {Number(currentVersion?.pages_total ?? 0) > 0 && (
+              <ModrekPill tone={Number(currentVersion?.pages_failed ?? 0) > 0 ? "amber" : "emerald"}>
+                {Number(currentVersion?.pages_processed ?? 0)}/{Number(currentVersion?.pages_total ?? 0)} صفحة
+              </ModrekPill>
+            )}
+            <ModrekPill tone="blue">{currentVersion?.progress_pct ?? 0}%</ModrekPill>
+          </div>
         </div>
         <div className="p-5 md:p-6 space-y-4">
           <Progress value={currentVersion?.progress_pct ?? 0} className="h-2" />
+          {Number(currentVersion?.pages_total ?? 0) > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-bold text-[#64748B]">
+              <span>تقدم الصفحات:</span>
+              <span className="text-[#16A34A]">تم {Number(currentVersion?.pages_processed ?? 0)}</span>
+              <span className="text-[#DC2626]">فاشلة {Number(currentVersion?.pages_failed ?? 0)}</span>
+              <span className="text-[#2563EB]">
+                متبقية {Math.max(0, Number(currentVersion?.pages_total ?? 0) - Number(currentVersion?.pages_processed ?? 0) - Number(currentVersion?.pages_failed ?? 0))}
+              </span>
+              {currentVersion?.pipeline_health === "partial" && (
+                <span className="text-[#B45309]">اكتمل جزئياً — يمكنك إعادة الصفحات الفاشلة فقط</span>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
             {STAGES.map((s, i) => {
               const state = pipelineDone || i < stageIdx ? "done" : i === stageIdx ? "active" : "pending";

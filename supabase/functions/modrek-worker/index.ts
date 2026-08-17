@@ -6,6 +6,14 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getDocumentProxy } from "npm:unpdf@0.11.0";
 import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { aiEmbeddings, resolveFileApiRoute } from "../_shared/aiProvider.ts";
+import {
+  classifyPipelineError,
+  pageNeedsOcr,
+  planPageBatches,
+  planPdfParts,
+  resolvePdfPageCount,
+  tokenBudgetForStage,
+} from "./pdfPipeline.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -61,6 +69,15 @@ const PDF_AI_BATCH_TARGET_BYTES = 10 * 1024 * 1024;
 const GEMINI_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024;
 const PDF_EXTRACT_MAX_OUTPUT_TOKENS = 16_384;
 const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
+// --- Large-book pipeline (local-first) --------------------------------------
+// A book is split ONCE into small part files stored next to the original.
+// Every extraction job then downloads only its own ~10-page part instead of
+// re-downloading and re-parsing the whole 30-100MB book for every page.
+const PDF_PART_PAGES = 10;
+const PARTS_PER_SPLIT_INVOCATION = 6;
+// Above this size the book is always split before extraction.
+const PDF_SPLIT_MIN_BYTES = 4 * 1024 * 1024;
+const PDF_SPLIT_MIN_PAGES = 24;
 
 /** Output-token budget derived from the real page count, never a flat huge value. */
 function outputTokenBudgetForPages(pages: number): number {
@@ -320,6 +337,7 @@ async function runStage(admin: SupabaseClient, job: any) {
     case "extract_text": return await stageExtractText(admin, job);
     case "upload_pdf_chunk": return await stageUploadPdfChunk(admin, job);
     case "extract_page": return await stageExtractPage(admin, job);
+    case "split_pdf": return await stageSplitPdf(admin, job);
     case "merge_text": return await stageMergeText(admin, job);
     case "ocr": return await stageOcr(admin, job);
     case "structure": return await stageStructure(admin, job);
@@ -372,225 +390,138 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
   const pageFrom = Math.max(1, Number(input.page_from ?? input.page_no ?? 1));
   const pageTo = Math.max(pageFrom, Number(input.page_to ?? pageFrom));
   const pageCount = Math.max(pageTo, Number(input.page_count ?? pageTo));
+  const partPath = typeof input.part_path === "string" && input.part_path ? String(input.part_path) : null;
+  const partPageFrom = Math.max(1, Number(input.part_page_from ?? pageFrom));
 
   await setVersionStage(admin, job.version_id, "text_extraction", Math.min(39, 25 + Math.floor((pageFrom / Math.max(1, pageCount)) * 14)));
   const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
   if (!asset?.id) throw new Error("asset not found for PDF page extraction");
 
-  let batchText = "";
-  let ocrStatus = "not_needed";
-  const assetBytes = Number(asset.byte_size ?? 0);
-  const requestedGeminiFile = input.extractor === "gemini_file" || !!input.gemini_file?.uri;
-  const useGeminiFile = requestedGeminiFile && assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES;
-  if (requestedGeminiFile && !useGeminiFile) {
-    await log(admin, job.id, "warn", "stale Gemini File extractor ignored for medium PDF; using local/OpenRouter path", {
-      page_from: pageFrom,
-      page_to: pageTo,
-      bytes: assetBytes,
-      local_fallback_limit_bytes: PDF_LOCAL_FALLBACK_LIMIT_BYTES,
-    });
-  }
-  if (useGeminiFile) {
-    await respectProviderCooldown(admin, job);
-    const fileRef = input.gemini_file?.uri ? input.gemini_file : await ensureGeminiFileForAsset(admin, asset, job.id);
-    await updateJobProgress(admin, job, 15, {
-      stage: "gemini_file_page_extraction",
-      page_from: pageFrom,
-      page_to: pageTo,
-      page_count: pageCount,
-    });
-    try {
-      batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
-    } catch (err: any) {
-      if (isRateLimitError(err) && Number(asset.byte_size ?? 0) <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-        await log(admin, job.id, "warn", "Gemini quota/rate-limit hit; trying local PDF text-layer fallback before delaying", {
-          page_from: pageFrom,
-          page_to: pageTo,
-          bytes: Number(asset.byte_size ?? 0),
-          error: String(err?.message ?? err).slice(0, 500),
-        });
-        try {
-          const bytes = await fetchAssetBytes(admin, asset);
-          const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
-            await updateJobProgress(admin, job, 55, {
-              stage: "local_pdf_text_layer_after_quota",
-              current_page: donePage,
-              page_from: pageFrom,
-              page_to: pageTo,
-            });
-          });
-          const localText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
-          const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
-          if (localText.length >= minUsefulText) {
-            batchText = localText;
-            await log(admin, job.id, "info", "local PDF text-layer fallback succeeded after Gemini quota/rate-limit", {
-              page_from: pageFrom,
-              page_to: pageTo,
-              chars: batchText.length,
-            });
-          } else {
-            await log(admin, job.id, "warn", "local PDF text-layer fallback was too small; provider cooldown is required", {
-              page_from: pageFrom,
-              page_to: pageTo,
-              chars: localText.length,
-            });
-          }
-        } catch (fallbackErr: any) {
-          await log(admin, job.id, "warn", "local PDF text-layer fallback failed after Gemini quota/rate-limit", {
-            page_from: pageFrom,
-            page_to: pageTo,
-            error: String(fallbackErr?.message ?? fallbackErr).slice(0, 500),
-          });
-        }
-        if (batchText) {
-          // Continue to normal persistence below; no provider retry needed.
-        } else {
-          throw err;
-        }
-      } else {
-      // Auto-split: if a multi-page batch fails (timeout / partial output),
-      // requeue smaller sub-batches instead of hard-failing the whole book.
-      const rangeSize = pageTo - pageFrom + 1;
-      const alreadySplit = Number(input.__split_depth ?? 0);
-      if (!isRateLimitError(err) && rangeSize > 1 && alreadySplit < 4) {
-        const mid = pageFrom + Math.floor(rangeSize / 2) - 1;
-        await log(admin, job.id, "warn", "extract_page auto-splitting after Gemini failure", {
-          page_from: pageFrom, page_to: pageTo, error: String(err?.message ?? err).slice(0, 300),
-        });
-        await enqueue(admin, job.version_id, "extract_page", 21, {
-          ...input, page_from: pageFrom, page_to: mid, __split_depth: alreadySplit + 1,
-        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-        await enqueue(admin, job.version_id, "extract_page", 21, {
-          ...input, page_from: mid + 1, page_to: pageTo, __split_depth: alreadySplit + 1,
-        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-        await succeedJob(admin, job, { mode: "split", page_from: pageFrom, page_to: pageTo, split_at: mid });
-        return;
-      }
-      throw err;
-      }
-    }
+  await markPagesState(admin, job.version_id, pageFrom, pageTo, {
+    extraction_status: "running",
+    extractor: partPath ? "local_pdfjs_part" : "local_pdfjs",
+  });
+
+  // 1) LOCAL text-layer extraction. Never an LLM call, whatever the book size.
+  //    When the book was split, only the small part file is downloaded.
+  let bytes: Uint8Array;
+  let localFrom = pageFrom;
+  let localTo = pageTo;
+  if (partPath) {
+    bytes = await fetchBunnyObject(partPath);
+    localFrom = pageFrom - partPageFrom + 1;
+    localTo = pageTo - partPageFrom + 1;
   } else {
-    const bytes = await fetchAssetBytes(admin, asset);
-    const pages = await extractPdfPagesFromBytes(bytes, pageFrom, pageTo, async (donePage) => {
-      const pct = 5 + Math.floor(((donePage - pageFrom + 1) / Math.max(1, pageTo - pageFrom + 1)) * 65);
-      await updateJobProgress(admin, job, Math.min(95, pct), {
-        stage: "local_pdf_text_layer",
-        current_page: donePage,
+    bytes = await fetchAssetBytes(admin, asset);
+  }
+
+  const pages = await extractPdfPagesFromBytes(bytes, localFrom, localTo, async (donePage) => {
+    const pct = 5 + Math.floor(((donePage - localFrom + 1) / Math.max(1, localTo - localFrom + 1)) * 70);
+    await updateJobProgress(admin, job, Math.min(95, pct), {
+      stage: partPath ? "local_pdf_part_text_layer" : "local_pdf_text_layer",
+      current_page: donePage + (partPath ? partPageFrom - 1 : 0),
+      page_from: pageFrom,
+      page_to: pageTo,
+    });
+  });
+
+  const absolute = pages.map((p) => ({
+    pageNo: partPath ? p.pageNo + partPageFrom - 1 : p.pageNo,
+    text: p.text,
+  }));
+
+  // 2) OCR ONLY for pages that genuinely have no usable text layer. One page per
+  //    request, tiny payload, small token budget — this is the only paid step.
+  let ocrStatus = "not_needed";
+  const needOcr = absolute.filter((p) => pageNeedsOcr(p.text));
+  if (needOcr.length) {
+    if (absolute.length > 1) {
+      // Split so each OCR request stays a single page and one bad page can
+      // never fail (or inflate) the rest of the batch.
+      for (const p of needOcr) {
+        await enqueue(admin, job.version_id, "extract_page", 21, {
+          ...input,
+          extractor: "local_pdfjs",
+          gemini_file: null,
+          page_from: p.pageNo,
+          page_to: p.pageNo,
+          __split_depth: Number(input.__split_depth ?? 0) + 1,
+        }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
+      }
+      const goodPages = absolute.filter((p) => !pageNeedsOcr(p.text));
+      if (goodPages.length) {
+        await persistPageUnits(admin, job, goodPages, pageCount, "text_layer");
+      }
+      await log(admin, job.id, "info", "queued single-page OCR for pages without a text layer", {
         page_from: pageFrom,
         page_to: pageTo,
+        ocr_pages: needOcr.map((p) => p.pageNo),
+        text_pages: goodPages.length,
       });
-    });
+      await succeedJob(admin, job, {
+        mode: "split_for_single_page_ocr",
+        page_from: pageFrom,
+        page_to: pageTo,
+        ocr_pages: needOcr.length,
+      });
+      return;
+    }
 
-    batchText = pages.map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`).join("\n\n").trim();
-    const minUsefulText = Math.max(30, (pageTo - pageFrom + 1) * 15);
-    const hasVisuallyImportantPageWithoutText = pages.some((p) => p.text.trim().length < 15);
-    if (batchText.length < minUsefulText || hasVisuallyImportantPageWithoutText) {
-      // OCR is the only paid step here, so it must be tiny and predictable:
-      // ONE page per request, and never more than OCR_SUBSET_MAX_BYTES.
-      // Sending whole multi-page batches as base64 was the root cause of the
-      // provider 402 ("requires more credits … up to 65536 tokens").
-      if (pageTo > pageFrom) {
-        for (let p = pageFrom; p <= pageTo; p++) {
-          await enqueue(admin, job.version_id, "extract_page", 21, {
-            ...input,
-            extractor: "local_pdfjs",
-            gemini_file: null,
-            page_from: p,
-            page_to: p,
-            __split_depth: Number(input.__split_depth ?? 0) + 1,
-          }, job.asset_id, EXTRACT_PAGE_MAX_ATTEMPTS);
-        }
-        await log(admin, job.id, "info", "splitting batch into single pages before OCR", {
-          page_from: pageFrom,
-          page_to: pageTo,
-        });
-        await succeedJob(admin, job, { mode: "split_for_single_page_ocr", page_from: pageFrom, page_to: pageTo });
-        return;
-      }
-
+    // Single page with no text layer -> real OCR.
+    try {
       const subset = await withTimeout(
-        createPdfPageSubset(bytes, pageFrom, pageTo),
+        partPath
+          ? createPdfPageSubset(bytes, localFrom, localTo)
+          : createPdfPageSubset(bytes, pageFrom, pageTo),
         25_000,
         `تعذر تجهيز صفحة OCR ${pageFrom} خلال المهلة`,
       );
-
       if (subset.byteLength > OCR_SUBSET_MAX_BYTES) {
-        if (assetBytes > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-          const fileRef = await ensureGeminiFileForAsset(admin, asset, job.id);
-          batchText = await extractPdfPageRangeWithGeminiFile(admin, fileRef, asset, pageFrom, pageTo);
-          ocrStatus = "done_file_api";
-        } else {
-          // Never fail the whole book over one heavy page: keep the text layer.
-          await log(admin, job.id, "warn", "OCR skipped: single-page payload above the provider budget", {
-            page_from: pageFrom,
-            subset_bytes: subset.byteLength,
-            limit_bytes: OCR_SUBSET_MAX_BYTES,
-          });
-          ocrStatus = "skipped_too_large";
-          if (!batchText) batchText = `--- صفحة ${pageFrom} ---\n(لم يتم استخراج نص من هذه الصفحة)`;
-        }
-      } else {
-        await log(admin, job.id, "info", "PDF text layer too small; running single-page OCR", {
+        ocrStatus = "skipped_too_large";
+        await log(admin, job.id, "warn", "OCR skipped: single-page payload above the provider budget", {
           page_from: pageFrom,
           subset_bytes: subset.byteLength,
-          text_layer_chars: batchText.length,
+          limit_bytes: OCR_SUBSET_MAX_BYTES,
         });
+      } else {
         const ocrText = await geminiExtractFromBytes(
           admin,
           subset,
           "application/pdf",
           `${asset.original_filename || "document"}-page-${pageFrom}.pdf`,
           true,
-          outputTokenBudgetForPages(1),
+          tokenBudgetForStage("ocr_page", 1),
         );
-        if (ocrText.trim().length > batchText.length) {
-          batchText = `--- صفحة ${pageFrom} OCR ---\n${ocrText.trim()}`;
+        if (ocrText.trim().length > (absolute[0]?.text?.length ?? 0)) {
+          absolute[0] = { pageNo: pageFrom, text: ocrText.trim() };
           ocrStatus = "done";
         } else {
           ocrStatus = "low_yield";
         }
       }
+    } catch (err: any) {
+      const diag = classifyPipelineError(err, "ocr");
+      await log(admin, job.id, "warn", "single-page OCR failed", {
+        page_from: pageFrom,
+        category: diag.category,
+        error: diag.message,
+        retryable: diag.retryable,
+      });
+      if (diag.freezesPaidWork || diag.category === "RATE_LIMIT") throw err;
+      ocrStatus = `failed_${diag.category.toLowerCase()}`;
+      if (!absolute[0]?.text?.trim()) {
+        absolute[0] = { pageNo: pageFrom, text: `--- صفحة ${pageFrom} ---\n(لم يتم استخراج نص من هذه الصفحة)` };
+      }
     }
   }
+
+  const batchText = absolute
+    .map((p) => `--- صفحة ${p.pageNo} ---\n${p.text}`)
+    .join("\n\n")
+    .trim();
   if (!batchText) throw new Error(`لم يتم استخراج أي نص من الصفحات ${pageFrom}-${pageTo}`);
 
-  await admin.from("knowledge_units")
-    .delete()
-    .eq("version_id", job.version_id)
-    .eq("kind", "page")
-    .eq("metadata->>extraction_stage", "pdf_page_text")
-    .eq("metadata->>page_from", String(pageFrom));
-
-  const { error } = await admin.from("knowledge_units").insert({
-    version_id: job.version_id,
-    parent_id: null,
-    kind: "page",
-    title: pageFrom === pageTo ? `صفحة ${pageFrom}` : `صفحات ${pageFrom}-${pageTo}`,
-    ordinal: pageFrom,
-    page_from: pageFrom,
-    page_to: pageTo,
-    content_text: batchText,
-    language: guessLang(batchText),
-    word_count: batchText.split(/\s+/).filter(Boolean).length,
-    confidence: 0.95,
-    metadata: {
-      extraction_stage: "pdf_page_text",
-      page_from: String(pageFrom),
-      page_to: String(pageTo),
-      page_count: pageCount,
-      chars: batchText.length,
-    },
-  });
-  if (error) throw error;
-
-  await markPagesState(admin, job.version_id, pageFrom, pageTo, {
-    extraction_status: "done",
-    ocr_status: ocrStatus,
-    extractor: useGeminiFile ? "gemini_file" : "local_pdfjs",
-    char_count: batchText.length,
-    error_category: null,
-    error_message: null,
-  });
+  await persistPageUnits(admin, job, absolute, pageCount, ocrStatus);
 
   const versionPct = 28 + Math.floor((Math.min(pageTo, pageCount) / Math.max(1, pageCount)) * 12);
   await admin.from("knowledge_source_versions").update({
@@ -598,9 +529,84 @@ async function stageExtractPage(admin: SupabaseClient, job: any) {
     error_message: null,
     updated_at: new Date().toISOString(),
   }).eq("id", job.version_id);
+  await refreshVersionPageCounters(admin, job.version_id);
 
-  await succeedJob(admin, job, { page_from: pageFrom, page_to: pageTo, chars: batchText.length, mode: "pdf_page_batch", ocr_status: ocrStatus });
+  await succeedJob(admin, job, {
+    page_from: pageFrom,
+    page_to: pageTo,
+    chars: batchText.length,
+    mode: partPath ? "pdf_part_page_batch" : "pdf_page_batch",
+    ocr_status: ocrStatus,
+  });
 }
+
+/** Persist extracted page text (idempotent per page) and mark the page state. */
+async function persistPageUnits(
+  admin: SupabaseClient,
+  job: any,
+  pages: { pageNo: number; text: string }[],
+  pageCount: number,
+  ocrStatus: string,
+) {
+  for (const page of pages) {
+    const text = `--- صفحة ${page.pageNo} ---\n${String(page.text ?? "").trim()}`;
+    await admin.from("knowledge_units")
+      .delete()
+      .eq("version_id", job.version_id)
+      .eq("kind", "page")
+      .eq("metadata->>extraction_stage", "pdf_page_text")
+      .eq("metadata->>page_from", String(page.pageNo));
+
+    const { error } = await admin.from("knowledge_units").insert({
+      version_id: job.version_id,
+      parent_id: null,
+      kind: "page",
+      title: `صفحة ${page.pageNo}`,
+      ordinal: page.pageNo,
+      page_from: page.pageNo,
+      page_to: page.pageNo,
+      content_text: text,
+      language: guessLang(text),
+      word_count: text.split(/\s+/).filter(Boolean).length,
+      confidence: 0.95,
+      metadata: {
+        extraction_stage: "pdf_page_text",
+        page_from: String(page.pageNo),
+        page_to: String(page.pageNo),
+        page_count: pageCount,
+        chars: text.length,
+        ocr_status: ocrStatus,
+      },
+    });
+    if (error) throw error;
+
+    await markPagesState(admin, job.version_id, page.pageNo, page.pageNo, {
+      extraction_status: "done",
+      ocr_status: ocrStatus,
+      char_count: text.length,
+      error_category: null,
+      error_message: null,
+    });
+  }
+}
+
+/** Cache the developer-facing progress counters on the version row. */
+async function refreshVersionPageCounters(admin: SupabaseClient, versionId: string) {
+  try {
+    const [{ count: done }, { count: failed }] = await Promise.all([
+      admin.from("knowledge_page_state").select("page_number", { count: "exact", head: true })
+        .eq("version_id", versionId).eq("extraction_status", "done"),
+      admin.from("knowledge_page_state").select("page_number", { count: "exact", head: true })
+        .eq("version_id", versionId).eq("extraction_status", "failed"),
+    ]);
+    await admin.from("knowledge_source_versions").update({
+      pages_processed: Number(done ?? 0),
+      pages_failed: Number(failed ?? 0),
+      updated_at: new Date().toISOString(),
+    }).eq("id", versionId);
+  } catch (_err) { /* counters are a UI convenience, never fail a stage on them */ }
+}
+
 
 // -------- Stage 2a.0: chunked upload of large PDFs to Gemini File API --------
 async function stageUploadPdfChunk(admin: SupabaseClient, job: any) {
@@ -820,8 +826,10 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
 
   await admin.from("knowledge_source_versions").update({
     failed_pages: failedPageRanges,
+    pipeline_health: failedPageRanges.length ? "partial" : "ready",
     updated_at: new Date().toISOString(),
   }).eq("id", job.version_id);
+  await refreshVersionPageCounters(admin, job.version_id);
 
   const text = (units ?? [])
     .map((u: any) => String(u.content_text ?? "").trim())
@@ -840,6 +848,7 @@ async function stageMergeText(admin: SupabaseClient, job: any) {
     progress_pct: 40,
     error_message: null,
   }).eq("id", job.version_id);
+
 
   await succeedJob(admin, job, { chars: text.length, page_count: expectedPages, batches: units?.length ?? 0, mode: "pdf_merged_full_text" });
   await enqueue(admin, job.version_id, "structure", 30, { chars: text.length, page_count: expectedPages }, job.asset_id);
@@ -1191,89 +1200,41 @@ async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, 
   try { return new TextDecoder("utf-8").decode(bytes); } catch { return ""; }
 }
 
+// ---------------------------------------------------------------------------
+// PDF planning — LOCAL FIRST, for every book size.
+//
+// Old behaviour (root cause of the 402 storm): books above 15MB skipped local
+// parsing entirely and were pushed to the paid Gemini File API, and every page
+// job re-downloaded the whole book. Now:
+//   1. page count is resolved locally through unpdf -> pdf-lib -> raw byte scan
+//   2. big books are split ONCE into ~10-page part files in Bunny
+//   3. each extraction job reads only its own part, locally, with no LLM call
+//   4. OCR (the only paid step) runs per single page, and only for pages that
+//      genuinely have no text layer
+// ---------------------------------------------------------------------------
 async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) {
   const byteSize = Number(asset.byte_size ?? 0);
-  let bytes: Uint8Array | null = null;
-  let pageCount = 0;
-  let geminiFile: any = null;
-  if (asset?.metadata?.gemini_file?.uri && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-    await log(admin, job.id, "warn", "ignoring stale Gemini File metadata for medium PDF; OpenRouter/local extraction is primary", {
-      bytes: byteSize,
-      local_fallback_limit_bytes: PDF_LOCAL_FALLBACK_LIMIT_BYTES,
-    });
-  }
+  const scanned = !!asset?.metadata?.is_scanned;
 
-  if (byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-    try {
-      bytes = await fetchAssetBytes(admin, asset);
-      pageCount = await withTimeout(getPdfPageCount(bytes), 35_000, "تعذر قراءة عدد صفحات PDF محلياً خلال المهلة");
-      await log(admin, job.id, "info", "PDF page count resolved locally before provider fallback", {
-        bytes: byteSize,
-        page_count: pageCount,
-      });
-    } catch (e: any) {
-      await log(admin, job.id, "warn", "local PDF page-count detection failed; provider fallback may be needed", {
-        bytes: byteSize,
-        error: String(e?.message ?? e).slice(0, 500),
-      });
-      bytes = null;
-      pageCount = 0;
-    }
-  }
+  const bytes = await fetchAssetBytes(admin, asset);
+  const parserAttempts: any[] = [];
+  const { pageCount, parser } = await resolvePdfPageCount(
+    bytes,
+    [
+      { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 35_000, "unpdf page-count timeout") },
+      { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 35_000, "pdf-lib page-count timeout") },
+    ],
+    (info) => {
+      parserAttempts.push(info);
+    },
+  );
 
-  if (!pageCount && byteSize <= PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-    throw new Error("تعذر قراءة عدد صفحات PDF محلياً لملف متوسط الحجم. لن يتم تحويله إلى Gemini لتجنب حصة المزود القديمة؛ أعد رفع نسخة PDF نصية/مضغوطة أو قسّم الملف ثم أعد المحاولة.");
-  }
-
-  if (!pageCount && byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES && !geminiFile?.uri) {
-    await startGeminiChunkedUpload(admin, job, asset);
-    await admin.from("knowledge_source_versions").update({
-      page_count: null,
-      extracted_text: null,
-      extracted_language: null,
-      progress_pct: 25,
-      error_message: null,
-      updated_at: new Date().toISOString(),
-    }).eq("id", job.version_id);
-    await succeedJob(admin, job, {
-      mode: "pdf_gemini_chunked_upload_queued",
-      bytes: byteSize,
-      chunk_bytes: GEMINI_UPLOAD_CHUNK_BYTES,
-    });
-    await enqueue(admin, job.version_id, "upload_pdf_chunk", 20, {
-      asset_id: asset.id,
-      offset: 0,
-      size: byteSize,
-    }, asset.id);
-    return;
-  }
-
-  if (!pageCount && byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-    await respectProviderCooldown(admin, job);
-    pageCount = await getPdfPageCountFromGeminiFile(admin, geminiFile, asset).catch(async (e) => {
-      await log(admin, job.id, "warn", "Gemini page-count detection failed; trying lightweight PDF parser", { error: e?.message ?? String(e), bytes: byteSize });
-      if (bytes) {
-        try {
-          return await withTimeout(getPdfPageCount(bytes), 35_000, "تعذر قراءة عدد صفحات PDF محلياً بعد فشل المزود");
-        } catch (localErr: any) {
-          await log(admin, job.id, "warn", "local PDF page-count fallback also failed", {
-            error: String(localErr?.message ?? localErr).slice(0, 500),
-          });
-        }
-      }
-      if (isRateLimitError(e)) throw e;
-      return 0;
-    });
-  }
-
-  if (!pageCount) {
-    if (byteSize > PDF_LOCAL_FALLBACK_LIMIT_BYTES) {
-      throw new Error("تعذر تحديد عدد صفحات PDF الكبير محلياً أو عبر Gemini File API؛ تم إيقاف هذه المرحلة برسالة تشخيص واضحة بدلاً من تعليق العامل");
-    }
-    bytes = bytes ?? await fetchAssetBytes(admin, asset);
-    pageCount = await withTimeout(getPdfPageCount(bytes), 30_000, "تعذر قراءة عدد صفحات PDF خلال المهلة");
-  }
-  if (!pageCount || pageCount < 1) throw new Error("تعذر قراءة عدد صفحات PDF");
+  await log(admin, job.id, "info", "pdf_page_count_resolved", {
+    bytes: byteSize,
+    page_count: pageCount,
+    parser,
+    attempts: parserAttempts,
+  });
 
   await admin.from("knowledge_units")
     .delete()
@@ -1283,42 +1244,225 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
 
   await admin.from("knowledge_source_versions").update({
     page_count: pageCount,
+    pages_total: pageCount,
+    pages_processed: 0,
+    pages_failed: 0,
+    pipeline_health: "processing",
     extracted_text: null,
     extracted_language: null,
     progress_pct: 28,
     error_message: null,
   }).eq("id", job.version_id);
 
-  let batchCount = 0;
-  const estimatedBytesPerPage = byteSize / Math.max(1, pageCount);
-  const dynamicBatchPages = Math.max(
-    1,
-    geminiFile ? 1 : Math.min(PDF_TEXT_BATCH_PAGES, Math.floor(PDF_AI_BATCH_TARGET_BYTES / Math.max(1, estimatedBytesPerPage)) || 1),
-  );
+  const shouldSplit = pageCount > PDF_SPLIT_MIN_PAGES || byteSize > PDF_SPLIT_MIN_BYTES;
 
-  for (let pageFrom = 1; pageFrom <= pageCount; pageFrom += dynamicBatchPages) {
-    const pageTo = Math.min(pageCount, pageFrom + dynamicBatchPages - 1);
+  if (shouldSplit) {
+    const parts = planPdfParts(pageCount, PDF_PART_PAGES);
+    await admin.from("knowledge_pdf_parts").upsert(
+      parts.map((p) => ({
+        version_id: job.version_id,
+        asset_id: asset.id,
+        part_index: p.partIndex,
+        page_from: p.pageFrom,
+        page_to: p.pageTo,
+        status: "pending",
+      })),
+      { onConflict: "version_id,part_index" },
+    );
+    await enqueue(admin, job.version_id, "split_pdf", 20, {
+      asset_id: asset.id,
+      page_count: pageCount,
+      next_part: 0,
+      total_parts: parts.length,
+      scanned,
+    }, asset.id, 4);
+    await succeedJob(admin, job, {
+      mode: "pdf_split_planned",
+      page_count: pageCount,
+      parts: parts.length,
+      part_pages: PDF_PART_PAGES,
+      parser,
+      bytes: byteSize,
+    });
+    return;
+  }
+
+  // Small books: extract directly from the original file, still fully local.
+  const batches = planPageBatches(pageCount, { scanned, maxPagesPerBatch: PDF_PART_PAGES });
+  for (const batch of batches) {
     await enqueue(admin, job.version_id, "extract_page", 21, {
       asset_id: asset.id,
-      page_from: pageFrom,
-      page_to: pageTo,
+      page_from: batch.pageFrom,
+      page_to: batch.pageTo,
       page_count: pageCount,
-      dynamic_batch_pages: dynamicBatchPages,
-      extractor: geminiFile ? "gemini_file" : "local_pdfjs",
-      gemini_file: geminiFile,
+      extractor: "local_pdfjs",
+      gemini_file: null,
       filename: asset.original_filename,
     }, asset.id, EXTRACT_PAGE_MAX_ATTEMPTS);
-    batchCount++;
+  }
+  await enqueue(admin, job.version_id, "merge_text", 29, {
+    asset_id: asset.id,
+    page_count: pageCount,
+    batches: batches.length,
+  }, asset.id);
+  await succeedJob(admin, job, {
+    mode: "pdf_paged_extraction",
+    page_count: pageCount,
+    batches: batches.length,
+    parser,
+    bytes: byteSize,
+  });
+}
+
+// -------- Stage 2a.2: split a large PDF into small part files ---------------
+// Loads the source once per invocation, writes up to PARTS_PER_SPLIT_INVOCATION
+// part files to Bunny, then requeues itself for the remaining parts. Resumable:
+// progress lives in knowledge_pdf_parts, so a crash/reload continues where it
+// stopped instead of restarting the book.
+async function stageSplitPdf(admin: SupabaseClient, job: any) {
+  const input = job.input ?? {};
+  const pageCount = Number(input.page_count ?? 0);
+  const scanned = !!input.scanned;
+  const { data: asset } = await admin.from("storage_assets").select("*").eq("id", job.asset_id).single();
+  if (!asset?.id) throw new Error("asset not found for PDF split");
+
+  const { data: parts } = await admin.from("knowledge_pdf_parts")
+    .select("id, part_index, page_from, page_to, status, object_path")
+    .eq("version_id", job.version_id)
+    .order("part_index");
+
+  const pending = (parts ?? []).filter((p: any) => p.status !== "ready" || !p.object_path);
+  await setVersionStage(
+    admin,
+    job.version_id,
+    "text_extraction",
+    Math.min(30, 25 + Math.floor((((parts?.length ?? 1) - pending.length) / Math.max(1, parts?.length ?? 1)) * 5)),
+  );
+
+  if (!pending.length) {
+    await enqueue(admin, job.version_id, "merge_text", 29, {
+      asset_id: asset.id,
+      page_count: pageCount,
+      batches: parts?.length ?? 0,
+    }, asset.id);
+    await succeedJob(admin, job, { mode: "pdf_split_completed", parts: parts?.length ?? 0 });
+    return;
+  }
+
+  const bytes = await fetchAssetBytes(admin, asset);
+  const slice = pending.slice(0, PARTS_PER_SPLIT_INVOCATION);
+  let created = 0;
+
+  for (const part of slice) {
+    try {
+      const partBytes = await withTimeout(
+        createPdfPageSubset(bytes, part.page_from, part.page_to),
+        45_000,
+        `تعذر تجهيز جزء الكتاب ${part.page_from}-${part.page_to} خلال المهلة`,
+      );
+      const objectPath = `${asset.object_path}.parts/part-${String(part.part_index).padStart(4, "0")}.pdf`;
+      await uploadBytesToBunny(objectPath, partBytes);
+      await admin.from("knowledge_pdf_parts").update({
+        object_path: objectPath,
+        byte_size: partBytes.byteLength,
+        status: "ready",
+        error_message: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", part.id);
+
+      await enqueue(admin, job.version_id, "extract_page", 21, {
+        asset_id: asset.id,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        page_count: pageCount,
+        extractor: "local_pdfjs",
+        gemini_file: null,
+        part_path: objectPath,
+        part_page_from: part.page_from,
+        scanned,
+        filename: asset.original_filename,
+      }, asset.id, EXTRACT_PAGE_MAX_ATTEMPTS);
+      created++;
+    } catch (err: any) {
+      const diag = classifyPipelineError(err, "pdf_split");
+      await admin.from("knowledge_pdf_parts").update({
+        status: "failed",
+        error_message: `${diag.category}: ${diag.message}`.slice(0, 500),
+        updated_at: new Date().toISOString(),
+      }).eq("id", part.id);
+      await log(admin, job.id, "warn", "pdf_part_split_failed", {
+        part_index: part.part_index,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        category: diag.category,
+        error: diag.message,
+      });
+      // A failed part must never kill the book: extract it straight from the
+      // original file instead, and keep going.
+      await enqueue(admin, job.version_id, "extract_page", 21, {
+        asset_id: asset.id,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        page_count: pageCount,
+        extractor: "local_pdfjs",
+        gemini_file: null,
+        scanned,
+        filename: asset.original_filename,
+      }, asset.id, EXTRACT_PAGE_MAX_ATTEMPTS);
+    }
+  }
+
+  const remaining = pending.length - slice.length;
+  if (remaining > 0) {
+    await admin.from("processing_jobs").update({
+      status: "pending",
+      input: { ...input, next_part: Number(input.next_part ?? 0) + slice.length },
+      attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
+      next_run_at: new Date(Date.now() + 3_000).toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.id);
+    await log(admin, job.id, "info", "pdf_split_progress", {
+      created_parts: created,
+      remaining_parts: remaining,
+    });
+    return;
   }
 
   await enqueue(admin, job.version_id, "merge_text", 29, {
     asset_id: asset.id,
     page_count: pageCount,
-    batches: batchCount,
+    batches: parts?.length ?? 0,
   }, asset.id);
-
-  await succeedJob(admin, job, { mode: geminiFile ? "pdf_gemini_file_paged_extraction" : "pdf_paged_extraction", page_count: pageCount, batches: batchCount, pages_per_batch: dynamicBatchPages, bytes: byteSize });
+  await succeedJob(admin, job, { mode: "pdf_split_completed", parts: parts?.length ?? 0, created_parts: created });
 }
+
+async function uploadBytesToBunny(objectPath: string, bytes: Uint8Array) {
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+  const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${objectPath}`;
+  const r = await fetchWithTimeout(url, {
+    method: "PUT",
+    headers: { AccessKey: BUNNY_API_KEY, "Content-Type": "application/pdf" },
+    body: new Blob([bytes as unknown as BlobPart], { type: "application/pdf" }),
+  }, AI_REQUEST_TIMEOUT_MS);
+  if (!r.ok && r.status !== 201) {
+    throw new Error(`bunny part upload failed ${r.status} for ${objectPath}`);
+  }
+}
+
+async function fetchBunnyObject(objectPath: string): Promise<Uint8Array> {
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) throw new Error("bunny storage env missing on worker");
+  const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${objectPath}`;
+  const r = await fetchWithTimeout(url, { headers: { AccessKey: BUNNY_API_KEY } }, AI_REQUEST_TIMEOUT_MS);
+  if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${objectPath}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+async function getPdfPageCountWithPdfLib(bytes: Uint8Array): Promise<number> {
+  const { PDFDocument }: any = await import("npm:pdf-lib@1.17.1");
+  const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+  return Number(doc.getPageCount() ?? 0);
+}
+
 
 async function ocrAsset(admin: SupabaseClient, asset: any, mime: string) {
   const bytes = await fetchAssetBytes(admin, asset);
@@ -2170,6 +2314,8 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     next_run_at: nextRunAt,
   });
 
+  const structured = classifyPipelineError(err, job.kind);
+
   if (job.kind === "extract_page") {
     const input = job.input ?? {};
     const pageFrom = Number(input.page_from ?? input.page_no ?? 0);
@@ -2177,9 +2323,10 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     if (pageFrom > 0) {
       await markPagesState(admin, job.version_id, pageFrom, pageTo, {
         extraction_status: canRetry ? "pending" : "failed",
-        error_category: diagnostic.category,
-        error_message: diagnostic.rawMessage.slice(0, 500),
+        error_category: structured.category,
+        error_message: `${structured.category}: ${structured.message}`.slice(0, 500),
       }, /*bumpRetry*/ true);
+      await refreshVersionPageCounters(admin, job.version_id);
     }
   }
 
@@ -2195,15 +2342,33 @@ async function failJob(admin: SupabaseClient, job: any, err: unknown) {
     }).eq("id", job.version_id);
     return;
   }
-  if (!canRetry) {
+
+  // A single exhausted page (or one failed part) must NEVER fail the whole
+  // book: merge_text records it in failed_pages and finishes the rest. Only
+  // whole-book stages can mark the version as failed.
+  if (job.kind === "extract_page" || job.kind === "split_pdf") {
     await admin.from("knowledge_source_versions").update({
-      pipeline_stage: "failed", error_message: message,
+      pipeline_health: "partial",
+      error_message: message,
+      updated_at: new Date().toISOString(),
     }).eq("id", job.version_id);
-    const { data: v } = await admin.from("knowledge_source_versions")
-      .select("source_id").eq("id", job.version_id).single();
-    if (v) await admin.from("knowledge_sources").update({ status: "failed" }).eq("id", v.source_id);
+    await log(admin, job.id, "warn", "page-level failure recorded; book continues", {
+      category: structured.category,
+      page_from: (job.input ?? {}).page_from ?? null,
+      page_to: (job.input ?? {}).page_to ?? null,
+      retry_count: attempts,
+    });
+    return;
   }
+
+  await admin.from("knowledge_source_versions").update({
+    pipeline_stage: "failed", error_message: message, pipeline_health: "failed",
+  }).eq("id", job.version_id);
+  const { data: v } = await admin.from("knowledge_source_versions")
+    .select("source_id").eq("id", job.version_id).single();
+  if (v) await admin.from("knowledge_sources").update({ status: "failed" }).eq("id", v.source_id);
 }
+
 
 /**
  * Circuit breaker for provider credit exhaustion: freeze the whole version,
