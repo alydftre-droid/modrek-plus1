@@ -3,6 +3,12 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import {
+  retrieveFromLibrary,
+  buildLibraryContextBlock,
+  logRagPipeline,
+  MODREK_ASSISTANT_SCOPE_RULES,
+} from "../_shared/modrekLibraryRag.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
