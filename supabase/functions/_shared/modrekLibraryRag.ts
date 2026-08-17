@@ -318,6 +318,13 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
     .filter((s: any) => s.code === "shared" || (scope.sectionCode ? s.code === scope.sectionCode : true))
     .map((s: any) => s.id);
 
+  // Shielding: a student whose profile resolves to neither a grade nor a stage must
+  // never receive library content — otherwise the query would return every book.
+  if (!gradeRow?.id && !stageRow?.id) {
+    console.warn("[modrekLibraryRag] scope_unresolved_no_books", { userId: scope.userId });
+    return [];
+  }
+
   let q = admin
     .from("library_books")
     .select("id,title,subject_name_ar,sub_subject_name,term,page_count,access_tier,education_type,grade_id,track_id,stage_id,section_id")
