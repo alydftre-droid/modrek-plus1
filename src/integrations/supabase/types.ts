@@ -2244,6 +2244,66 @@ export type Database = {
           },
         ]
       }
+      knowledge_pdf_parts: {
+        Row: {
+          asset_id: string | null
+          byte_size: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          object_path: string | null
+          page_from: number
+          page_to: number
+          part_index: number
+          status: string
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          asset_id?: string | null
+          byte_size?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          object_path?: string | null
+          page_from: number
+          page_to: number
+          part_index: number
+          status?: string
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          asset_id?: string | null
+          byte_size?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          object_path?: string | null
+          page_from?: number
+          page_to?: number
+          part_index?: number
+          status?: string
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_pdf_parts_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "storage_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_pdf_parts_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_source_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       knowledge_source_assets: {
         Row: {
           asset_id: string
@@ -2356,7 +2416,11 @@ export type Database = {
           is_current: boolean
           notes: string | null
           page_count: number | null
+          pages_failed: number
+          pages_processed: number
+          pages_total: number | null
           pipeline_completed_at: string | null
+          pipeline_health: string | null
           pipeline_stage: Database["public"]["Enums"]["pipeline_stage"]
           pipeline_started_at: string | null
           progress_pct: number
@@ -2377,7 +2441,11 @@ export type Database = {
           is_current?: boolean
           notes?: string | null
           page_count?: number | null
+          pages_failed?: number
+          pages_processed?: number
+          pages_total?: number | null
           pipeline_completed_at?: string | null
+          pipeline_health?: string | null
           pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
           pipeline_started_at?: string | null
           progress_pct?: number
@@ -2398,7 +2466,11 @@ export type Database = {
           is_current?: boolean
           notes?: string | null
           page_count?: number | null
+          pages_failed?: number
+          pages_processed?: number
+          pages_total?: number | null
           pipeline_completed_at?: string | null
+          pipeline_health?: string | null
           pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
           pipeline_started_at?: string | null
           progress_pct?: number
@@ -7914,6 +7986,7 @@ export type Database = {
         | "extract_page"
         | "merge_text"
         | "upload_pdf_chunk"
+        | "split_pdf"
       processing_job_status:
         | "pending"
         | "running"
@@ -8146,6 +8219,7 @@ export const Constants = {
         "extract_page",
         "merge_text",
         "upload_pdf_chunk",
+        "split_pdf",
       ],
       processing_job_status: [
         "pending",
