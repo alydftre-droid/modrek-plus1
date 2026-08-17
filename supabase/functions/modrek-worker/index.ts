@@ -300,6 +300,21 @@ async function runStage(admin: SupabaseClient, job: any) {
     updated_at: new Date().toISOString(),
   }).eq("id", job.id);
   await log(admin, job.id, "info", `stage started: ${job.kind}`);
+
+  // Credit circuit breaker: never spend another provider request on a version
+  // that was already frozen for insufficient credits.
+  if (await isVersionCreditBlocked(admin, job.version_id)) {
+    await admin.from("processing_jobs").update({
+      status: "cancelled",
+      error: "تم الإيقاف تلقائياً: رصيد مزود الذكاء غير كافٍ",
+      finished_at: new Date().toISOString(),
+      next_run_at: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", job.id);
+    await log(admin, job.id, "warn", "stage skipped: version frozen by credit circuit breaker", { kind: job.kind });
+    return;
+  }
+
   switch (job.kind) {
     case "detect": return await stageDetect(admin, job);
     case "extract_text": return await stageExtractText(admin, job);
