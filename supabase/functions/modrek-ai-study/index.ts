@@ -122,11 +122,16 @@ Deno.serve(async (req) => {
     } catch (_) { /* ignore malformed context */ }
 
 
-    // ---------- Hierarchical Knowledge Retrieval ----------
-    // Order: (1) Modrek library  (2) student personal books  (3) question bank
-    //        (4) platform exams  (5) trusted external sources (only if nothing internal)
+    // ---------- Unified Modrek library retrieval (single source of truth) ----------
+    // Pipeline: Student Context -> Library Retrieval -> Rerank -> Chunks -> Answer
+    const adminEarly = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+
     let knowledgeBlock = "";
-    let allowExternal = false;
+    let allowExternal = true;
+    let scopeBlock = "";
     try {
       const lastUser = [...messages].reverse().find((m: any) => m.role === "user");
       const queryText = typeof lastUser?.content === "string"
@@ -136,95 +141,60 @@ Deno.serve(async (req) => {
           : "";
       const trimmedQ = (queryText || "").trim();
 
-      const sections: string[] = [];
+      // Prior user turns let "اشرح لي هذا الدرس" inherit the previous subject/lesson.
+      const history = messages
+        .filter((m: any) => m.role === "user")
+        .map((m: any) => (typeof m.content === "string"
+          ? m.content
+          : Array.isArray(m.content) ? m.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ") : ""))
+        .filter(Boolean)
+        .slice(-6, -1);
 
-      if (trimmedQ.length >= 4) {
-        // Tier 1, 3, 4: reuse modrek-retrieve (covers library, question bank, exams tiers)
-        try {
-          const rCtl = new AbortController();
-          const rTimer = setTimeout(() => rCtl.abort(), 20000);
-          const rr = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/modrek-retrieve`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": auth },
-            body: JSON.stringify({
-              query: trimmedQ,
-              max_results: 6,
-              // Curriculum scope is resolved server-side from the student profile;
-              // we only narrow it further with the conversation subject.
-              filters: (conversationContext as any)?.subject_id
-                ? { subject_id: (conversationContext as any).subject_id }
-                : {},
-            }),
-            signal: rCtl.signal,
-          }).finally(() => clearTimeout(rTimer));
-          if (rr.ok) {
-            const rj = await rr.json();
-            const rows = Array.isArray(rj?.results) ? rj.results : [];
-            if (rows.length > 0) {
-              const lessonLabel = rj?.lesson_target?.title
-                ? ` — الدرس المطلوب: ${rj.lesson_target.title}`
-                : "";
-              sections.push(
-                `### مصادر داخلية من منهج الطالب${lessonLabel} (مكتبة Modrek / بنك الأسئلة / امتحانات المنصة):\n` +
-                rows.map((r: any, i: number) => `[${i + 1}] ${r.citation?.source_title || "مصدر"}${r.citation?.page_from ? ` — ص${r.citation.page_from}` : ""}\n${(r.text || "").slice(0, 600)}`).join("\n\n")
-              );
-            }
-            if (rj?.suggest_external) allowExternal = true;
-          }
-        } catch (retrErr) { console.warn("[modrek-ai-study] retrieve skipped", String(retrErr).slice(0, 200)); }
+      const scope = await resolveStudentScope(adminEarly, userId);
+      scopeBlock = buildStudentScopeBlock(scope);
 
-        // Tier 2: student-visible library books. Use the real library_books
-        // table only; never query taxonomy tables as if they were content.
-        try {
-          const admin = createClient(
-            Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY")!,
-          );
-          const like = `%${trimmedQ.slice(0, 60).replace(/[%_]/g, " ")}%`;
-          const { data: libRows } = await admin
-            .from("library_books")
-            .select("id,title,description,subject_name_ar,page_count")
-            .eq("status", "ready")
-            .eq("access_tier", "free")
-            .or(`title.ilike.${like},description.ilike.${like},subject_name_ar.ilike.${like}`)
-            .limit(3);
-          if (libRows && libRows.length > 0) {
-            sections.push(
-              "### مكتبة الطالب الشخصية:\n" +
-              libRows.map((r: any, i: number) => `[${i + 1}] ${r.title}${r.subject_name_ar ? ` — ${r.subject_name_ar}` : ""}${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}`).join("\n")
-            );
-          }
-        } catch (_) { /* ignore */ }
+      if (trimmedQ.length >= 3) {
+        const rag = await retrieveFromLibrary(adminEarly, {
+          userId,
+          query: trimmedQ,
+          history,
+          contextSubject: (conversationContext as any)?.subject_name ?? null,
+          maxPassages: 8,
+          scope,
+        });
+        logRagPipeline("modrek-ai-study", rag);
+        knowledgeBlock = `\n\n${buildLibraryContextBlock(rag)}\n`;
+        allowExternal = !rag.found;
       }
-
-      if (sections.length === 0) allowExternal = true;
-      if (sections.length > 0) knowledgeBlock = `\n\nمصادر معرفية للاستعانة بها (لا تكررها حرفيًا؛ استخدمها لإثراء الشرح):\n${sections.join("\n\n")}\n`;
     } catch (retrievalErr) {
-      console.warn("[modrek-ai-study] retrieval failed", retrievalErr);
+      console.warn("[modrek-ai-study] library retrieval failed", String(retrievalErr).slice(0, 300));
       allowExternal = true;
     }
 
-    const systemPrompt = buildTeacherEnginePrompt(`بيانات الطالب (استخدمها تلقائيًا ولا تسأل عنها أبدًا):
+    const systemPrompt = buildTeacherEnginePrompt(`${scopeBlock || `بيانات الطالب:
 - الاسم: ${profile?.full_name || "الطالب"}
 - المرحلة: ${stage || "غير محددة"}
 - الصف: ${grade || "غير محدد"}
 - النظام: ${eduType}
-${section ? `- الشعبة: ${section}` : ""}
+${section ? `- الشعبة: ${section}` : ""}`}
+
+${MODREK_ASSISTANT_SCOPE_RULES}
 
 ${contextLine}
 ${examReviewBlock}
 ${knowledgeBlock}
 
-مهامك: شرح الدروس، حل المسائل والأسئلة، شرح الصور وملفات PDF المرفقة، وإنشاء تدريبات ومراجعات وتلخيص.
+مهامك: شرح الدروس في كل المواد (شرعية، عربية، أدبية، لغات، علمية)، حل المسائل والأسئلة، شرح الصور وملفات PDF المرفقة، وإنشاء تدريبات ومراجعات وتلخيص.
 
 قواعد المصادر (إلزامية بهذا الترتيب):
-1. اعتمد أولًا على "المصادر الداخلية" أعلاه إن وُجدت (مكتبة Modrek، مكتبة الطالب، بنك الأسئلة، امتحانات المنصة).
+1. اعتمد أولًا على محتوى مكتبة Modrek المرفق أعلاه، وعلى فهرس الكتاب في تسمية الدروس وترتيبها.
 2. ${allowExternal
-      ? "إن لم تكفِ المصادر الداخلية، استعن بمصادر تعليمية موثوقة (وزارة التربية والتعليم، مراجع أكاديمية معتمدة) وأشر لذلك بإيجاز."
-      : "لا تستخدم مصادر خارجية؛ استعن فقط بالمصادر الداخلية أعلاه."}
+      ? "المكتبة لم ترجع محتوى مطابقًا: وضّح للطالب أن الدرس غير متاح في مكتبته، ثم أجب من مصدر تعليمي رسمي موثوق (وزارة التربية والتعليم / الأزهر) بجملة قصيرة توضح ذلك، ولا تخترع أسماء دروس أو كتب."
+      : "لا تستخدم مصادر خارجية؛ اعتمد على محتوى المكتبة أعلاه فقط، وإذا كان ناقصًا قل ذلك صراحةً."}
 3. لا تسأل الطالب عن مرحلته أو صفه أو نظامه أو شعبته أبدًا.
-4. إذا لم يذكر الطالب المادة صراحة، استخدم سياق المحادثة الثابت أعلاه.
+4. إذا لم يذكر الطالب المادة صراحة، استخدم سياق المحادثة أو آخر مادة تحدثتما عنها.
 5. اربط الشرح دائمًا بمنهج الصف والمرحلة المذكورين أعلاه وبطريقة الامتحان المصري.`);
+
 
 
     const gwMessages = [
