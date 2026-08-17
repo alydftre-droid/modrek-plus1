@@ -293,15 +293,18 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
     section_id: null, track_id: null, subject_ids: [],
   };
   if (!user_id) return ctx;
-  const { data: profile } = await admin
-    .from("profiles").select("*").eq("user_id", user_id).maybeSingle();
-  if (profile) {
-    ctx.role = (profile.role as string) ?? null;
-    ctx.stage_id = profile.stage_id ?? null;
-    ctx.grade_id = profile.grade_id ?? null;
-    ctx.section_id = profile.section_id ?? null;
-    ctx.track_id = profile.track_id ?? null;
-  }
+
+  // FIX: profiles PK is `id` (not `user_id`) and the curriculum columns are
+  // text labels (`stage`, `grade`, `section`, `education_type`), never *_id.
+  // We resolve them into real library_* taxonomy ids through the shared scope.
+  const scope = await resolveStudentScope(admin, user_id);
+  ctx.role = scope.role;
+  const ids = await resolveLibraryTaxonomyIds(admin, scope);
+  ctx.stage_id = ids.stage_id;
+  ctx.grade_id = ids.grade_id;
+  ctx.section_id = ids.section_id;
+  ctx.track_id = ids.track_id;
+
   // Best-effort subject list — depends on existing tables; safe on missing rows.
   try {
     const { data: subs } = await admin
