@@ -242,8 +242,13 @@ Deno.serve(async (req) => {
       ];
     }
 
-    // 8) Assemble citation-ready context
-    const context = allResults.slice(0, max_results).map((r) => ({
+    // 8) Assemble citation-ready context — library passages always lead.
+    const seenFinal = new Set(libraryResults.map((r) => r.chunk_id));
+    const mergedResults = [
+      ...libraryResults,
+      ...allResults.filter((r) => !seenFinal.has(r.chunk_id)),
+    ];
+    const context = mergedResults.slice(0, max_results).map((r) => ({
       chunk_id: r.chunk_id,
       text: r.content,
       confidence: round(r.composite_score),
@@ -261,18 +266,26 @@ Deno.serve(async (req) => {
       },
     }));
 
+    const libraryUsed = libraryResults.length > 0;
+    const effectiveBelowThreshold = libraryUsed ? false : belowThreshold;
+
     const payload = {
       intent: intent.intent,
       intent_meta: intent,
       user_context: userCtx,
       filters_used: derivedFilters,
-      tier_used: selectedTier,
+      tier_used: libraryUsed ? "library_first" : selectedTier,
+      library_used: libraryUsed,
+      library_scope: libraryRag?.scope ?? null,
+      library_subject: libraryRag?.understanding?.subject ?? null,
+      library_book: libraryRag?.selected_book?.title ?? null,
+      library_lesson: libraryRag?.lesson?.title ?? null,
       lesson_target: lessonTarget ? { kind: lessonTarget.kind, number: lessonTarget.number, title: lessonTarget.title } : null,
       confidence_threshold: CONFIDENCE_MIN,
-      top_confidence: round(topConfidence),
+      top_confidence: round(libraryUsed ? Math.max(topConfidence, libraryResults[0]?.composite_score ?? 0) : topConfidence),
       results_count: context.length,
-      below_threshold: belowThreshold,
-      suggest_external: belowThreshold,
+      below_threshold: effectiveBelowThreshold,
+      suggest_external: effectiveBelowThreshold,
       image_ocr: imageOcr,
       results: context,
       generated_at: new Date().toISOString(),
