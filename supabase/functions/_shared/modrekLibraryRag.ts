@@ -673,3 +673,40 @@ export function buildLibraryContextBlock(result: LibraryRagResult): string {
 
   return parts.join("\n\n");
 }
+
+// -------------------------------------------------- taxonomy id resolution --
+
+/** Map the student's profile scope onto real library_* taxonomy row ids. */
+export async function resolveLibraryTaxonomyIds(admin: any, scope: StudentScope) {
+  const tax = await loadTaxonomy(admin);
+  return {
+    stage_id: tax.stages.find((s: any) => s.code === scope.stageCode)?.id ?? null,
+    grade_id: tax.grades.find((g: any) => g.code === scope.gradeCode)?.id ?? null,
+    section_id: scope.sectionCode ? tax.sections.find((s: any) => s.code === scope.sectionCode)?.id ?? null : null,
+    track_id: tax.tracks.find((t: any) => scope.trackCodes.includes(t.code))?.id ?? null,
+  };
+}
+
+/** Compact pipeline trace so logs prove: context -> retrieval -> chunks -> answer. */
+export function logRagPipeline(fn: string, result: LibraryRagResult, extra: Record<string, unknown> = {}) {
+  console.log(`[${fn}] RAG_PIPELINE`, JSON.stringify({
+    step: "student_context->library_retrieval->rerank->chunks",
+    student: {
+      grade: result.scope.gradeCode, stage: result.scope.stageCode,
+      section: result.scope.sectionCode, tracks: result.scope.trackCodes,
+    },
+    intent: result.understanding.intent,
+    subject: result.understanding.subject,
+    lesson_request: result.understanding.lesson,
+    accessible_books: result.accessible_books.length,
+    subject_books: result.subject_books.length,
+    selected_book: result.selected_book?.title ?? null,
+    outline_nodes: result.outline.length,
+    matched_lesson: result.lesson?.title ?? null,
+    chunks: result.passages.length,
+    top_pages: result.passages.slice(0, 5).map((p) => p.page_from),
+    confidence: result.confidence,
+    found: result.found,
+    ...extra,
+  }));
+}
