@@ -1373,6 +1373,7 @@ Deno.serve(async (req) => {
     let libraryBlock = "";
     let libraryFound = false;
     try {
+      if (!userId) throw new Error("no user id for library rag");
       const historyTexts = (messages as any[])
         .filter((m: any) => m.role === "user")
         .map((m: any) => textFromMessage(m))
