@@ -896,7 +896,8 @@ async function stageStructure(admin: SupabaseClient, job: any) {
       if (error) throw error;
     }
   }
-  await succeedJob(admin, job, { units: rows.length, preserved_full_text: true });
+  const lessons = await rebuildLessonIndex(admin, job.version_id, version!.source_id);
+  await succeedJob(admin, job, { units: rows.length, preserved_full_text: true, lesson_index: lessons });
   await enqueue(admin, job.version_id, "chunk", 40, {}, job.asset_id);
 }
 
