@@ -134,9 +134,43 @@ Deno.serve(async (req) => {
     // 3) Build filters from user + intent + explicit overrides
     const derivedFilters = buildFilters(userCtx, intent, filters, imageOcr);
 
-    // 3b) SHIELDED RAG guard: a student without a resolved grade must never be
-    // served content from other grades — ask them to complete the profile first.
-    if (userCtx.role === "student" && !derivedFilters.grade_id) {
+    // 3b) LIBRARY FIRST — the unified Modrek library RAG runs before anything
+    // else and works identically for religious, Arabic, literary and scientific
+    // subjects. Its passages always lead the returned context.
+    let libraryRag: LibraryRagResult | null = null;
+    let libraryResults: any[] = [];
+    if (userCtx.user_id) {
+      try {
+        libraryRag = await retrieveFromLibrary(admin, {
+          userId: userCtx.user_id,
+          query: effectiveQuery,
+          contextSubject: (filters as any)?.subject_name ?? null,
+          maxPassages: Math.max(4, Math.min(10, Number(max_results) || 6)),
+        });
+        logRagPipeline("modrek-retrieve", libraryRag);
+        libraryResults = libraryRag.passages.map((p, i) => ({
+          chunk_id: `library:${p.book_id}:${p.page_from ?? i}`,
+          content: p.text,
+          composite_score: Math.max(0.6, Math.min(0.99, p.score)),
+          similarity: p.score,
+          text_rank: null,
+          source_id: p.book_id,
+          source_title: p.book_title,
+          source_type_code: "library_book",
+          unit_id: null,
+          unit_kind: "lesson",
+          unit_title: p.lesson_title,
+          page_from: p.page_from,
+          page_to: p.page_to,
+        }));
+      } catch (libErr) {
+        console.warn("[modrek-retrieve] library rag failed", String(libErr).slice(0, 250));
+      }
+    }
+
+    // 3b-2) SHIELDED RAG guard: a student without a resolved grade must never be
+    // served content from other grades — but only block when the library found nothing.
+    if (userCtx.role === "student" && !derivedFilters.grade_id && libraryResults.length === 0) {
       return json({
         intent: intent.intent,
         user_context: userCtx,
@@ -146,6 +180,7 @@ Deno.serve(async (req) => {
         below_threshold: true,
         suggest_external: false,
         needs_profile_scope: true,
+        library_used: false,
         message: "لم يتم تحديد الصف الدراسي في ملفك بعد، لذلك لا يمكن جلب محتوى المنهج. أكمل بيانات الصف ثم أعد المحاولة.",
       }, 200);
     }
