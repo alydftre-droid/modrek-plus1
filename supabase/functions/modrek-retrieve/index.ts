@@ -146,6 +146,8 @@ Deno.serve(async (req) => {
           query: effectiveQuery,
           contextSubject: (filters as any)?.subject_name ?? null,
           maxPassages: Math.max(4, Math.min(10, Number(max_results) || 6)),
+          surface: "modrek-retrieve",
+
         });
         logRagPipeline("modrek-retrieve", libraryRag);
         libraryResults = libraryRag.passages.map((p, i) => ({
