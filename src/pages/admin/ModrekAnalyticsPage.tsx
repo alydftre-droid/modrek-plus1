@@ -118,13 +118,19 @@ export default function ModrekAnalyticsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <ModrekStat icon={Activity} label="عدد الطلبات" value={fmt(stats.total)} accent="blue" />
             <ModrekStat icon={Clock} label="متوسط الاستجابة" value={`${fmt(stats.avgMs)} ms`} accent="cyan" />
-            <ModrekStat icon={TrendingUp} label="معدل النجاح" value={pct(stats.successRate)} accent="emerald" />
-            <ModrekStat icon={Database} label="نسبة الكاش" value={pct(stats.cacheRate)} accent="amber" />
+            <ModrekStat icon={TrendingUp} label="الاسترجاع من المكتبة" value={pct(stats.successRate)} accent="emerald" />
             <ModrekStat icon={ShieldAlert} label="اللجوء للخارجي" value={pct(stats.externalRate)} accent="rose" />
+            <ModrekStat icon={Database} label="نسبة الكاش" value={pct(stats.cacheRate)} accent="amber" />
             <ModrekStat icon={BarChart3} label="متوسط الثقة" value={pct(stats.avgConfidence)} accent="purple" />
-            <ModrekStat icon={BookOpen} label="مصادر المكتبة" value={fmt(totalSources)} accent="blue" />
-            <ModrekStat icon={Database} label="مقاطع مفهرسة" value={fmt(totalChunks)} accent="emerald" />
+            <ModrekStat icon={BookOpen} label="كتب المكتبة" value={fmt(totalSources)} accent="blue" />
+            <ModrekStat
+              icon={Database}
+              label="مقاطع مفهرسة (بمتجهات)"
+              value={`${fmt(embeddedChunks)} / ${fmt(totalChunks)}`}
+              accent="emerald"
+            />
           </div>
+
 
           {pendingJobs > 0 && (
             <ModrekCard padding="none" className="p-4 border-[#FEF3C7] bg-[#FFFBEB]">
