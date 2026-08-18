@@ -4263,8 +4263,10 @@ export type Database = {
           query_text: string
           results_count: number
           role: string | null
+          surface: string | null
           tier_used: string | null
           top_confidence: number | null
+          trace: Json
           user_id: string | null
         }
         Insert: {
@@ -4278,8 +4280,10 @@ export type Database = {
           query_text: string
           results_count?: number
           role?: string | null
+          surface?: string | null
           tier_used?: string | null
           top_confidence?: number | null
+          trace?: Json
           user_id?: string | null
         }
         Update: {
@@ -4293,8 +4297,10 @@ export type Database = {
           query_text?: string
           results_count?: number
           role?: string | null
+          surface?: string | null
           tier_used?: string | null
           top_confidence?: number | null
+          trace?: Json
           user_id?: string | null
         }
         Relationships: []
@@ -7445,6 +7451,20 @@ export type Database = {
           similarity: number
         }[]
       }
+      library_match_chunks_multi: {
+        Args: {
+          p_book_ids: string[]
+          p_match_count?: number
+          p_query_embedding: string
+        }
+        Returns: {
+          book_id: string
+          content: string
+          id: string
+          page_number: number
+          similarity: number
+        }[]
+      }
       library_profile_grade_code: {
         Args: { _grade: string; _stage: string }
         Returns: string
@@ -7452,6 +7472,16 @@ export type Database = {
       library_profile_track_code: {
         Args: { _section: string }
         Returns: string
+      }
+      library_search_chunks_text: {
+        Args: { p_book_ids: string[]; p_match_count?: number; p_query: string }
+        Returns: {
+          book_id: string
+          content: string
+          id: string
+          page_number: number
+          rank: number
+        }[]
       }
       library_stage_code_from_subject: {
         Args: { _stage: string }
