@@ -233,6 +233,7 @@ function AnimatedRoutes() {
               <Route path="/education/general" element={<Navigate to="/education/secondary-general" replace />} />
 
               <Route path="/teacher-register" element={<TeacherRegister />} />
+              <Route path="/teacher/register" element={<TeacherRegister />} />
               <Route path="/teacher/terms" element={<TeacherTerms />} />
               <Route path="/teacher-terms" element={<Navigate to="/teacher/terms" replace />} />
               <Route path="/pending-approval" element={<PendingApproval />} />
