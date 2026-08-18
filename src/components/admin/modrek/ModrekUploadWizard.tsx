@@ -219,9 +219,10 @@ export default function ModrekUploadWizard({
     [subSubjects, tax.subject_id],
   );
   const selectedTrackCode = useMemo(
-    () => tracks.find((track) => track.id === tax.track_id)?.code,
+    () => (tax.track_id === ALL_TRACKS_ID ? "none" : tracks.find((track) => track.id === tax.track_id)?.code),
     [tracks, tax.track_id],
   );
+
 
   /** Education systems (عام / أزهري / مشترك) that really carry subjects in the chosen stage/grade. */
   const availableSections = useMemo(() => {
