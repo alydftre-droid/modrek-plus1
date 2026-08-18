@@ -223,6 +223,48 @@ export default function ModrekUploadWizard({
     [tracks, tax.track_id],
   );
 
+  /** Education systems (عام / أزهري / مشترك) that really carry subjects in the chosen stage/grade. */
+  const availableSections = useMemo(() => {
+    const scoped = subjects.filter((subject) =>
+      (!tax.stage_id || !subject.stage_id || subject.stage_id === tax.stage_id)
+      && (!tax.grade_id || !subject.grade_id || subject.grade_id === tax.grade_id));
+    const usedIds = new Set(scoped.map((subject) => subject.section_id).filter(Boolean) as string[]);
+    const sharedId = sections.find((section) => section.code === "shared")?.id;
+    // A "shared" subject is available for both عام and أزهري, so keep those options visible.
+    const list = sections.filter((section) => usedIds.has(section.id)
+      || (sharedId && usedIds.has(sharedId) && (section.code === "general" || section.code === "azhar")));
+    return list.length ? list : sections;
+  }, [subjects, sections, tax.stage_id, tax.grade_id]);
+
+  /** Tracks (شعب) that really exist for the chosen stage/grade/system. */
+  const availableTracks = useMemo(() => {
+    const sectionCodeById = new Map(sections.map((section) => [section.id, section.code]));
+    const selectedSectionCode = sections.find((s) => s.id === tax.section_id)?.code;
+    const scoped = subjects.filter((subject) => subjectScopeMatches(subject, {
+      stageId: tax.stage_id,
+      gradeId: tax.grade_id,
+      sectionId: tax.section_id,
+      selectedSectionCode,
+      selectedTrackCode: null,
+      sectionCodeById,
+    }));
+    const usedTracks = new Set(scoped.map((s) => s.curriculum_track).filter(Boolean) as string[]);
+    if (!usedTracks.size) return [];
+    return tracks.filter((track) => {
+      if (track.code === "literary") return usedTracks.has("literary");
+      if (["scientific", "sci_science", "sci_math"].includes(track.code)) return usedTracks.has("scientific");
+      return usedTracks.has(track.code);
+    });
+  }, [subjects, sections, tracks, tax.stage_id, tax.grade_id, tax.section_id]);
+
+  // Drop a selected track that no longer belongs to the current stage/grade/system.
+  useEffect(() => {
+    if (!tax.track_id) return;
+    if (availableTracks.some((track) => track.id === tax.track_id)) return;
+    setTax((t) => ({ ...t, track_id: "", subject_id: "", sub_subject_id: "" }));
+  }, [availableTracks, tax.track_id]);
+
+
   const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.file.size, 0), [files]);
 
   const addFiles = (list: FileList | File[]) => {
@@ -581,7 +623,7 @@ export default function ModrekUploadWizard({
               {step === 2 && (
                 <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام والمرحلة أولاً — تتحدّث القوائم تلقائياً.">
                   <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <TaxonomyCount label="الأقسام" value={sections.length} icon={LibraryIcon} accent="blue" />
+                    <TaxonomyCount label="الأقسام" value={availableSections.length} icon={LibraryIcon} accent="blue" />
                     <TaxonomyCount label="المراحل" value={stages.length} icon={GraduationCap} accent="emerald" />
                     <TaxonomyCount label="الصفوف" value={filteredGrades.length || grades.length} icon={BookOpen} accent="amber" />
                     <TaxonomyCount label="المواد" value={filteredSubjects.length} icon={Layers} accent="purple" />
@@ -591,11 +633,11 @@ export default function ModrekUploadWizard({
                       <Field label="النظام التعليمي" required>
                         <SearchSelect value={tax.section_id}
                           onChange={(v) => setTax((t) => ({ ...t, section_id: v, subject_id: "", sub_subject_id: "" }))}
-                          placeholder="عام / أزهري / مشترك" options={sections} />
+                          placeholder="عام / أزهري / مشترك" options={availableSections} />
                       </Field>
                       <Field label="المرحلة">
                         <SearchSelect value={tax.stage_id}
-                          onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", subject_id: "", sub_subject_id: "" }))}
+                          onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", track_id: "", subject_id: "", sub_subject_id: "" }))}
                           placeholder="اختر المرحلة" options={stages} />
                       </Field>
                       <Field label="الصف">
@@ -605,8 +647,10 @@ export default function ModrekUploadWizard({
                       </Field>
                       <Field label="الشعبة (علمي / أدبي)">
                         <SearchSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v, subject_id: "", sub_subject_id: "" }))}
-                          placeholder="اختر الشعبة" options={tracks} />
+                          placeholder={availableTracks.length ? "اختر الشعبة" : "لا توجد شعب لهذه المرحلة"}
+                          options={availableTracks} disabled={availableTracks.length === 0} />
                       </Field>
+
                       <Field label="المادة">
                         <SearchSelect value={tax.subject_id}
                           onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
