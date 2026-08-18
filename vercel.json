@@ -5,14 +5,64 @@
   "redirects": [
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "www.modrekplus.com" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "www.modrekplus.com"
+        }
+      ],
       "destination": "https://modrekplus.com/$1",
       "permanent": true
     },
     {
       "source": "/(.*)",
-      "has": [{ "type": "host", "value": "modrek-plus.vercel.app" }],
+      "has": [
+        {
+          "type": "host",
+          "value": "modrek-plus.vercel.app"
+        }
+      ],
       "destination": "https://modrekplus.com/$1",
+      "permanent": true
+    },
+    {
+      "source": "/privacy",
+      "destination": "/privacy-policy",
+      "permanent": true
+    },
+    {
+      "source": "/terms",
+      "destination": "/terms-of-service",
+      "permanent": true
+    },
+    {
+      "source": "/teacher-terms",
+      "destination": "/teacher/terms",
+      "permanent": true
+    },
+    {
+      "source": "/account/delete",
+      "destination": "/delete-account",
+      "permanent": true
+    },
+    {
+      "source": "/education/azhari",
+      "destination": "/education/secondary-azhari",
+      "permanent": true
+    },
+    {
+      "source": "/education/general",
+      "destination": "/education/secondary-general",
+      "permanent": true
+    },
+    {
+      "source": "/complete-profile",
+      "destination": "/select-education-type",
+      "permanent": true
+    },
+    {
+      "source": "/subject-ai-chat",
+      "destination": "/ai",
       "permanent": true
     }
   ],
@@ -20,22 +70,46 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
       ]
     },
     {
       "source": "/sitemap.xml",
-      "headers": [{ "key": "Content-Type", "value": "application/xml; charset=utf-8" }]
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/xml; charset=utf-8"
+        }
+      ]
     },
     {
       "source": "/robots.txt",
-      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
     },
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ],
   "rewrites": [
