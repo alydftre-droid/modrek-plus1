@@ -253,14 +253,20 @@ export interface LibraryBookRef {
   access_tier: string | null;
 }
 
+export type PassageSource = "page" | "lesson_pages" | "vector" | "keyword_chunk" | "keyword_page" | "outline_sample";
+
 export interface LibraryPassage {
   text: string;
+  chunk_id: string | null;
   book_id: string;
   book_title: string;
   lesson_title: string | null;
   page_from: number | null;
   page_to: number | null;
   score: number;
+  source: PassageSource;
+  similarity?: number | null;
+  keyword_rank?: number | null;
 }
 
 export interface LibraryLessonRef {
@@ -270,6 +276,26 @@ export interface LibraryLessonRef {
   page_start: number | null;
   page_end: number | null;
   order_index: number | null;
+}
+
+/** Developer debug trace: proves the whole pipeline for a single question. */
+export interface RagTrace {
+  query: string;
+  detected_subject: string | null;
+  detected_intent: string;
+  detected_lesson: { kind: string; number: number } | null;
+  student: { grade: string | null; stage: string | null; section: string | null; tracks: string[] };
+  books_searched: Array<{ id: string; title: string; subject: string | null }>;
+  candidate_book_ids: string[];
+  outline_nodes: number;
+  matched_lesson: string | null;
+  vector_hits: number;
+  keyword_hits: number;
+  page_hits: number;
+  passages: Array<{ chunk_id: string | null; book_id: string; page: number | null; score: number; source: PassageSource }>;
+  source_type: "library" | "external";
+  duration_ms: number;
+  reasons: string[];
 }
 
 export interface LibraryRagResult {
@@ -285,7 +311,9 @@ export interface LibraryRagResult {
   found: boolean;
   ambiguity: string | null;                 // clarifying question when confidence is low
   notes: string[];
+  trace: RagTrace;
 }
+
 
 let taxonomyCache: { at: number; grades: any[]; tracks: any[]; stages: any[]; sections: any[] } | null = null;
 
