@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "test:regression:test-students": "node scripts/test-teacher-test-student-isolation.mjs",
     "preview": "vite preview",
-    "test:ai:lesson-retrieval": "deno test --allow-env --allow-net supabase/functions/_shared/lessonTargeting_test.ts"
+    "test:ai:lesson-retrieval": "deno test --allow-env --allow-net supabase/functions/_shared/lessonTargeting_test.ts",
+    "seo:audit": "node scripts/seo-audit.mjs"
   },
   "dependencies": {
     "@capacitor/android": "6.2.1",

@@ -4,6 +4,7 @@ import { ArrowRight, Printer, Search, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import Seo from "@/components/seo/Seo";
 import {
   CURRENT_TEACHER_TERMS_VERSION,
   TEACHER_TERMS_INTRO,
@@ -57,6 +58,11 @@ const TeacherTerms = () => {
 
   return (
     <div className="min-h-screen bg-muted/30 py-6 px-4 print:bg-white print:py-2">
+      <Seo
+        title="اتفاقية استخدام المعلمين | منصة مدرك Plus"
+        description="اتفاقية استخدام المعلمين على منصة مدرك Plus: قواعد نشر المحتوى التعليمي، حقوق الملكية الفكرية، التعامل مع الطلاب، الاشتراكات والأرباح، وإنهاء الحساب."
+        path="/teacher/terms"
+      />
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-4 print:hidden">
           <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>

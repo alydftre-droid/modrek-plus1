@@ -70,8 +70,9 @@ function headTags({ title, description, path }) {
 }
 
 function jsonLdFor(page) {
-  const blocks = [
-    {
+  const blocks = [];
+  if (page.breadcrumbs?.length)
+    blocks.push({
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: page.breadcrumbs.map((b, i) => ({
@@ -80,8 +81,7 @@ function jsonLdFor(page) {
         name: b.name,
         item: `${SITE_URL}${b.path}`,
       })),
-    },
-  ];
+    });
   if (page.faq?.length) {
     blocks.push({
       "@context": "https://schema.org",
@@ -100,6 +100,7 @@ function jsonLdFor(page) {
 
 function bodyFor(page) {
   const parts = [];
+  if (page.breadcrumbs?.length)
   parts.push(
     `<nav aria-label="مسار التنقل"><ol>` +
       page.breadcrumbs
@@ -113,7 +114,7 @@ function bodyFor(page) {
   );
   parts.push(`<h1>${esc(page.h1)}</h1>`);
   parts.push(`<p>${esc(page.intro)}</p>`);
-  for (const s of page.sections) {
+  for (const s of page.sections || []) {
     parts.push(`<h2>${esc(s.h2)}</h2>`);
     if (s.body) parts.push(`<p>${esc(s.body)}</p>`);
     if (s.list) parts.push(`<ul>${s.list.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`);
@@ -131,7 +132,7 @@ function bodyFor(page) {
     parts.push(
       `<nav><ul>` +
         page.links
-          .filter((l) => l.path !== page.slug)
+          .filter((l) => l.path !== (page.slug || page.path))
           .map((l) => `<li><a href="${l.path}">${esc(l.label)}</a></li>`)
           .join("") +
         `</ul></nav>`,
@@ -169,7 +170,13 @@ function prerender() {
       extraHead: jsonLdFor(p),
       body: bodyFor(p),
     })),
-    ...Object.entries(headOnlyMeta).map(([path, meta]) => ({ path, ...meta, extraHead: "", body: "" })),
+    ...Object.entries(headOnlyMeta).map(([path, meta]) => ({
+      path,
+      title: meta.title,
+      description: meta.description,
+      extraHead: jsonLdFor({ ...meta, slug: path }),
+      body: meta.h1 ? bodyFor({ ...meta, slug: path }) : "",
+    })),
   ];
 
   for (const t of targets) {
@@ -182,7 +189,18 @@ function prerender() {
     writeFileSync(resolve(outDir, "index.html"), html);
     count++;
   }
-  console.log(`[seo] prerendered ${count} routes`);
+  // SPA fallback shell for every non-prerendered path (private app routes and
+  // unknown URLs). It is noindex and carries no canonical, so unknown URLs no
+  // longer serve an indexable copy of the homepage (soft 404 / duplicate cluster).
+  const shell = template
+    .replace(/<link\s+rel="canonical"[^>]*>\n?\s*/i, "")
+    .replace(
+      /<meta\s+name="robots"[^>]*>/i,
+      `<meta name="robots" content="noindex, follow" />`,
+    )
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(SITE_NAME)}</title>`);
+  writeFileSync(resolve(root, "dist/app-shell.html"), shell);
+  console.log(`[seo] prerendered ${count} routes + app-shell.html`);
 }
 
 const mode = process.argv[2] || "sitemap";

@@ -25,4 +25,15 @@ export declare const OG_IMAGE: string;
 export declare const staticRoutes: { path: string; changefreq: string; priority: string }[];
 export declare const noindexRoutes: string[];
 export declare const seoPages: SeoPage[];
+export declare const headOnlyMeta: Record<
+  string,
+  {
+    title: string;
+    description: string;
+    h1?: string;
+    intro?: string;
+    sections?: SeoSection[];
+    links?: { label: string; path: string }[];
+  }
+>;
 export declare function getSeoPage(slug: string): SeoPage | undefined;
