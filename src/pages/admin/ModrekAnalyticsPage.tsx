@@ -15,6 +15,7 @@ interface LogRow {
   created_at: string;
   intent: string | null;
   role: string | null;
+  surface: string | null;
   cache_hit: boolean;
   fallback_external: boolean;
   duration_ms: number | null;
@@ -22,18 +23,10 @@ interface LogRow {
   results_count: number;
   tier_used: string | null;
   query_text: string;
+  filters: any;
+  trace: any;
 }
 interface SourceCount { source_type: string | null; count: number }
-type KnowledgeSourceRow = {
-  source_type_id: string | null;
-  knowledge_source_types?: { name_ar?: string | null } | Array<{ name_ar?: string | null }> | null;
-};
-
-function getSourceTypeName(row: KnowledgeSourceRow) {
-  const relation = row.knowledge_source_types;
-  const record = Array.isArray(relation) ? relation[0] : relation;
-  return String(record?.name_ar || row.source_type_id || "غير محدد");
-}
 
 const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -45,28 +38,35 @@ export default function ModrekAnalyticsPage() {
   const [sources, setSources] = useState<SourceCount[]>([]);
   const [totalSources, setTotalSources] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
+  const [embeddedChunks, setEmbeddedChunks] = useState(0);
   const [pendingJobs, setPendingJobs] = useState(0);
+  const [traceRow, setTraceRow] = useState<LogRow | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-        const [logRes, srcRes, chunkRes, jobRes] = await Promise.all([
+        // NOTE: metrics read the LIVE library tables (library_books / library_book_chunks).
+        // The old knowledge_sources/content_chunks tables are unused and made the
+        // dashboard report 0% retrieval even when the library had content.
+        const [logRes, bookRes, chunkRes, embRes, jobRes] = await Promise.all([
           supabase.from("modrek_search_logs")
-            .select("id,created_at,intent,role,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text")
+            .select("id,created_at,intent,role,surface,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text,filters,trace")
             .gte("created_at", since).order("created_at", { ascending: false }).limit(500),
-          supabase.from("knowledge_sources").select("source_type_id, knowledge_source_types(name_ar)", { count: "exact", head: false }).limit(2000),
-          supabase.from("content_chunks").select("id", { count: "exact", head: true }),
-          supabase.from("processing_jobs").select("id", { count: "exact", head: true }).in("status", ["queued", "running", "retrying"] as any),
+          supabase.from("library_books").select("id,subject_name_ar,status", { count: "exact", head: false }).limit(2000),
+          supabase.from("library_book_chunks").select("id", { count: "exact", head: true }),
+          supabase.from("library_book_chunks").select("id", { count: "exact", head: true }).not("embedding", "is", null),
+          supabase.from("library_processing_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "running", "retrying"] as any),
         ]);
         setLogs((logRes.data ?? []) as LogRow[]);
         setTotalChunks(chunkRes.count ?? 0);
+        setEmbeddedChunks(embRes.count ?? 0);
         setPendingJobs(jobRes.count ?? 0);
-        setTotalSources(srcRes.count ?? (srcRes.data?.length ?? 0));
+        setTotalSources(bookRes.count ?? (bookRes.data?.length ?? 0));
         const bucket = new Map<string, number>();
-        ((srcRes.data ?? []) as KnowledgeSourceRow[]).forEach((s) => {
-          const key = getSourceTypeName(s);
+        ((bookRes.data ?? []) as any[]).forEach((b) => {
+          const key = String(b.subject_name_ar || "غير محدد");
           bucket.set(key, (bucket.get(key) ?? 0) + 1);
         });
         setSources(Array.from(bucket, ([source_type, count]) => ({ source_type, count })).sort((a, b) => b.count - a.count));
@@ -95,6 +95,7 @@ export default function ModrekAnalyticsPage() {
     logs.forEach((l) => bucket.set(l.intent || "auto", (bucket.get(l.intent || "auto") ?? 0) + 1));
     return Array.from(bucket, ([intent, count]) => ({ intent, count })).sort((a, b) => b.count - a.count).slice(0, 8);
   }, [logs]);
+
 
   return (
     <ModrekShell>
