@@ -458,6 +458,11 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
   return null;
 }
 
+// Real book OCR pages can be short (title pages, exercise pages); 20 chars is the
+// smallest text that can still carry meaning. A higher floor silently dropped
+// legitimate lesson pages and was one reason retrieval returned nothing.
+const MIN_PASSAGE_CHARS = 20;
+
 async function pagesText(admin: any, bookId: string, from: number | null, to: number | null, limit = 8) {
   let q = admin
     .from("library_book_pages")
@@ -468,20 +473,26 @@ async function pagesText(admin: any, bookId: string, from: number | null, to: nu
   if (from) q = q.gte("page_number", from);
   if (to) q = q.lte("page_number", to);
   const { data } = await q;
-  return (data || []).filter((p: any) => String(p.ocr_text || "").trim().length > 30);
+  return (data || []).filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
 }
 
-async function semanticPassages(admin: any, bookId: string, query: string, matchCount = 6) {
+/** Vector search across EVERY candidate book in one round trip. */
+async function semanticPassages(admin: any, bookIds: string[], query: string, matchCount = 12) {
+  if (!bookIds.length) return [];
   try {
     const { apiKey } = await resolveOpenRouterApiKey(admin);
     if (!apiKey) return [];
     const emb = await openRouterEmbed({ apiKey, model: OPENROUTER_DEFAULT_EMBED_MODEL, inputs: [query.slice(0, 2000)], timeoutMs: 20_000 });
     if (!emb.ok || !emb.vectors[0]?.length) return [];
-    const { data } = await admin.rpc("library_match_chunks", {
-      p_book_id: bookId,
+    const { data, error } = await admin.rpc("library_match_chunks_multi", {
+      p_book_ids: bookIds,
       p_query_embedding: emb.vectors[0],
       p_match_count: matchCount,
     });
+    if (error) {
+      console.warn("[modrekLibraryRag] vector_rpc_failed", error.message);
+      return [];
+    }
     return (data || []) as any[];
   } catch (e) {
     console.warn("[modrekLibraryRag] semantic_failed", String(e).slice(0, 160));
@@ -489,17 +500,59 @@ async function semanticPassages(admin: any, bookId: string, query: string, match
   }
 }
 
-async function keywordPassages(admin: any, bookId: string, keywords: string[], limit = 6) {
+/** Keyword + exact-phrase search over chunks (trigram index) across candidate books. */
+async function keywordChunks(admin: any, bookIds: string[], phrases: string[], limit = 10) {
+  if (!bookIds.length || !phrases.length) return [];
+  const out: any[] = [];
+  for (const phrase of phrases.slice(0, 4)) {
+    const term = phrase.trim();
+    if (term.length < 3) continue;
+    const { data, error } = await admin.rpc("library_search_chunks_text", {
+      p_book_ids: bookIds,
+      p_query: term,
+      p_match_count: limit,
+    });
+    if (error) { console.warn("[modrekLibraryRag] keyword_rpc_failed", error.message); continue; }
+    for (const row of data || []) out.push({ ...row, matched_phrase: term });
+    if (out.length >= limit * 2) break;
+  }
+  return out;
+}
+
+/** Last-resort keyword scan over raw page OCR text (books whose chunks failed). */
+async function keywordPages(admin: any, bookIds: string[], keywords: string[], limit = 6) {
   const tokens = keywords.filter((k) => k.length >= 3).slice(0, 4);
-  if (!tokens.length) return [];
+  if (!tokens.length || !bookIds.length) return [];
   const orClause = tokens.map((t) => `ocr_text.ilike.%${t.replace(/[%_,()"'\\]/g, "")}%`).join(",");
   const { data } = await admin
     .from("library_book_pages")
-    .select("page_number, ocr_text")
-    .eq("book_id", bookId)
+    .select("book_id, page_number, ocr_text")
+    .in("book_id", bookIds)
     .or(orClause)
     .limit(limit);
   return data || [];
+}
+
+/** Every textual form a lesson/unit request can take inside a real Arabic book. */
+function lessonPhraseVariants(target: { kind: "lesson" | "unit"; number: number } | null, titleHint: string | null): string[] {
+  const out: string[] = [];
+  if (titleHint && titleHint.length >= 3) out.push(titleHint);
+  if (!target) return out;
+  const ordinals = ["", "الأول", "الثاني", "الثالث", "الرابع", "الخامس", "السادس", "السابع", "الثامن", "التاسع", "العاشر"];
+  const words = target.kind === "lesson" ? ["الدرس", "درس"] : ["الوحدة", "الوحده", "الباب", "الفصل"];
+  const ord = ordinals[target.number] || String(target.number);
+  for (const w of words) {
+    out.push(`${w} ${ord}`);
+    out.push(`${w} ${target.number}`);
+  }
+  return out;
+}
+
+function lexicalOverlap(text: string, keywords: string[]): number {
+  if (!keywords.length) return 0;
+  const n = normalizeAr(text);
+  const hits = keywords.filter((k) => k.length >= 3 && n.includes(normalizeAr(k))).length;
+  return hits / keywords.length;
 }
 
 export interface RetrieveArgs {
@@ -509,20 +562,58 @@ export interface RetrieveArgs {
   contextSubject?: string | null;
   maxPassages?: number;
   scope?: StudentScope;
+  /** Which AI surface asked (study / exams / chat / review) — for telemetry. */
+  surface?: string;
+  /** Set false to skip writing the developer telemetry row. */
+  log?: boolean;
 }
 
+const MAX_CANDIDATE_BOOKS = 4;
+
 export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promise<LibraryRagResult> {
+  const startedAt = Date.now();
   const scope = args.scope ?? await resolveStudentScope(admin, args.userId);
   const understanding = understandQuery(args.query, { history: args.history, contextSubject: args.contextSubject });
   const notes: string[] = [];
+  const reasons: string[] = [];
   const maxPassages = args.maxPassages ?? 8;
 
   const accessible = await listAccessibleBooks(admin, scope);
   if (!scope.gradeCode) notes.push("لم يتم تحديد صف الطالب في ملفه الشخصي بدقة.");
+  if (!accessible.length) reasons.push("no_accessible_books_for_scope");
 
   const subjectBooks = understanding.subject
     ? accessible.filter((b) => subjectMatches({ subject_name_ar: b.subject, sub_subject_name: b.sub_subject, title: b.title }, understanding.subject))
     : accessible;
+
+  const trace: RagTrace = {
+    query: String(args.query || "").slice(0, 500),
+    detected_subject: understanding.subject,
+    detected_intent: understanding.intent,
+    detected_lesson: understanding.lesson,
+    student: { grade: scope.gradeCode, stage: scope.stageCode, section: scope.sectionCode, tracks: scope.trackCodes },
+    books_searched: [],
+    candidate_book_ids: [],
+    outline_nodes: 0,
+    matched_lesson: null,
+    vector_hits: 0,
+    keyword_hits: 0,
+    page_hits: 0,
+    passages: [],
+    source_type: "external",
+    duration_ms: 0,
+    reasons,
+  };
+
+  const finish = async (result: LibraryRagResult): Promise<LibraryRagResult> => {
+    result.trace.duration_ms = Date.now() - startedAt;
+    result.trace.source_type = result.found ? "library" : "external";
+    result.trace.passages = result.passages.map((p) => ({
+      chunk_id: p.chunk_id, book_id: p.book_id, page: p.page_from, score: Number(p.score.toFixed(4)), source: p.source,
+    }));
+    if (args.log !== false) await recordRagSearchLog(admin, args.surface || "modrek-ai", result);
+    return result;
+  };
 
   const base: LibraryRagResult = {
     scope, understanding,
@@ -536,97 +627,180 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     found: false,
     ambiguity: null,
     notes,
+    trace,
   };
 
   if (understanding.intent === "list_books") {
-    return { ...base, found: accessible.length > 0, confidence: accessible.length ? "high" : "none" };
+    return await finish({ ...base, found: accessible.length > 0, confidence: accessible.length ? "high" : "none" });
   }
 
   if (!subjectBooks.length) {
+    reasons.push(understanding.subject ? "no_book_for_detected_subject" : "library_empty_for_scope");
     if (understanding.subject && accessible.length) {
       base.notes.push(`لا يوجد كتاب لمادة "${understanding.subject}" داخل مكتبة صف الطالب.`);
       base.ambiguity = `لم أجد كتاب "${understanding.subject}" في مكتبتك. المتاح حاليًا: ${accessible.slice(0, 6).map((b) => b.subject || b.title).join("، ")}.`;
     }
-    return base;
+    return await finish(base);
   }
 
-  const selected = subjectBooks[0];
-  const outline = await loadOutline(admin, selected.id);
-  const lesson = pickLesson(outline, understanding.lesson, understanding.lessonTitleHint);
+  // ---- Candidate books: never only the first one. Metadata filtering already
+  // narrowed the set to this student's own curriculum, so searching the top few
+  // is both safe and cheap (vector + keyword run as multi-book RPCs).
+  const candidates = subjectBooks.slice(0, MAX_CANDIDATE_BOOKS);
+  const candidateIds = candidates.map((b) => b.id);
+  const bookById = new Map(candidates.map((b) => [b.id, b]));
+  trace.candidate_book_ids = candidateIds;
+  trace.books_searched = candidates.map((b) => ({ id: b.id, title: b.title, subject: b.subject }));
+
+  // ---- Lesson targeting: find the book whose index really contains the lesson.
+  const outlines = new Map<string, LibraryLessonRef[]>();
+  await Promise.all(candidates.map(async (b) => outlines.set(b.id, await loadOutline(admin, b.id))));
+
+  let selected = candidates[0];
+  let outline = outlines.get(selected.id) || [];
+  let lesson: LibraryLessonRef | null = null;
+  for (const b of candidates) {
+    const o = outlines.get(b.id) || [];
+    const l = pickLesson(o, understanding.lesson, understanding.lessonTitleHint);
+    if (l) { selected = b; outline = o; lesson = l; break; }
+  }
+  trace.outline_nodes = outline.length;
+  trace.matched_lesson = lesson?.title ?? null;
 
   const passages: LibraryPassage[] = [];
-  const pushPage = (p: any, score: number, lessonTitle: string | null) => {
+  const pushPage = (p: any, bookId: string, score: number, lessonTitle: string | null, source: PassageSource) => {
+    const book = bookById.get(bookId) || selected;
     passages.push({
       text: String(p.ocr_text || p.content || "").replace(/\s+/g, " ").trim().slice(0, 1800),
-      book_id: selected.id,
-      book_title: selected.title,
+      chunk_id: p.id ?? null,
+      book_id: bookId,
+      book_title: book.title,
       lesson_title: lessonTitle,
       page_from: p.page_number ?? null,
       page_to: p.page_number ?? null,
       score,
+      source,
     });
   };
 
+  // ---- 1) Exact page request
   if (understanding.page) {
     const rows = await pagesText(admin, selected.id, understanding.page, understanding.page, 2);
-    rows.forEach((r: any) => pushPage(r, 1, lesson?.title ?? null));
+    rows.forEach((r: any) => pushPage(r, selected.id, 1, lesson?.title ?? null, "page"));
+    trace.page_hits += rows.length;
   }
 
-  if (lesson && passages.length < maxPassages) {
+  // ---- 2) Lesson / unit page range (strongest grounding)
+  if (lesson) {
     const rows = await pagesText(admin, selected.id, lesson.page_start, lesson.page_end, maxPassages);
-    rows.forEach((r: any) => pushPage(r, 0.95, lesson.title));
+    rows.forEach((r: any) => pushPage(r, selected.id, 0.98, lesson!.title, "lesson_pages"));
+    trace.page_hits += rows.length;
   }
 
-  if (understanding.wholeCurriculum && passages.length < maxPassages) {
-    // Curriculum-wide exam: sample the beginning of every unit/lesson.
+  // ---- 3) Whole-curriculum requests: sample every unit
+  if (understanding.wholeCurriculum) {
     for (const node of outline.slice(0, maxPassages)) {
       const rows = await pagesText(admin, selected.id, node.page_start, node.page_start, 1);
-      rows.forEach((r: any) => pushPage(r, 0.8, node.title));
-      if (passages.length >= maxPassages) break;
+      rows.forEach((r: any) => pushPage(r, selected.id, 0.8, node.title, "outline_sample"));
     }
   }
 
-  if (passages.length < 2) {
-    const sem = await semanticPassages(admin, selected.id, args.query, 6);
-    for (const row of sem) {
-      passages.push({
-        text: String(row.content || "").replace(/\s+/g, " ").trim().slice(0, 1500),
-        book_id: selected.id,
-        book_title: selected.title,
-        lesson_title: lesson?.title ?? null,
-        page_from: row.page_number ?? null,
-        page_to: row.page_number ?? null,
-        score: Number(row.similarity || 0.5),
-      });
-    }
-    if (passages.length < 2) {
-      const kw = await keywordPassages(admin, selected.id, understanding.keywords, 5);
-      kw.forEach((r: any) => pushPage(r, 0.4, lesson?.title ?? null));
-    }
+  // ---- 4) HYBRID: vector + keyword/exact-phrase ALWAYS run (in parallel),
+  // not only as a fallback. Their results are merged and reranked below.
+  const phrases = [
+    ...lessonPhraseVariants(understanding.lesson, understanding.lessonTitleHint),
+    ...(understanding.keywords.slice(0, 2)),
+  ];
+  const [vector, kwChunks] = await Promise.all([
+    semanticPassages(admin, candidateIds, args.query, 12),
+    keywordChunks(admin, candidateIds, phrases, 10),
+  ]);
+  trace.vector_hits = vector.length;
+  trace.keyword_hits = kwChunks.length;
+
+  for (const row of vector) {
+    const bookId = row.book_id || selected.id;
+    passages.push({
+      text: String(row.content || "").replace(/\s+/g, " ").trim().slice(0, 1500),
+      chunk_id: row.id ?? null,
+      book_id: bookId,
+      book_title: (bookById.get(bookId) || selected).title,
+      lesson_title: lesson?.title ?? null,
+      page_from: row.page_number ?? null,
+      page_to: row.page_number ?? null,
+      score: 0.5 + Number(row.similarity || 0) * 0.45,
+      source: "vector",
+      similarity: Number(row.similarity || 0),
+    });
   }
+  for (const row of kwChunks) {
+    const bookId = row.book_id || selected.id;
+    passages.push({
+      text: String(row.content || "").replace(/\s+/g, " ").trim().slice(0, 1500),
+      chunk_id: row.id ?? null,
+      book_id: bookId,
+      book_title: (bookById.get(bookId) || selected).title,
+      lesson_title: lesson?.title ?? null,
+      page_from: row.page_number ?? null,
+      page_to: row.page_number ?? null,
+      score: 0.55 + Number(row.rank || 0) * 0.4,
+      source: "keyword_chunk",
+      keyword_rank: Number(row.rank || 0),
+    });
+  }
+
+  // ---- 5) Page-level keyword fallback when chunks are missing/unembedded
+  if (!passages.length) {
+    const kwPages = await keywordPages(admin, candidateIds, understanding.keywords, 6);
+    kwPages.forEach((r: any) => pushPage(r, r.book_id, 0.45, lesson?.title ?? null, "keyword_page"));
+    trace.page_hits += kwPages.length;
+    if (!kwPages.length) reasons.push("no_chunks_or_pages_matched");
+  }
+
+  // ---- 6) Reranking: source weight + lexical overlap + lesson-range bonus
+  const rerank = (p: LibraryPassage): number => {
+    let s = p.score;
+    s += lexicalOverlap(p.text, understanding.keywords) * 0.25;
+    if (lesson && p.page_from && lesson.page_start && p.page_from >= lesson.page_start &&
+        (!lesson.page_end || p.page_from <= lesson.page_end)) s += 0.3;
+    if (p.book_id === selected.id) s += 0.05;
+    return s;
+  };
 
   const dedup = new Map<string, LibraryPassage>();
   for (const p of passages) {
-    const key = `${p.page_from ?? "?"}-${p.text.slice(0, 40)}`;
-    if (!dedup.has(key) && p.text.length > 30) dedup.set(key, p);
+    if (p.text.length < MIN_PASSAGE_CHARS) continue;
+    const key = p.chunk_id ? `c:${p.chunk_id}` : `p:${p.book_id}:${p.page_from ?? "?"}:${p.text.slice(0, 40)}`;
+    const scored = { ...p, score: rerank(p) };
+    const prev = dedup.get(key);
+    if (!prev || prev.score < scored.score) dedup.set(key, scored);
   }
   const finalPassages = [...dedup.values()].sort((a, b) => b.score - a.score).slice(0, maxPassages);
 
+  // If the winning content lives in another candidate book, follow the evidence.
+  const topBookId = finalPassages[0]?.book_id;
+  if (topBookId && topBookId !== selected.id && bookById.has(topBookId)) {
+    selected = bookById.get(topBookId)!;
+    outline = outlines.get(topBookId) || outline;
+    reasons.push("selected_book_switched_to_best_evidence");
+  }
+
   let confidence: LibraryRagResult["confidence"] = "none";
   if (lesson && finalPassages.length) confidence = "high";
-  else if (finalPassages.length) confidence = subjectBooks.length === 1 ? "medium" : "medium";
+  else if (finalPassages.length >= 2) confidence = "medium";
+  else if (finalPassages.length) confidence = "low";
   else if (subjectBooks.length) confidence = "low";
 
   let ambiguity: string | null = null;
-  if (understanding.lesson && !lesson) {
+  if (understanding.lesson && !lesson && !finalPassages.length) {
     ambiguity = outline.length
       ? `لم أتأكد من "${understanding.lesson.kind === "lesson" ? "الدرس" : "الوحدة"} رقم ${understanding.lesson.number}" في كتاب ${selected.title}. الفهرس المتاح: ${outline.slice(0, 8).map((o) => o.title).join("، ")}. أي واحد تقصد؟`
       : `كتاب ${selected.title} لم يكتمل فهرسته بعد، فلا أستطيع تحديد رقم الدرس بدقة.`;
-  } else if (!understanding.subject && subjectBooks.length > 1 && understanding.intent !== "search_content") {
+  } else if (!understanding.subject && subjectBooks.length > 1 && !finalPassages.length && understanding.intent !== "search_content") {
     ambiguity = `تقصد أي مادة؟ المتاح في مكتبتك: ${subjectBooks.slice(0, 6).map((b) => b.subject || b.title).join("، ")}.`;
   }
 
-  return {
+  return await finish({
     ...base,
     selected_book: selected,
     outline,
@@ -635,8 +809,41 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     confidence,
     found: finalPassages.length > 0,
     ambiguity,
-  };
+  });
 }
+
+/** Developer telemetry: every retrieval attempt is recorded (library vs external). */
+export async function recordRagSearchLog(admin: any, surface: string, result: LibraryRagResult) {
+  try {
+    await admin.from("modrek_search_logs").insert({
+      user_id: result.scope.userId,
+      role: result.scope.role,
+      surface,
+      query_text: result.trace.query,
+      intent: result.understanding.intent,
+      filters: {
+        grade: result.scope.gradeCode,
+        stage: result.scope.stageCode,
+        section: result.scope.sectionCode,
+        tracks: result.scope.trackCodes,
+        subject: result.understanding.subject,
+        book_id: result.selected_book?.id ?? null,
+        book_title: result.selected_book?.title ?? null,
+        lesson: result.lesson?.title ?? null,
+      },
+      tier_used: result.selected_book?.access_tier ?? null,
+      results_count: result.passages.length,
+      top_confidence: result.passages[0]?.score != null ? Math.min(1, Number(result.passages[0].score)) : null,
+      cache_hit: false,
+      duration_ms: result.trace.duration_ms,
+      fallback_external: !result.found,
+      trace: result.trace,
+    });
+  } catch (e) {
+    console.warn("[modrekLibraryRag] telemetry_failed", String(e).slice(0, 200));
+  }
+}
+
 
 // --------------------------------------------------------------- prompting --
 
