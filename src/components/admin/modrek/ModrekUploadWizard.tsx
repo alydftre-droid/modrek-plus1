@@ -844,7 +844,7 @@ export default function ModrekUploadWizard({
                     <ReviewCard
                       typeName={types.find((t) => t.id === typeId)?.name_ar ?? ""}
                       tax={tax} files={files}
-                      stages={stages} grades={grades} sections={sections} tracks={tracks}
+                      stages={stages} grades={grades} sections={sections} tracks={[ALL_TRACKS_OPTION, ...tracks]}
                       subjects={subjects} subSubjects={subSubjects}
                       meta={meta} onStart={startProcessing} saving={saving}
                     />
