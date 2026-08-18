@@ -192,22 +192,28 @@ export default function ModrekAnalyticsPage() {
                     <thead className="bg-[#F8FAFC] text-[#64748B]">
                       <tr>
                         <th className="p-3 font-bold">الوقت</th>
+                        <th className="p-3 font-bold">الواجهة</th>
                         <th className="p-3 font-bold">النية</th>
                         <th className="p-3 font-bold">الاستعلام</th>
+                        <th className="p-3 font-bold">الكتاب</th>
                         <th className="p-3 font-bold">النتائج</th>
-                        <th className="p-3 font-bold">الثقة</th>
                         <th className="p-3 font-bold">المدة</th>
                         <th className="p-3 font-bold">الحالة</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F1F5F9]">
                       {logs.slice(0, 25).map((l) => (
-                        <tr key={l.id} className="hover:bg-[#F8FAFC] transition-colors">
+                        <tr
+                          key={l.id}
+                          onClick={() => setTraceRow(l)}
+                          className="hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                        >
                           <td className="p-3 text-[#94A3B8] tabular-nums">{new Date(l.created_at).toLocaleString("ar-EG", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" })}</td>
+                          <td className="p-3 text-[#64748B]">{l.surface || "-"}</td>
                           <td className="p-3 font-bold text-[#0F172A]">{l.intent || "-"}</td>
                           <td className="p-3 max-w-[220px] truncate text-[#475569]">{l.query_text}</td>
+                          <td className="p-3 max-w-[160px] truncate text-[#475569]">{l.filters?.book_title || "-"}</td>
                           <td className="p-3 text-[#334155] tabular-nums">{l.results_count}</td>
-                          <td className="p-3 text-[#334155]">{l.top_confidence != null ? pct(l.top_confidence) : "-"}</td>
                           <td className="p-3 text-[#94A3B8] tabular-nums">{l.duration_ms ?? "-"} ms</td>
                           <td className="p-3">
                             {l.fallback_external ? <ModrekPill tone="rose">خارجي</ModrekPill>
@@ -224,6 +230,59 @@ export default function ModrekAnalyticsPage() {
           </ModrekSection>
         </>
       )}
+
+      <Dialog open={!!traceRow} onOpenChange={(open) => !open && setTraceRow(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right text-[15px]">تتبع الاسترجاع (Debug Trace)</DialogTitle>
+          </DialogHeader>
+          {traceRow && (
+            <div className="space-y-3 text-[12px]">
+              <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] p-3 space-y-1">
+                <div><b>السؤال:</b> {traceRow.query_text}</div>
+                <div><b>المادة المكتشفة:</b> {traceRow.trace?.detected_subject || "—"}</div>
+                <div><b>الدرس المطلوب:</b> {traceRow.trace?.detected_lesson ? `${traceRow.trace.detected_lesson.kind} ${traceRow.trace.detected_lesson.number}` : "—"}</div>
+                <div><b>الدرس المطابق:</b> {traceRow.trace?.matched_lesson || "—"}</div>
+                <div><b>نطاق الطالب:</b> {[traceRow.trace?.student?.stage, traceRow.trace?.student?.grade, traceRow.trace?.student?.section].filter(Boolean).join(" · ") || "—"}</div>
+                <div><b>المصدر:</b> {traceRow.trace?.source_type === "library" ? "مكتبة Modrek" : "خارجي"}</div>
+                <div>
+                  <b>نتائج البحث:</b> متجهات {traceRow.trace?.vector_hits ?? 0} · كلمات {traceRow.trace?.keyword_hits ?? 0} · صفحات {traceRow.trace?.page_hits ?? 0}
+                </div>
+                {Array.isArray(traceRow.trace?.reasons) && traceRow.trace.reasons.length > 0 && (
+                  <div><b>ملاحظات:</b> {traceRow.trace.reasons.join(" ، ")}</div>
+                )}
+              </div>
+
+              <div>
+                <div className="font-bold mb-1.5">الكتب التي تم البحث فيها</div>
+                <ul className="space-y-1.5">
+                  {(traceRow.trace?.books_searched || []).map((b: any) => (
+                    <li key={b.id} className="flex items-center justify-between rounded-[10px] bg-white border border-[#E5E7EB] px-3 py-2">
+                      <span className="truncate">{b.title}</span>
+                      <ModrekPill tone="blue">{b.subject || "—"}</ModrekPill>
+                    </li>
+                  ))}
+                  {!(traceRow.trace?.books_searched || []).length && <li className="text-[#94A3B8]">لا يوجد</li>}
+                </ul>
+              </div>
+
+              <div>
+                <div className="font-bold mb-1.5">المقاطع المستخدمة</div>
+                <ul className="space-y-1.5">
+                  {(traceRow.trace?.passages || []).map((p: any, i: number) => (
+                    <li key={`${p.chunk_id || i}`} className="rounded-[10px] bg-white border border-[#E5E7EB] px-3 py-2 flex items-center justify-between gap-2">
+                      <span>صفحة {p.page ?? "—"} · {p.source}</span>
+                      <span className="tabular-nums text-[#2563EB] font-bold">{Number(p.score ?? 0).toFixed(2)}</span>
+                    </li>
+                  ))}
+                  {!(traceRow.trace?.passages || []).length && <li className="text-[#94A3B8]">لم يُستخدم أي مقطع من المكتبة</li>}
+                </ul>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </ModrekShell>
   );
+
 }
