@@ -59,7 +59,7 @@ export default function ModrekAnalyticsPage() {
           supabase.from("library_books").select("id,subject_name_ar,status", { count: "exact", head: false }).limit(2000),
           supabase.from("library_book_chunks").select("id", { count: "exact", head: true }),
           supabase.from("library_book_chunks").select("id", { count: "exact", head: true }).not("embedding", "is", null),
-          supabase.from("library_processing_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "running", "retrying"] as any),
+          supabase.from("library_processing_jobs").select("id", { count: "exact", head: true }).in("state", ["queued", "running"] as any),
         ]);
         setLogs((logRes.data ?? []) as LogRow[]);
         setTotalChunks(chunkRes.count ?? 0);
