@@ -223,6 +223,48 @@ export default function ModrekUploadWizard({
     [tracks, tax.track_id],
   );
 
+  /** Education systems (عام / أزهري / مشترك) that really carry subjects in the chosen stage/grade. */
+  const availableSections = useMemo(() => {
+    const scoped = subjects.filter((subject) =>
+      (!tax.stage_id || !subject.stage_id || subject.stage_id === tax.stage_id)
+      && (!tax.grade_id || !subject.grade_id || subject.grade_id === tax.grade_id));
+    const usedIds = new Set(scoped.map((subject) => subject.section_id).filter(Boolean) as string[]);
+    const sharedId = sections.find((section) => section.code === "shared")?.id;
+    // A "shared" subject is available for both عام and أزهري, so keep those options visible.
+    const list = sections.filter((section) => usedIds.has(section.id)
+      || (sharedId && usedIds.has(sharedId) && (section.code === "general" || section.code === "azhar")));
+    return list.length ? list : sections;
+  }, [subjects, sections, tax.stage_id, tax.grade_id]);
+
+  /** Tracks (شعب) that really exist for the chosen stage/grade/system. */
+  const availableTracks = useMemo(() => {
+    const sectionCodeById = new Map(sections.map((section) => [section.id, section.code]));
+    const selectedSectionCode = sections.find((s) => s.id === tax.section_id)?.code;
+    const scoped = subjects.filter((subject) => subjectScopeMatches(subject, {
+      stageId: tax.stage_id,
+      gradeId: tax.grade_id,
+      sectionId: tax.section_id,
+      selectedSectionCode,
+      selectedTrackCode: null,
+      sectionCodeById,
+    }));
+    const usedTracks = new Set(scoped.map((s) => s.curriculum_track).filter(Boolean) as string[]);
+    if (!usedTracks.size) return [];
+    return tracks.filter((track) => {
+      if (track.code === "literary") return usedTracks.has("literary");
+      if (["scientific", "sci_science", "sci_math"].includes(track.code)) return usedTracks.has("scientific");
+      return usedTracks.has(track.code);
+    });
+  }, [subjects, sections, tracks, tax.stage_id, tax.grade_id, tax.section_id]);
+
+  // Drop a selected track that no longer belongs to the current stage/grade/system.
+  useEffect(() => {
+    if (!tax.track_id) return;
+    if (availableTracks.some((track) => track.id === tax.track_id)) return;
+    setTax((t) => ({ ...t, track_id: "", subject_id: "", sub_subject_id: "" }));
+  }, [availableTracks, tax.track_id]);
+
+
   const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.file.size, 0), [files]);
 
   const addFiles = (list: FileList | File[]) => {
