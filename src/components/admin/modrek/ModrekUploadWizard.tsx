@@ -203,7 +203,8 @@ export default function ModrekUploadWizard({
   const filteredSubjects = useMemo(() => {
     const sectionCodeById = new Map(sections.map((section) => [section.id, section.code]));
     const selectedSectionCode = sections.find((s) => s.id === tax.section_id)?.code;
-    const selectedTrackCode = tracks.find((t) => t.id === tax.track_id)?.code;
+    const selectedTrackCode = tax.track_id === ALL_TRACKS_ID ? "none" : tracks.find((t) => t.id === tax.track_id)?.code;
+
     const visibleSubjects = subjects.filter((subject) => subjectScopeMatches(subject, {
       stageId: tax.stage_id,
       gradeId: tax.grade_id,
