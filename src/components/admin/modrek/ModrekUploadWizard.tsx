@@ -623,7 +623,7 @@ export default function ModrekUploadWizard({
               {step === 2 && (
                 <StepBlock title="التصنيف الأكاديمي" hint="اختر النظام والمرحلة أولاً — تتحدّث القوائم تلقائياً.">
                   <div className="mb-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <TaxonomyCount label="الأقسام" value={sections.length} icon={LibraryIcon} accent="blue" />
+                    <TaxonomyCount label="الأقسام" value={availableSections.length} icon={LibraryIcon} accent="blue" />
                     <TaxonomyCount label="المراحل" value={stages.length} icon={GraduationCap} accent="emerald" />
                     <TaxonomyCount label="الصفوف" value={filteredGrades.length || grades.length} icon={BookOpen} accent="amber" />
                     <TaxonomyCount label="المواد" value={filteredSubjects.length} icon={Layers} accent="purple" />
@@ -633,11 +633,11 @@ export default function ModrekUploadWizard({
                       <Field label="النظام التعليمي" required>
                         <SearchSelect value={tax.section_id}
                           onChange={(v) => setTax((t) => ({ ...t, section_id: v, subject_id: "", sub_subject_id: "" }))}
-                          placeholder="عام / أزهري / مشترك" options={sections} />
+                          placeholder="عام / أزهري / مشترك" options={availableSections} />
                       </Field>
                       <Field label="المرحلة">
                         <SearchSelect value={tax.stage_id}
-                          onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", subject_id: "", sub_subject_id: "" }))}
+                          onChange={(v) => setTax((t) => ({ ...t, stage_id: v, grade_id: "", track_id: "", subject_id: "", sub_subject_id: "" }))}
                           placeholder="اختر المرحلة" options={stages} />
                       </Field>
                       <Field label="الصف">
@@ -647,8 +647,10 @@ export default function ModrekUploadWizard({
                       </Field>
                       <Field label="الشعبة (علمي / أدبي)">
                         <SearchSelect value={tax.track_id} onChange={(v) => setTax((t) => ({ ...t, track_id: v, subject_id: "", sub_subject_id: "" }))}
-                          placeholder="اختر الشعبة" options={tracks} />
+                          placeholder={availableTracks.length ? "اختر الشعبة" : "لا توجد شعب لهذه المرحلة"}
+                          options={availableTracks} disabled={availableTracks.length === 0} />
                       </Field>
+
                       <Field label="المادة">
                         <SearchSelect value={tax.subject_id}
                           onChange={(v) => setTax((t) => ({ ...t, subject_id: v, sub_subject_id: "" }))}
