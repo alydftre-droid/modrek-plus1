@@ -31,6 +31,12 @@ type Subject = Taxo & {
 type SubSubject = Taxo & { subject_id: string };
 type SourceType = { id: string; code: string; name_ar: string; icon: string | null };
 
+/** Virtual option: book shared across all tracks (علمي + أدبي) — stored as track_id = null. */
+const ALL_TRACKS_ID = "__all_tracks__";
+const ALL_TRACKS_OPTION: Taxo = { id: ALL_TRACKS_ID, code: "none", name_ar: "الجميع (علمي وأدبي)" };
+
+
+
 type Props = {
   open: boolean;
   onClose: () => void;
