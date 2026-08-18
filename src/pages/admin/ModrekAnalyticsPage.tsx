@@ -5,6 +5,8 @@ import {
   ShieldAlert, Sparkles, TrendingUp, Inbox,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import {
   ModrekShell, ModrekCard, ModrekButton, ModrekHero, ModrekEyebrow,
   ModrekStat, ModrekSection, ModrekPill, ModrekEmpty,
