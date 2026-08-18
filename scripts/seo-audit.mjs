@@ -18,7 +18,6 @@ const CONCURRENCY = 6;
 const indexableRoutes = [
   ...staticRoutes.map((r) => r.path),
   ...seoPages.map((p) => p.slug),
-  "/teacher/terms",
 ];
 
 /** Intentional redirects: source -> final destination. */
@@ -159,10 +158,13 @@ async function auditRobots() {
   const txt = await res.text();
   const globalBlock = txt.split(/^user-agent:/im).find((b) => b.trim().startsWith("*"));
   const disallows = [...(globalBlock || "").matchAll(/^\s*disallow:\s*(\S*)\s*$/gim)].map((m) => m[1]);
+  const allows = [...(globalBlock || "").matchAll(/^\s*allow:\s*(\S*)\s*$/gim)].map((m) => m[1]).filter(Boolean);
   if (disallows.includes("/")) add("error", "/robots.txt", "Disallow: / blocks the whole site");
   for (const route of indexableRoutes) {
-    const blocked = disallows.find((d) => d && route.startsWith(d));
-    if (blocked) add("error", "/robots.txt", `"Disallow: ${blocked}" blocks public route ${route}`);
+    const blocked = disallows.filter((d) => d && route.startsWith(d)).sort((a, b) => b.length - a.length)[0];
+    const allowed = allows.filter((a) => route.startsWith(a)).sort((a, b) => b.length - a.length)[0];
+    // Longest matching rule wins (robots.txt precedence).
+    if (blocked && !(allowed && allowed.length >= blocked.length)) add("error", "/robots.txt", `"Disallow: ${blocked}" blocks public route ${route}`);
   }
   if (!/^sitemap:/im.test(txt)) add("warn", "/robots.txt", "no Sitemap: directive");
 }
