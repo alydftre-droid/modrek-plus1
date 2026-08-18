@@ -180,9 +180,13 @@ async function pool(items, worker) {
 
 async function notFoundCheck() {
   const probe = "/__seo_audit_missing_page__";
-  const { status } = await fetchDoc(probe);
-  if (status === 200) add("warn", probe, "unknown URL returns 200 (soft 404) — Google may treat it as a duplicate");
-  else if (status !== 404) add("warn", probe, `unknown URL returns ${status}`);
+  const { status, html } = await fetchDoc(probe);
+  const robots = pick(html, /<meta\s+name="robots"\s+content="([^"]*)"/i) || "";
+  if (status === 200 && !/noindex/i.test(robots)) {
+    add("error", probe, "unknown URL returns an indexable 200 (soft 404) — Google treats it as a duplicate");
+  } else if (status === 200) {
+    console.log("note   unknown URLs return a noindex SPA shell (200) — acceptable for this SPA host");
+  } else if (status !== 404) add("warn", probe, `unknown URL returns ${status}`);
 }
 
 console.log(`\n=== SEO audit: ${base} ===\n`);
