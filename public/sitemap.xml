@@ -16,6 +16,11 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://modrekplus.com/teacher/terms</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
     <loc>https://modrekplus.com/privacy-policy</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>

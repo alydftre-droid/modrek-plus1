@@ -114,8 +114,8 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
-      "destination": "/"
+      "source": "/((?!app-shell).*)",
+      "destination": "/app-shell.html"
     }
   ]
 }

@@ -189,7 +189,18 @@ function prerender() {
     writeFileSync(resolve(outDir, "index.html"), html);
     count++;
   }
-  console.log(`[seo] prerendered ${count} routes`);
+  // SPA fallback shell for every non-prerendered path (private app routes and
+  // unknown URLs). It is noindex and carries no canonical, so unknown URLs no
+  // longer serve an indexable copy of the homepage (soft 404 / duplicate cluster).
+  const shell = template
+    .replace(/<link\s+rel="canonical"[^>]*>\n?\s*/i, "")
+    .replace(
+      /<meta\s+name="robots"[^>]*>/i,
+      `<meta name="robots" content="noindex, follow" />`,
+    )
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(SITE_NAME)}</title>`);
+  writeFileSync(resolve(root, "dist/app-shell.html"), shell);
+  console.log(`[seo] prerendered ${count} routes + app-shell.html`);
 }
 
 const mode = process.argv[2] || "sitemap";
