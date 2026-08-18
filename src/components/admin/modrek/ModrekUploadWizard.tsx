@@ -31,6 +31,12 @@ type Subject = Taxo & {
 type SubSubject = Taxo & { subject_id: string };
 type SourceType = { id: string; code: string; name_ar: string; icon: string | null };
 
+/** Virtual option: book shared across all tracks (علمي + أدبي) — stored as track_id = null. */
+const ALL_TRACKS_ID = "__all_tracks__";
+const ALL_TRACKS_OPTION: Taxo = { id: ALL_TRACKS_ID, code: "none", name_ar: "الجميع (علمي وأدبي)" };
+
+
+
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -203,7 +209,8 @@ export default function ModrekUploadWizard({
   const filteredSubjects = useMemo(() => {
     const sectionCodeById = new Map(sections.map((section) => [section.id, section.code]));
     const selectedSectionCode = sections.find((s) => s.id === tax.section_id)?.code;
-    const selectedTrackCode = tracks.find((t) => t.id === tax.track_id)?.code;
+    const selectedTrackCode = tax.track_id === ALL_TRACKS_ID ? "none" : tracks.find((t) => t.id === tax.track_id)?.code;
+
     const visibleSubjects = subjects.filter((subject) => subjectScopeMatches(subject, {
       stageId: tax.stage_id,
       gradeId: tax.grade_id,
@@ -219,9 +226,10 @@ export default function ModrekUploadWizard({
     [subSubjects, tax.subject_id],
   );
   const selectedTrackCode = useMemo(
-    () => tracks.find((track) => track.id === tax.track_id)?.code,
+    () => (tax.track_id === ALL_TRACKS_ID ? "none" : tracks.find((track) => track.id === tax.track_id)?.code),
     [tracks, tax.track_id],
   );
+
 
   /** Education systems (عام / أزهري / مشترك) that really carry subjects in the chosen stage/grade. */
   const availableSections = useMemo(() => {
@@ -250,12 +258,14 @@ export default function ModrekUploadWizard({
     }));
     const usedTracks = new Set(scoped.map((s) => s.curriculum_track).filter(Boolean) as string[]);
     if (!usedTracks.size) return [];
-    return tracks.filter((track) => {
+    const real = tracks.filter((track) => {
       if (track.code === "literary") return usedTracks.has("literary");
       if (["scientific", "sci_science", "sci_math"].includes(track.code)) return usedTracks.has("scientific");
       return usedTracks.has(track.code);
     });
+    return real.length ? [ALL_TRACKS_OPTION, ...real] : [];
   }, [subjects, sections, tracks, tax.stage_id, tax.grade_id, tax.section_id]);
+
 
   // Drop a selected track that no longer belongs to the current stage/grade/system.
   useEffect(() => {
@@ -834,7 +844,7 @@ export default function ModrekUploadWizard({
                     <ReviewCard
                       typeName={types.find((t) => t.id === typeId)?.name_ar ?? ""}
                       tax={tax} files={files}
-                      stages={stages} grades={grades} sections={sections} tracks={tracks}
+                      stages={stages} grades={grades} sections={sections} tracks={[ALL_TRACKS_OPTION, ...tracks]}
                       subjects={subjects} subSubjects={subSubjects}
                       meta={meta} onStart={startProcessing} saving={saving}
                     />
