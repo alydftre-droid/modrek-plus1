@@ -168,7 +168,9 @@ Deno.serve(async (req) => {
           history,
           contextSubject: (conversationContext as any)?.subject_name ?? null,
           maxPassages: 8,
+          surface: "modrek-ai-study",
           scope,
+
         });
         logRagPipeline("modrek-ai-study", rag);
         knowledgeBlock = `\n\n${buildLibraryContextBlock(rag)}\n`;

@@ -516,6 +516,8 @@ ${g ? `- ${g}.` : ""}
             query: lastQuery,
             history: userTurns.slice(-6, -1),
             maxPassages: 8,
+            surface: "ai-chat",
+
           });
           logRagPipeline("ai-chat", rag);
           systemPrompt += `\n\n${MODREK_ASSISTANT_SCOPE_RULES}\n\n${buildLibraryContextBlock(rag)}\n\n${

@@ -5,6 +5,8 @@ import {
   ShieldAlert, Sparkles, TrendingUp, Inbox,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 import {
   ModrekShell, ModrekCard, ModrekButton, ModrekHero, ModrekEyebrow,
   ModrekStat, ModrekSection, ModrekPill, ModrekEmpty,
@@ -15,6 +17,7 @@ interface LogRow {
   created_at: string;
   intent: string | null;
   role: string | null;
+  surface: string | null;
   cache_hit: boolean;
   fallback_external: boolean;
   duration_ms: number | null;
@@ -22,18 +25,10 @@ interface LogRow {
   results_count: number;
   tier_used: string | null;
   query_text: string;
+  filters: any;
+  trace: any;
 }
 interface SourceCount { source_type: string | null; count: number }
-type KnowledgeSourceRow = {
-  source_type_id: string | null;
-  knowledge_source_types?: { name_ar?: string | null } | Array<{ name_ar?: string | null }> | null;
-};
-
-function getSourceTypeName(row: KnowledgeSourceRow) {
-  const relation = row.knowledge_source_types;
-  const record = Array.isArray(relation) ? relation[0] : relation;
-  return String(record?.name_ar || row.source_type_id || "غير محدد");
-}
 
 const fmt = (n: number) => new Intl.NumberFormat("ar-EG").format(n);
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
@@ -45,28 +40,35 @@ export default function ModrekAnalyticsPage() {
   const [sources, setSources] = useState<SourceCount[]>([]);
   const [totalSources, setTotalSources] = useState(0);
   const [totalChunks, setTotalChunks] = useState(0);
+  const [embeddedChunks, setEmbeddedChunks] = useState(0);
   const [pendingJobs, setPendingJobs] = useState(0);
+  const [traceRow, setTraceRow] = useState<LogRow | null>(null);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-        const [logRes, srcRes, chunkRes, jobRes] = await Promise.all([
+        // NOTE: metrics read the LIVE library tables (library_books / library_book_chunks).
+        // The old knowledge_sources/content_chunks tables are unused and made the
+        // dashboard report 0% retrieval even when the library had content.
+        const [logRes, bookRes, chunkRes, embRes, jobRes] = await Promise.all([
           supabase.from("modrek_search_logs")
-            .select("id,created_at,intent,role,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text")
+            .select("id,created_at,intent,role,surface,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text,filters,trace")
             .gte("created_at", since).order("created_at", { ascending: false }).limit(500),
-          supabase.from("knowledge_sources").select("source_type_id, knowledge_source_types(name_ar)", { count: "exact", head: false }).limit(2000),
-          supabase.from("content_chunks").select("id", { count: "exact", head: true }),
-          supabase.from("processing_jobs").select("id", { count: "exact", head: true }).in("status", ["queued", "running", "retrying"] as any),
+          supabase.from("library_books").select("id,subject_name_ar,status", { count: "exact", head: false }).limit(2000),
+          supabase.from("library_book_chunks").select("id", { count: "exact", head: true }),
+          supabase.from("library_book_chunks").select("id", { count: "exact", head: true }).not("embedding", "is", null),
+          supabase.from("library_processing_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "running", "retrying"] as any),
         ]);
         setLogs((logRes.data ?? []) as LogRow[]);
         setTotalChunks(chunkRes.count ?? 0);
+        setEmbeddedChunks(embRes.count ?? 0);
         setPendingJobs(jobRes.count ?? 0);
-        setTotalSources(srcRes.count ?? (srcRes.data?.length ?? 0));
+        setTotalSources(bookRes.count ?? (bookRes.data?.length ?? 0));
         const bucket = new Map<string, number>();
-        ((srcRes.data ?? []) as KnowledgeSourceRow[]).forEach((s) => {
-          const key = getSourceTypeName(s);
+        ((bookRes.data ?? []) as any[]).forEach((b) => {
+          const key = String(b.subject_name_ar || "غير محدد");
           bucket.set(key, (bucket.get(key) ?? 0) + 1);
         });
         setSources(Array.from(bucket, ([source_type, count]) => ({ source_type, count })).sort((a, b) => b.count - a.count));
@@ -96,6 +98,7 @@ export default function ModrekAnalyticsPage() {
     return Array.from(bucket, ([intent, count]) => ({ intent, count })).sort((a, b) => b.count - a.count).slice(0, 8);
   }, [logs]);
 
+
   return (
     <ModrekShell>
       <ModrekHero
@@ -117,13 +120,19 @@ export default function ModrekAnalyticsPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             <ModrekStat icon={Activity} label="عدد الطلبات" value={fmt(stats.total)} accent="blue" />
             <ModrekStat icon={Clock} label="متوسط الاستجابة" value={`${fmt(stats.avgMs)} ms`} accent="cyan" />
-            <ModrekStat icon={TrendingUp} label="معدل النجاح" value={pct(stats.successRate)} accent="emerald" />
-            <ModrekStat icon={Database} label="نسبة الكاش" value={pct(stats.cacheRate)} accent="amber" />
+            <ModrekStat icon={TrendingUp} label="الاسترجاع من المكتبة" value={pct(stats.successRate)} accent="emerald" />
             <ModrekStat icon={ShieldAlert} label="اللجوء للخارجي" value={pct(stats.externalRate)} accent="rose" />
+            <ModrekStat icon={Database} label="نسبة الكاش" value={pct(stats.cacheRate)} accent="amber" />
             <ModrekStat icon={BarChart3} label="متوسط الثقة" value={pct(stats.avgConfidence)} accent="purple" />
-            <ModrekStat icon={BookOpen} label="مصادر المكتبة" value={fmt(totalSources)} accent="blue" />
-            <ModrekStat icon={Database} label="مقاطع مفهرسة" value={fmt(totalChunks)} accent="emerald" />
+            <ModrekStat icon={BookOpen} label="كتب المكتبة" value={fmt(totalSources)} accent="blue" />
+            <ModrekStat
+              icon={Database}
+              label="مقاطع مفهرسة (بمتجهات)"
+              value={`${fmt(embeddedChunks)} / ${fmt(totalChunks)}`}
+              accent="emerald"
+            />
           </div>
+
 
           {pendingJobs > 0 && (
             <ModrekCard padding="none" className="p-4 border-[#FEF3C7] bg-[#FFFBEB]">
@@ -185,22 +194,28 @@ export default function ModrekAnalyticsPage() {
                     <thead className="bg-[#F8FAFC] text-[#64748B]">
                       <tr>
                         <th className="p-3 font-bold">الوقت</th>
+                        <th className="p-3 font-bold">الواجهة</th>
                         <th className="p-3 font-bold">النية</th>
                         <th className="p-3 font-bold">الاستعلام</th>
+                        <th className="p-3 font-bold">الكتاب</th>
                         <th className="p-3 font-bold">النتائج</th>
-                        <th className="p-3 font-bold">الثقة</th>
                         <th className="p-3 font-bold">المدة</th>
                         <th className="p-3 font-bold">الحالة</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F1F5F9]">
                       {logs.slice(0, 25).map((l) => (
-                        <tr key={l.id} className="hover:bg-[#F8FAFC] transition-colors">
+                        <tr
+                          key={l.id}
+                          onClick={() => setTraceRow(l)}
+                          className="hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+                        >
                           <td className="p-3 text-[#94A3B8] tabular-nums">{new Date(l.created_at).toLocaleString("ar-EG", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "numeric" })}</td>
+                          <td className="p-3 text-[#64748B]">{l.surface || "-"}</td>
                           <td className="p-3 font-bold text-[#0F172A]">{l.intent || "-"}</td>
                           <td className="p-3 max-w-[220px] truncate text-[#475569]">{l.query_text}</td>
+                          <td className="p-3 max-w-[160px] truncate text-[#475569]">{l.filters?.book_title || "-"}</td>
                           <td className="p-3 text-[#334155] tabular-nums">{l.results_count}</td>
-                          <td className="p-3 text-[#334155]">{l.top_confidence != null ? pct(l.top_confidence) : "-"}</td>
                           <td className="p-3 text-[#94A3B8] tabular-nums">{l.duration_ms ?? "-"} ms</td>
                           <td className="p-3">
                             {l.fallback_external ? <ModrekPill tone="rose">خارجي</ModrekPill>
@@ -217,6 +232,59 @@ export default function ModrekAnalyticsPage() {
           </ModrekSection>
         </>
       )}
+
+      <Dialog open={!!traceRow} onOpenChange={(open) => !open && setTraceRow(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="text-right text-[15px]">تتبع الاسترجاع (Debug Trace)</DialogTitle>
+          </DialogHeader>
+          {traceRow && (
+            <div className="space-y-3 text-[12px]">
+              <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] p-3 space-y-1">
+                <div><b>السؤال:</b> {traceRow.query_text}</div>
+                <div><b>المادة المكتشفة:</b> {traceRow.trace?.detected_subject || "—"}</div>
+                <div><b>الدرس المطلوب:</b> {traceRow.trace?.detected_lesson ? `${traceRow.trace.detected_lesson.kind} ${traceRow.trace.detected_lesson.number}` : "—"}</div>
+                <div><b>الدرس المطابق:</b> {traceRow.trace?.matched_lesson || "—"}</div>
+                <div><b>نطاق الطالب:</b> {[traceRow.trace?.student?.stage, traceRow.trace?.student?.grade, traceRow.trace?.student?.section].filter(Boolean).join(" · ") || "—"}</div>
+                <div><b>المصدر:</b> {traceRow.trace?.source_type === "library" ? "مكتبة Modrek" : "خارجي"}</div>
+                <div>
+                  <b>نتائج البحث:</b> متجهات {traceRow.trace?.vector_hits ?? 0} · كلمات {traceRow.trace?.keyword_hits ?? 0} · صفحات {traceRow.trace?.page_hits ?? 0}
+                </div>
+                {Array.isArray(traceRow.trace?.reasons) && traceRow.trace.reasons.length > 0 && (
+                  <div><b>ملاحظات:</b> {traceRow.trace.reasons.join(" ، ")}</div>
+                )}
+              </div>
+
+              <div>
+                <div className="font-bold mb-1.5">الكتب التي تم البحث فيها</div>
+                <ul className="space-y-1.5">
+                  {(traceRow.trace?.books_searched || []).map((b: any) => (
+                    <li key={b.id} className="flex items-center justify-between rounded-[10px] bg-white border border-[#E5E7EB] px-3 py-2">
+                      <span className="truncate">{b.title}</span>
+                      <ModrekPill tone="blue">{b.subject || "—"}</ModrekPill>
+                    </li>
+                  ))}
+                  {!(traceRow.trace?.books_searched || []).length && <li className="text-[#94A3B8]">لا يوجد</li>}
+                </ul>
+              </div>
+
+              <div>
+                <div className="font-bold mb-1.5">المقاطع المستخدمة</div>
+                <ul className="space-y-1.5">
+                  {(traceRow.trace?.passages || []).map((p: any, i: number) => (
+                    <li key={`${p.chunk_id || i}`} className="rounded-[10px] bg-white border border-[#E5E7EB] px-3 py-2 flex items-center justify-between gap-2">
+                      <span>صفحة {p.page ?? "—"} · {p.source}</span>
+                      <span className="tabular-nums text-[#2563EB] font-bold">{Number(p.score ?? 0).toFixed(2)}</span>
+                    </li>
+                  ))}
+                  {!(traceRow.trace?.passages || []).length && <li className="text-[#94A3B8]">لم يُستخدم أي مقطع من المكتبة</li>}
+                </ul>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </ModrekShell>
   );
+
 }

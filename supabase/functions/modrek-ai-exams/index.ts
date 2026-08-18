@@ -1385,6 +1385,8 @@ Deno.serve(async (req) => {
         history: historyTexts,
         contextSubject: subjectHint || conversationContext?.subject_name || null,
         maxPassages: 10,
+        surface: "modrek-ai-exams",
+
       });
       logRagPipeline("modrek-ai-exams", rag, { traceId });
       libraryFound = rag.found;
