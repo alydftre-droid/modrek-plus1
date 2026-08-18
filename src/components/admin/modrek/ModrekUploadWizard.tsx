@@ -258,12 +258,14 @@ export default function ModrekUploadWizard({
     }));
     const usedTracks = new Set(scoped.map((s) => s.curriculum_track).filter(Boolean) as string[]);
     if (!usedTracks.size) return [];
-    return tracks.filter((track) => {
+    const real = tracks.filter((track) => {
       if (track.code === "literary") return usedTracks.has("literary");
       if (["scientific", "sci_science", "sci_math"].includes(track.code)) return usedTracks.has("scientific");
       return usedTracks.has(track.code);
     });
+    return real.length ? [ALL_TRACKS_OPTION, ...real] : [];
   }, [subjects, sections, tracks, tax.stage_id, tax.grade_id, tax.section_id]);
+
 
   // Drop a selected track that no longer belongs to the current stage/grade/system.
   useEffect(() => {
