@@ -182,8 +182,16 @@ function prerender() {
   for (const t of targets) {
     let html = injectHead(template, `${headTags(t)}\n    ${t.extraHead}`);
     if (t.body) {
-      html = html.replace('<div id="root"></div>', `<div id="root">${t.body}</div>`);
+      // Static SEO copy lives OUTSIDE #root inside a container that an inline
+      // script hides synchronously (before first paint), so real visitors never
+      // see a flash of the prerendered text while the SPA bundle loads, while
+      // non-JS crawlers still receive the full markup.
+      html = html.replace(
+        '<div id="root"></div>',
+        `<div id="root"></div>\n    <div id="seo-static">${t.body}</div>\n    <script>(function(){var e=document.getElementById("seo-static");if(e){e.setAttribute("hidden","");e.style.display="none";}})();</script>`,
+      );
     }
+
     const outDir = resolve(root, `dist${t.path}`);
     mkdirSync(outDir, { recursive: true });
     writeFileSync(resolve(outDir, "index.html"), html);
