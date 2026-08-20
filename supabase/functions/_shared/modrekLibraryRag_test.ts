@@ -45,6 +45,9 @@ type StubData = {
   library_books: any[];
   library_book_index?: any[];
   library_book_pages?: any[];
+  knowledge_sources?: any[];
+  knowledge_lesson_index?: any[];
+  content_chunks?: any[];
 };
 
 function stubClient(data: StubData) {
@@ -54,6 +57,9 @@ function stubClient(data: StubData) {
     library_books: data.library_books,
     library_book_index: data.library_book_index ?? [],
     library_book_pages: data.library_book_pages ?? [],
+    knowledge_sources: data.knowledge_sources ?? [],
+    knowledge_lesson_index: data.knowledge_lesson_index ?? [],
+    content_chunks: data.content_chunks ?? [],
   };
 
   function makeQuery(table: string) {
@@ -65,6 +71,7 @@ function stubClient(data: StubData) {
       eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return api; },
       gte: (col: string, val: number) => { rows = rows.filter((r) => Number(r[col]) >= val); return api; },
       lte: (col: string, val: number) => { rows = rows.filter((r) => Number(r[col]) <= val); return api; },
+      in: (col: string, vals: unknown[]) => { rows = rows.filter((r) => vals.includes(r[col])); return api; },
       or: (clause: string) => {
         const needles = clause.split(",").map((c) => c.split("%")[1] ?? "").filter(Boolean);
         rows = rows.filter((r) => needles.some((n) => String(r.ocr_text ?? "").includes(n)));
@@ -220,6 +227,42 @@ Deno.test("retrieval targets the requested fifth lesson pages only", async () =>
   }
   const block = buildLibraryContextBlock(rag);
   assert(block.includes("الدرس الخامس"));
+});
+
+Deno.test("retrieval reads a ready Modrek upload from knowledge_sources/content_chunks", async () => {
+  const source = {
+    id: "ks-hadith-sec2", title: "كتاب الحديث الصف الثاني الثانوي", status: "ready",
+    stage_id: "st-sec", grade_id: "g-sec2", section_id: "sc-gen", track_id: null,
+    subject_id: "subject-hadith", sub_subject_id: null, term: 1,
+  };
+  const admin = stubClient({
+    profiles: [GENERAL_SCI_SEC2],
+    library_books: [],
+    knowledge_sources: [source],
+    content_chunks: [{
+      id: "chunk-1", source_id: source.id, unit_id: "unit-1", ordinal: 1,
+      content: "الدرس الأول في الحديث يشرح معنى الحديث الشريف ومكانته بالتفصيل.",
+      metadata: { page_from: 5, page_to: 6, lesson_number: 1 },
+    }],
+    knowledge_lesson_index: [{
+      source_id: source.id, unit_id: "unit-1", title: "الدرس الأول: الحديث الشريف",
+      kind: "lesson", lesson_number: 1, unit_number: 1, page_start: 5, page_end: 6, ordinal: 1,
+    }],
+  });
+  // Populate the taxonomy subject used by the modern pipeline.
+  (TAX as any).library_subjects = [{ id: "subject-hadith", name_ar: "الحديث" }];
+  (TAX as any).library_sub_subjects = [];
+
+  const rag = await retrieveFromLibrary(admin, {
+    userId: GENERAL_SCI_SEC2.id,
+    query: "اشرح الدرس الأول في الحديث",
+    log: false,
+  });
+  assertEquals(rag.found, true);
+  assertEquals(rag.selected_book?.id, source.id);
+  assertEquals(rag.selected_book?.pipeline, "knowledge");
+  assertEquals(rag.lesson?.title, "الدرس الأول: الحديث الشريف");
+  assert(rag.passages.some((p) => p.text.includes("مكانته")));
 });
 
 Deno.test("subject outside the student's library returns a clean not-found", async () => {
