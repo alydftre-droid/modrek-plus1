@@ -49,26 +49,32 @@ export default function ModrekAnalyticsPage() {
       setLoading(true);
       try {
         const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-        // NOTE: metrics read the LIVE library tables (library_books / library_book_chunks).
-        // The old knowledge_sources/content_chunks tables are unused and made the
-        // dashboard report 0% retrieval even when the library had content.
-        const [logRes, bookRes, chunkRes, embRes, jobRes] = await Promise.all([
+        // Both upload pipelines are live and feed the same assistant retrieval brain.
+        const [logRes, bookRes, sourceRes, chunkRes, modernChunkRes, embRes, modernEmbRes, jobRes, modernJobRes] = await Promise.all([
           supabase.from("modrek_search_logs")
             .select("id,created_at,intent,role,surface,cache_hit,fallback_external,duration_ms,top_confidence,results_count,tier_used,query_text,filters,trace")
             .gte("created_at", since).order("created_at", { ascending: false }).limit(500),
           supabase.from("library_books").select("id,subject_name_ar,status", { count: "exact", head: false }).limit(2000),
+          supabase.from("knowledge_sources").select("id,title,status", { count: "exact", head: false }).limit(2000),
           supabase.from("library_book_chunks").select("id", { count: "exact", head: true }),
+          supabase.from("content_chunks").select("id", { count: "exact", head: true }),
           supabase.from("library_book_chunks").select("id", { count: "exact", head: true }).not("embedding", "is", null),
+          supabase.from("content_chunks").select("id", { count: "exact", head: true }).not("embedding", "is", null),
           supabase.from("library_processing_jobs").select("id", { count: "exact", head: true }).in("state", ["queued", "running"] as any),
+          supabase.from("processing_jobs").select("id", { count: "exact", head: true }).in("status", ["pending", "running", "retrying"] as any),
         ]);
         setLogs((logRes.data ?? []) as LogRow[]);
-        setTotalChunks(chunkRes.count ?? 0);
-        setEmbeddedChunks(embRes.count ?? 0);
-        setPendingJobs(jobRes.count ?? 0);
-        setTotalSources(bookRes.count ?? (bookRes.data?.length ?? 0));
+        setTotalChunks((chunkRes.count ?? 0) + (modernChunkRes.count ?? 0));
+        setEmbeddedChunks((embRes.count ?? 0) + (modernEmbRes.count ?? 0));
+        setPendingJobs((jobRes.count ?? 0) + (modernJobRes.count ?? 0));
+        setTotalSources((bookRes.count ?? (bookRes.data?.length ?? 0)) + (sourceRes.count ?? (sourceRes.data?.length ?? 0)));
         const bucket = new Map<string, number>();
         ((bookRes.data ?? []) as any[]).forEach((b) => {
           const key = String(b.subject_name_ar || "غير محدد");
+          bucket.set(key, (bucket.get(key) ?? 0) + 1);
+        });
+        ((sourceRes.data ?? []) as any[]).forEach((source) => {
+          const key = String(source.title || "غير محدد");
           bucket.set(key, (bucket.get(key) ?? 0) + 1);
         });
         setSources(Array.from(bucket, ([source_type, count]) => ({ source_type, count })).sort((a, b) => b.count - a.count));

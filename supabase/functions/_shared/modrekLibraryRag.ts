@@ -18,6 +18,7 @@
 import { normalizeAr, parseLessonRequest } from "./lessonTargeting.ts";
 import { resolveOpenRouterApiKey } from "./aiSettings.ts";
 import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "./openrouter.ts";
+import { aiEmbeddings } from "./aiProvider.ts";
 
 // ---------------------------------------------------------------- scope ----
 
@@ -251,6 +252,8 @@ export interface LibraryBookRef {
   term: string | null;
   page_count: number | null;
   access_tier: string | null;
+  /** The platform currently has two upload pipelines; retrieval must read both. */
+  pipeline: "library" | "knowledge";
 }
 
 export type PassageSource = "page" | "lesson_pages" | "vector" | "keyword_chunk" | "keyword_page" | "outline_sample";
@@ -315,17 +318,22 @@ export interface LibraryRagResult {
 }
 
 
-let taxonomyCache: { at: number; grades: any[]; tracks: any[]; stages: any[]; sections: any[] } | null = null;
+let taxonomyCache: { at: number; grades: any[]; tracks: any[]; stages: any[]; sections: any[]; subjects: any[]; subSubjects: any[] } | null = null;
 
 async function loadTaxonomy(admin: any) {
   if (taxonomyCache && Date.now() - taxonomyCache.at < 5 * 60_000) return taxonomyCache;
-  const [{ data: grades }, { data: tracks }, { data: stages }, { data: sections }] = await Promise.all([
+  const [{ data: grades }, { data: tracks }, { data: stages }, { data: sections }, { data: subjects }, { data: subSubjects }] = await Promise.all([
     admin.from("library_grades").select("id, code, name_ar, stage_id"),
     admin.from("library_tracks").select("id, code, name_ar"),
     admin.from("library_stages").select("id, code, name_ar"),
     admin.from("library_sections").select("id, code, name_ar"),
+    admin.from("library_subjects").select("id, name_ar"),
+    admin.from("library_sub_subjects").select("id, name_ar"),
   ]);
-  taxonomyCache = { at: Date.now(), grades: grades || [], tracks: tracks || [], stages: stages || [], sections: sections || [] };
+  taxonomyCache = {
+    at: Date.now(), grades: grades || [], tracks: tracks || [], stages: stages || [], sections: sections || [],
+    subjects: subjects || [], subSubjects: subSubjects || [],
+  };
   return taxonomyCache;
 }
 
@@ -363,7 +371,20 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
   if (gradeRow?.id) q = q.eq("grade_id", gradeRow.id);
   else if (stageRow?.id) q = q.eq("stage_id", stageRow.id);
 
-  const { data: rows, error } = await q;
+  const [{ data: rows, error }, modernResult] = await Promise.all([
+    q,
+    (() => {
+      let modern = admin
+        .from("knowledge_sources")
+        .select("id,title,term,grade_id,track_id,stage_id,section_id,subject_id,sub_subject_id")
+        .eq("status", "ready")
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (gradeRow?.id) modern = modern.eq("grade_id", gradeRow.id);
+      else if (stageRow?.id) modern = modern.eq("stage_id", stageRow.id);
+      return modern;
+    })(),
+  ]);
   if (error) { console.warn("[modrekLibraryRag] books_query_failed", error.message); return []; }
 
   const systemLabel = scope.sectionCode === "azhar" ? "ازهر" : scope.sectionCode === "general" ? "عام" : null;
@@ -408,16 +429,70 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
       term: b.term ?? null,
       page_count: b.page_count ?? null,
       access_tier: tier,
+      pipeline: "library",
     });
+  }
+
+  // The Modrek upload wizard writes to knowledge_sources/content_chunks. Older
+  // assistants only queried library_books, which made a fully processed source
+  // invisible and forced a false external fallback. Merge both pipelines here.
+  const modernRows = modernResult?.data || [];
+  if (modernResult?.error) console.warn("[modrekLibraryRag] knowledge_sources_query_failed", modernResult.error.message);
+  const modernScoped = modernRows.filter((b: any) => {
+    if (b.section_id && allowedSectionIds.length && !allowedSectionIds.includes(b.section_id)) return false;
+    if (b.track_id && trackIds.length && !trackIds.includes(b.track_id)) return false;
+    return true;
+  });
+  if (modernScoped.length) {
+    const modernIds = modernScoped.map((b: any) => b.id);
+    const { data: searchableRows, error: searchableError } = await admin
+      .from("content_chunks")
+      .select("source_id")
+      .in("source_id", modernIds)
+      .limit(5000);
+    if (searchableError) console.warn("[modrekLibraryRag] knowledge_chunks_probe_failed", searchableError.message);
+    const searchable = new Set((searchableRows || []).map((r: any) => String(r.source_id)));
+    for (const b of modernScoped) {
+      if (!searchable.has(String(b.id))) continue;
+      out.push({
+        id: b.id,
+        title: b.title,
+        subject: tax.subjects.find((s: any) => s.id === b.subject_id)?.name_ar ?? b.title ?? null,
+        sub_subject: tax.subSubjects.find((s: any) => s.id === b.sub_subject_id)?.name_ar ?? null,
+        grade_label: tax.grades.find((g: any) => g.id === b.grade_id)?.name_ar ?? null,
+        track_label: tax.tracks.find((t: any) => t.id === b.track_id)?.name_ar ?? null,
+        education_type: tax.sections.find((s: any) => s.id === b.section_id)?.name_ar ?? null,
+        term: b.term != null ? String(b.term) : null,
+        page_count: null,
+        access_tier: "free",
+        pipeline: "knowledge",
+      });
+    }
   }
   return out;
 }
 
-async function loadOutline(admin: any, bookId: string): Promise<LibraryLessonRef[]> {
+async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLessonRef[]> {
+  if (book.pipeline === "knowledge") {
+    const { data } = await admin
+      .from("knowledge_lesson_index")
+      .select("unit_id,title,kind,page_start,page_end,ordinal")
+      .eq("source_id", book.id)
+      .order("ordinal", { ascending: true })
+      .limit(400);
+    return (data || []).map((r: any) => ({
+      id: r.unit_id,
+      title: r.title,
+      kind: r.kind ?? null,
+      page_start: r.page_start ?? null,
+      page_end: r.page_end ?? null,
+      order_index: r.ordinal ?? null,
+    }));
+  }
   const { data } = await admin
     .from("library_book_index")
     .select("id,title,kind,page_start,page_end,order_index,parent_id")
-    .eq("book_id", bookId)
+    .eq("book_id", book.id)
     .order("order_index", { ascending: true })
     .limit(400);
   return (data || []).map((r: any) => ({
@@ -463,17 +538,81 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
 // legitimate lesson pages and was one reason retrieval returned nothing.
 const MIN_PASSAGE_CHARS = 20;
 
-async function pagesText(admin: any, bookId: string, from: number | null, to: number | null, limit = 8) {
+async function pagesText(admin: any, book: LibraryBookRef, from: number | null, to: number | null, limit = 8) {
+  if (book.pipeline === "knowledge") {
+    let q = admin
+      .from("content_chunks")
+      .select("id,content,unit_id,metadata")
+      .eq("source_id", book.id)
+      .order("ordinal", { ascending: true })
+      .limit(limit);
+    if (from) q = q.gte("metadata->>page_from", String(from));
+    if (to) q = q.lte("metadata->>page_to", String(to));
+    const { data } = await q;
+    return (data || []).map((r: any) => ({
+      ...r,
+      ocr_text: r.content,
+      page_number: Number(r.metadata?.page_from ?? 0) || null,
+    })).filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+  }
   let q = admin
     .from("library_book_pages")
     .select("page_number, ocr_text")
-    .eq("book_id", bookId)
+    .eq("book_id", book.id)
     .order("page_number", { ascending: true })
     .limit(limit);
   if (from) q = q.gte("page_number", from);
   if (to) q = q.lte("page_number", to);
   const { data } = await q;
   return (data || []).filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+}
+
+async function modernSemanticPassages(admin: any, sourceIds: string[], query: string, matchCount = 12) {
+  if (!sourceIds.length) return [];
+  try {
+    const embedded = await aiEmbeddings({
+      model: "openai/text-embedding-3-small",
+      input: [query.slice(0, 8000)],
+      dimensions: 768,
+    });
+    const vector = (embedded.data as any)?.data?.[0]?.embedding;
+    if (!embedded.ok || !Array.isArray(vector) || !vector.length) return [];
+    const { data, error } = await admin.rpc("modrek_hybrid_search", {
+      p_query_embedding: vector,
+      p_query_text: query,
+      p_source_type_id: null,
+      p_stage_id: null,
+      p_grade_id: null,
+      p_section_id: null,
+      p_track_id: null,
+      p_subject_id: null,
+      p_source_ids: sourceIds,
+      p_match_count: matchCount,
+      p_min_similarity: 0.25,
+    });
+    if (error) { console.warn("[modrekLibraryRag] modern_vector_rpc_failed", error.message); return []; }
+    return (data || []).map((r: any) => ({ ...r, id: r.chunk_id, book_id: r.source_id, page_number: r.page_from }));
+  } catch (e) {
+    console.warn("[modrekLibraryRag] modern_semantic_failed", String(e).slice(0, 160));
+    return [];
+  }
+}
+
+async function modernKeywordChunks(admin: any, sourceIds: string[], phrases: string[], limit = 10) {
+  if (!sourceIds.length || !phrases.length) return [];
+  const tokens = phrases.join(" ").split(/\s+/).map((v) => normalizeAr(v)).filter((v) => v.length >= 3).slice(0, 4);
+  if (!tokens.length) return [];
+  const orClause = tokens.map((t) => `content.ilike.%${t.replace(/[%_,()"'\\]/g, "")}%`).join(",");
+  const { data, error } = await admin
+    .from("content_chunks")
+    .select("id,source_id,content,metadata")
+    .in("source_id", sourceIds)
+    .or(orClause)
+    .limit(limit);
+  if (error) { console.warn("[modrekLibraryRag] modern_keyword_failed", error.message); return []; }
+  return (data || []).map((r: any) => ({
+    ...r, book_id: r.source_id, page_number: Number(r.metadata?.page_from ?? 0) || null, rank: 0.7,
+  }));
 }
 
 /** Vector search across EVERY candidate book in one round trip. */
@@ -654,7 +793,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
 
   // ---- Lesson targeting: find the book whose index really contains the lesson.
   const outlines = new Map<string, LibraryLessonRef[]>();
-  await Promise.all(candidates.map(async (b) => outlines.set(b.id, await loadOutline(admin, b.id))));
+  await Promise.all(candidates.map(async (b) => outlines.set(b.id, await loadOutline(admin, b))));
 
   let selected = candidates[0];
   let outline = outlines.get(selected.id) || [];
@@ -685,14 +824,14 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
 
   // ---- 1) Exact page request
   if (understanding.page) {
-    const rows = await pagesText(admin, selected.id, understanding.page, understanding.page, 2);
+    const rows = await pagesText(admin, selected, understanding.page, understanding.page, 2);
     rows.forEach((r: any) => pushPage(r, selected.id, 1, lesson?.title ?? null, "page"));
     trace.page_hits += rows.length;
   }
 
   // ---- 2) Lesson / unit page range (strongest grounding)
   if (lesson) {
-    const rows = await pagesText(admin, selected.id, lesson.page_start, lesson.page_end, maxPassages);
+    const rows = await pagesText(admin, selected, lesson.page_start, lesson.page_end, maxPassages);
     rows.forEach((r: any) => pushPage(r, selected.id, 0.98, lesson!.title, "lesson_pages"));
     trace.page_hits += rows.length;
   }
@@ -700,7 +839,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   // ---- 3) Whole-curriculum requests: sample every unit
   if (understanding.wholeCurriculum) {
     for (const node of outline.slice(0, maxPassages)) {
-      const rows = await pagesText(admin, selected.id, node.page_start, node.page_start, 1);
+      const rows = await pagesText(admin, selected, node.page_start, node.page_start, 1);
       rows.forEach((r: any) => pushPage(r, selected.id, 0.8, node.title, "outline_sample"));
     }
   }
@@ -711,10 +850,16 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     ...lessonPhraseVariants(understanding.lesson, understanding.lessonTitleHint),
     ...(understanding.keywords.slice(0, 2)),
   ];
-  const [vector, kwChunks] = await Promise.all([
-    semanticPassages(admin, candidateIds, args.query, 12),
-    keywordChunks(admin, candidateIds, phrases, 10),
+  const legacyIds = candidates.filter((b) => b.pipeline === "library").map((b) => b.id);
+  const modernIds = candidates.filter((b) => b.pipeline === "knowledge").map((b) => b.id);
+  const [legacyVector, modernVector, legacyKeywords, modernKeywords] = await Promise.all([
+    semanticPassages(admin, legacyIds, args.query, 12),
+    modernSemanticPassages(admin, modernIds, args.query, 12),
+    keywordChunks(admin, legacyIds, phrases, 10),
+    modernKeywordChunks(admin, modernIds, phrases, 10),
   ]);
+  const vector = [...legacyVector, ...modernVector];
+  const kwChunks = [...legacyKeywords, ...modernKeywords];
   trace.vector_hits = vector.length;
   trace.keyword_hits = kwChunks.length;
 
@@ -726,8 +871,8 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       book_id: bookId,
       book_title: (bookById.get(bookId) || selected).title,
       lesson_title: lesson?.title ?? null,
-      page_from: row.page_number ?? null,
-      page_to: row.page_number ?? null,
+      page_from: row.page_number ?? row.page_from ?? null,
+      page_to: row.page_number ?? row.page_to ?? null,
       score: 0.5 + Number(row.similarity || 0) * 0.45,
       source: "vector",
       similarity: Number(row.similarity || 0),
