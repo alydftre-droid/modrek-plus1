@@ -1132,6 +1132,18 @@ async function stageEmbed(admin: SupabaseClient, job: any) {
 
 // -------- Stage 6: index (finalize) ----------------------------------------
 async function stageIndex(admin: SupabaseClient, job: any) {
+  // A green "ready" badge must mean the assistant can actually retrieve the
+  // source. Previously an empty chunk/embed stage could still finalize, leaving
+  // a visible book that always fell through to external search.
+  const [{ count: chunkCount, error: chunkError }, { count: embeddedCount, error: embeddedError }] = await Promise.all([
+    admin.from("content_chunks").select("id", { count: "exact", head: true }).eq("version_id", job.version_id),
+    admin.from("content_chunks").select("id", { count: "exact", head: true }).eq("version_id", job.version_id).not("embedding", "is", null),
+  ]);
+  if (chunkError) throw chunkError;
+  if (embeddedError) throw embeddedError;
+  if (!chunkCount) throw new Error("لا يمكن اعتماد المصدر: لم تُنشأ أي مقاطع نصية قابلة للبحث");
+  if (!embeddedCount) throw new Error("لا يمكن اعتماد المصدر: لم يكتمل إنشاء أي تضمين دلالي للمقاطع");
+
   await admin.from("knowledge_source_versions").update({
     pipeline_stage: "completed", progress_pct: 100,
     pipeline_completed_at: new Date().toISOString(), error_message: null,
@@ -1139,7 +1151,7 @@ async function stageIndex(admin: SupabaseClient, job: any) {
   const { data: version } = await admin.from("knowledge_source_versions")
     .select("source_id").eq("id", job.version_id).single();
   await admin.from("knowledge_sources").update({ status: "ready" }).eq("id", version!.source_id);
-  await succeedJob(admin, job, { finalized: true });
+  await succeedJob(admin, job, { finalized: true, chunks: chunkCount, embedded: embeddedCount });
 }
 
 // ---------- helpers ---------------------------------------------------------
