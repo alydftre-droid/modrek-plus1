@@ -540,20 +540,28 @@ const MIN_PASSAGE_CHARS = 20;
 
 async function pagesText(admin: any, book: LibraryBookRef, from: number | null, to: number | null, limit = 8) {
   if (book.pipeline === "knowledge") {
-    let q = admin
+    const { data } = await admin
       .from("content_chunks")
       .select("id,content,unit_id,metadata")
       .eq("source_id", book.id)
       .order("ordinal", { ascending: true })
-      .limit(limit);
-    if (from) q = q.gte("metadata->>page_from", String(from));
-    if (to) q = q.lte("metadata->>page_to", String(to));
-    const { data } = await q;
-    return (data || []).map((r: any) => ({
-      ...r,
-      ocr_text: r.content,
-      page_number: Number(r.metadata?.page_from ?? 0) || null,
-    })).filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+      .limit(Math.max(limit * 20, 200));
+    return (data || [])
+      .map((r: any) => ({
+        ...r,
+        ocr_text: r.content,
+        page_number: Number(r.metadata?.page_from ?? 0) || null,
+        page_to: Number(r.metadata?.page_to ?? r.metadata?.page_from ?? 0) || null,
+      }))
+      .filter((p: any) => {
+        if (String(p.ocr_text || "").trim().length < MIN_PASSAGE_CHARS) return false;
+        const pageStart = Number(p.page_number ?? 0);
+        const pageEnd = Number(p.page_to ?? pageStart);
+        if (from && pageEnd && pageEnd < from) return false;
+        if (to && pageStart && pageStart > to) return false;
+        return true;
+      })
+      .slice(0, limit);
   }
   let q = admin
     .from("library_book_pages")
@@ -707,7 +715,7 @@ export interface RetrieveArgs {
   log?: boolean;
 }
 
-const MAX_CANDIDATE_BOOKS = 4;
+const MAX_CANDIDATE_BOOKS = 8;
 
 export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promise<LibraryRagResult> {
   const startedAt = Date.now();
@@ -785,7 +793,9 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   // ---- Candidate books: never only the first one. Metadata filtering already
   // narrowed the set to this student's own curriculum, so searching the top few
   // is both safe and cheap (vector + keyword run as multi-book RPCs).
-  const candidates = subjectBooks.slice(0, MAX_CANDIDATE_BOOKS);
+  const candidates = [...subjectBooks]
+    .sort((a, b) => Number(b.pipeline === "knowledge") - Number(a.pipeline === "knowledge"))
+    .slice(0, MAX_CANDIDATE_BOOKS);
   const candidateIds = candidates.map((b) => b.id);
   const bookById = new Map(candidates.map((b) => [b.id, b]));
   trace.candidate_book_ids = candidateIds;
