@@ -384,7 +384,24 @@ async function stageFinalize(db: any, job: any) {
 
   const failedPages = gate.failed;
   const successfulPages = Math.max(0, gate.total - failedPages);
-  const bookReady = gate.total > 0 && successfulPages > 0;
+  const [{ count: chunkCount, error: chunkError }, { count: indexedCount, error: indexError }] = await Promise.all([
+    db.from("library_book_chunks").select("id", { count: "exact", head: true }).eq("book_id", bookId),
+    db.from("library_book_index").select("id", { count: "exact", head: true }).eq("book_id", bookId),
+  ]);
+  if (chunkError) throw chunkError;
+  if (indexError) throw indexError;
+  const searchable = Number(chunkCount || 0) > 0 && Number(indexedCount || 0) > 0;
+  if (!searchable) {
+    await db.from("library_processing_jobs").update({
+      state: "queued", next_run_at: new Date(Date.now() + 60_000).toISOString(),
+      attempts: Math.max(0, (job.attempts || 1) - 1),
+    }).eq("id", job.id);
+    await logEvent(db, bookId, job.id, "v2_finalize_waiting_searchable_content",
+      `في انتظار اكتمال المقاطع والفهرس (${chunkCount || 0} مقطع، ${indexedCount || 0} عنصر فهرس)`,
+      "info", null, { chunks: chunkCount || 0, index_nodes: indexedCount || 0, enrichment });
+    return { requeued: true };
+  }
+  const bookReady = gate.total > 0 && successfulPages > 0 && searchable;
 
   await db.from("library_books").update({
     status: bookReady ? "ready" : "failed",
@@ -400,7 +417,7 @@ async function stageFinalize(db: any, job: any) {
     bookReady ? `الكتاب متاح للطلاب (${successfulPages}/${gate.total} صفحة، إثراء: ${JSON.stringify(enrichment)})`
               : `فشل نهائي: كل الصفحات فشلت (${failedPages}/${gate.total})`,
     bookReady ? "success" : "error", 100,
-    { pages: gate, enrichment, successful_pages: successfulPages },
+    { pages: gate, enrichment, successful_pages: successfulPages, chunks: chunkCount, index_nodes: indexedCount },
   );
 }
 

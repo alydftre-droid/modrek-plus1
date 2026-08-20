@@ -397,7 +397,12 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
       if (!e.includes("مشترك") && !e.includes(systemLabel)) return false;
     }
     // Track isolation — books with no track are shared across tracks.
-    if (b.track_id && trackIds.length && !trackIds.includes(b.track_id)) return false;
+    if (b.track_id) {
+      // Fail closed: an unresolved/unknown student track must never expose a
+      // book restricted to a different track. Trackless books stay shared.
+      if (!trackIds.length) return false;
+      if (!trackIds.includes(b.track_id)) return false;
+    }
     return true;
   });
 
@@ -440,7 +445,10 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
   if (modernResult?.error) console.warn("[modrekLibraryRag] knowledge_sources_query_failed", modernResult.error.message);
   const modernScoped = modernRows.filter((b: any) => {
     if (b.section_id && allowedSectionIds.length && !allowedSectionIds.includes(b.section_id)) return false;
-    if (b.track_id && trackIds.length && !trackIds.includes(b.track_id)) return false;
+    if (b.track_id) {
+      if (!trackIds.length) return false;
+      if (!trackIds.includes(b.track_id)) return false;
+    }
     return true;
   });
   if (modernScoped.length) {

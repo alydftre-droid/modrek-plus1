@@ -191,6 +191,15 @@ Deno.test("accessible books are shielded by grade, system, track, tier and statu
   assert(!ids.includes("b-draft"), "non-ready book must be hidden");
 });
 
+Deno.test("unresolved student track fails closed for track-restricted books", async () => {
+  const noTrack = { ...AZHAR_LIT_SEC3, id: "u-unknown-track", section: "غير محددة" };
+  const admin = stubClient({ profiles: [noTrack], library_books: BOOKS });
+  const scope = await resolveStudentScope(admin, noTrack.id);
+  assertEquals(scope.trackCodes, []);
+  const books = await listAccessibleBooks(admin, scope);
+  assertEquals(books.some((book) => book.track_label != null), false);
+});
+
 // ---------------------------------------------------------- retrieval flow ---
 
 const INDEX = [
