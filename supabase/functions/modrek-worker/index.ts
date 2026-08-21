@@ -1232,15 +1232,45 @@ async function stageIndex(admin: SupabaseClient, job: any) {
   if (!chunkCount) throw new Error("لا يمكن اعتماد المصدر: لم تُنشأ أي مقاطع نصية قابلة للبحث");
   if (!embeddedCount) throw new Error("لا يمكن اعتماد المصدر: لم يكتمل إنشاء أي تضمين دلالي للمقاطع");
 
+  const { data: version } = await admin.from("knowledge_source_versions")
+    .select("source_id").eq("id", job.version_id).single();
+
+  // Automatic re-index pass: lesson detection + chunk↔lesson linking always run
+  // again right before the source becomes answerable, so a book can never be
+  // opened to students with lessons that have no page span or unlinked chunks.
+  let finalRepair: any = null;
+  try {
+    const { data, error } = await admin.rpc("modrek_repair_lesson_index", { p_source_id: version!.source_id });
+    if (error) console.warn("[modrek:warn] final lesson repair failed", error.message);
+    finalRepair = data ?? null;
+  } catch (e: any) {
+    console.warn("[modrek:warn] final lesson repair threw", e?.message ?? e);
+  }
+  console.log("[modrek] final lesson repair", finalRepair);
+
+  const [{ count: lessonCount }, { count: linkedCount }] = await Promise.all([
+    admin.from("knowledge_lesson_index").select("id", { count: "exact", head: true })
+      .eq("version_id", job.version_id).eq("kind", "lesson"),
+    admin.from("content_chunks").select("id", { count: "exact", head: true })
+      .eq("version_id", job.version_id).not("metadata->>lesson_unit_id", "is", null),
+  ]);
+
   await admin.from("knowledge_source_versions").update({
     pipeline_stage: "completed", progress_pct: 100,
     pipeline_completed_at: new Date().toISOString(), error_message: null,
   }).eq("id", job.version_id);
-  const { data: version } = await admin.from("knowledge_source_versions")
-    .select("source_id").eq("id", job.version_id).single();
   await admin.from("knowledge_sources").update({ status: "ready" }).eq("id", version!.source_id);
-  await succeedJob(admin, job, { finalized: true, chunks: chunkCount, embedded: embeddedCount });
+  await succeedJob(admin, job, {
+    finalized: true,
+    chunks: chunkCount,
+    embedded: embeddedCount,
+    lessons: lessonCount ?? 0,
+    lesson_linked_chunks: linkedCount ?? 0,
+    lesson_repair: finalRepair,
+    index_health: (lessonCount ?? 0) > 0 && (linkedCount ?? 0) > 0 ? "lesson_locked" : "hybrid_only",
+  });
 }
+
 
 // ---------- helpers ---------------------------------------------------------
 
