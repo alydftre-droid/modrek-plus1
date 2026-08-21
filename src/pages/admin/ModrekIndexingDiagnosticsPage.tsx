@@ -88,6 +88,7 @@ export default function ModrekIndexingDiagnosticsPage() {
       </ModrekButton>
 
       <ModrekHero
+        icon={Database}
         eyebrow={<ModrekEyebrow icon={Database}>تشخيص الفهرسة</ModrekEyebrow>}
         title="حالة فهرسة كتب مكتبة Modrek AI"
         subtitle="أعداد الصفحات والمقاطع والوحدات والدروس لكل كتاب، وسبب ظهور أي كتاب بلا فهرسة."
@@ -118,7 +119,7 @@ export default function ModrekIndexingDiagnosticsPage() {
         {loading ? (
           <ModrekCard><p className="text-sm opacity-70">جارٍ التحميل…</p></ModrekCard>
         ) : visible.length === 0 ? (
-          <ModrekEmpty title="لا توجد كتب لعرضها" subtitle="ارفع كتابًا من مكتبة Modrek AI ثم تابع حالته هنا." />
+          <ModrekEmpty icon={Database} title="لا توجد كتب لعرضها" description="ارفع كتابًا من مكتبة Modrek AI ثم تابع حالته هنا." />
         ) : (
           <div className="space-y-3">
             {visible.map((r) => {
@@ -134,9 +135,9 @@ export default function ModrekIndexingDiagnosticsPage() {
                         <ModrekPill>{r.status || "غير محدد"}</ModrekPill>
                         {r.pipeline_stage && <ModrekPill>{r.pipeline_stage}</ModrekPill>}
                         {issues.length === 0 ? (
-                          <ModrekPill tone="success">فهرسة سليمة</ModrekPill>
+                          <ModrekPill tone="emerald">فهرسة سليمة</ModrekPill>
                         ) : (
-                          <ModrekPill tone="danger">{issues.length} مشكلة</ModrekPill>
+                          <ModrekPill tone="red">{issues.length} مشكلة</ModrekPill>
                         )}
                       </div>
                     </div>
