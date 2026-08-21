@@ -358,6 +358,8 @@ function AnimatedRoutes() {
               <Route path="/admin/modrek-library/:id" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekSourceDetailPage /></ProtectedRoute>} />
               <Route path="/admin/test-students" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTestStudentsPage /></ProtectedRoute>} />
               <Route path="/admin/modrek-analytics" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekAnalyticsPage /></ProtectedRoute>} />
+              <Route path="/admin/modrek-indexing" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekIndexingDiagnosticsPage /></ProtectedRoute>} />
+
               <Route path="/admin/student-wallets" element={<ProtectedRoute allowedRoles={["admin"]}><StudentWalletPage /></ProtectedRoute>} />
               <Route path="/admin/student-wallets/:id" element={<ProtectedRoute allowedRoles={["admin"]}><StudentDepositDetailPage /></ProtectedRoute>} />
 
