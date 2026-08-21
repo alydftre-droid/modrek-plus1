@@ -279,7 +279,13 @@ export interface LibraryLessonRef {
   page_start: number | null;
   page_end: number | null;
   order_index: number | null;
+  /** Lesson number as written in the book itself (never inferred). */
+  lesson_number?: number | null;
+  unit_number?: number | null;
+  /** "explicit" = the book stated the number; "unknown" = do not trust position. */
+  number_source?: "explicit" | "unknown";
 }
+
 
 /** Developer debug trace: proves the whole pipeline for a single question. */
 export interface RagTrace {
