@@ -1250,7 +1250,10 @@ export function logRagPipeline(fn: string, result: LibraryRagResult, extra: Reco
     lesson_page_range: result.lesson
       ? { from: result.lesson.page_start ?? null, to: result.lesson.page_end ?? null }
       : null,
-    retrieved_chunks: result.trace?.candidate_chunks ?? null,
+    retrieved_chunks: result.trace
+      ? (result.trace.vector_hits ?? 0) + (result.trace.keyword_hits ?? 0) + (result.trace.page_hits ?? 0)
+      : null,
+
     final_chunks: result.passages.length,
     chunks: result.passages.length,
     retrieval_scores: result.passages.slice(0, 5).map((p) => Number(p.score?.toFixed?.(4) ?? p.score)),
