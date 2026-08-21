@@ -15,7 +15,7 @@
 //    and let the caller decide about a trusted external fallback.
 // ============================================================================
 
-import { normalizeAr, parseLessonRequest } from "./lessonTargeting.ts";
+import { normalizeAr, parseLessonRequest, parseCurriculumTitle } from "./lessonTargeting.ts";
 import { resolveOpenRouterApiKey } from "./aiSettings.ts";
 import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "./openrouter.ts";
 import { aiEmbeddings } from "./aiProvider.ts";
@@ -279,7 +279,13 @@ export interface LibraryLessonRef {
   page_start: number | null;
   page_end: number | null;
   order_index: number | null;
+  /** Lesson number as written in the book itself (never inferred). */
+  lesson_number?: number | null;
+  unit_number?: number | null;
+  /** "explicit" = the book stated the number; "unknown" = do not trust position. */
+  number_source?: "explicit" | "unknown";
 }
+
 
 /** Developer debug trace: proves the whole pipeline for a single question. */
 export interface RagTrace {
@@ -484,18 +490,24 @@ async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLes
   if (book.pipeline === "knowledge") {
     const { data } = await admin
       .from("knowledge_lesson_index")
-      .select("unit_id,title,kind,page_start,page_end,ordinal")
+      .select("unit_id,title,kind,page_start,page_end,ordinal,lesson_number,unit_number,number_source")
       .eq("source_id", book.id)
       .order("ordinal", { ascending: true })
       .limit(400);
-    return (data || []).map((r: any) => ({
-      id: r.unit_id,
-      title: r.title,
-      kind: r.kind ?? null,
-      page_start: r.page_start ?? null,
-      page_end: r.page_end ?? null,
-      order_index: r.ordinal ?? null,
-    }));
+    return (data || []).map((r: any) => {
+      const parsed = parseCurriculumTitle(r.title || "");
+      return {
+        id: r.unit_id,
+        title: r.title,
+        kind: r.kind ?? parsed.kind,
+        page_start: r.page_start ?? null,
+        page_end: r.page_end ?? null,
+        order_index: r.ordinal ?? null,
+        lesson_number: r.lesson_number ?? parsed.lessonNumber ?? null,
+        unit_number: r.unit_number ?? parsed.unitNumber ?? null,
+        number_source: (r.number_source === "explicit" || parsed.numberSource === "explicit") ? "explicit" : "unknown",
+      } as LibraryLessonRef;
+    });
   }
   const { data } = await admin
     .from("library_book_index")
@@ -503,16 +515,34 @@ async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLes
     .eq("book_id", book.id)
     .order("order_index", { ascending: true })
     .limit(400);
-  return (data || []).map((r: any) => ({
-    id: r.id,
-    title: r.title,
-    kind: r.kind ?? null,
-    page_start: r.page_start ?? null,
-    page_end: r.page_end ?? null,
-    order_index: r.order_index ?? null,
-  }));
+  return (data || []).map((r: any) => {
+    // Legacy rows carry no numbers: derive them from the real heading text only.
+    const parsed = parseCurriculumTitle(r.title || "");
+    return {
+      id: r.id,
+      title: r.title,
+      kind: r.kind ?? parsed.kind,
+      page_start: r.page_start ?? null,
+      page_end: r.page_end ?? null,
+      order_index: r.order_index ?? null,
+      lesson_number: parsed.lessonNumber,
+      unit_number: parsed.unitNumber,
+      number_source: parsed.numberSource,
+    } as LibraryLessonRef;
+  });
 }
 
+/**
+ * Resolves "الدرس الثالث" to a REAL node of the book index.
+ *
+ * Order of truth:
+ *   1. explicit title hint match,
+ *   2. the number stored/written for that node ("الدرس الثالث" / "الدرس 3"),
+ *   3. position inside its kind — ONLY when no node of that kind carries an
+ *      explicit number (i.e. the book never numbers its lessons).
+ * Otherwise it returns null: retrieval then answers honestly instead of
+ * serving a different lesson.
+ */
 function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "unit"; number: number } | null, titleHint: string | null): LibraryLessonRef | null {
   if (!outline.length) return null;
   if (titleHint) {
@@ -526,18 +556,27 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
     ? ["lesson", "section", "topic"]
     : ["unit", "chapter", "part"];
   const pool = outline.filter((o) => kinds.includes(String(o.kind || "").toLowerCase()));
+  if (!pool.length) return null;
 
-  // 1) explicit number inside the title ("الدرس الثاني" / "الوحدة 2")
-  const numeric = (target.kind === "lesson" ? pool : pool).find((o) => {
-    const t = normalizeAr(o.title || "");
-    return new RegExp(`(^|\\s)(${target.number})(\\s|$|:|-)`).test(t);
+  // 1) the number the BOOK itself states for this node.
+  const stored = pool.find((o) => {
+    const n = target.kind === "lesson" ? o.lesson_number : o.unit_number;
+    return o.number_source === "explicit" && Number(n) === target.number;
   });
-  if (numeric) return numeric;
+  if (stored) return stored;
 
-  // 2) ordinal by position within its kind
-  if (pool.length >= target.number) return pool[target.number - 1];
-  // 3) fall back to overall ordering
-  if (outline.length >= target.number) return outline[target.number - 1];
+  // 2) numbers appearing inside the heading text (both digits and Arabic ordinals).
+  const variants = lessonPhraseVariants(target, null).map((v) => normalizeAr(v)).filter((v) => v.length >= 4);
+  const byPhrase = pool.find((o) => {
+    const t = normalizeAr(o.title || "");
+    return variants.some((v) => t.includes(v));
+  });
+  if (byPhrase) return byPhrase;
+
+  // 3) positional fallback ONLY for books that never number their headings.
+  const anyExplicit = pool.some((o) => o.number_source === "explicit");
+  if (!anyExplicit && pool.length >= target.number) return pool[target.number - 1];
+
   return null;
 }
 
@@ -546,8 +585,58 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
 // legitimate lesson pages and was one reason retrieval returned nothing.
 const MIN_PASSAGE_CHARS = 20;
 
-async function pagesText(admin: any, book: LibraryBookRef, from: number | null, to: number | null, limit = 8) {
+
+async function pagesText(
+  admin: any,
+  book: LibraryBookRef,
+  from: number | null,
+  to: number | null,
+  limit = 8,
+  lesson?: LibraryLessonRef | null,
+) {
   if (book.pipeline === "knowledge") {
+    // LESSON LOCK: when the lesson is known, chunks are fetched by their lesson
+    // linkage, not by page range. Modern units frequently have NULL pages, and
+    // the old page-range filter therefore returned the beginning of the book —
+    // which is why "الدرس الأول" looked right and every later lesson was mixed.
+    if (lesson?.id) {
+      const byLesson = await admin
+        .from("content_chunks")
+        .select("id,content,unit_id,metadata")
+        .eq("source_id", book.id)
+        .eq("metadata->>lesson_unit_id", lesson.id)
+        .order("ordinal", { ascending: true })
+        .limit(Math.max(limit, 12));
+      const rows = (byLesson.data || [])
+        .map((r: any) => ({
+          ...r,
+          ocr_text: r.content,
+          page_number: Number(r.metadata?.page_from ?? 0) || null,
+          page_to: Number(r.metadata?.page_to ?? r.metadata?.page_from ?? 0) || null,
+        }))
+        .filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+      if (rows.length) return rows.slice(0, limit);
+      // Direct unit fallback (chunks stored straight on the lesson unit).
+      const byUnit = await admin
+        .from("content_chunks")
+        .select("id,content,unit_id,metadata")
+        .eq("source_id", book.id)
+        .eq("unit_id", lesson.id)
+        .order("ordinal", { ascending: true })
+        .limit(Math.max(limit, 12));
+      const unitRows = (byUnit.data || [])
+        .map((r: any) => ({
+          ...r,
+          ocr_text: r.content,
+          page_number: Number(r.metadata?.page_from ?? 0) || null,
+          page_to: Number(r.metadata?.page_to ?? r.metadata?.page_from ?? 0) || null,
+        }))
+        .filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+      if (unitRows.length) return unitRows.slice(0, limit);
+      // No lesson-linked text: only page ranges may be used, and only when the
+      // lesson actually has a page range. Never fall back to the whole book.
+      if (!(from || to)) return [];
+    }
     const { data } = await admin
       .from("content_chunks")
       .select("id,content,unit_id,metadata")
@@ -571,6 +660,7 @@ async function pagesText(admin: any, book: LibraryBookRef, from: number | null, 
       })
       .slice(0, limit);
   }
+
   let q = admin
     .from("library_book_pages")
     .select("page_number, ocr_text")
@@ -847,12 +937,19 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     trace.page_hits += rows.length;
   }
 
-  // ---- 2) Lesson / unit page range (strongest grounding)
+  // ---- 2) Lesson / unit content (strongest grounding, locked to that lesson)
+  const lessonLocked = Boolean(understanding.lesson);
+  let lessonPassageCount = 0;
   if (lesson) {
-    const rows = await pagesText(admin, selected, lesson.page_start, lesson.page_end, maxPassages);
+    const rows = await pagesText(admin, selected, lesson.page_start, lesson.page_end, maxPassages, lesson);
     rows.forEach((r: any) => pushPage(r, selected.id, 0.98, lesson!.title, "lesson_pages"));
+    lessonPassageCount = rows.length;
     trace.page_hits += rows.length;
+    if (!rows.length) reasons.push("lesson_matched_but_no_indexed_text");
+  } else if (lessonLocked) {
+    reasons.push("requested_lesson_not_found_in_index");
   }
+
 
   // ---- 3) Whole-curriculum requests: sample every unit
   if (understanding.wholeCurriculum) {
@@ -938,11 +1035,38 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     const prev = dedup.get(key);
     if (!prev || prev.score < scored.score) dedup.set(key, scored);
   }
-  const finalPassages = [...dedup.values()].sort((a, b) => b.score - a.score).slice(0, maxPassages);
+  let finalPassages = [...dedup.values()].sort((a, b) => b.score - a.score).slice(0, maxPassages);
 
-  // If the winning content lives in another candidate book, follow the evidence.
+  // ---- LESSON LOCK ENFORCEMENT ------------------------------------------------
+  // When the student named a specific lesson/unit and we resolved it, ONLY text
+  // that belongs to that lesson may reach the model. Mixing in vector hits from
+  // other lessons of the same book was the direct cause of "invented order" and
+  // "content from another lesson".
+  if (lesson && lessonPassageCount > 0) {
+    const inLesson = (p: LibraryPassage) => {
+      if (p.book_id !== selected.id) return false;
+      if (p.source === "lesson_pages" || p.source === "page") return true;
+      if (lesson.page_start && p.page_from) {
+        return p.page_from >= lesson.page_start && (!lesson.page_end || p.page_from <= lesson.page_end);
+      }
+      return false;
+    };
+    const locked = finalPassages.filter(inLesson);
+    if (locked.length) {
+      if (locked.length !== finalPassages.length) reasons.push("lesson_lock_filtered_off_lesson_passages");
+      finalPassages = locked;
+    }
+  } else if (lessonLocked && !lesson) {
+    // The requested lesson could not be resolved in any real book index: never
+    // serve a different lesson's content as if it were the requested one.
+    finalPassages = [];
+    reasons.push("lesson_lock_rejected_unverified_content");
+  }
+
+  // If the winning content lives in another candidate book, follow the evidence —
+  // but never while a specific lesson is locked to the selected book.
   const topBookId = finalPassages[0]?.book_id;
-  if (topBookId && topBookId !== selected.id && bookById.has(topBookId)) {
+  if (!lesson && topBookId && topBookId !== selected.id && bookById.has(topBookId)) {
     selected = bookById.get(topBookId)!;
     outline = outlines.get(topBookId) || outline;
     reasons.push("selected_book_switched_to_best_evidence");
@@ -954,14 +1078,25 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   else if (finalPassages.length) confidence = "low";
   else if (subjectBooks.length) confidence = "low";
 
+  const lessonWord = understanding.lesson?.kind === "lesson" ? "الدرس" : "الوحدة";
+  const outlineTitles = (nodes: LibraryLessonRef[]) => nodes.slice(0, 8).map((o) => o.title).filter(Boolean).join("، ");
   let ambiguity: string | null = null;
-  if (understanding.lesson && !lesson && !finalPassages.length) {
-    ambiguity = outline.length
-      ? `لم أتأكد من "${understanding.lesson.kind === "lesson" ? "الدرس" : "الوحدة"} رقم ${understanding.lesson.number}" في كتاب ${selected.title}. الفهرس المتاح: ${outline.slice(0, 8).map((o) => o.title).join("، ")}. أي واحد تقصد؟`
-      : `كتاب ${selected.title} لم يكتمل فهرسته بعد، فلا أستطيع تحديد رقم الدرس بدقة.`;
+  if (understanding.lesson && !finalPassages.length) {
+    const known = outline.filter((o) => {
+      const kind = String(o.kind || "").toLowerCase();
+      return understanding.lesson!.kind === "lesson" ? kind === "lesson" : ["unit", "chapter", "part"].includes(kind);
+    });
+    ambiguity = known.length
+      ? `لم أجد "${lessonWord} رقم ${understanding.lesson.number}" بشكل مؤكد في كتاب ${selected.title}. الموجود فعليًا في فهرس الكتاب: ${outlineTitles(known)}. أي واحد تقصد؟`
+      : outline.length
+        ? `فهرس كتاب ${selected.title} لا يحتوي على ترقيم دروس واضح، فلا أستطيع تحديد "${lessonWord} رقم ${understanding.lesson.number}" بدقة. اكتب لي عنوان الدرس أو رقم الصفحة.`
+        : `كتاب ${selected.title} لم يكتمل فهرسته بعد، فلا أستطيع تحديد رقم الدرس بدقة.`;
+  } else if (understanding.lesson && lesson && lessonPassageCount === 0) {
+    ambiguity = `حددت "${lesson.title}" في فهرس ${selected.title}، لكن نص هذا الدرس لم يكتمل فهرسته بعد.`;
   } else if (!understanding.subject && subjectBooks.length > 1 && !finalPassages.length && understanding.intent !== "search_content") {
     ambiguity = `تقصد أي مادة؟ المتاح في مكتبتك: ${subjectBooks.slice(0, 6).map((b) => b.subject || b.title).join("، ")}.`;
   }
+
 
   return await finish({
     ...base,

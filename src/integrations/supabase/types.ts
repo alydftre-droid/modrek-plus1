@@ -2113,9 +2113,11 @@ export type Database = {
           kind: string
           lesson_number: number | null
           normalized_title: string | null
+          number_source: string
           ordinal: number
           page_end: number | null
           page_start: number | null
+          parent_unit_id: string | null
           source_id: string
           title: string
           unit_id: string | null
@@ -2129,9 +2131,11 @@ export type Database = {
           kind?: string
           lesson_number?: number | null
           normalized_title?: string | null
+          number_source?: string
           ordinal?: number
           page_end?: number | null
           page_start?: number | null
+          parent_unit_id?: string | null
           source_id: string
           title: string
           unit_id?: string | null
@@ -2145,9 +2149,11 @@ export type Database = {
           kind?: string
           lesson_number?: number | null
           normalized_title?: string | null
+          number_source?: string
           ordinal?: number
           page_end?: number | null
           page_start?: number | null
+          parent_unit_id?: string | null
           source_id?: string
           title?: string
           unit_id?: string | null
@@ -7644,6 +7650,10 @@ export type Database = {
           p_version_id: string
         }
         Returns: Json
+      }
+      modrek_reindex_lessons_backlog: {
+        Args: { p_limit?: number }
+        Returns: number
       }
       modrek_rescue_stuck_version: {
         Args: { p_version_id: string }

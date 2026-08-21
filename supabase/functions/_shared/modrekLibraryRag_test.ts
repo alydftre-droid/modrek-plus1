@@ -68,7 +68,15 @@ function stubClient(data: StubData) {
       select: () => api,
       order: () => api,
       limit: () => api,
-      eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return api; },
+      eq: (col: string, val: unknown) => {
+        // Supports JSON-path filters used by lesson-locked retrieval
+        // (e.g. "metadata->>lesson_unit_id").
+        const json = col.match(/^([a-z_]+)->>(.+)$/);
+        rows = json
+          ? rows.filter((r) => String((r as any)[json[1]]?.[json[2]] ?? "") === String(val))
+          : rows.filter((r) => r[col] === val);
+        return api;
+      },
       gte: (col: string, val: number) => { rows = rows.filter((r) => Number(r[col]) >= val); return api; },
       lte: (col: string, val: number) => { rows = rows.filter((r) => Number(r[col]) <= val); return api; },
       in: (col: string, vals: unknown[]) => { rows = rows.filter((r) => vals.includes(r[col])); return api; },
@@ -304,4 +312,108 @@ Deno.test("student with no resolved grade gets no cross-grade content", async ()
   assertEquals(rag.accessible_books.length, 0, "no book may leak when the scope is unresolved");
   assertEquals(rag.found, false);
   assert(rag.notes.some((n) => n.includes("صف")), "must warn about the missing grade");
+});
+
+// ------------------------------------------------- lesson identity regressions
+// Reproduces the production bug: lesson one answered correctly while lesson two
+// and three returned another lesson's text (page ranges were NULL on modern
+// uploads, so the page filter passed the whole book through).
+
+const MODERN_SOURCE = {
+  id: "ks-hadith-lessons", title: "كتاب الحديث الصف الثاني الثانوي", status: "ready",
+  stage_id: "st-sec", grade_id: "g-sec2", section_id: "sc-gen", track_id: null,
+  subject_id: "subject-hadith", sub_subject_id: null, term: 1,
+};
+
+const MODERN_LESSONS = [1, 2, 3, 4].map((n) => ({
+  source_id: MODERN_SOURCE.id,
+  unit_id: `unit-${n}`,
+  title: `الدرس ${["", "الأول", "الثاني", "الثالث", "الرابع"][n]}: موضوع ${n}`,
+  kind: "lesson",
+  lesson_number: n,
+  unit_number: 1,
+  number_source: "explicit",
+  page_start: null,
+  page_end: null,
+  ordinal: n,
+}));
+
+const MODERN_CHUNKS = [1, 2, 3, 4].map((n) => ({
+  id: `chunk-${n}`,
+  source_id: MODERN_SOURCE.id,
+  unit_id: `unit-${n}`,
+  ordinal: n,
+  content: `نص الدرس رقم ${n} الخاص بموضوع ${n} في كتاب الحديث بتفصيل واضح كافٍ للاسترجاع.`,
+  metadata: { page_from: null, page_to: null, lesson_number: n, lesson_unit_id: `unit-${n}` },
+}));
+
+function modernClient(overrides: Partial<Parameters<typeof stubClient>[0]> = {}) {
+  (TAX as any).library_subjects = [{ id: "subject-hadith", name_ar: "الحديث" }];
+  (TAX as any).library_sub_subjects = [];
+  return stubClient({
+    profiles: [GENERAL_SCI_SEC2],
+    library_books: [],
+    knowledge_sources: [MODERN_SOURCE],
+    knowledge_lesson_index: MODERN_LESSONS,
+    content_chunks: MODERN_CHUNKS,
+    ...overrides,
+  });
+}
+
+for (const n of [1, 2, 3, 4]) {
+  const ordinal = ["", "الأول", "الثاني", "الثالث", "الرابع"][n];
+  Deno.test(`لا خلط بين الدروس: طلب «الدرس ${ordinal}» يعيد نص الدرس ${n} فقط`, async () => {
+    const rag = await retrieveFromLibrary(modernClient(), {
+      userId: GENERAL_SCI_SEC2.id,
+      query: `اشرح لي الدرس ${ordinal} في الحديث`,
+      log: false,
+    });
+    assertEquals(rag.found, true);
+    assertEquals(rag.lesson?.id, `unit-${n}`);
+    assert(rag.passages.length > 0, "lesson text must be retrieved");
+    for (const p of rag.passages) {
+      assert(p.text.includes(`الدرس رقم ${n}`), `passage from another lesson leaked: ${p.text}`);
+    }
+  });
+}
+
+Deno.test("درس غير موجود في الكتاب: لا يقدّم درسًا آخر بدلاً منه", async () => {
+  const rag = await retrieveFromLibrary(modernClient(), {
+    userId: GENERAL_SCI_SEC2.id,
+    query: "اشرح لي الدرس العاشر في الحديث",
+    log: false,
+  });
+  assertEquals(rag.found, false);
+  assertEquals(rag.passages.length, 0);
+  assertEquals(rag.lesson, null);
+  assert(rag.ambiguity && rag.ambiguity.includes("الدرس الأول"), "must list the real book index");
+});
+
+Deno.test("عناوين بلا ترقيم: النظام لا يخترع ترتيب دروس", async () => {
+  const unnumbered = MODERN_LESSONS.map((l, i) => ({
+    ...l, title: `موضوع ${i + 1} بدون ترقيم`, lesson_number: null, number_source: "unknown",
+  }));
+  const rag = await retrieveFromLibrary(modernClient({ knowledge_lesson_index: unnumbered }), {
+    userId: GENERAL_SCI_SEC2.id,
+    query: "اشرح لي الدرس الثالث في الحديث",
+    log: false,
+  });
+  // Positional guessing is allowed only when the book never numbers lessons,
+  // and then the chosen node must be the real third heading — never a random one.
+  if (rag.lesson) assertEquals(rag.lesson.title, "موضوع 3 بدون ترقيم");
+  else assertEquals(rag.found, false);
+});
+
+Deno.test("درس مفهرس بلا نص: يوضح النقص ولا يخترع محتوى", async () => {
+  const rag = await retrieveFromLibrary(modernClient({ content_chunks: [] }), {
+    userId: GENERAL_SCI_SEC2.id,
+    query: "اشرح لي الدرس الثاني في الحديث",
+    log: false,
+  });
+  assertEquals(rag.found, false);
+  assertEquals(rag.passages.length, 0);
+  assert(
+    rag.ambiguity === null || rag.ambiguity.includes("فهرس") || rag.ambiguity.includes("مكتبت"),
+    `unexpected ambiguity: ${rag.ambiguity}`,
+  );
 });

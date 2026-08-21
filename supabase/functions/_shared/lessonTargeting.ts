@@ -71,6 +71,56 @@ export function parseLessonRequest(
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Book-structure title parsing — the SINGLE source of truth for lesson identity.
+// Used by the indexing worker (to store lesson_number) and by retrieval (to
+// resolve "الدرس الثاني" against real book headings). It never invents a
+// number: when the heading carries no explicit number the result is null and
+// callers must treat lesson identity as unknown.
+// ---------------------------------------------------------------------------
+export type CurriculumTitleKind = "lesson" | "unit" | "chapter" | "section";
+
+export interface ParsedCurriculumTitle {
+  kind: CurriculumTitleKind;
+  lessonNumber: number | null;
+  unitNumber: number | null;
+  /** "explicit" only when the number was literally written in the book heading. */
+  numberSource: "explicit" | "unknown";
+}
+
+export function parseCurriculumTitle(rawTitle: string): ParsedCurriculumTitle {
+  const title = normalizeAr(rawTitle);
+  const numberAfter = (keyword: string): number | null => {
+    const re = new RegExp(`${keyword}\\s*(?:رقم\\s*)?([0-9]{1,2}|[^0-9]{2,14}?)(?=\\s|:|-|,|،|$)`);
+    const m = title.match(re);
+    if (!m) return null;
+    const token = m[1].trim();
+    if (/^[0-9]+$/.test(token)) return Number(token);
+    return ordinalToNumber(token);
+  };
+
+  const isLesson = /درس/.test(title);
+  const isUnit = /وحده/.test(title);
+  const isChapter = /باب|فصل/.test(title);
+
+  const lessonNumber = isLesson ? numberAfter("الدرس") ?? numberAfter("درس") : null;
+  const unitNumber = isUnit || isChapter
+    ? numberAfter("الوحده") ?? numberAfter("وحده") ?? numberAfter("الباب") ?? numberAfter("باب")
+      ?? numberAfter("الفصل") ?? numberAfter("فصل")
+    : null;
+
+  const kind: CurriculumTitleKind = isLesson ? "lesson" : isUnit ? "unit" : isChapter ? "chapter" : "section";
+  const relevant = kind === "lesson" ? lessonNumber : unitNumber;
+
+  return {
+    kind,
+    lessonNumber,
+    unitNumber,
+    numberSource: relevant !== null ? "explicit" : "unknown",
+  };
+}
+
+
 /**
  * SHIELDED RAG: students can never widen their curriculum scope from the body.
  */
