@@ -937,12 +937,19 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     trace.page_hits += rows.length;
   }
 
-  // ---- 2) Lesson / unit page range (strongest grounding)
+  // ---- 2) Lesson / unit content (strongest grounding, locked to that lesson)
+  const lessonLocked = Boolean(understanding.lesson);
+  let lessonPassageCount = 0;
   if (lesson) {
-    const rows = await pagesText(admin, selected, lesson.page_start, lesson.page_end, maxPassages);
+    const rows = await pagesText(admin, selected, lesson.page_start, lesson.page_end, maxPassages, lesson);
     rows.forEach((r: any) => pushPage(r, selected.id, 0.98, lesson!.title, "lesson_pages"));
+    lessonPassageCount = rows.length;
     trace.page_hits += rows.length;
+    if (!rows.length) reasons.push("lesson_matched_but_no_indexed_text");
+  } else if (lessonLocked) {
+    reasons.push("requested_lesson_not_found_in_index");
   }
+
 
   // ---- 3) Whole-curriculum requests: sample every unit
   if (understanding.wholeCurriculum) {
