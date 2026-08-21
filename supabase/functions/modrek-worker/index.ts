@@ -943,42 +943,18 @@ function normalizeArabicText(value: string): string {
     .trim();
 }
 
-/** Reads "الدرس الخامس" / "الوحدة 3" / "الفصل الثاني" out of a title. */
-function parseCurriculumTitle(rawTitle: string): { kind: string; lessonNumber: number | null; unitNumber: number | null } {
-  const title = normalizeArabicText(rawTitle);
-  const numberAfter = (keyword: string): number | null => {
-    const re = new RegExp(`${keyword}\\s*(?:رقم\\s*)?([0-9]{1,2}|[^0-9]{2,14}?)(?=\\s|:|-|$)`);
-    const match = title.match(re);
-    if (!match) return null;
-    const token = match[1].trim();
-    if (/^[0-9]+$/.test(token)) return Number(token);
-    const ordinal = ARABIC_ORDINALS[token] ?? ARABIC_ORDINALS[token.replace(/^ال/, "")] ?? null;
-    return ordinal ?? null;
-  };
-
-  const lessonNumber = /درس/.test(title) ? numberAfter("الدرس") ?? numberAfter("درس") : null;
-  const unitNumber = /وحده|وحدة|باب|فصل/.test(title)
-    ? numberAfter("الوحده") ?? numberAfter("وحده") ?? numberAfter("الباب") ?? numberAfter("باب") ?? numberAfter("الفصل") ?? numberAfter("فصل")
-    : null;
-
-  const kind = lessonNumber !== null || /درس/.test(title)
-    ? "lesson"
-    : /وحده|وحدة/.test(title)
-      ? "unit"
-      : /باب|فصل/.test(title)
-        ? "chapter"
-        : "section";
-
-  return { kind, lessonNumber, unitNumber };
-}
-
 /**
  * Builds the lesson/unit index for a version straight from the detected unit
  * titles — no extra AI call, no extra credits.
+ *
+ * HARD RULE: lesson numbers are NEVER invented. A lesson row only carries a
+ * lesson_number when the book heading itself states it ("الدرس الثالث" / "الدرس 3").
+ * Headings without a number are stored with number_source = 'unknown' so
+ * retrieval refuses to guess instead of returning the wrong lesson.
  */
 async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sourceId: string): Promise<number> {
   const { data: units } = await admin.from("knowledge_units")
-    .select("id, kind, title, ordinal, page_from, page_to")
+    .select("id, kind, title, ordinal, page_from, page_to, parent_id")
     .eq("version_id", versionId)
     .neq("kind", "page")
     .order("ordinal");
@@ -987,25 +963,25 @@ async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sour
 
   const rows: any[] = [];
   let currentUnitNumber: number | null = null;
-  let lessonCounter = 0;
+  let currentUnitId: string | null = null;
 
   for (const unit of units ?? []) {
     const title = String(unit.title || "").trim();
     if (!title || title.startsWith("مقطع نصي")) continue;
     const parsed = parseCurriculumTitle(title);
-    if (parsed.unitNumber !== null) currentUnitNumber = parsed.unitNumber;
-    let lessonNumber = parsed.lessonNumber;
-    if (parsed.kind === "lesson") {
-      lessonCounter = lessonNumber ?? lessonCounter + 1;
-      lessonNumber = lessonCounter;
+    if (parsed.unitNumber !== null) {
+      currentUnitNumber = parsed.unitNumber;
+      currentUnitId = String(unit.id);
     }
     rows.push({
       source_id: sourceId,
       version_id: versionId,
       unit_id: unit.id,
       kind: parsed.kind,
-      unit_number: currentUnitNumber,
-      lesson_number: lessonNumber,
+      unit_number: parsed.kind === "lesson" ? currentUnitNumber : parsed.unitNumber ?? currentUnitNumber,
+      lesson_number: parsed.kind === "lesson" ? parsed.lessonNumber : null,
+      number_source: parsed.numberSource,
+      parent_unit_id: unit.parent_id ?? (parsed.kind === "lesson" ? currentUnitId : null),
       title,
       normalized_title: normalizeArabicText(title),
       page_start: unit.page_from ?? null,
@@ -1015,6 +991,9 @@ async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sour
   }
 
   if (!rows.length) return 0;
+  const explicitLessons = rows.filter((r) => r.kind === "lesson" && r.lesson_number !== null).length;
+  const unnumberedLessons = rows.filter((r) => r.kind === "lesson" && r.lesson_number === null).length;
+  console.log("[modrek] lesson index built", { versionId, rows: rows.length, explicitLessons, unnumberedLessons });
   for (let i = 0; i < rows.length; i += 200) {
     const { error } = await admin.from("knowledge_lesson_index").insert(rows.slice(i, i + 200));
     if (error) {
@@ -1024,6 +1003,7 @@ async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sour
   }
   return rows.length;
 }
+
 
 // -------- Stage 4: chunk (units -> content_chunks) --------------------------
 async function stageChunk(admin: SupabaseClient, job: any) {
