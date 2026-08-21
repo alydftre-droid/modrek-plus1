@@ -7592,6 +7592,10 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_extract_heading_number: {
+        Args: { p_title: string }
+        Returns: number
+      }
       modrek_extract_text_fallback: {
         Args: { p_asset_id: string }
         Returns: string
@@ -7640,6 +7644,10 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_rebuild_lessons_from_text: {
+        Args: { p_source_id: string }
+        Returns: Json
+      }
       modrek_register_bunny_upload: {
         Args: {
           p_bunny_path: string
@@ -7654,6 +7662,10 @@ export type Database = {
       modrek_reindex_lessons_backlog: {
         Args: { p_limit?: number }
         Returns: number
+      }
+      modrek_repair_lesson_index: {
+        Args: { p_source_id: string }
+        Returns: Json
       }
       modrek_rescue_stuck_version: {
         Args: { p_version_id: string }

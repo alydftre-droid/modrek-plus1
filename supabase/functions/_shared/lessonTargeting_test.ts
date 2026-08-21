@@ -5,6 +5,7 @@ import {
   buildScopeFilters,
   normalizeAr,
   parseLessonRequest,
+  parseCurriculumTitle,
   resolveLessonTarget,
 } from "./lessonTargeting.ts";
 
@@ -26,6 +27,19 @@ function makeAdmin(db: Record<string, Row[]>) {
         rows = rows.filter((r) => vals.includes(r[col]));
         return builder;
       },
+      // يحاكي or("unit_id.eq.X,metadata->>lesson_unit_id.eq.X")
+      or: (expr: string) => {
+        const clauses = String(expr).split(",").map((c) => c.split(".eq."));
+        rows = rows.filter((r) =>
+          clauses.some(([col, val]) =>
+            col.includes("metadata->>")
+              ? r.metadata?.[col.split("metadata->>")[1]] === val
+              : r[col] === val
+          )
+        );
+        return builder;
+      },
+
       limit: (n: number) => Promise.resolve({ data: rows.slice(0, n), error: null }),
       then: (res: any) => Promise.resolve({ data: rows, error: null }).then(res),
     };
@@ -243,4 +257,21 @@ Deno.test("عدم عثور: أخطاء قاعدة البيانات تُعاد ك
     filtersFor(studentG2Sci),
   );
   assertEquals(target, null);
+});
+
+// ---------- 4) عناوين الكتب الحقيقية: الرقم المطبوع في الكتاب ----------
+
+Deno.test("يقرأ رقم الدرس المطبوع في العناوين الحقيقية", () => {
+  for (const [title, num] of [["الحديث 1", 1], ["الحديث (3)", 3], ["التفسير 2", 2], ["الحديث الثالث", 3]] as [string, number][]) {
+    const parsed = parseCurriculumTitle(title);
+    assertEquals(parsed.kind, "lesson", title);
+    assertEquals(parsed.lessonNumber, num, title);
+    assertEquals(parsed.numberSource, "explicit", title);
+  }
+});
+
+Deno.test("لا يعتبر العناوين النائبة دروسًا مرقّمة", () => {
+  const parsed = parseCurriculumTitle("مقطع نصي 4");
+  assert(parsed.lessonNumber === null);
+  assertEquals(parsed.numberSource, "unknown");
 });

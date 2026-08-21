@@ -1163,8 +1163,22 @@ async function stageChunk(admin: SupabaseClient, job: any) {
       if (error) throw error;
     }
   }
-  await succeedJob(admin, job, { chunks: chunks.length });
+  // Deterministic repair pass (SQL, single source of truth for both projects):
+  // reads the printed lesson numbers, gives every lesson a real page span and
+  // links every chunk to the lesson that owns its page. Without this, Lesson
+  // Lock has nothing to filter on and retrieval degrades to external search.
+  let repair: any = null;
+  try {
+    const { data, error } = await admin.rpc("modrek_repair_lesson_index", { p_source_id: version!.source_id });
+    if (error) console.warn("[modrek:warn] lesson repair failed", error.message);
+    repair = data ?? null;
+  } catch (e: any) {
+    console.warn("[modrek:warn] lesson repair threw", e?.message ?? e);
+  }
+  console.log("[modrek] lesson repair", repair);
+  await succeedJob(admin, job, { chunks: chunks.length, lesson_repair: repair });
   await enqueue(admin, job.version_id, "embed", 50, {}, job.asset_id);
+
 }
 
 // -------- Stage 5: embed via Lovable AI ------------------------------------
