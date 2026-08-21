@@ -115,11 +115,18 @@ export function parseCurriculumTitle(rawTitle: string): ParsedCurriculumTitle {
   // invention. Placeholder titles ("مقطع نصي 4") are explicitly excluded.
   if (!isLesson && !isUnit && !isChapter && !/^مقطع نصي/.test(title)) {
     const series = title.match(/^[^0-9()]{2,24}?\s*\(?\s*([0-9]{1,2})\s*\)?(?:\s|$|:|-)/);
-    const printed = series ? Number(series[1]) : null;
-    if (printed && printed > 0 && printed <= 60) {
-      return { kind: "lesson", lessonNumber: printed, unitNumber: null, numberSource: "explicit" };
+    const printedDigit = series ? Number(series[1]) : null;
+    if (printedDigit && printedDigit > 0 && printedDigit <= 60) {
+      return { kind: "lesson", lessonNumber: printedDigit, unitNumber: null, numberSource: "explicit" };
+    }
+    // نفس النمط لكن بالترتيب اللفظي: «الحديث الثالث»، «التفسير الاول»
+    const ordinalSeries = title.match(/^\S{2,16}\s+((?:ال)?[^\s0-9]{3,14})\s*$/);
+    const printedOrdinal = ordinalSeries ? ordinalToNumber(ordinalSeries[1]) : null;
+    if (printedOrdinal && printedOrdinal > 0 && printedOrdinal <= 60) {
+      return { kind: "lesson", lessonNumber: printedOrdinal, unitNumber: null, numberSource: "explicit" };
     }
   }
+
 
   const kind: CurriculumTitleKind = isLesson ? "lesson" : isUnit ? "unit" : isChapter ? "chapter" : "section";
   const relevant = kind === "lesson" ? lessonNumber : unitNumber;
