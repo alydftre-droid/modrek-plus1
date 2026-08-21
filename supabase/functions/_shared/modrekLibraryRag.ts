@@ -15,7 +15,7 @@
 //    and let the caller decide about a trusted external fallback.
 // ============================================================================
 
-import { normalizeAr, parseLessonRequest } from "./lessonTargeting.ts";
+import { normalizeAr, parseLessonRequest, parseCurriculumTitle } from "./lessonTargeting.ts";
 import { resolveOpenRouterApiKey } from "./aiSettings.ts";
 import { openRouterEmbed, OPENROUTER_DEFAULT_EMBED_MODEL } from "./openrouter.ts";
 import { aiEmbeddings } from "./aiProvider.ts";

@@ -6,6 +6,7 @@ import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getDocumentProxy } from "npm:unpdf@0.11.0";
 import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSettings.ts";
 import { aiEmbeddings, resolveFileApiRoute } from "../_shared/aiProvider.ts";
+import { parseCurriculumTitle } from "../_shared/lessonTargeting.ts";
 import {
   classifyPipelineError,
   pageNeedsOcr,
