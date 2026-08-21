@@ -1009,7 +1009,7 @@ async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sour
 async function stageChunk(admin: SupabaseClient, job: any) {
   await setVersionStage(admin, job.version_id, "knowledge_extraction", 70);
   const { data: units } = await admin.from("knowledge_units")
-    .select("id, content_text, page_from, page_to").eq("version_id", job.version_id).order("ordinal");
+    .select("id, content_text, page_from, page_to, parent_id, kind, title").eq("version_id", job.version_id).order("ordinal");
   await admin.from("content_chunks").delete().eq("version_id", job.version_id);
   const { data: version } = await admin.from("knowledge_source_versions")
     .select("source_id").eq("id", job.version_id).single();
@@ -1018,13 +1018,51 @@ async function stageChunk(admin: SupabaseClient, job: any) {
   const { data: source } = await admin.from("knowledge_sources")
     .select("id, stage_id, grade_id, section_id, track_id, subject_id, sub_subject_id, term, title")
     .eq("id", version!.source_id).maybeSingle();
-  const { data: lessonIndex } = await admin.from("knowledge_lesson_index")
-    .select("unit_id, kind, unit_number, lesson_number, title, page_start, page_end")
-    .eq("version_id", job.version_id);
+  let { data: lessonIndex } = await admin.from("knowledge_lesson_index")
+    .select("unit_id, kind, unit_number, lesson_number, number_source, title, page_start, page_end, ordinal")
+    .eq("version_id", job.version_id).order("ordinal");
+  if (!lessonIndex?.length) {
+    // Re-index path (older uploads): rebuild the lesson index before chunking so
+    // every chunk can be tied to a real lesson.
+    await rebuildLessonIndex(admin, job.version_id, version!.source_id);
+    const retry = await admin.from("knowledge_lesson_index")
+      .select("unit_id, kind, unit_number, lesson_number, number_source, title, page_start, page_end, ordinal")
+      .eq("version_id", job.version_id).order("ordinal");
+    lessonIndex = retry.data ?? [];
+  }
   const lessonByUnit = new Map<string, any>();
   for (const row of lessonIndex ?? []) {
     if (row.unit_id) lessonByUnit.set(String(row.unit_id), row);
   }
+  const parentById = new Map<string, string | null>();
+  for (const u of units ?? []) parentById.set(String(u.id), u.parent_id ? String(u.parent_id) : null);
+
+  /** Nearest lesson/unit ancestor, then page-range containment. Never guesses. */
+  const resolveLesson = (unit: any): any | null => {
+    const direct = lessonByUnit.get(String(unit.id));
+    if (direct) return direct;
+    let parent = parentById.get(String(unit.id)) ?? null;
+    let hops = 0;
+    while (parent && hops++ < 8) {
+      const hit = lessonByUnit.get(parent);
+      if (hit) return hit;
+      parent = parentById.get(parent) ?? null;
+    }
+    const page = unit.page_from ?? unit.page_to ?? null;
+    if (page === null) return null;
+    const containing = (lessonIndex ?? []).filter((row: any) =>
+      row.page_start !== null && row.page_end !== null &&
+      Number(page) >= Number(row.page_start) && Number(page) <= Number(row.page_end)
+    );
+    // Prefer the most specific match (lesson over unit, then smallest range).
+    containing.sort((a: any, b: any) => {
+      const rank = (r: any) => (r.kind === "lesson" ? 0 : 1);
+      if (rank(a) !== rank(b)) return rank(a) - rank(b);
+      return (Number(a.page_end) - Number(a.page_start)) - (Number(b.page_end) - Number(b.page_start));
+    });
+    return containing[0] ?? null;
+  };
+
   const scopeMetadata = {
     stage_id: source?.stage_id ?? null,
     grade_id: source?.grade_id ?? null,
@@ -1037,15 +1075,21 @@ async function stageChunk(admin: SupabaseClient, job: any) {
   };
   const chunks: any[] = [];
   let ord = 0;
+  let linked = 0;
   for (const u of units ?? []) {
     const pieces = splitText(u.content_text ?? "", 900, 100);
-    const lesson = lessonByUnit.get(String(u.id));
+    const lesson = resolveLesson(u);
+    if (lesson) linked += pieces.length;
     for (const p of pieces) {
       chunks.push({
         source_id: version!.source_id, version_id: job.version_id, unit_id: u.id,
         ordinal: ord++, content: p, token_count: Math.ceil(p.length / 4),
         metadata: {
           ...scopeMetadata,
+          lesson_unit_id: lesson?.unit_id ?? null,
+          lesson_kind: lesson?.kind ?? null,
+          lesson_number_source: lesson?.number_source ?? "unknown",
+          lesson_ordinal: lesson?.ordinal ?? null,
           unit_number: lesson?.unit_number ?? null,
           lesson_number: lesson?.lesson_number ?? null,
           lesson_title: lesson?.title ?? null,
@@ -1061,6 +1105,8 @@ async function stageChunk(admin: SupabaseClient, job: any) {
       });
     }
   }
+  console.log("[modrek] chunk lesson linkage", { versionId: job.version_id, chunks: chunks.length, linked });
+
   if (chunks.length) {
     // batch insert
     for (let i = 0; i < chunks.length; i += 500) {
