@@ -490,18 +490,24 @@ async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLes
   if (book.pipeline === "knowledge") {
     const { data } = await admin
       .from("knowledge_lesson_index")
-      .select("unit_id,title,kind,page_start,page_end,ordinal")
+      .select("unit_id,title,kind,page_start,page_end,ordinal,lesson_number,unit_number,number_source")
       .eq("source_id", book.id)
       .order("ordinal", { ascending: true })
       .limit(400);
-    return (data || []).map((r: any) => ({
-      id: r.unit_id,
-      title: r.title,
-      kind: r.kind ?? null,
-      page_start: r.page_start ?? null,
-      page_end: r.page_end ?? null,
-      order_index: r.ordinal ?? null,
-    }));
+    return (data || []).map((r: any) => {
+      const parsed = parseCurriculumTitle(r.title || "");
+      return {
+        id: r.unit_id,
+        title: r.title,
+        kind: r.kind ?? parsed.kind,
+        page_start: r.page_start ?? null,
+        page_end: r.page_end ?? null,
+        order_index: r.ordinal ?? null,
+        lesson_number: r.lesson_number ?? parsed.lessonNumber ?? null,
+        unit_number: r.unit_number ?? parsed.unitNumber ?? null,
+        number_source: (r.number_source === "explicit" || parsed.numberSource === "explicit") ? "explicit" : "unknown",
+      } as LibraryLessonRef;
+    });
   }
   const { data } = await admin
     .from("library_book_index")
@@ -509,16 +515,34 @@ async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLes
     .eq("book_id", book.id)
     .order("order_index", { ascending: true })
     .limit(400);
-  return (data || []).map((r: any) => ({
-    id: r.id,
-    title: r.title,
-    kind: r.kind ?? null,
-    page_start: r.page_start ?? null,
-    page_end: r.page_end ?? null,
-    order_index: r.order_index ?? null,
-  }));
+  return (data || []).map((r: any) => {
+    // Legacy rows carry no numbers: derive them from the real heading text only.
+    const parsed = parseCurriculumTitle(r.title || "");
+    return {
+      id: r.id,
+      title: r.title,
+      kind: r.kind ?? parsed.kind,
+      page_start: r.page_start ?? null,
+      page_end: r.page_end ?? null,
+      order_index: r.order_index ?? null,
+      lesson_number: parsed.lessonNumber,
+      unit_number: parsed.unitNumber,
+      number_source: parsed.numberSource,
+    } as LibraryLessonRef;
+  });
 }
 
+/**
+ * Resolves "الدرس الثالث" to a REAL node of the book index.
+ *
+ * Order of truth:
+ *   1. explicit title hint match,
+ *   2. the number stored/written for that node ("الدرس الثالث" / "الدرس 3"),
+ *   3. position inside its kind — ONLY when no node of that kind carries an
+ *      explicit number (i.e. the book never numbers its lessons).
+ * Otherwise it returns null: retrieval then answers honestly instead of
+ * serving a different lesson.
+ */
 function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "unit"; number: number } | null, titleHint: string | null): LibraryLessonRef | null {
   if (!outline.length) return null;
   if (titleHint) {
@@ -532,18 +556,27 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
     ? ["lesson", "section", "topic"]
     : ["unit", "chapter", "part"];
   const pool = outline.filter((o) => kinds.includes(String(o.kind || "").toLowerCase()));
+  if (!pool.length) return null;
 
-  // 1) explicit number inside the title ("الدرس الثاني" / "الوحدة 2")
-  const numeric = (target.kind === "lesson" ? pool : pool).find((o) => {
-    const t = normalizeAr(o.title || "");
-    return new RegExp(`(^|\\s)(${target.number})(\\s|$|:|-)`).test(t);
+  // 1) the number the BOOK itself states for this node.
+  const stored = pool.find((o) => {
+    const n = target.kind === "lesson" ? o.lesson_number : o.unit_number;
+    return o.number_source === "explicit" && Number(n) === target.number;
   });
-  if (numeric) return numeric;
+  if (stored) return stored;
 
-  // 2) ordinal by position within its kind
-  if (pool.length >= target.number) return pool[target.number - 1];
-  // 3) fall back to overall ordering
-  if (outline.length >= target.number) return outline[target.number - 1];
+  // 2) numbers appearing inside the heading text (both digits and Arabic ordinals).
+  const variants = lessonPhraseVariants(target, null).map((v) => normalizeAr(v)).filter((v) => v.length >= 4);
+  const byPhrase = pool.find((o) => {
+    const t = normalizeAr(o.title || "");
+    return variants.some((v) => t.includes(v));
+  });
+  if (byPhrase) return byPhrase;
+
+  // 3) positional fallback ONLY for books that never number their headings.
+  const anyExplicit = pool.some((o) => o.number_source === "explicit");
+  if (!anyExplicit && pool.length >= target.number) return pool[target.number - 1];
+
   return null;
 }
 
@@ -551,6 +584,7 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
 // smallest text that can still carry meaning. A higher floor silently dropped
 // legitimate lesson pages and was one reason retrieval returned nothing.
 const MIN_PASSAGE_CHARS = 20;
+
 
 async function pagesText(admin: any, book: LibraryBookRef, from: number | null, to: number | null, limit = 8) {
   if (book.pipeline === "knowledge") {
