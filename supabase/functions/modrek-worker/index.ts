@@ -954,11 +954,39 @@ function normalizeArabicText(value: string): string {
  * retrieval refuses to guess instead of returning the wrong lesson.
  */
 async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sourceId: string): Promise<number> {
-  const { data: units } = await admin.from("knowledge_units")
+  const { data: allUnits } = await admin.from("knowledge_units")
     .select("id, kind, title, ordinal, page_from, page_to, parent_id")
     .eq("version_id", versionId)
-    .neq("kind", "page")
     .order("ordinal");
+
+  // Page coordinates are derived from the unit tree so every lesson gets a real
+  // start/end page even when the structure step returned nulls for headings.
+  const childrenOf = new Map<string, any[]>();
+  for (const u of allUnits ?? []) {
+    const key = u.parent_id ? String(u.parent_id) : "__root__";
+    if (!childrenOf.has(key)) childrenOf.set(key, []);
+    childrenOf.get(key)!.push(u);
+  }
+  const rangeCache = new Map<string, { from: number | null; to: number | null }>();
+  const pageRange = (unit: any, depth = 0): { from: number | null; to: number | null } => {
+    const id = String(unit.id);
+    const cached = rangeCache.get(id);
+    if (cached) return cached;
+    let from = unit.page_from ?? null;
+    let to = unit.page_to ?? unit.page_from ?? null;
+    if (depth < 8) {
+      for (const child of childrenOf.get(id) ?? []) {
+        const r = pageRange(child, depth + 1);
+        if (r.from !== null) from = from === null ? r.from : Math.min(Number(from), Number(r.from));
+        if (r.to !== null) to = to === null ? r.to : Math.max(Number(to), Number(r.to));
+      }
+    }
+    const out = { from: from === null ? null : Number(from), to: to === null ? null : Number(to) };
+    rangeCache.set(id, out);
+    return out;
+  };
+
+  const units = (allUnits ?? []).filter((u: any) => u.kind !== "page");
 
   await admin.from("knowledge_lesson_index").delete().eq("version_id", versionId);
 
@@ -974,6 +1002,7 @@ async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sour
       currentUnitNumber = parsed.unitNumber;
       currentUnitId = String(unit.id);
     }
+    const range = pageRange(unit);
     rows.push({
       source_id: sourceId,
       version_id: versionId,
@@ -985,11 +1014,29 @@ async function rebuildLessonIndex(admin: SupabaseClient, versionId: string, sour
       parent_unit_id: unit.parent_id ?? (parsed.kind === "lesson" ? currentUnitId : null),
       title,
       normalized_title: normalizeArabicText(title),
-      page_start: unit.page_from ?? null,
-      page_end: unit.page_to ?? null,
+      page_start: range.from,
+      page_end: range.to,
       ordinal: Number(unit.ordinal ?? rows.length),
     });
   }
+
+  // Second pass: a lesson whose own range is still unknown inherits the span
+  // between the previous and the next known lesson boundary. Never invented —
+  // only bounded by real neighbouring page numbers.
+  const lessonRows = rows.filter((r) => r.kind === "lesson");
+  for (let i = 0; i < lessonRows.length; i++) {
+    const row = lessonRows[i];
+    if (row.page_start === null) {
+      const prev = lessonRows.slice(0, i).reverse().find((r) => r.page_end !== null || r.page_start !== null);
+      row.page_start = prev ? (prev.page_end ?? prev.page_start) : null;
+    }
+    if (row.page_end === null) {
+      const next = lessonRows.slice(i + 1).find((r) => r.page_start !== null);
+      if (next?.page_start != null) row.page_end = Math.max(Number(row.page_start ?? next.page_start), Number(next.page_start) - 1);
+      else row.page_end = row.page_start;
+    }
+  }
+
 
   if (!rows.length) return 0;
   const explicitLessons = rows.filter((r) => r.kind === "lesson" && r.lesson_number !== null).length;

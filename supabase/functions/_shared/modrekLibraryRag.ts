@@ -1240,13 +1240,31 @@ export function logRagPipeline(fn: string, result: LibraryRagResult, extra: Reco
     lesson_request: result.understanding.lesson,
     accessible_books: result.accessible_books.length,
     subject_books: result.subject_books.length,
+    book_id: result.selected_book?.id ?? null,
     selected_book: result.selected_book?.title ?? null,
     outline_nodes: result.outline.length,
+    lesson_id: result.lesson?.id ?? null,
+    lesson_number: result.lesson?.lesson_number ?? null,
+    lesson_number_source: result.lesson?.number_source ?? null,
     matched_lesson: result.lesson?.title ?? null,
+    lesson_page_range: result.lesson
+      ? { from: result.lesson.page_start ?? null, to: result.lesson.page_end ?? null }
+      : null,
+    retrieved_chunks: result.trace
+      ? (result.trace.vector_hits ?? 0) + (result.trace.keyword_hits ?? 0) + (result.trace.page_hits ?? 0)
+      : null,
+
+    final_chunks: result.passages.length,
     chunks: result.passages.length,
+    retrieval_scores: result.passages.slice(0, 5).map((p) => Number(p.score?.toFixed?.(4) ?? p.score)),
+    final_selected_chunks: result.passages.slice(0, 8).map((p) => ({
+      book_id: p.book_id, lesson: p.lesson_title ?? null, page_from: p.page_from ?? null, page_to: p.page_to ?? null,
+    })),
     top_pages: result.passages.slice(0, 5).map((p) => p.page_from),
     confidence: result.confidence,
     found: result.found,
+    source_used: result.found && result.passages.length > 0 ? "modrek_library" : "external_search",
     ...extra,
   }));
 }
+
