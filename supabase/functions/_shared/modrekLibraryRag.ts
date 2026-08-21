@@ -505,7 +505,10 @@ async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLes
         order_index: r.ordinal ?? null,
         lesson_number: r.lesson_number ?? parsed.lessonNumber ?? null,
         unit_number: r.unit_number ?? parsed.unitNumber ?? null,
-        number_source: (r.number_source === "explicit" || parsed.numberSource === "explicit") ? "explicit" : "unknown",
+        // Numbers detected from the printed book text ("الحديث 5") are as
+        // trustworthy as explicit ones — they ARE what the book prints.
+        number_source: (["explicit", "text_scan", "heading"].includes(String(r.number_source || "")) || parsed.numberSource === "explicit")
+          ? "explicit" : "unknown",
       } as LibraryLessonRef;
     });
   }
@@ -903,10 +906,17 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   const outlines = new Map<string, LibraryLessonRef[]>();
   await Promise.all(candidates.map(async (b) => outlines.set(b.id, await loadOutline(admin, b))));
 
-  let selected = candidates[0];
+  // Default book = the richest indexed candidate, never simply the first row.
+  // A tiny half-uploaded stub used to win and hide the real 16-lesson book.
+  const outlineWeight = (b: LibraryBookRef) => {
+    const o = outlines.get(b.id) || [];
+    const numbered = o.filter((n) => n.lesson_number != null && n.number_source === "explicit").length;
+    return numbered * 100 + o.length;
+  };
+  let selected = [...candidates].sort((a, b) => outlineWeight(b) - outlineWeight(a))[0] ?? candidates[0];
   let outline = outlines.get(selected.id) || [];
   let lesson: LibraryLessonRef | null = null;
-  for (const b of candidates) {
+  for (const b of [...candidates].sort((a, b2) => outlineWeight(b2) - outlineWeight(a))) {
     const o = outlines.get(b.id) || [];
     const l = pickLesson(o, understanding.lesson, understanding.lessonTitleHint);
     if (l) { selected = b; outline = o; lesson = l; break; }
