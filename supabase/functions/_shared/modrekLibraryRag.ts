@@ -586,8 +586,57 @@ function pickLesson(outline: LibraryLessonRef[], target: { kind: "lesson" | "uni
 const MIN_PASSAGE_CHARS = 20;
 
 
-async function pagesText(admin: any, book: LibraryBookRef, from: number | null, to: number | null, limit = 8) {
+async function pagesText(
+  admin: any,
+  book: LibraryBookRef,
+  from: number | null,
+  to: number | null,
+  limit = 8,
+  lesson?: LibraryLessonRef | null,
+) {
   if (book.pipeline === "knowledge") {
+    // LESSON LOCK: when the lesson is known, chunks are fetched by their lesson
+    // linkage, not by page range. Modern units frequently have NULL pages, and
+    // the old page-range filter therefore returned the beginning of the book —
+    // which is why "الدرس الأول" looked right and every later lesson was mixed.
+    if (lesson?.id) {
+      const byLesson = await admin
+        .from("content_chunks")
+        .select("id,content,unit_id,metadata")
+        .eq("source_id", book.id)
+        .eq("metadata->>lesson_unit_id", lesson.id)
+        .order("ordinal", { ascending: true })
+        .limit(Math.max(limit, 12));
+      const rows = (byLesson.data || [])
+        .map((r: any) => ({
+          ...r,
+          ocr_text: r.content,
+          page_number: Number(r.metadata?.page_from ?? 0) || null,
+          page_to: Number(r.metadata?.page_to ?? r.metadata?.page_from ?? 0) || null,
+        }))
+        .filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+      if (rows.length) return rows.slice(0, limit);
+      // Direct unit fallback (chunks stored straight on the lesson unit).
+      const byUnit = await admin
+        .from("content_chunks")
+        .select("id,content,unit_id,metadata")
+        .eq("source_id", book.id)
+        .eq("unit_id", lesson.id)
+        .order("ordinal", { ascending: true })
+        .limit(Math.max(limit, 12));
+      const unitRows = (byUnit.data || [])
+        .map((r: any) => ({
+          ...r,
+          ocr_text: r.content,
+          page_number: Number(r.metadata?.page_from ?? 0) || null,
+          page_to: Number(r.metadata?.page_to ?? r.metadata?.page_from ?? 0) || null,
+        }))
+        .filter((p: any) => String(p.ocr_text || "").trim().length >= MIN_PASSAGE_CHARS);
+      if (unitRows.length) return unitRows.slice(0, limit);
+      // No lesson-linked text: only page ranges may be used, and only when the
+      // lesson actually has a page range. Never fall back to the whole book.
+      if (!(from || to)) return [];
+    }
     const { data } = await admin
       .from("content_chunks")
       .select("id,content,unit_id,metadata")
@@ -611,6 +660,7 @@ async function pagesText(admin: any, book: LibraryBookRef, from: number | null, 
       })
       .slice(0, limit);
   }
+
   let q = admin
     .from("library_book_pages")
     .select("page_number, ocr_text")
