@@ -345,9 +345,17 @@ async function loadTaxonomy(admin: any) {
 
 function subjectMatches(book: any, subject: string | null): boolean {
   if (!subject) return true;
+  const strip = (v: string) => v.replace(/^ال/, "");
   const want = normalizeAr(subject);
+  const wantBare = strip(want);
   const fields = [book.subject_name_ar, book.sub_subject_name, book.title].map((v: any) => normalizeAr(v || ""));
-  return fields.some((f) => f && (f === want || f.includes(want) || want.includes(f)));
+  return fields.some((f) => {
+    if (!f) return false;
+    if (f === want || f.includes(want) || want.includes(f)) return true;
+    // Titles like "المرشد حديث" must still match the subject "الحديث":
+    // compare word-by-word after dropping the Arabic definite article.
+    return f.split(/\s+/).map(strip).some((w) => w.length >= 3 && (w === wantBare || w.includes(wantBare) || wantBare.includes(w)));
+  });
 }
 
 /** All READY library books this student is allowed to open, scoped to their curriculum. */
@@ -505,7 +513,10 @@ async function loadOutline(admin: any, book: LibraryBookRef): Promise<LibraryLes
         order_index: r.ordinal ?? null,
         lesson_number: r.lesson_number ?? parsed.lessonNumber ?? null,
         unit_number: r.unit_number ?? parsed.unitNumber ?? null,
-        number_source: (r.number_source === "explicit" || parsed.numberSource === "explicit") ? "explicit" : "unknown",
+        // Numbers detected from the printed book text ("الحديث 5") are as
+        // trustworthy as explicit ones — they ARE what the book prints.
+        number_source: (["explicit", "text_scan", "heading"].includes(String(r.number_source || "")) || parsed.numberSource === "explicit")
+          ? "explicit" : "unknown",
       } as LibraryLessonRef;
     });
   }
@@ -903,10 +914,17 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   const outlines = new Map<string, LibraryLessonRef[]>();
   await Promise.all(candidates.map(async (b) => outlines.set(b.id, await loadOutline(admin, b))));
 
-  let selected = candidates[0];
+  // Default book = the richest indexed candidate, never simply the first row.
+  // A tiny half-uploaded stub used to win and hide the real 16-lesson book.
+  const outlineWeight = (b: LibraryBookRef) => {
+    const o = outlines.get(b.id) || [];
+    const numbered = o.filter((n) => n.lesson_number != null && n.number_source === "explicit").length;
+    return numbered * 100 + o.length;
+  };
+  let selected = [...candidates].sort((a, b) => outlineWeight(b) - outlineWeight(a))[0] ?? candidates[0];
   let outline = outlines.get(selected.id) || [];
   let lesson: LibraryLessonRef | null = null;
-  for (const b of candidates) {
+  for (const b of [...candidates].sort((a, b2) => outlineWeight(b2) - outlineWeight(a))) {
     const o = outlines.get(b.id) || [];
     const l = pickLesson(o, understanding.lesson, understanding.lessonTitleHint);
     if (l) { selected = b; outline = o; lesson = l; break; }

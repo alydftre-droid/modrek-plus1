@@ -146,6 +146,7 @@ const AdsManagement = lazy(() => import("@/pages/admin/AdsManagement"));
 const ModrekLibraryPage = lazy(() => import("@/pages/admin/ModrekLibraryPage"));
 const ModrekSourceDetailPage = lazy(() => import("@/pages/admin/ModrekSourceDetailPage"));
 const ModrekAnalyticsPage = lazy(() => import("@/pages/admin/ModrekAnalyticsPage"));
+const ModrekIndexingDiagnosticsPage = lazy(() => import("@/pages/admin/ModrekIndexingDiagnosticsPage"));
 const AdminLibraryPage = lazy(() => import("@/pages/admin/AdminLibraryPage"));
 const StudentWalletPage = lazy(() => import("@/pages/admin/StudentWalletPage"));
 const StudentDepositDetailPage = lazy(() => import("@/pages/admin/StudentDepositDetailPage"));
@@ -357,6 +358,8 @@ function AnimatedRoutes() {
               <Route path="/admin/modrek-library/:id" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekSourceDetailPage /></ProtectedRoute>} />
               <Route path="/admin/test-students" element={<ProtectedRoute allowedRoles={["admin"]}><DeveloperTestStudentsPage /></ProtectedRoute>} />
               <Route path="/admin/modrek-analytics" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekAnalyticsPage /></ProtectedRoute>} />
+              <Route path="/admin/modrek-indexing" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekIndexingDiagnosticsPage /></ProtectedRoute>} />
+
               <Route path="/admin/student-wallets" element={<ProtectedRoute allowedRoles={["admin"]}><StudentWalletPage /></ProtectedRoute>} />
               <Route path="/admin/student-wallets/:id" element={<ProtectedRoute allowedRoles={["admin"]}><StudentDepositDetailPage /></ProtectedRoute>} />
 

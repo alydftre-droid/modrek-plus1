@@ -7545,6 +7545,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      modrek_admin_repair_source: {
+        Args: { p_source_id: string }
+        Returns: Json
+      }
       modrek_bulk_set_embeddings: {
         Args: { p_model_id?: string; p_rows: Json }
         Returns: number
@@ -7633,6 +7637,29 @@ export type Database = {
           unit_kind: string
           unit_title: string
           version_id: string
+        }[]
+      }
+      modrek_library_diagnostics: {
+        Args: never
+        Returns: {
+          chunks: number
+          embedded_chunks: number
+          grade: string
+          issues: string[]
+          latest_version_id: string
+          lessons: number
+          linked_chunks: number
+          numbered_lessons: number
+          pages: number
+          pipeline_stage: string
+          searchable: boolean
+          source_id: string
+          status: string
+          subject: string
+          title: string
+          units: number
+          updated_at: string
+          versions: number
         }[]
       }
       modrek_log_event: {

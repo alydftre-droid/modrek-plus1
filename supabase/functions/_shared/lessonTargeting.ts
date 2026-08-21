@@ -64,6 +64,15 @@ export function parseLessonRequest(
   };
   const lesson = /درس/.test(text) ? match("الدرس") ?? match("درس") : null;
   if (lesson) return { kind: "lesson", number: lesson };
+  // Real Egyptian books rarely print "الدرس الخامس": they print the content word
+  // itself ("الحديث 5", "النص الثالث", "القصه 2"). Those forms are lesson
+  // requests too, but ONLY when an explicit number/ordinal follows the word.
+  const CONTENT_LESSON_WORDS = ["الحديث", "حديث", "النص", "نص", "القصه", "قصه", "الموضوع", "موضوع", "المحفوظات", "القاعده", "التدريب", "المسال"];
+  for (const word of CONTENT_LESSON_WORDS) {
+    if (!text.includes(word)) continue;
+    const n = match(word);
+    if (n && n > 0 && n <= 60) return { kind: "lesson", number: n };
+  }
   const unit = /وحده|باب|فصل/.test(text)
     ? match("الوحده") ?? match("وحده") ?? match("الباب") ?? match("باب") ?? match("الفصل") ?? match("فصل")
     : null;
