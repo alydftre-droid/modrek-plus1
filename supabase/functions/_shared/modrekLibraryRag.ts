@@ -1035,11 +1035,38 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
     const prev = dedup.get(key);
     if (!prev || prev.score < scored.score) dedup.set(key, scored);
   }
-  const finalPassages = [...dedup.values()].sort((a, b) => b.score - a.score).slice(0, maxPassages);
+  let finalPassages = [...dedup.values()].sort((a, b) => b.score - a.score).slice(0, maxPassages);
 
-  // If the winning content lives in another candidate book, follow the evidence.
+  // ---- LESSON LOCK ENFORCEMENT ------------------------------------------------
+  // When the student named a specific lesson/unit and we resolved it, ONLY text
+  // that belongs to that lesson may reach the model. Mixing in vector hits from
+  // other lessons of the same book was the direct cause of "invented order" and
+  // "content from another lesson".
+  if (lesson && lessonPassageCount > 0) {
+    const inLesson = (p: LibraryPassage) => {
+      if (p.book_id !== selected.id) return false;
+      if (p.source === "lesson_pages" || p.source === "page") return true;
+      if (lesson.page_start && p.page_from) {
+        return p.page_from >= lesson.page_start && (!lesson.page_end || p.page_from <= lesson.page_end);
+      }
+      return false;
+    };
+    const locked = finalPassages.filter(inLesson);
+    if (locked.length) {
+      if (locked.length !== finalPassages.length) reasons.push("lesson_lock_filtered_off_lesson_passages");
+      finalPassages = locked;
+    }
+  } else if (lessonLocked && !lesson) {
+    // The requested lesson could not be resolved in any real book index: never
+    // serve a different lesson's content as if it were the requested one.
+    finalPassages = [];
+    reasons.push("lesson_lock_rejected_unverified_content");
+  }
+
+  // If the winning content lives in another candidate book, follow the evidence —
+  // but never while a specific lesson is locked to the selected book.
   const topBookId = finalPassages[0]?.book_id;
-  if (topBookId && topBookId !== selected.id && bookById.has(topBookId)) {
+  if (!lesson && topBookId && topBookId !== selected.id && bookById.has(topBookId)) {
     selected = bookById.get(topBookId)!;
     outline = outlines.get(topBookId) || outline;
     reasons.push("selected_book_switched_to_best_evidence");
@@ -1051,14 +1078,25 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   else if (finalPassages.length) confidence = "low";
   else if (subjectBooks.length) confidence = "low";
 
+  const lessonWord = understanding.lesson?.kind === "lesson" ? "الدرس" : "الوحدة";
+  const outlineTitles = (nodes: LibraryLessonRef[]) => nodes.slice(0, 8).map((o) => o.title).filter(Boolean).join("، ");
   let ambiguity: string | null = null;
-  if (understanding.lesson && !lesson && !finalPassages.length) {
-    ambiguity = outline.length
-      ? `لم أتأكد من "${understanding.lesson.kind === "lesson" ? "الدرس" : "الوحدة"} رقم ${understanding.lesson.number}" في كتاب ${selected.title}. الفهرس المتاح: ${outline.slice(0, 8).map((o) => o.title).join("، ")}. أي واحد تقصد؟`
-      : `كتاب ${selected.title} لم يكتمل فهرسته بعد، فلا أستطيع تحديد رقم الدرس بدقة.`;
+  if (understanding.lesson && !finalPassages.length) {
+    const known = outline.filter((o) => {
+      const kind = String(o.kind || "").toLowerCase();
+      return understanding.lesson!.kind === "lesson" ? kind === "lesson" : ["unit", "chapter", "part"].includes(kind);
+    });
+    ambiguity = known.length
+      ? `لم أجد "${lessonWord} رقم ${understanding.lesson.number}" بشكل مؤكد في كتاب ${selected.title}. الموجود فعليًا في فهرس الكتاب: ${outlineTitles(known)}. أي واحد تقصد؟`
+      : outline.length
+        ? `فهرس كتاب ${selected.title} لا يحتوي على ترقيم دروس واضح، فلا أستطيع تحديد "${lessonWord} رقم ${understanding.lesson.number}" بدقة. اكتب لي عنوان الدرس أو رقم الصفحة.`
+        : `كتاب ${selected.title} لم يكتمل فهرسته بعد، فلا أستطيع تحديد رقم الدرس بدقة.`;
+  } else if (understanding.lesson && lesson && lessonPassageCount === 0) {
+    ambiguity = `حددت "${lesson.title}" في فهرس ${selected.title}، لكن نص هذا الدرس لم يكتمل فهرسته بعد.`;
   } else if (!understanding.subject && subjectBooks.length > 1 && !finalPassages.length && understanding.intent !== "search_content") {
     ambiguity = `تقصد أي مادة؟ المتاح في مكتبتك: ${subjectBooks.slice(0, 6).map((b) => b.subject || b.title).join("، ")}.`;
   }
+
 
   return await finish({
     ...base,
