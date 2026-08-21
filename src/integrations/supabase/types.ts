@@ -7644,6 +7644,10 @@ export type Database = {
         }
         Returns: string
       }
+      modrek_rebuild_lessons_from_text: {
+        Args: { p_source_id: string }
+        Returns: Json
+      }
       modrek_register_bunny_upload: {
         Args: {
           p_bunny_path: string
