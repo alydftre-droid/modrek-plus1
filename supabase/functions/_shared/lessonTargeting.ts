@@ -109,6 +109,18 @@ export function parseCurriculumTitle(rawTitle: string): ParsedCurriculumTitle {
       ?? numberAfter("الفصل") ?? numberAfter("فصل")
     : null;
 
+  // Real Egyptian/Azhari books rarely write "الدرس الثالث": they print the
+  // subject word plus the printed lesson number ("الحديث 1", "الحديث (3)",
+  // "التفسير 2"). That number IS written in the book, so reading it is not an
+  // invention. Placeholder titles ("مقطع نصي 4") are explicitly excluded.
+  if (!isLesson && !isUnit && !isChapter && !/^مقطع نصي/.test(title)) {
+    const series = title.match(/^[^0-9()]{2,24}?\s*\(?\s*([0-9]{1,2})\s*\)?(?:\s|$|:|-)/);
+    const printed = series ? Number(series[1]) : null;
+    if (printed && printed > 0 && printed <= 60) {
+      return { kind: "lesson", lessonNumber: printed, unitNumber: null, numberSource: "explicit" };
+    }
+  }
+
   const kind: CurriculumTitleKind = isLesson ? "lesson" : isUnit ? "unit" : isChapter ? "chapter" : "section";
   const relevant = kind === "lesson" ? lessonNumber : unitNumber;
 
@@ -119,6 +131,7 @@ export function parseCurriculumTitle(rawTitle: string): ParsedCurriculumTitle {
     numberSource: relevant !== null ? "explicit" : "unknown",
   };
 }
+
 
 
 /**
@@ -193,9 +206,10 @@ export async function resolveLessonTarget(
 
     const { data: chunks } = await admin.from("content_chunks")
       .select("id, content, unit_id, source_id")
-      .eq("unit_id", lesson.unit_id)
+      .or(`unit_id.eq.${lesson.unit_id},metadata->>lesson_unit_id.eq.${lesson.unit_id}`)
       .order("ordinal")
-      .limit(4);
+      .limit(6);
+
 
     if (!(chunks ?? []).length) return null;
 
