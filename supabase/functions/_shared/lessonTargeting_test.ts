@@ -5,6 +5,7 @@ import {
   buildScopeFilters,
   normalizeAr,
   parseLessonRequest,
+  parseCurriculumTitle,
   resolveLessonTarget,
 } from "./lessonTargeting.ts";
 
@@ -256,4 +257,21 @@ Deno.test("عدم عثور: أخطاء قاعدة البيانات تُعاد ك
     filtersFor(studentG2Sci),
   );
   assertEquals(target, null);
+});
+
+// ---------- 4) عناوين الكتب الحقيقية: الرقم المطبوع في الكتاب ----------
+
+Deno.test("يقرأ رقم الدرس المطبوع في العناوين الحقيقية", () => {
+  for (const [title, num] of [["الحديث 1", 1], ["الحديث (3)", 3], ["التفسير 2", 2], ["الحديث الثالث", 3]] as [string, number][]) {
+    const parsed = parseCurriculumTitle(title);
+    assertEquals(parsed.kind, "lesson", title);
+    assertEquals(parsed.lessonNumber, num, title);
+    assertEquals(parsed.numberSource, "explicit", title);
+  }
+});
+
+Deno.test("لا يعتبر العناوين النائبة دروسًا مرقّمة", () => {
+  const parsed = parseCurriculumTitle("مقطع نصي 4");
+  assert(parsed.lessonNumber === null);
+  assertEquals(parsed.numberSource, "unknown");
 });
