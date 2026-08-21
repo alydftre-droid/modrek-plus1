@@ -26,6 +26,19 @@ function makeAdmin(db: Record<string, Row[]>) {
         rows = rows.filter((r) => vals.includes(r[col]));
         return builder;
       },
+      // يحاكي or("unit_id.eq.X,metadata->>lesson_unit_id.eq.X")
+      or: (expr: string) => {
+        const clauses = String(expr).split(",").map((c) => c.split(".eq."));
+        rows = rows.filter((r) =>
+          clauses.some(([col, val]) =>
+            col.includes("metadata->>")
+              ? r.metadata?.[col.split("metadata->>")[1]] === val
+              : r[col] === val
+          )
+        );
+        return builder;
+      },
+
       limit: (n: number) => Promise.resolve({ data: rows.slice(0, n), error: null }),
       then: (res: any) => Promise.resolve({ data: rows, error: null }).then(res),
     };
