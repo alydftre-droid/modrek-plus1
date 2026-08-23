@@ -168,19 +168,21 @@ const SubSubjectsGrid = ({
   const fetchSubSubjects = async () => {
     setLoading(true);
     try {
+      // Fetch every row (active + soft deleted) so we can heal partial sets and
+      // detect names that are "already taken" by a hidden row.
       const { data, error } = await supabase
         .from("sub_subjects")
         .select("*")
         .eq("group_id", groupId)
-        .eq("is_active", true)
         .order("order_index", { ascending: true });
 
       if (error) throw error;
-      let subs = (data || []) as SubSubjectRow[];
+      let allRows = (data || []) as SubSubjectRow[];
+      let subs = allRows.filter((row) => row.is_active);
       let resolvedSubjectName = subjectName || "";
       let resolvedSubjectData: { category?: string | null; stage?: string | null; grade?: string | null; section?: string | null; name?: string | null } | null = null;
 
-      if (!resolvedSubjectName || (subs.length === 0 && isTeacher)) {
+      if (!resolvedSubjectName || isTeacher) {
         const { data: groupData } = await supabase
           .from("content_groups")
           .select("subject_id")
@@ -201,31 +203,49 @@ const SubSubjectsGrid = ({
         }
       }
 
-      if (subs.length === 0 && isTeacher) {
+      if (isTeacher) {
         let defaults = getDefaultSubSubjects({ category, subjectName }) || getDefaultSubs(category);
 
         if (resolvedSubjectData) {
-          defaults = getDefaultSubSubjects(resolvedSubjectData);
+          defaults = getDefaultSubSubjects(resolvedSubjectData) || defaults;
         }
 
-        if (defaults.length > 0) {
-          const rows = defaults.map((name, i) => ({
+        // Only create the defaults that have never existed for this group, so a
+        // single conflicting name can no longer abort the whole batch and leave
+        // the section list incomplete.
+        const knownLabels = new Set(allRows.map((row) => normalizeSubSubjectLabel(row.name)));
+        const missing = (defaults || []).filter((name) => !knownLabels.has(normalizeSubSubjectLabel(name)));
+
+        if (missing.length > 0) {
+          const baseIndex = allRows.length;
+          const rows = missing.map((name, i) => ({
             group_id: groupId,
             name,
-            order_index: i,
+            order_index: baseIndex + i,
             created_by: userId,
           }));
 
-          const { data: inserted, error: insertErr } = await supabase
+          const { error: insertErr } = await supabase
             .from("sub_subjects")
-            .insert(rows)
-            .select("*");
+            .upsert(rows, { onConflict: "group_id,name", ignoreDuplicates: true });
 
-          if (!insertErr && inserted) {
-            subs = inserted as SubSubjectRow[];
+          if (insertErr) console.warn("sub_subjects defaults upsert failed", insertErr.message);
+
+          const { data: refreshed } = await supabase
+            .from("sub_subjects")
+            .select("*")
+            .eq("group_id", groupId)
+            .order("order_index", { ascending: true });
+
+          if (refreshed) {
+            allRows = refreshed as SubSubjectRow[];
+            subs = allRows.filter((row) => row.is_active);
           }
         }
       }
+
+      setHiddenRows(allRows.filter((row) => !row.is_active));
+
 
       const parentLabel = normalizeSubSubjectLabel(resolvedSubjectName);
       const realSubs = subs.filter((sub) => {
