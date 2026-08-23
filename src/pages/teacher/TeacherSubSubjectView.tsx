@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen, Upload, ChevronLeft } from "lucide-react";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
-import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
+import { categorySupportsSubSubjects, subjectHasSubSubjectPlan } from "@/lib/subSubjectDefaults";
 
 // Helper to check if category needs sub-subjects
 function needsSubSubjects(category: string, subjectName?: string | null): boolean {
