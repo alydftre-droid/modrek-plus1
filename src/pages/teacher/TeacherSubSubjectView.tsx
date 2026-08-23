@@ -123,13 +123,9 @@ const TeacherSubSubjectView = () => {
   
   // If category doesn't need sub-subjects, redirect directly to upload content
   if (!needsSubSubjects(category, subjectName)) {
-    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
-    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
-    navigate(
-      `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}${teacherParam}`
-    );
-    return null;
+    return <Navigate to={uploadUrl} replace />;
   }
+
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
