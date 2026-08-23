@@ -286,19 +286,26 @@ const SubSubjectsGrid = ({
           .maybeSingle();
         if (restoreErr) throw restoreErr;
         if (!restoredRow) throw new Error("تعذر استرجاع المادة الفرعية بسبب صلاحيات الوصول");
+        setHiddenRows((rows) => rows.filter((row) => row.id !== restoredRow.id));
+        setSubSubjects((rows) => [...rows, restoredRow as SubSubjectRow].sort((a, b) => a.order_index - b.order_index));
         toast.success("تم استرجاع المادة الفرعية وإظهارها بنجاح ✨");
       } else if (subSubjects.some((row) => normalizeSubSubjectLabel(row.name) === label)) {
         toast.error("هذه المادة موجودة بالفعل في القائمة");
         return;
       } else {
-        const { error } = await supabase.from("sub_subjects").insert({
-          group_id: groupId,
-          name,
-          description: newDesc.trim() || null,
-          order_index: subSubjects.length,
-          created_by: userId,
-        });
+        const { data: insertedRow, error } = await supabase
+          .from("sub_subjects")
+          .insert({
+            group_id: groupId,
+            name,
+            description: newDesc.trim() || null,
+            order_index: subSubjects.length,
+            created_by: userId,
+          })
+          .select("*")
+          .single();
         if (error) throw error;
+        setSubSubjects((rows) => [...rows, insertedRow as SubSubjectRow]);
         toast.success("تمت إضافة المادة الفرعية بنجاح ✨");
       }
 

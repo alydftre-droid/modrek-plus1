@@ -22,6 +22,8 @@ export function categorySupportsSubSubjects(category?: string | null) {
     || normalized.includes("عرب")
     || normalized.includes("شرع")
     || normalized.includes("دراس")
+    || normalized.includes("تاريخ")
+    || normalized.includes("جغراف")
     || normalized.includes("رياض");
 }
 
@@ -42,7 +44,13 @@ export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
     return SHARIA_PREPARATORY;
   }
 
-  if (category === "studies" || category === "social" || scope.includes("دراس")) {
+  if (
+    category === "studies"
+    || category === "social"
+    || scope.includes("دراس")
+    || scope.includes("تاريخ")
+    || scope.includes("جغراف")
+  ) {
     return STUDIES_SUBJECTS;
   }
 
