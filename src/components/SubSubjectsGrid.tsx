@@ -290,19 +290,42 @@ const SubSubjectsGrid = ({
   };
 
   const handleAdd = async () => {
-    if (!newName.trim()) return;
+    const name = newName.trim();
+    if (!name) return;
     try {
-      const { error } = await supabase.from("sub_subjects").insert({
-        group_id: groupId,
-        name: newName.trim(),
-        description: newDesc.trim() || null,
-        order_index: subSubjects.length,
-        created_by: userId,
-      });
+      const label = normalizeSubSubjectLabel(name);
 
-      if (error) throw error;
+      // A soft-deleted row keeps holding the (group_id, name) unique slot, which is
+      // why adding a "missing" section used to fail with "already exists".
+      // Restore it instead of trying to insert a duplicate.
+      const existingHidden = hiddenRows.find((row) => normalizeSubSubjectLabel(row.name) === label);
+      if (existingHidden) {
+        const { error: restoreErr } = await supabase
+          .from("sub_subjects")
+          .update({
+            is_active: true,
+            name,
+            description: newDesc.trim() || null,
+            order_index: subSubjects.length,
+          })
+          .eq("id", existingHidden.id);
+        if (restoreErr) throw restoreErr;
+        toast.success("تم استرجاع المادة الفرعية وإظهارها بنجاح ✨");
+      } else if (subSubjects.some((row) => normalizeSubSubjectLabel(row.name) === label)) {
+        toast.error("هذه المادة موجودة بالفعل في القائمة");
+        return;
+      } else {
+        const { error } = await supabase.from("sub_subjects").insert({
+          group_id: groupId,
+          name,
+          description: newDesc.trim() || null,
+          order_index: subSubjects.length,
+          created_by: userId,
+        });
+        if (error) throw error;
+        toast.success("تمت إضافة المادة الفرعية بنجاح ✨");
+      }
 
-      toast.success("تمت إضافة المادة الفرعية بنجاح ✨");
       setShowAddDialog(false);
       setNewName("");
       setNewDesc("");
@@ -315,6 +338,7 @@ const SubSubjectsGrid = ({
       }
     }
   };
+
 
   const handleEdit = async () => {
     if (!editingSub || !newName.trim()) return;
