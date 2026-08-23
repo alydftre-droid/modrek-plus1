@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, BookOpen, Upload, ChevronLeft } from "lucide-react";
 import SubSubjectsGrid, { SubSubjectRow } from "@/components/SubSubjectsGrid";
 import { getCurrentTermForSubject } from "@/lib/termSystem";
-import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
+import { categorySupportsSubSubjects, subjectHasSubSubjectPlan } from "@/lib/subSubjectDefaults";
 
 // Helper to check if category needs sub-subjects
 function needsSubSubjects(category: string, subjectName?: string | null): boolean {
@@ -37,6 +37,12 @@ const TeacherSubSubjectView = () => {
     ? `/admin/upload/content?subjectId=${subjectId}&stage=${stage}&grade=${grade}&category=${category}`
     : `/teacher/subject?category=${encodeURIComponent(category)}&grade=${encodeURIComponent(grade)}&stage=${stage}`;
 
+  const uploadUrl = (() => {
+    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
+    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
+    return `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}${teacherParam}`;
+  })();
+
   useEffect(() => {
     if (!subjectId) return;
     (async () => {
@@ -60,10 +66,36 @@ const TeacherSubSubjectView = () => {
         .eq("term", currentTerm)
         .or(`teacher_id.eq.${effectiveUserId},created_by.eq.${effectiveUserId}`)
         .maybeSingle();
-      if (data) {
-        setGroupTitle(data.title);
-      } else {
+      if (!data) {
         navigate(backTo, { replace: true });
+        return;
+      }
+      setGroupTitle(data.title);
+
+      // Data-driven guard: subjects that genuinely have no sections must open
+      // the upload screen directly instead of showing an empty sections page.
+      const [{ data: subjectRow }, { data: existingSubs }] = await Promise.all([
+        supabase
+          .from("subjects")
+          .select("category, stage, grade, section, name")
+          .eq("id", subjectId)
+          .maybeSingle(),
+        supabase
+          .from("sub_subjects")
+          .select("id")
+          .eq("group_id", groupId)
+          .eq("is_active", true)
+          .limit(1),
+      ]);
+
+      const hasCreatedSections = (existingSubs || []).length > 0;
+      const hasPlan = subjectRow
+        ? subjectHasSubSubjectPlan(subjectRow)
+        : needsSubSubjects(category, subjectName);
+
+      if (!hasCreatedSections && !hasPlan) {
+        navigate(uploadUrl, { replace: true });
+        return;
       }
     } catch (e) {
       console.error(e);
@@ -71,6 +103,7 @@ const TeacherSubSubjectView = () => {
       setLoading(false);
     }
   };
+
   
   const handleSelectSubSubject = (sub: SubSubjectRow) => {
     const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
@@ -90,13 +123,9 @@ const TeacherSubSubjectView = () => {
   
   // If category doesn't need sub-subjects, redirect directly to upload content
   if (!needsSubSubjects(category, subjectName)) {
-    const basePrefix = isAdminMode ? "/admin/upload" : "/teacher/upload";
-    const teacherParam = teacherIdOverride ? `&teacherId=${teacherIdOverride}` : "";
-    navigate(
-      `${basePrefix}/subject/${subjectId}?stage=${stage}&grade=${encodeURIComponent(grade)}&category=${encodeURIComponent(category)}&subjectName=${encodeURIComponent(subjectName)}&groupId=${groupId}${teacherParam}`
-    );
-    return null;
+    return <Navigate to={uploadUrl} replace />;
   }
+
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/20">
