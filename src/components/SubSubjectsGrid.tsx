@@ -246,27 +246,32 @@ const SubSubjectsGrid = ({
         }
       }
 
-      setHiddenRows(allRows.filter((row) => !row.is_active));
+      const { data: linkedContent } = await supabase
+        .from("content")
+        .select("id, sub_subject_id, sub_subject")
+        .eq("group_id", groupId)
+        .not("sub_subject_id", "is", null);
 
+      const contentRows = ((linkedContent || []) as any[]);
+      const idsWithContent = new Set(contentRows.map((row) => row.sub_subject_id));
 
+      // A section whose name equals the parent subject is auto-noise, but only hide
+      // it when it holds no content — otherwise real teacher content disappears.
       const parentLabel = normalizeSubSubjectLabel(resolvedSubjectName);
       const realSubs = subs.filter((sub) => {
         const subLabel = normalizeSubSubjectLabel(sub.name);
-        return subLabel && subLabel !== parentLabel;
+        if (!subLabel) return false;
+        return subLabel !== parentLabel || idsWithContent.has(sub.id);
       });
 
       if (realSubs.length > 0) {
         subs = realSubs;
       }
 
-      const activeIds = new Set(subs.map((sub) => sub.id));
-      const { data: legacyContent } = await supabase
-        .from("content")
-        .select("id, sub_subject_id, sub_subject")
-        .eq("group_id", groupId)
-        .not("sub_subject_id", "is", null);
+      setHiddenRows(allRows.filter((row) => !subs.some((sub) => sub.id === row.id)));
 
-      const legacyRows = ((legacyContent || []) as any[]).filter((row) => row.sub_subject_id && !activeIds.has(row.sub_subject_id));
+      const activeIds = new Set(subs.map((sub) => sub.id));
+      const legacyRows = contentRows.filter((row) => row.sub_subject_id && !activeIds.has(row.sub_subject_id));
       if (legacyRows.length > 0 && subs.length > 0) {
         for (const row of legacyRows) {
           const normalizedName = String(row.sub_subject || "").trim();
@@ -283,6 +288,7 @@ const SubSubjectsGrid = ({
 
       setSubSubjects(subs);
     } catch (e) {
+
       console.error("Error fetching sub_subjects:", e);
     } finally {
       setLoading(false);
