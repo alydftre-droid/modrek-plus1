@@ -246,45 +246,12 @@ const SubSubjectsGrid = ({
         }
       }
 
-      const { data: linkedContent } = await supabase
-        .from("content")
-        .select("id, sub_subject_id, sub_subject")
-        .eq("group_id", groupId)
-        .not("sub_subject_id", "is", null);
-
-      const contentRows = ((linkedContent || []) as any[]);
-      const idsWithContent = new Set(contentRows.map((row) => row.sub_subject_id));
-
-      // A section whose name equals the parent subject is auto-noise, but only hide
-      // it when it holds no content — otherwise real teacher content disappears.
-      const parentLabel = normalizeSubSubjectLabel(resolvedSubjectName);
-      const realSubs = subs.filter((sub) => {
-        const subLabel = normalizeSubSubjectLabel(sub.name);
-        if (!subLabel) return false;
-        return subLabel !== parentLabel || idsWithContent.has(sub.id);
-      });
-
-      if (realSubs.length > 0) {
-        subs = realSubs;
-      }
-
-      setHiddenRows(allRows.filter((row) => !subs.some((sub) => sub.id === row.id)));
-
-      const activeIds = new Set(subs.map((sub) => sub.id));
-      const legacyRows = contentRows.filter((row) => row.sub_subject_id && !activeIds.has(row.sub_subject_id));
-      if (legacyRows.length > 0 && subs.length > 0) {
-        for (const row of legacyRows) {
-          const normalizedName = String(row.sub_subject || "").trim();
-          const replacement =
-            subs.find((sub) => sub.name === normalizedName) ||
-            subs[0];
-          if (!replacement) continue;
-          await supabase
-            .from("content")
-            .update({ sub_subject_id: replacement.id, sub_subject: replacement.name } as any)
-            .eq("id", row.id);
-        }
-      }
+      // Every active row is a real teacher-managed section. Never hide a section
+      // merely because its name matches the parent subject (for example "التاريخ").
+      // That old display filter also misclassified active rows as deleted and moved
+      // their linked content to another section.
+      subs = subs.filter((sub) => Boolean(normalizeSubSubjectLabel(sub.name)));
+      setHiddenRows(allRows.filter((row) => !row.is_active));
 
       setSubSubjects(subs);
     } catch (e) {
@@ -306,7 +273,7 @@ const SubSubjectsGrid = ({
       // Restore it instead of trying to insert a duplicate.
       const existingHidden = hiddenRows.find((row) => normalizeSubSubjectLabel(row.name) === label);
       if (existingHidden) {
-        const { error: restoreErr } = await supabase
+        const { data: restoredRow, error: restoreErr } = await supabase
           .from("sub_subjects")
           .update({
             is_active: true,
@@ -314,28 +281,38 @@ const SubSubjectsGrid = ({
             description: newDesc.trim() || null,
             order_index: subSubjects.length,
           })
-          .eq("id", existingHidden.id);
+          .eq("id", existingHidden.id)
+          .select("*")
+          .maybeSingle();
         if (restoreErr) throw restoreErr;
+        if (!restoredRow) throw new Error("تعذر استرجاع المادة الفرعية بسبب صلاحيات الوصول");
+        setHiddenRows((rows) => rows.filter((row) => row.id !== restoredRow.id));
+        setSubSubjects((rows) => [...rows, restoredRow as SubSubjectRow].sort((a, b) => a.order_index - b.order_index));
         toast.success("تم استرجاع المادة الفرعية وإظهارها بنجاح ✨");
       } else if (subSubjects.some((row) => normalizeSubSubjectLabel(row.name) === label)) {
         toast.error("هذه المادة موجودة بالفعل في القائمة");
         return;
       } else {
-        const { error } = await supabase.from("sub_subjects").insert({
-          group_id: groupId,
-          name,
-          description: newDesc.trim() || null,
-          order_index: subSubjects.length,
-          created_by: userId,
-        });
+        const { data: insertedRow, error } = await supabase
+          .from("sub_subjects")
+          .insert({
+            group_id: groupId,
+            name,
+            description: newDesc.trim() || null,
+            order_index: subSubjects.length,
+            created_by: userId,
+          })
+          .select("*")
+          .single();
         if (error) throw error;
+        setSubSubjects((rows) => [...rows, insertedRow as SubSubjectRow]);
         toast.success("تمت إضافة المادة الفرعية بنجاح ✨");
       }
 
       setShowAddDialog(false);
       setNewName("");
       setNewDesc("");
-      fetchSubSubjects();
+      await fetchSubSubjects();
     } catch (e: any) {
       if (e?.code === "23505") {
         toast.error("هذه المادة موجودة بالفعل");
