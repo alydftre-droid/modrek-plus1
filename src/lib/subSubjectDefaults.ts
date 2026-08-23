@@ -16,14 +16,41 @@ const MATH_SECONDARY_FIRST = ["الجبر", "الهندسة", "حساب المث
 const MATH_SECONDARY_SECOND = ["الجبر", "حساب المثلثات", "الهندسة التحليلية"];
 const MATH_SECONDARY_THIRD_SCIENTIFIC = ["الجبر", "الهندسة الفراغية", "التفاضل والتكامل", "الاستاتيكا", "الديناميكا"];
 
+const normalizeLabel = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .replace(/[ًٌٍَُِّْـ]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ى/g, "ي")
+    .replace(/^ال/, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+// Leaf subjects: a subject whose own name is already one of the sections
+// (for example a standalone "التاريخ" subject) never has sub-sections.
+const LEAF_SUBJECT_NAMES = [
+  ...ARABIC_SUBJECTS,
+  ...SHARIA_SECONDARY_THIRD,
+  ...SHARIA_PREPARATORY,
+  ...STUDIES_SUBJECTS,
+  ...MATH_SECONDARY_THIRD_SCIENTIFIC,
+  ...MATH_SECONDARY_FIRST,
+  ...MATH_SECONDARY_SECOND,
+].map(normalizeLabel);
+
+function isLeafSubject(subjectName?: string | null) {
+  const label = normalizeLabel(subjectName);
+  return Boolean(label) && LEAF_SUBJECT_NAMES.includes(label);
+}
+
 export function categorySupportsSubSubjects(category?: string | null) {
-  const normalized = String(category || "").trim().toLowerCase();
+  const raw = String(category || "").trim();
+  const normalized = raw.toLowerCase();
+  if (isLeafSubject(raw)) return false;
   return ["arabic", "sharia", "religious", "studies", "social", "math"].includes(normalized)
     || normalized.includes("عرب")
     || normalized.includes("شرع")
     || normalized.includes("دراس")
-    || normalized.includes("تاريخ")
-    || normalized.includes("جغراف")
     || normalized.includes("رياض");
 }
 
@@ -34,6 +61,9 @@ export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
   const stage = String(context.stage || "").trim().toLowerCase();
   const grade = String(context.grade || "").trim().toLowerCase();
   const section = String(context.section || "").trim().toLowerCase();
+
+  // A leaf subject (التاريخ، الجغرافيا، النحو ...) is itself a section.
+  if (isLeafSubject(context.subjectName)) return [];
 
   if (category === "arabic" || scope.includes("عرب")) return ARABIC_SUBJECTS;
 
@@ -48,8 +78,6 @@ export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
     category === "studies"
     || category === "social"
     || scope.includes("دراس")
-    || scope.includes("تاريخ")
-    || scope.includes("جغراف")
   ) {
     return STUDIES_SUBJECTS;
   }
@@ -63,4 +91,12 @@ export function getDefaultSubSubjects(context: SubSubjectContext): string[] {
   }
 
   return [];
+}
+
+/**
+ * True only when this subject really has sections (either defaults exist or the
+ * teacher created some). Used to open plain subjects straight into upload mode.
+ */
+export function subjectHasSubSubjectPlan(context: SubSubjectContext): boolean {
+  return getDefaultSubSubjects(context).length > 0;
 }
