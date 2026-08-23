@@ -158,8 +158,10 @@ const SubSubjectsGrid = ({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editingSub, setEditingSub] = useState<SubSubjectRow | null>(null);
+  const [hiddenRows, setHiddenRows] = useState<SubSubjectRow[]>([]);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+
 
   useEffect(() => {
     fetchSubSubjects();
