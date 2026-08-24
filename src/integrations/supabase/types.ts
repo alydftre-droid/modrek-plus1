@@ -6585,6 +6585,7 @@ export type Database = {
         Args: { _period_end: string; _period_start: string }
         Returns: Json
       }
+      ad_target_includes_me: { Args: { _target_id: string }; Returns: boolean }
       admin_add_student_wallet_credit: {
         Args: { _amount: number; _reason?: string; _student_id: string }
         Returns: Json
@@ -6616,6 +6617,20 @@ export type Database = {
       admin_delete_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_financial_close_preview: { Args: never; Returns: Json }
       admin_financial_overview: { Args: never; Returns: Json }
+      admin_get_ad_target: {
+        Args: { _ad_id: string }
+        Returns: {
+          ad_id: string
+          created_at: string
+          education_type: string
+          grade: string
+          id: string
+          section: string
+          stage: string
+          student_ids: string[]
+          target_type: Database["public"]["Enums"]["ad_target_type"]
+        }[]
+      }
       admin_get_financial_close: { Args: { _id: string }; Returns: Json }
       admin_get_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_get_student_deposit: { Args: { _id: string }; Returns: Json }
