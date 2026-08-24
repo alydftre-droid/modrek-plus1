@@ -155,7 +155,8 @@ export default function AdsManagement() {
       slide_duration_seconds: ad.slide_duration_seconds,
       is_active: ad.is_active,
     });
-    const { data: targets } = await supabase.from("ad_targets").select("*").eq("ad_id", ad.id).maybeSingle();
+    const { data: targetRows } = await supabase.rpc("admin_get_ad_target" as any, { _ad_id: ad.id });
+    const targets = Array.isArray(targetRows) ? targetRows[0] : targetRows;
     if (targets) {
       setTarget({
         id: (targets as any).id,
