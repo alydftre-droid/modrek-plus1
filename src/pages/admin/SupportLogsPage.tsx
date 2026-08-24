@@ -38,7 +38,7 @@ export default function SupportLogsPage() {
       const { data } = await q;
       const logs = (data as any[]) || [];
       const ids = Array.from(new Set(logs.map((r) => r.user_id))).filter(Boolean);
-      let names: Record<string, string> = {};
+      const names: Record<string, string> = {};
       if (ids.length) {
         const { data: profs } = await supabase.from("profiles").select("id, full_name").in("id", ids);
         (profs || []).forEach((p: any) => { names[p.id] = p.full_name; });

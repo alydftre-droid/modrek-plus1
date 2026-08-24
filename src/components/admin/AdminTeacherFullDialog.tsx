@@ -249,7 +249,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
 
       // Compute video views via video_progress
       const videoIds = contentList.filter((c) => c.type === "video").map((c) => c.id);
-      let viewsMap = new Map<string, { count: number; avgPct: number }>();
+      const viewsMap = new Map<string, { count: number; avgPct: number }>();
       let totalViewsCount = 0;
       if (videoIds.length > 0) {
         const { data: vp } = await supabase

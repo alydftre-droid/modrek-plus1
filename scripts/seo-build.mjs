@@ -144,7 +144,7 @@ function bodyFor(page) {
 
 function injectHead(html, tags) {
   // Replace the template title/description/canonical, then append route tags.
-  let out = html
+  const out = html
     .replace(/<title>[\s\S]*?<\/title>\n?\s*/i, "")
     .replace(/<meta\s+name="description"[^>]*>\n?\s*/i, "")
     .replace(/<link\s+rel="canonical"[^>]*>\n?\s*/i, "")

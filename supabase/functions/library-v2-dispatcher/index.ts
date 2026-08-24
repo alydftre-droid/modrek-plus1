@@ -268,7 +268,7 @@ async function tick(): Promise<{ claimed: number; dispatched: number; recovered:
 // This is a best-effort scheduler; the HTTP endpoint below is the reliable
 // trigger (called by admin actions and by an external ping if configured).
 try {
-  // @ts-ignore Deno.cron is available in Supabase Edge Runtime
+  // @ts-expect-error Deno.cron is available in Supabase Edge Runtime
   Deno.cron?.("library-v2-tick", "* * * * *", async () => {
     try {
       const r = await tick();

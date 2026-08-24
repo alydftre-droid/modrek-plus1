@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     // Resolve page range
     let pageStart = 1;
     let pageEnd = Math.min(book.page_count || 1, 999999);
-    let scopeRef: any = { scope };
+    const scopeRef: any = { scope };
     if (scope === "page") {
       const pn = Number(body.page_number) || 1;
       pageStart = pn; pageEnd = pn;

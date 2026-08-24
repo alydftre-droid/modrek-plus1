@@ -934,7 +934,7 @@ const ARABIC_ORDINALS: Record<string, number> = {
 function normalizeArabicText(value: string): string {
   return String(value || "")
     .replace(/[\u0640\u064B-\u065F\u0670]/g, "")
-    .replace(/[إأآٱ]/g, "ا")
+    .replace(/[\u0623\u0625\u0622\u0671]/g, "ا")
     .replace(/ى/g, "ي")
     .replace(/ؤ/g, "و")
     .replace(/ئ/g, "ي")

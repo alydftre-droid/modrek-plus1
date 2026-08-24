@@ -25,7 +25,7 @@ export const ARABIC_ORDINALS: Record<string, number> = {
 export function normalizeAr(value: string): string {
   return String(value || "")
     .replace(/[\u0640\u064B-\u065F\u0670]/g, "")
-    .replace(/[إأآٱ]/g, "ا")
+    .replace(/[\u0623\u0625\u0622\u0671]/g, "ا")
     .replace(/ى/g, "ي")
     .replace(/ة/g, "ه")
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))

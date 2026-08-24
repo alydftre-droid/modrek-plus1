@@ -210,7 +210,7 @@ export function useCreateExam() {
       const sourceGroupId = group_id || null;
       let subSubjectId = payload.sub_subject_id ?? null;
       let term = payload.term;
-      let targetEducationType = normalizeEducationType(payload.target_education_type) || null;
+      const targetEducationType = normalizeEducationType(payload.target_education_type) || null;
       if (!group_id) {
         throw new Error("يجب إنشاء الامتحان من داخل المجموعة المطلوبة حتى يظهر لطلابها فقط");
       }

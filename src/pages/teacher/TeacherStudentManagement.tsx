@@ -204,8 +204,8 @@ export default function TeacherStudentManagement() {
       }
     }
 
-    let exams: any[] = [];
-    let missedExams: string[] = [];
+    const exams: any[] = [];
+    const missedExams: string[] = [];
     if (subjectIds.length > 0) {
       const { data: allExams } = await supabase
         .from("exams").select("id, title")
@@ -230,8 +230,8 @@ export default function TeacherStudentManagement() {
       });
     }
 
-    let watchedVideos: string[] = [];
-    let unwatchedVideos: string[] = [];
+    const watchedVideos: string[] = [];
+    const unwatchedVideos: string[] = [];
     if (subjectIds.length > 0) {
       const { data: allContent } = await supabase
         .from("content").select("id, title")

@@ -542,7 +542,7 @@ const StudentSubjectView = () => {
     });
 
     if (!filteredAssignments.length) { setTeachers([]); return; }
-    let teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
+    const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
     const [{ data: profileRows }, { data: names }, { data: fallbackNames }, { data: schedules }] = await Promise.all([
       supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),

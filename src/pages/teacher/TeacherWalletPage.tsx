@@ -652,7 +652,7 @@ export default function TeacherWalletPage() {
       ["إجمالي الصف", "", String(focusedStudents), fmtMoney(focusedTotal), ""],
     ];
 
-    const csv = "\uFEFF" + csvRows.map((row) => row.map((cell) => `\"${String(cell).replace(/\"/g, '""')}\"`).join(",")).join("\n");
+    const csv = "\uFEFF" + csvRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
