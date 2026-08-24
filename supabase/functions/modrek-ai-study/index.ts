@@ -3,6 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey, detectAiFailureKind } from "../_shared/aiSettings.ts";
 import { buildTeacherEnginePrompt } from "../_shared/teacherEngine.ts";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import {
   resolveStudentScope,
   retrieveFromLibrary,
@@ -53,6 +54,10 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user) return json({ error: "Unauthorized" }, 401);
     const userId = userData.user.id;
+
+    // Cost protection: per-user daily + burst quota (admins bypass).
+    const quota = await enforceAiQuota(userId, "modrek-ai-study");
+    if (!quota.allowed) return aiQuotaResponse(quota, corsHeaders);
 
     const body = await req.json().catch(() => null);
     if (!body?.messages || !Array.isArray(body.messages)) return json({ error: "messages required" }, 400);
