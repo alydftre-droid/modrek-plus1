@@ -19,6 +19,18 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
+import { teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
+
+/** Show the real (main) subject name instead of the sub-subject name (e.g. "المواد العربية" instead of "الأدب"). */
+const mainSubjectLabel = (subj: { name?: string | null; category?: string | null } | null | undefined) => {
+  if (!subj) return undefined;
+  const main = subj.category ? teacherSelectionLabel(subj.category) : "";
+  const sub = (subj.name || "").trim();
+  if (!main) return sub || undefined;
+  if (!sub || sub === main) return main;
+  return `${main} - ${sub}`;
+};
+
 import {
   formatArabicDate, formatArabicDateTime, formatCurrency, gradeDisplayLabel, gradeQueryValues,
   normalizeGradeKey, normalizeStageKey, paymentMethodLabel, sectionDisplayLabel, stageQueryValues, STUDENT_STAGES,
