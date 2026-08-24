@@ -14,30 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      _rls_test_log: {
-        Row: {
-          at: string | null
-          detail: string | null
-          id: number
-          outcome: string | null
-          test: string | null
-        }
-        Insert: {
-          at?: string | null
-          detail?: string | null
-          id?: number
-          outcome?: string | null
-          test?: string | null
-        }
-        Update: {
-          at?: string | null
-          detail?: string | null
-          id?: number
-          outcome?: string | null
-          test?: string | null
-        }
-        Relationships: []
-      }
       ad_settings: {
         Row: {
           bundles_button_order: number
@@ -688,6 +664,30 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_rate_limits: {
+        Row: {
+          daily_limit: number
+          enabled: boolean
+          feature: string
+          per_minute_limit: number
+          updated_at: string
+        }
+        Insert: {
+          daily_limit?: number
+          enabled?: boolean
+          feature: string
+          per_minute_limit?: number
+          updated_at?: string
+        }
+        Update: {
+          daily_limit?: number
+          enabled?: boolean
+          feature?: string
+          per_minute_limit?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_sources: {
         Row: {
           created_at: string | null
@@ -722,6 +722,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ai_usage_counters: {
+        Row: {
+          day_count: number
+          feature: string
+          minute_bucket: string
+          minute_count: number
+          updated_at: string
+          usage_date: string
+          user_id: string
+        }
+        Insert: {
+          day_count?: number
+          feature: string
+          minute_bucket?: string
+          minute_count?: number
+          updated_at?: string
+          usage_date?: string
+          user_id: string
+        }
+        Update: {
+          day_count?: number
+          feature?: string
+          minute_bucket?: string
+          minute_count?: number
+          updated_at?: string
+          usage_date?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       app_versions: {
         Row: {
@@ -6836,6 +6866,10 @@ export type Database = {
         Returns: undefined
       }
       compute_bundle_price: { Args: { _package_id: string }; Returns: Json }
+      consume_ai_quota: {
+        Args: { _cost?: number; _feature: string; _user_id: string }
+        Returns: Json
+      }
       content_effective_education_type: {
         Args: { _content_edu: string; _content_group_id?: string }
         Returns: string
@@ -7889,6 +7923,10 @@ export type Database = {
           is_test_account: boolean
           test_account_code: string
         }[]
+      }
+      resolve_login_email_rate_limited: {
+        Args: { _ip_hash: string; _max_per_hour?: number; _phone: string }
+        Returns: Json
       }
       resolve_shared_subject_key: {
         Args: { p_category: string; p_subject_name?: string }
