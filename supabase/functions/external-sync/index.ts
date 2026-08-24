@@ -707,11 +707,9 @@ CREATE POLICY "Admins can manage settings" ON public.platform_settings
   FOR ALL TO authenticated
   USING (
     public.has_role(auth.uid(), 'admin'::public.app_role)
-    OR lower(coalesce(auth.jwt() ->> 'email', '')) = ANY (ARRAY['alyedaft@gmail.com'::text, 'aliana200713@gmail.com'::text])
   )
   WITH CHECK (
     public.has_role(auth.uid(), 'admin'::public.app_role)
-    OR lower(coalesce(auth.jwt() ->> 'email', '')) = ANY (ARRAY['alyedaft@gmail.com'::text, 'aliana200713@gmail.com'::text])
   );
 
 -- payment-receipts: required for student deposit receipts and admin withdrawal receipts
@@ -884,7 +882,7 @@ BEGIN
     FOR v_admin IN
       SELECT DISTINCT p.id
       FROM public.profiles p
-      WHERE p.email = 'alyedaft@gmail.com'
+      WHERE EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin'::public.app_role)
          OR EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = p.id AND ur.role = 'admin'::public.app_role)
     LOOP
       INSERT INTO public.notifications (user_id, title, message, notification_type, link, is_read, is_sent)

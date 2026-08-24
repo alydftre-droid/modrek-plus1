@@ -1,5 +1,5 @@
 // Developer impersonation endpoint.
-// Only super admin (alyedaft@gmail.com) or users with admin role can call it.
+// Only users holding the admin role can call it (no email allowlists).
 // Returns a signed magic link session (access + refresh tokens) for a
 // developer test student account, so the developer can "log in as" that
 // student without any password. All test-account interactions are recorded
@@ -16,7 +16,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const SUPER_ADMIN_EMAIL = "alyedaft@gmail.com";
 
 const TEST_ACCOUNT_LABELS: Record<string, string> = {
   "AZH-PREP-1": "طالب تجريبي — أولى إعدادي أزهر",
@@ -180,18 +179,12 @@ Deno.serve(async (req) => {
     .limit(1);
   if (tokenCheckErr) return json(401, { error: "invalid session" });
 
-  const { data: callerData } = await admin.auth.admin.getUserById(callerId);
-  const callerEmail = (callerData?.user?.email || "").toLowerCase();
-
-  // Authorization: super admin OR has admin role
-  let isAllowed = callerEmail === SUPER_ADMIN_EMAIL;
-  if (!isAllowed) {
-    const { data: roleRows } = await admin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", callerId);
-    isAllowed = (roleRows || []).some((r: any) => r.role === "admin");
-  }
+  // Authorization: strictly the admin role from user_roles (no email allowlist).
+  const { data: roleRows } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", callerId);
+  const isAllowed = (roleRows || []).some((r: any) => r.role === "admin");
   if (!isAllowed) return json(403, { error: "forbidden" });
 
   let body: any = {};

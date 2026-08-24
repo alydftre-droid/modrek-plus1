@@ -82,8 +82,7 @@ Deno.serve(async (req) => {
     stage = "التحقق من صلاحية المطور";
     const { data: roleRow } = await admin
       .from("user_roles").select("role").eq("user_id", callerId).eq("role", "admin").maybeSingle();
-    const isSuperAdmin = String(claims.email || "").toLowerCase() === "alyedaft@gmail.com";
-    if (!roleRow && !isSuperAdmin) {
+    if (!roleRow) {
       return json({ error: "الحساب لا يملك صلاحية المطور", stage, code: "ADMIN_ROLE_REQUIRED", trace_id: traceId }, 403);
     }
 
