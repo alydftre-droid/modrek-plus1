@@ -3,6 +3,7 @@
 // submission and grading stay on the existing exam engine.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import {
   detectSubject,
@@ -208,15 +209,6 @@ function getBearer(auth: string | null): string | null {
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice(7).trim();
   return token || null;
-}
-
-function decodeJwtSub(token: string): string | null {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1] || ""));
-    return typeof payload?.sub === "string" ? payload.sub : null;
-  } catch {
-    return null;
-  }
 }
 
 function stripJsonFence(value: string): string {

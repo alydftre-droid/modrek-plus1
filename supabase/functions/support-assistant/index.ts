@@ -3,6 +3,7 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, OFFICIAL_PLATFORM_NAME_AR, OFFICIAL_PLATFORM_NAME_EN, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,6 +98,9 @@ serve(async (req) => {
     if (!userId) {
       return new Response(JSON.stringify({ error: "جلسة غير صالحة" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    const supportQuota = await enforceAiQuota(userId, "support-assistant");
+    if (!supportQuota.allowed) return aiQuotaResponse(supportQuota, corsHeaders);
+
     const user = { id: userId, created_at: null } as { id: string; created_at: string | null };
 
     const sb = createClient(supabaseUrl, supabaseServiceKey);
