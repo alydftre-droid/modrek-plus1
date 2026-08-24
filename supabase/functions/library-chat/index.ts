@@ -27,6 +27,7 @@ import {
   OPENROUTER_DEFAULT_EMBED_MODEL,
 } from "../_shared/openrouter.ts";
 import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/auth.ts";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,6 +79,9 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const studentId = userData.user.id;
+
+    const quota = await enforceAiQuota(studentId, "library-chat");
+    if (!quota.allowed) return aiQuotaResponse(quota, corsHeaders);
 
     const body = await req.json().catch(() => ({}));
     const bookId = String(body.book_id || "");
