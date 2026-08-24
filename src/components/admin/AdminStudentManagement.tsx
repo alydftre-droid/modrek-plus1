@@ -544,7 +544,9 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
   const totalSpent = purchases.reduce((s, i) => s + (i.amount_paid || 0), 0);
   const totalDeposited = deposits.filter(i => i.status === "approved").reduce((s, i) => s + i.amount, 0);
   const watchMin = Math.round(videos.reduce((s, i) => s + (i.progress_seconds || 0), 0) / 60);
-  const avgScore = exams.length ? Math.round(exams.reduce((s, i) => s + (i.total > 0 ? (i.score / i.total) * 100 : 0), 0) / exams.length) : 0;
+  const attemptedExams = exams.filter(i => i.attempted !== false);
+  const avgScore = attemptedExams.length ? Math.round(attemptedExams.reduce((s, i) => s + (i.total > 0 ? (i.score / i.total) * 100 : 0), 0) / attemptedExams.length) : 0;
+
 
   const toggleBan = async () => {
     setBanLoading(true);
