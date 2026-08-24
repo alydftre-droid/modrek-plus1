@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      _rls_test_log: {
+        Row: {
+          at: string | null
+          detail: string | null
+          id: number
+          outcome: string | null
+          test: string | null
+        }
+        Insert: {
+          at?: string | null
+          detail?: string | null
+          id?: number
+          outcome?: string | null
+          test?: string | null
+        }
+        Update: {
+          at?: string | null
+          detail?: string | null
+          id?: number
+          outcome?: string | null
+          test?: string | null
+        }
+        Relationships: []
+      }
       ad_settings: {
         Row: {
           bundles_button_order: number
