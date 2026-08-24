@@ -643,6 +643,27 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_rate_limit_events: {
+        Row: {
+          created_at: string
+          function_name: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          function_name: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          function_name?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_sources: {
         Row: {
           created_at: string | null
@@ -4147,6 +4168,27 @@ export type Database = {
         }
         Relationships: []
       }
+      login_lookup_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          ip_hash: string
+          phone_hash: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip_hash: string
+          phone_hash: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip_hash?: string
+          phone_hash?: string
+        }
+        Relationships: []
+      }
       modrek_ai_conversations: {
         Row: {
           assistant_type: string
@@ -6655,6 +6697,15 @@ export type Database = {
         Returns: Json
       }
       admin_withdrawal_scheduler_diagnostics: { Args: never; Returns: Json }
+      ai_rate_limit_consume: {
+        Args: {
+          _function_name: string
+          _max_per_day?: number
+          _max_per_hour?: number
+          _user_id: string
+        }
+        Returns: Json
+      }
       apply_default_price_to_existing_groups: {
         Args: {
           p_category: string
@@ -6743,6 +6794,7 @@ export type Database = {
         }
       }
       cleanup_ai_daily_usage: { Args: never; Returns: number }
+      cleanup_ai_rate_limit_events: { Args: never; Returns: undefined }
       cleanup_modrek_search_cache: { Args: never; Returns: number }
       cleanup_modrek_search_logs: { Args: never; Returns: number }
       cleanup_notification_delivery_logs: { Args: never; Returns: number }
@@ -7366,6 +7418,7 @@ export type Database = {
         Returns: boolean
       }
       increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
+      is_approved_teacher: { Args: { _user_id: string }; Returns: boolean }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_exam_non_answer: { Args: { _answer: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }
