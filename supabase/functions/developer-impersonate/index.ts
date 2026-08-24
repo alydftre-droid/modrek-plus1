@@ -159,6 +159,7 @@ Deno.serve(async (req) => {
   const claims = await getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
   if (!claims?.sub) return json(401, { error: "missing token" });
   const callerId = claims.sub;
+  const callerEmail = typeof (claims as any)?.email === "string" ? (claims as any).email : null;
   const jwt = req.headers.get("Authorization")!.replace(/^Bearer\s+/i, "").trim();
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {

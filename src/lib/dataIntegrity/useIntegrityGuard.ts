@@ -87,14 +87,12 @@ export function useIntegrityGuard(userId: string | null | undefined) {
         await queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
         await queryClient.invalidateQueries({ queryKey: ["notifications"] });
         await queryClient.invalidateQueries({ queryKey: ["library"] });
-        // eslint-disable-next-line no-console
         console.warn("[integrity-guard] client<>server hash mismatch — caches invalidated", {
           clientHash,
           serverHash,
         });
       } catch (err) {
         // Never let the guard crash the app
-        // eslint-disable-next-line no-console
         console.debug("[integrity-guard] tick failed", err);
       } finally {
         runningRef.current = false;

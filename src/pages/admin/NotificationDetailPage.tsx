@@ -88,7 +88,7 @@ export default function NotificationDetailPage() {
     setRows(mapped);
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { load();  }, [id]);
 
   const filtered = useMemo(() => {
     if (!rows) return [];

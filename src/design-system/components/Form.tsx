@@ -29,7 +29,8 @@ export interface DSInputProps extends React.InputHTMLAttributes<HTMLInputElement
 }
 export const DSInput = React.forwardRef<HTMLInputElement, DSInputProps>(
   ({ label, error, hint, required, id, className = "", ...props }, ref) => {
-    const inputId = id || React.useId();
+    const autoId = React.useId();
+    const inputId = id || autoId;
     return (
       <div>
         {label && <DSLabel htmlFor={inputId} required={required}>{label}</DSLabel>}
@@ -54,7 +55,8 @@ export interface DSTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAr
 }
 export const DSTextarea = React.forwardRef<HTMLTextAreaElement, DSTextareaProps>(
   ({ label, error, hint, required, id, className = "", rows = 4, ...props }, ref) => {
-    const inputId = id || React.useId();
+    const autoId = React.useId();
+    const inputId = id || autoId;
     return (
       <div>
         {label && <DSLabel htmlFor={inputId} required={required}>{label}</DSLabel>}
@@ -91,7 +93,8 @@ export interface DSSelectProps extends React.SelectHTMLAttributes<HTMLSelectElem
 }
 export const DSSelect = React.forwardRef<HTMLSelectElement, DSSelectProps>(
   ({ label, error, hint, required, id, className = "", children, ...props }, ref) => {
-    const inputId = id || React.useId();
+    const autoId = React.useId();
+    const inputId = id || autoId;
     return (
       <div>
         {label && <DSLabel htmlFor={inputId} required={required}>{label}</DSLabel>}
@@ -119,7 +122,8 @@ export interface DSCheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInpu
 }
 export const DSCheckbox = React.forwardRef<HTMLInputElement, DSCheckboxProps>(
   ({ label, className = "", id, ...props }, ref) => {
-    const inputId = id || React.useId();
+    const autoId = React.useId();
+    const inputId = id || autoId;
     return (
       <label htmlFor={inputId} className="inline-flex items-center gap-2 cursor-pointer select-none">
         <input
@@ -142,7 +146,8 @@ export interface DSRadioProps extends Omit<React.InputHTMLAttributes<HTMLInputEl
 }
 export const DSRadio = React.forwardRef<HTMLInputElement, DSRadioProps>(
   ({ label, className = "", id, ...props }, ref) => {
-    const inputId = id || React.useId();
+    const autoId = React.useId();
+    const inputId = id || autoId;
     return (
       <label htmlFor={inputId} className="inline-flex items-center gap-2 cursor-pointer select-none">
         <input
@@ -168,7 +173,8 @@ export interface DSSwitchProps {
   id?: string;
 }
 export function DSSwitch({ checked, onCheckedChange, disabled, label, id }: DSSwitchProps) {
-  const inputId = id || React.useId();
+  const autoId = React.useId();
+  const inputId = id || autoId;
   return (
     <label htmlFor={inputId} className="inline-flex items-center gap-2 cursor-pointer select-none">
       <button

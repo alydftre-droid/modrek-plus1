@@ -215,7 +215,6 @@ export default function ExamTakePage() {
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exam, attempt, buildSubmitUrl, navigate]);
 
   const persistAntiCheat = useCallback((patch: Record<string, number>) => {
