@@ -1883,7 +1883,6 @@ function SettingsHistoryDialog({
 
   useEffect(() => {
     if (open && innerTab === "history") loadHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, innerTab]);
 
   useEffect(() => {

@@ -21,7 +21,6 @@ const report: Reporter = (event, detail) => {
   } catch {
     // ignore
   }
-  // eslint-disable-next-line no-console
   console.warn(`[data-integrity] ${event}`, detail);
 };
 

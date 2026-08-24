@@ -41,7 +41,6 @@ export function initSentry() {
     });
     initialized = true;
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.warn("[sentry] init failed", err);
   }
 }
@@ -50,6 +49,5 @@ export function reportError(err: unknown, context?: Record<string, unknown>) {
   try {
     if (initialized) Sentry.captureException(err, { extra: context });
   } catch { /* swallow to never break app */ }
-  // eslint-disable-next-line no-console
   console.error("[reportError]", err, context);
 }

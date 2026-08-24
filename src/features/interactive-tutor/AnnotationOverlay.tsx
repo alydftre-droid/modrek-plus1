@@ -44,9 +44,8 @@ export function AnnotationOverlay({ annotations, playing = true, speed = 1 }: Pr
     };
   }, [playing, annotations]);
 
-  if (!annotations || annotations.length === 0) return null;
-
   const N = 100;
+
 
   // Determine currently "live" annotations (within their time window, scaled by speed)
   const visible = useMemo(() => {
@@ -77,6 +76,10 @@ export function AnnotationOverlay({ annotations, playing = true, speed = 1 }: Pr
     }
     return null;
   }, [visible]);
+
+  // Bail out AFTER all hooks have run, so hook order stays identical on every
+  // render (an early return above the hooks crashes React when the list empties).
+  if (!annotations || annotations.length === 0) return null;
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
