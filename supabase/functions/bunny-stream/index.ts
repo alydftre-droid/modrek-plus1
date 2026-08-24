@@ -27,7 +27,6 @@ function extractFirstUrl(html: string, patterns: RegExp[]) {
 }
 
 const BUNNY_API_URL = "https://video.bunnycdn.com";
-const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
 // Defaults match src/lib/bunnyStream.ts so student playback keeps working even if
 // only a subset of the BUNNY_STREAM_* secrets are configured. Signing only needs
@@ -153,8 +152,8 @@ async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role
   return Boolean(data?.role);
 }
 
-async function canCreateTeacherVideo(sb: ReturnType<typeof createClient>, userId: string, email?: string | null) {
-  if (email && DEVELOPER_EMAILS.has(email.toLowerCase())) return true;
+async function canCreateTeacherVideo(sb: ReturnType<typeof createClient>, userId: string, _email?: string | null) {
+  // Role-based only: developer access comes from the admin role, never email.
   return (await hasRole(sb, userId, "teacher")) || (await hasRole(sb, userId, "admin"));
 }
 

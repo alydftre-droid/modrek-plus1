@@ -10,7 +10,6 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -18,12 +17,9 @@ Deno.serve(async (req) => {
     const claims = await getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));
     if (!claims?.sub) return json({ error: "unauthorized" }, 401);
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const email = (claims.email as string | undefined)?.toLowerCase();
-    const isDeveloper = email ? DEVELOPER_EMAILS.has(email) : false;
-    if (!isDeveloper) {
-      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
-      if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
-    }
+    // Authorization is role-based only (no hardcoded email backdoors).
+    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
+    if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
 
     const { job_id, version_id, from_stage } = await req.json();
     if (job_id) {
