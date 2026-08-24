@@ -708,7 +708,7 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
           </TabsTrigger>
           <TabsTrigger value="exams" className="sm-tab">
             <span>الامتحانات</span>
-            <small>{exams.length} محاولة • {avgScore}%</small>
+            <small>{attemptedExams.length}/{exams.length} امتحان • {avgScore}%</small>
           </TabsTrigger>
           <TabsTrigger value="wallet" className="sm-tab">
             <span>المحفظة</span>
