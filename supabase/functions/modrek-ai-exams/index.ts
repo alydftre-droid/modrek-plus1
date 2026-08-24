@@ -261,7 +261,7 @@ function extractJsonObject(value: string): string {
 }
 
 function parseAiJson(raw: string, traceId: string, step: string, diagnostics?: ExamDiagnostics): Record<string, unknown> {
-  diagnostics && (diagnostics.rawResponse = raw);
+  if (diagnostics) diagnostics.rawResponse = raw;
   if (!hasBalancedJsonDelimiters(raw)) {
     const reason = `${step}_response_truncated_or_unbalanced_json`;
     if (diagnostics) diagnostics.parserRejectReason = reason;

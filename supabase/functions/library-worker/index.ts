@@ -172,7 +172,7 @@ function fallbackExplanation(bookTitle: string, pageNumber: number, text: string
 
 function fallbackQuiz(sourceText: string) {
   const clean = compactText(sourceText, 1600) || "محتوى الكتاب";
-  const sentence = clean.split(/[\.؟!\n]/).map((s) => s.trim()).find((s) => s.length > 25) || clean.slice(0, 180);
+  const sentence = clean.split(/[.؟!\n]/).map((s) => s.trim()).find((s) => s.length > 25) || clean.slice(0, 180);
   return [
     {
       type: "mcq",
@@ -274,7 +274,7 @@ function chunkPageText(text: string, target = 700, overlap = 80): string[] {
     let end = Math.min(clean.length, i + target);
     if (end < clean.length) {
       const slice = clean.slice(i, end + 200);
-      const brk = slice.search(/[\.!\?،]\s/);
+      const brk = slice.search(/[.!?،]\s/);
       if (brk > target * 0.5) end = i + brk + 1;
     }
     chunks.push(clean.slice(i, end).trim());
@@ -825,7 +825,7 @@ async function processGenerateExplanations(admin: any, job: any): Promise<boolea
       const paragraphs = fullText.split(/\n+/).map((p) => p.trim()).filter(Boolean);
       let buffer = "";
       for (const para of paragraphs) {
-        const parts = para.split(/(?<=[\.!؟?،])\s+/);
+        const parts = para.split(/(?<=[.!؟?،])\s+/);
         for (const part of parts) {
           if (!part) continue;
           if ((buffer + " " + part).trim().length > TTS_CHUNK_TARGET && buffer) {

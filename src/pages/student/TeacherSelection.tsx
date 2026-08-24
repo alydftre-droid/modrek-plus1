@@ -269,7 +269,6 @@ const TeacherSelection = () => {
     } catch (e) {
       console.error("Error selecting teacher:", e);
       toast.error("خطأ في اختيار المعلم");
-    } finally {
     }
   };
 

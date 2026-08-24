@@ -670,7 +670,7 @@ function missingSchemaColumn(error: any): string | null {
 }
 
 async function insertWithSchemaRetry(admin: any, tableName: string, payload: Record<string, unknown>, request_id: string, api: string) {
-  let clean = { ...payload };
+  const clean = { ...payload };
   for (let attempt = 0; attempt < 6; attempt++) {
     if (tableName === "library_books") {
       const subjectId = typeof clean.subject_id === "string" ? clean.subject_id : null;
@@ -710,7 +710,7 @@ async function insertWithSchemaRetry(admin: any, tableName: string, payload: Rec
 }
 
 async function updateWithSchemaRetry(admin: any, tableName: string, patch: Record<string, unknown>, id: string, request_id: string, api: string) {
-  let clean = { ...patch };
+  const clean = { ...patch };
   for (let attempt = 0; attempt < 6; attempt++) {
     logLibraryStep(request_id, api, "db-update-attempt", { table: tableName, id, attempt: attempt + 1, patch: clean });
     const { data, error } = await admin.from(tableName).update(clean).eq("id", id).select().single();

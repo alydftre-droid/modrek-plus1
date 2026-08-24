@@ -405,7 +405,7 @@ export default function ModrekUploadWizard({
     setFiles((prev) => prev.map((x) => x.id === fileId ? { ...x, status: "uploading" as UploadStatus, progress: 0, loaded: 0, startedAt, speedBps: 0, etaSec: undefined, error: undefined } : x));
     try {
       const sha = await computeModrekFileFingerprint(target.file);
-      const safeName = target.file.name.replace(/[^\w.\-]+/g, "_");
+      const safeName = target.file.name.replace(/[^\w.-]+/g, "_");
       const seg = (id: string, list: { id: string; code: string }[]) => {
         const found = list.find((x) => x.id === id);
         return (found?.code || "unknown").replace(/[^\w-]+/g, "_");

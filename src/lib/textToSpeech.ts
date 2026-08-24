@@ -361,7 +361,7 @@ async function speakWithOpenRouter(
         // Retry once for a transient failure on this chunk only.
         ttsDebug("chunk-retry", { runToken, chunkIndex: i + 1 });
         await new Promise((r) => setTimeout(r, 650));
-        try { result = await fetchChunk(i); } catch (retryError) { throw retryError; }
+        result = await fetchChunk(i);
       }
       if (!result) throw new Error("empty_tts_result");
 

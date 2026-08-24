@@ -68,7 +68,7 @@ export default function CategorySubjectsPage() {
         .map((name) => SCIENTIFIC_SUBJECT_CARDS[name])
         .filter(Boolean);
 
-  let subjects = isScientific ? scientificSubjects
+  const subjects = isScientific ? scientificSubjects
     : isLiterary ? LITERARY_SUBJECTS
     : isHistoryGeo ? HISTORY_GEO_SUBJECTS
     : isScience ? (isFirstSecondary ? FIRST_SECONDARY_SCIENTIFIC : PREPARATORY_SCIENCE)

@@ -102,7 +102,7 @@ export default function ModrekSourceDetailPage() {
     try {
       const { uploadToBunnyStorage } = await import("@/lib/bunnyStorage");
       const sha = await computeModrekFileFingerprint(file);
-      const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+      const safeName = file.name.replace(/[^\w.-]+/g, "_");
       const bunnyPath = `modrek/replace/${sha}/${safeName}`;
       await uploadToBunnyStorage(file, bunnyPath);
       await registerModrekUpload({

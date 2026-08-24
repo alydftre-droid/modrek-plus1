@@ -290,7 +290,7 @@ serve(async (req) => {
     // merged.
     const AGG_WINDOW_MIN = 10;
     const sinceIso = new Date(Date.now() - AGG_WINDOW_MIN * 60_000).toISOString();
-    let aggregatedUserIds = new Set<string>();
+    const aggregatedUserIds = new Set<string>();
     if (groupId || subSubjectId) {
       const { data: recent } = await supabase
         .from("notifications")

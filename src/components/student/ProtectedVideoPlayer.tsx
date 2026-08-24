@@ -691,12 +691,6 @@ const ProtectedVideoPlayer = ({ contentId, url, title, onClose }: ProtectedVideo
 
 
         {/* Custom controls overlay */}
-        {true && (
-          <></>
-        )}
-        {(
-          <></>
-        )}
         {(
           <>
             {/* Signed URL loading / error overlay for Bunny videos */}

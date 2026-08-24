@@ -203,7 +203,7 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     if (!files.length) return;
 
     setUploadingPage(true);
-    let startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
+    const startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
     let successCount = 0;
     let failCount = 0;
 
@@ -239,7 +239,7 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const total = pdf.numPages;
-      let startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
+      const startNumber = Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1;
       let successCount = 0;
 
       setPdfProgress({ current: 0, total });

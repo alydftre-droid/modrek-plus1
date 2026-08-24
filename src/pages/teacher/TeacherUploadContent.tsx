@@ -441,7 +441,7 @@ const TeacherUploadContent = () => {
           ? "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, is_free_preview, education_type, target_section, uploaded_by"
           : "id, title, type, file_url, description, created_at, group_id, sub_subject, sub_subject_id, subject_id, education_type, target_section, uploaded_by";
 
-        let q = (supabase.from("content") as any)
+        const q = (supabase.from("content") as any)
         .select(selectColumns)
         .in("group_id", Array.from(relatedGroupIds))
         .eq("is_active", true)

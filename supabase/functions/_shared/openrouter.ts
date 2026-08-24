@@ -234,7 +234,7 @@ export function preprocessSpeechForTeacher(input: string): string {
   let text = String(input || "")
     .replace(/[\t ]+/g, " ")
     .replace(/\r\n?/g, "\n")
-    .replace(/[#*_`>~|{}\[\]]/g, " ")
+    .replace(/[#*_`>~|{}[\]]/g, " ")
     .replace(/[؛;]+/g, "،")
     .replace(/([،,.!?؟])\s*/g, "$1 ")
     .replace(/\s+\n/g, "\n")
@@ -245,10 +245,10 @@ export function preprocessSpeechForTeacher(input: string): string {
     text = text.replace(pattern, replacement);
   }
 
-  text = text.replace(/(\d+[\d,]*(?:\.\d+)?)\s*([+\-−*xX×\/÷])\s*(\d+[\d,]*(?:\.\d+)?)\s*=\s*(\d+[\d,]*(?:\.\d+)?)/g,
+  text = text.replace(/(\d+[\d,]*(?:\.\d+)?)\s*([+\-−*xX×/÷])\s*(\d+[\d,]*(?:\.\d+)?)\s*=\s*(\d+[\d,]*(?:\.\d+)?)/g,
     (_m, a, op, b, c) => `${numberToArabicWords(a)} ${operatorToArabic(op)} ${numberToArabicWords(b)} يساوي ${numberToArabicWords(c)}`,
   );
-  text = text.replace(/(\d+[\d,]*(?:\.\d+)?)\s*([+\-−*xX×\/÷])\s*(\d+[\d,]*(?:\.\d+)?)/g,
+  text = text.replace(/(\d+[\d,]*(?:\.\d+)?)\s*([+\-−*xX×/÷])\s*(\d+[\d,]*(?:\.\d+)?)/g,
     (_m, a, op, b) => `${numberToArabicWords(a)} ${operatorToArabic(op)} ${numberToArabicWords(b)}`,
   );
   text = text.replace(/\b\d+[\d,]*(?:\.\d+)?\b/g, (n) => numberToArabicWords(n));

@@ -578,7 +578,7 @@ Deno.serve(async (req) => {
           method: "PUT",
           headers: uploadHeaders,
           body: req.body,
-          // @ts-ignore Deno fetch supports duplex for streaming request bodies
+          // @ts-expect-error Deno fetch supports duplex for streaming request bodies
           duplex: "half",
         });
       } catch (streamErr) {
@@ -732,7 +732,7 @@ Deno.serve(async (req) => {
           method: "PUT",
           headers,
           body: combined,
-          // @ts-ignore Deno fetch supports duplex for streaming request bodies
+          // @ts-expect-error Deno fetch supports duplex for streaming request bodies
           duplex: "half",
         }, Math.min(900_000, Math.max(180_000, (expectedSize ? Math.ceil(expectedSize / 1024 / 1024) : total * 4) * 15_000)), "finalize_put");
         uploadRes = result.res;
