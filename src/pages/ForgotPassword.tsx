@@ -38,15 +38,14 @@ export default function ForgotPassword() {
         toast({ title: "أدخل رقم هاتف صالحاً", variant: "destructive" });
         return;
       }
-      const digits = phone.replace(/\D/g, "");
       setLoading(true);
-      const { data: resolvedEmail, error: rpcError } = await supabase.rpc("get_email_by_phone", { _phone: digits });
-      if (rpcError || !resolvedEmail) {
+      const resolved = await resolveLoginEmailByPhone(phone);
+      if (!resolved.ok) {
         setLoading(false);
-        toast({ title: "تعذر الإرسال", description: "لا يوجد حساب مرتبط بهذا الرقم", variant: "destructive" });
+        toast({ title: "تعذر الإرسال", description: resolved.message, variant: "destructive" });
         return;
       }
-      normalized = String(resolvedEmail).trim().toLowerCase();
+      normalized = resolved.email;
     } else {
       setLoading(true);
     }

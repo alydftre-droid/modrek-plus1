@@ -575,21 +575,17 @@ const Auth = () => {
         let loginEmail = normalizedEmail;
 
         if (loginMethod === "phone") {
-          const digits = loginPhone.replace(/\D/g, "");
-          const { data: resolvedEmail, error: rpcError } = await supabase.rpc(
-            "get_email_by_phone",
-            { _phone: digits },
-          );
-          if (rpcError || !resolvedEmail) {
+          const resolved = await resolveLoginEmailByPhone(loginPhone);
+          if (!resolved.ok) {
             toast({
               title: "فشل تسجيل الدخول",
-              description: "لا يوجد حساب مرتبط بهذا الرقم",
+              description: resolved.message,
               variant: "destructive",
             });
             setIsLoading(false);
             return;
           }
-          loginEmail = String(resolvedEmail).trim().toLowerCase();
+          loginEmail = resolved.email;
         }
 
         const { error } = await signIn(loginEmail, formData.password);
