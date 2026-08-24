@@ -78,15 +78,20 @@ export const buildStudentReportHtml = ({
       </tr>`,
   );
 
-  const examRows = exams.map(
-    (item) => `
+  const examRows = exams.map((item) => {
+    const attempted = item.attempted !== false;
+    const statusLabel = item.status || (attempted ? "حل الامتحان" : "متغيب");
+    const statusColor = attempted ? "hsl(154 66% 34%)" : "hsl(0 74% 48%)";
+    return `
       <tr>
-        <td>${escapeHtml(item.exams?.title || "امتحان")}</td>
-        <td>${escapeHtml(`${item.score}/${item.total}`)}</td>
-        <td>${escapeHtml(item.total > 0 ? `${Math.round((item.score / item.total) * 100)}%` : "0%")}</td>
-        <td>${escapeHtml(formatArabicDate(item.submitted_at))}</td>
-      </tr>`,
-  );
+        <td>${escapeHtml(item.exams?.title || "امتحان")}${item.group_title ? `<br/><small style="color:hsl(215 16% 45%)">${escapeHtml(item.group_title)}</small>` : ""}</td>
+        <td style="font-weight:700;color:${statusColor}">${escapeHtml(statusLabel)}</td>
+        <td>${escapeHtml(attempted ? `${item.score}/${item.total}` : "—")}</td>
+        <td>${escapeHtml(attempted && item.total > 0 ? `${Math.round((item.score / item.total) * 100)}%` : "—")}</td>
+        <td>${escapeHtml(attempted && item.submitted_at ? formatArabicDate(item.submitted_at) : "لم يحل")}</td>
+      </tr>`;
+  });
+
 
   const videoRows = videos.map(
     (item) => `
