@@ -8,7 +8,6 @@ const corsHeaders = {
   "Access-Control-Expose-Headers": "content-length, content-range, content-type, etag, last-modified, accept-ranges, x-modrek-function-version, x-modrek-trace-id",
 };
 
-const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
 const FUNCTION_VERSION = "teacher-media-legacy-v5-2026-07-31";
 
 function getBunnyStorageConfig() {
@@ -330,13 +329,13 @@ async function hasRole(sb: ReturnType<typeof createClient>, userId: string, role
   return Boolean(data?.role);
 }
 
-async function canManageTeacherContent(sb: ReturnType<typeof createClient>, userId: string, email?: string | null) {
-  if (email && DEVELOPER_EMAILS.has(email.toLowerCase())) return true;
+async function canManageTeacherContent(sb: ReturnType<typeof createClient>, userId: string, _email?: string | null) {
+  // Role-based only: developer access comes from the admin role, never email.
   return (await hasRole(sb, userId, "teacher")) || (await hasRole(sb, userId, "admin"));
 }
 
-async function canManageModrek(sb: ReturnType<typeof createClient>, userId: string, email?: string | null) {
-  if (email && DEVELOPER_EMAILS.has(email.toLowerCase())) return true;
+async function canManageModrek(sb: ReturnType<typeof createClient>, userId: string, _email?: string | null) {
+  // Role-based only: developer access comes from the admin role, never email.
   return await hasRole(sb, userId, "admin");
 }
 

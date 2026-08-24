@@ -3,6 +3,7 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import {
   retrieveFromLibrary,
   buildLibraryContextBlock,
@@ -203,6 +204,10 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Cost protection: per-user daily + burst quota (admins bypass).
+    const quota = await enforceAiQuota(userId, "ai-chat");
+    if (!quota.allowed) return aiQuotaResponse(quota, corsHeaders);
     const user = { id: userId } as { id: string };
 
     // --- Input Validation ---

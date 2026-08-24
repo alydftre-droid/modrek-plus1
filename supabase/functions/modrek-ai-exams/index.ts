@@ -2,6 +2,8 @@
 // AI is only the question source; persistence, attempt creation, solving,
 // submission and grading stay on the existing exam engine.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import {
   detectSubject,
@@ -207,15 +209,6 @@ function getBearer(auth: string | null): string | null {
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice(7).trim();
   return token || null;
-}
-
-function decodeJwtSub(token: string): string | null {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1] || ""));
-    return typeof payload?.sub === "string" ? payload.sub : null;
-  } catch {
-    return null;
-  }
 }
 
 function stripJsonFence(value: string): string {
@@ -1236,11 +1229,20 @@ Deno.serve(async (req) => {
 
   try {
     const token = getBearer(req.headers.get("Authorization"));
-    const userId = token ? decodeJwtSub(token) : null;
-    if (!token || !userId) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401, diagnostics);
+    if (!token) return failure(traceId, "AUTH_REQUIRED", new Error("missing bearer token"), 401, diagnostics);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    // SECURITY: verify the token with Auth instead of trusting the decoded
+    // `sub`, otherwise a forged JWT could act as any user against service-role
+    // writes further down.
+    const verifiedUser = await getVerifiedUserFromAuthHeader(supabaseUrl, anonKey, `Bearer ${token}`);
+    const userId = verifiedUser?.id || null;
+    if (!userId) return failure(traceId, "AUTH_REQUIRED", new Error("invalid bearer token"), 401, diagnostics);
+
+    // Cost protection: exam generation is the heaviest AI call.
+    const examQuota = await enforceAiQuota(userId, "modrek-ai-exams");
+    if (!examQuota.allowed) return aiQuotaResponse(examQuota, corsHeaders);
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const userClient = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },

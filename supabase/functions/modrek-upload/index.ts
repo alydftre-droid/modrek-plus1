@@ -16,8 +16,6 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const BUNNY_ZONE = Deno.env.get("BUNNY_STORAGE_ZONE") || "";
 const BUNNY_STORAGE_HOST = Deno.env.get("BUNNY_STORAGE_HOST") || "storage.bunnycdn.com";
 const BUNNY_API_KEY = Deno.env.get("BUNNY_STORAGE_API_KEY") || "";
-const DEVELOPER_EMAILS = new Set(["alyedaft@gmail.com", "aliana200713@gmail.com"]);
-
 const BUCKET_LABEL = `bunny:${BUNNY_ZONE || "modrek"}`;
 
 Deno.serve(async (req) => {
@@ -28,12 +26,9 @@ Deno.serve(async (req) => {
     if (!claims?.sub) return json({ error: "unauthorized" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-    const email = (claims.email as string | undefined)?.toLowerCase();
-    const isDeveloper = email ? DEVELOPER_EMAILS.has(email) : false;
-    if (!isDeveloper) {
-      const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
-      if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
-    }
+    // Authorization is role-based only (no hardcoded email backdoors).
+    const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", claims.sub);
+    if (!roles?.some((r: any) => r.role === "admin")) return json({ error: "forbidden" }, 403);
 
     const body = await req.json().catch(() => ({}));
     const versionId = String(body.version_id ?? "");

@@ -17,6 +17,7 @@ import {
   callGeminiWithFallback,
 } from "../_shared/aiSettings.ts";
 import { getAccessibleLibraryBook } from "../_shared/auth.ts";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,9 @@ Deno.serve(async (req) => {
     const { data: userData } = await userClient.auth.getUser();
     if (!userData?.user) return json({ error: "unauthorized" }, 401);
     const studentId = userData.user.id;
+
+    const quota = await enforceAiQuota(studentId, "library-quiz");
+    if (!quota.allowed) return aiQuotaResponse(quota, corsHeaders);
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
     const body = await req.json().catch(() => ({}));

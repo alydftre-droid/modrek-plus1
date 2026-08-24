@@ -16,6 +16,7 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import {
   EGYPTIAN_TEACHER_TTS_INSTRUCTIONS,
   estimatePcmDurationSeconds,
@@ -108,6 +109,10 @@ Deno.serve(async (req) => {
   if (!authHeader?.startsWith("Bearer ")) return jsonError(401, "غير مصرح");
   const claims = await getJwtClaimsFromAuthHeader(authHeader);
   if (!claims?.sub) return jsonError(401, "جلسة غير صالحة");
+
+  // Cost protection: voice answers are the most expensive AI path.
+  const voiceQuota = await enforceAiQuota(claims.sub, "voice-answer");
+  if (!voiceQuota.allowed) return jsonError(429, voiceQuota.message || "تم تجاوز حد الاستخدام");
 
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
   try { sanitizeAiRequestBody(body); } catch (_e) { /* noop */ }
