@@ -24,7 +24,7 @@ interface StudentReportInput {
   deposits: StudentDeposit[];
   purchases: StudentPurchase[];
   subscriptions: Array<{ id: string; start_date: string; end_date: string; is_active: boolean; subjects?: { name?: string } | null; teacher_name?: string }>;
-  exams: Array<{ id: string; score: number; total: number; submitted_at: string; exams?: { title?: string } | null }>;
+  exams: Array<{ id: string; score: number; total: number; submitted_at: string | null; attempted?: boolean; status?: string; group_title?: string | null; exams?: { title?: string } | null }>;
   videos: Array<{ id: string; progress_seconds: number; duration_seconds: number; content?: { title?: string; type?: string } | null }>;
   activities: Array<{ id: string; action: string; duration_minutes?: number | null; created_at: string | null; content?: { title?: string; type?: string } | null }>;
   teacherChoices: Array<{ id: string; teacher_name?: string; category?: string; stage?: string; grade?: string }>;
@@ -78,15 +78,20 @@ export const buildStudentReportHtml = ({
       </tr>`,
   );
 
-  const examRows = exams.map(
-    (item) => `
+  const examRows = exams.map((item) => {
+    const attempted = item.attempted !== false;
+    const statusLabel = item.status || (attempted ? "حل الامتحان" : "متغيب");
+    const statusColor = attempted ? "hsl(154 66% 34%)" : "hsl(0 74% 48%)";
+    return `
       <tr>
-        <td>${escapeHtml(item.exams?.title || "امتحان")}</td>
-        <td>${escapeHtml(`${item.score}/${item.total}`)}</td>
-        <td>${escapeHtml(item.total > 0 ? `${Math.round((item.score / item.total) * 100)}%` : "0%")}</td>
-        <td>${escapeHtml(formatArabicDate(item.submitted_at))}</td>
-      </tr>`,
-  );
+        <td>${escapeHtml(item.exams?.title || "امتحان")}${item.group_title ? `<br/><small style="color:hsl(215 16% 45%)">${escapeHtml(item.group_title)}</small>` : ""}</td>
+        <td style="font-weight:700;color:${statusColor}">${escapeHtml(statusLabel)}</td>
+        <td>${escapeHtml(attempted ? `${item.score}/${item.total}` : "—")}</td>
+        <td>${escapeHtml(attempted && item.total > 0 ? `${Math.round((item.score / item.total) * 100)}%` : "—")}</td>
+        <td>${escapeHtml(attempted && item.submitted_at ? formatArabicDate(item.submitted_at) : "لم يحل")}</td>
+      </tr>`;
+  });
+
 
   const videoRows = videos.map(
     (item) => `
@@ -185,7 +190,7 @@ export const buildStudentReportHtml = ({
         <div class="section"><div class="section-head"><h2>المعلمون والاختيارات التعليمية</h2></div><div class="section-body"><table><thead><tr><th>المعلم</th><th>التخصص</th><th>المرحلة</th><th>الصف</th></tr></thead><tbody>${rowOrEmpty(teacherRows, "لا توجد اختيارات معلمين مسجلة")}</tbody></table></div></div>
         <div class="section"><div class="section-head"><h2>المحفظة والإيداعات</h2></div><div class="section-body"><table><thead><tr><th>التاريخ</th><th>المبلغ</th><th>وسيلة الدفع</th><th>الحالة</th></tr></thead><tbody>${rowOrEmpty(depositRows, "لا توجد إيداعات لهذا الطالب")}</tbody></table></div></div>
         <div class="section"><div class="section-head"><h2>المجموعات والاشتراكات</h2></div><div class="section-body"><table style="margin-bottom: 14px;"><thead><tr><th>المادة</th><th>المجموعة</th><th>المعلم</th><th>القيمة</th><th>تاريخ الشراء</th></tr></thead><tbody>${rowOrEmpty(purchaseRows, "لا توجد مجموعات مدفوعة", 5)}</tbody></table><table><thead><tr><th>المادة</th><th>المعلم</th><th>بداية الاشتراك</th><th>الحالة</th></tr></thead><tbody>${rowOrEmpty(subscriptionRows, "لا توجد اشتراكات حالية أو سابقة")}</tbody></table></div></div>
-        <div class="section"><div class="section-head"><h2>الأداء الأكاديمي</h2></div><div class="section-body"><table><thead><tr><th>الامتحان</th><th>الدرجة</th><th>النسبة</th><th>التاريخ</th></tr></thead><tbody>${rowOrEmpty(examRows, "لا توجد امتحانات تم حلها")}</tbody></table></div></div>
+        <div class="section"><div class="section-head"><h2>الأداء الأكاديمي</h2><span>${escapeHtml(`${exams.filter((e) => e.attempted !== false).length} من ${exams.length} امتحان`)}</span></div><div class="section-body"><table><thead><tr><th>الامتحان</th><th>الحالة</th><th>الدرجة</th><th>النسبة</th><th>التاريخ</th></tr></thead><tbody>${rowOrEmpty(examRows, "لا توجد امتحانات في مجموعات الطالب", 5)}</tbody></table></div></div>
         <div class="section"><div class="section-head"><h2>الفيديوهات والتقدم</h2><span>${escapeHtml(`${totalWatchMinutes} دقيقة مشاهدة`)}</span></div><div class="section-body"><table><thead><tr><th>الفيديو</th><th>مدة المشاهدة</th><th>نسبة التقدم</th><th>النوع</th></tr></thead><tbody>${rowOrEmpty(videoRows, "لا توجد فيديوهات مشاهدة")}</tbody></table></div></div>
         <div class="section"><div class="section-head"><h2>سجل النشاط</h2></div><div class="section-body"><table><thead><tr><th>النشاط</th><th>المحتوى</th><th>المدة</th><th>التاريخ</th></tr></thead><tbody>${rowOrEmpty(activityRows, "لا توجد بيانات نشاط مسجلة")}</tbody></table></div></div>
         <div class="footer-note">تم إنشاء هذا التقرير تلقائيًا من لوحة إدارة الطلاب — ${escapeHtml(formatArabicDate(new Date().toISOString()))}</div>
