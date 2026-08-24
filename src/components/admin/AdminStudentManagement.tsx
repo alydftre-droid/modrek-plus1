@@ -411,18 +411,21 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
       const examIds = [...new Set(examData.map(i => i.exam_id).filter(Boolean))];
       const subjectIds = [...new Set(subsData.map((i: any) => i.subject_id).filter(Boolean))];
 
-      const [gR, tpR, cR, exR, sjR] = await Promise.all([
+      const [gR, tpR, cR, exR, gexR] = await Promise.all([
         groupIds.length ? supabase.from("content_groups").select("id, title, teacher_id, created_by, subject_id").in("id", groupIds) : { data: [] },
         teacherIds.length ? supabase.from("profiles").select("id, full_name").in("id", teacherIds as string[]) : { data: [] },
         contentIds.length ? supabase.from("content").select("id, title, type").in("id", contentIds as string[]) : { data: [] },
-        examIds.length ? supabase.from("exams").select("id, title").in("id", examIds) : { data: [] },
-        { data: [] as any[] }, // placeholder - we'll fetch subjects after getting group subject_ids
+        examIds.length ? supabase.from("exams").select("id, title, group_id, total_marks").in("id", examIds) : { data: [] },
+        groupIds.length
+          ? supabase.from("exams").select("id, title, group_id, total_marks, created_at, end_at").in("group_id", groupIds).eq("is_published", true)
+          : { data: [] },
       ]);
 
       // Collect all subject IDs from both subscriptions AND groups
       const groupSubjectIds = (gR.data ?? []).map((g: any) => g.subject_id).filter(Boolean);
       const allSubjectIds = [...new Set([...subjectIds, ...groupSubjectIds])];
-      const sjResult = allSubjectIds.length ? await supabase.from("subjects").select("id, name").in("id", allSubjectIds as string[]) : { data: [] };
+      const sjResult = allSubjectIds.length ? await supabase.from("subjects").select("id, name, category").in("id", allSubjectIds as string[]) : { data: [] };
+
 
       const teacherMap = new Map((tpR.data ?? []).map((i: any) => [i.id, i.full_name]));
       const groupMap = new Map((gR.data ?? []).map((i: any) => [i.id, i]));
