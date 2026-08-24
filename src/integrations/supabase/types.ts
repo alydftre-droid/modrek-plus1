@@ -6585,6 +6585,7 @@ export type Database = {
         Args: { _period_end: string; _period_start: string }
         Returns: Json
       }
+      ad_target_includes_me: { Args: { _target_id: string }; Returns: boolean }
       admin_add_student_wallet_credit: {
         Args: { _amount: number; _reason?: string; _student_id: string }
         Returns: Json
@@ -6616,6 +6617,20 @@ export type Database = {
       admin_delete_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_financial_close_preview: { Args: never; Returns: Json }
       admin_financial_overview: { Args: never; Returns: Json }
+      admin_get_ad_target: {
+        Args: { _ad_id: string }
+        Returns: {
+          ad_id: string
+          created_at: string
+          education_type: string
+          grade: string
+          id: string
+          section: string
+          stage: string
+          student_ids: string[]
+          target_type: Database["public"]["Enums"]["ad_target_type"]
+        }[]
+      }
       admin_get_financial_close: { Args: { _id: string }; Returns: Json }
       admin_get_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_get_student_deposit: { Args: { _id: string }; Returns: Json }
@@ -6730,6 +6745,31 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_set_withdrawal_schedule_impl:
+        | {
+            Args: {
+              _day: number
+              _hour: number
+              _manual_state?: string
+              _minute: number
+              _month?: number
+              _year?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _day: number
+              _hour: number
+              _manual_state?: string
+              _minute: number
+              _month?: number
+              _schedule_month?: number
+              _schedule_year?: number
+              _year?: number
+            }
+            Returns: Json
+          }
       admin_student_deposit_stats: { Args: never; Returns: Json }
       admin_switch_system_terms: {
         Args: { _target_term: string; _term_ids: string[] }
@@ -6779,7 +6819,15 @@ export type Database = {
       }
       archive_all_teachers_period: { Args: never; Returns: Json }
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
+      assert_admin_caller: { Args: never; Returns: undefined }
       audit_test_student_visibility: {
+        Args: never
+        Returns: {
+          row_count: number
+          source: string
+        }[]
+      }
+      audit_test_student_visibility_impl: {
         Args: never
         Returns: {
           row_count: number
@@ -7145,6 +7193,18 @@ export type Database = {
           watch_hours: number
         }[]
       }
+      get_developer_student_progress_monthly_impl: {
+        Args: { _months?: number; _student_id: string }
+        Returns: {
+          avg_percentage: number
+          exams_taken: number
+          logins: number
+          period_label: string
+          period_start: string
+          videos_watched: number
+          watch_hours: number
+        }[]
+      }
       get_developer_student_teachers: {
         Args: { _student_id: string }
         Returns: {
@@ -7158,6 +7218,21 @@ export type Database = {
         }[]
       }
       get_developer_student_video_progress: {
+        Args: { _student_id: string }
+        Returns: {
+          avg_completion: number
+          fully_watched: number
+          group_id: string
+          group_title: string
+          not_opened: number
+          partially_watched: number
+          subject_name: string
+          teacher_id: string
+          teacher_name: string
+          total_videos: number
+        }[]
+      }
+      get_developer_student_video_progress_impl: {
         Args: { _student_id: string }
         Returns: {
           avg_completion: number
@@ -7189,7 +7264,39 @@ export type Database = {
           videos_count: number
         }[]
       }
+      get_developer_teacher_courses_impl: {
+        Args: { _teacher_id: string }
+        Returns: {
+          created_at: string
+          grade: string
+          group_id: string
+          group_title: string
+          is_active: boolean
+          pdfs_count: number
+          price: number
+          revenue: number
+          stage: string
+          students_count: number
+          subject_name: string
+          videos_count: number
+        }[]
+      }
       get_developer_teacher_group_details: {
+        Args: { _grade?: string; _teacher_id: string }
+        Returns: {
+          created_at: string
+          grade: string
+          group_id: string
+          group_title: string
+          new_month: number
+          new_today: number
+          price: number
+          revenue: number
+          students_count: number
+          subject_name: string
+        }[]
+      }
+      get_developer_teacher_group_details_impl: {
         Args: { _grade?: string; _teacher_id: string }
         Returns: {
           created_at: string
@@ -7208,11 +7315,23 @@ export type Database = {
         Args: { _limit?: number; _teacher_id: string }
         Returns: Json
       }
+      get_developer_teacher_logs_impl: {
+        Args: { _limit?: number; _teacher_id: string }
+        Returns: Json
+      }
       get_developer_teacher_overview: {
         Args: { _teacher_id: string }
         Returns: Json
       }
+      get_developer_teacher_overview_impl: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
       get_developer_teacher_profile: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
+      get_developer_teacher_profile_impl: {
         Args: { _teacher_id: string }
         Returns: Json
       }
@@ -7238,7 +7357,41 @@ export type Database = {
           total_paid: number
         }[]
       }
+      get_developer_teacher_students_by_grade_impl: {
+        Args: { _teacher_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          first_purchase: string
+          full_name: string
+          grade: string
+          groups_count: number
+          last_activity: string
+          phone: string
+          section: string
+          stage: string
+          student_code: string
+          student_id: string
+          total_paid: number
+        }[]
+      }
+      get_developer_teacher_students_impl: {
+        Args: { _teacher_id: string }
+        Returns: Json
+      }
       get_developer_teacher_subs_by_grade: {
+        Args: { _teacher_id: string }
+        Returns: {
+          active_subs: number
+          grade: string
+          groups_count: number
+          monthly_revenue: number
+          new_this_month: number
+          new_this_week: number
+          stage: string
+        }[]
+      }
+      get_developer_teacher_subs_by_grade_impl: {
         Args: { _teacher_id: string }
         Returns: {
           active_subs: number
@@ -7255,6 +7408,10 @@ export type Database = {
         Returns: Json
       }
       get_developer_teacher_wallet_monthly: {
+        Args: { _period?: string; _teacher_id: string }
+        Returns: Json
+      }
+      get_developer_teacher_wallet_monthly_impl: {
         Args: { _period?: string; _teacher_id: string }
         Returns: Json
       }
