@@ -45,7 +45,6 @@ import { z } from "zod";
 type AuthMode = "login" | "register" | "register-teacher";
 
 const PUBLISHED_APP_URL = "https://modrekplus.com";
-const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
 
 type NativeCapacitorWindow = Window & {
   Capacitor?: {
@@ -189,14 +188,13 @@ const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => 
   return true;
 };
 
-const isDeveloperAccount = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof useAuth>["role"]) => {
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (role === "admin" || isDeveloperAccount(user?.email)) return "/admin";
+  if (role === "admin") return "/admin";
 
   if (role === "student") {
     const { data: profile } = await supabase
@@ -598,9 +596,6 @@ const Auth = () => {
             variant: "destructive",
           });
         } else {
-          if (isDeveloperAccount(loginEmail)) {
-            window.sessionStorage.setItem("post_oauth_redirect", "/admin");
-          }
           toast({
             title: "تم تسجيل الدخول بنجاح",
             description: "جاري تحويلك...",

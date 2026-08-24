@@ -12,14 +12,12 @@ interface Props {
   children: React.ReactNode;
 }
 
-const DEVELOPER_EMAIL = "aliana200713@gmail.com";
-const isDeveloperAccount = (email?: string | null) => email?.trim().toLowerCase() === DEVELOPER_EMAIL;
 
 const TeacherProtectedRoute = ({ children }: Props) => {
   const { user, role, session, isLoading, isHydrated, isRoleResolved, isAuthReady } = useAuth();
   const [teacherStatus, setTeacherStatus] = useState<TeacherStatus | null>(null);
   const [checking, setChecking] = useState(true);
-  const effectiveRole = isDeveloperAccount(user?.email) ? "admin" : role;
+  const effectiveRole = role;
 
   const hasCheckedRef = useState({ userId: "", status: "" as TeacherStatus | null })[0];
 
