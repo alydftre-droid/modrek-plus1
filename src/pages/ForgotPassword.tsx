@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLoginEmailByPhone } from "@/lib/resolveLoginEmail";
 
 const phoneRegex = /^[0-9+\-\s]{8,20}$/;
 

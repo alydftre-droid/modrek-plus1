@@ -17,6 +17,7 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveLoginEmailByPhone } from "@/lib/resolveLoginEmail";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { CURRENT_TEACHER_TERMS_VERSION } from "@/lib/teacherTerms";
