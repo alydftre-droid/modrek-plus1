@@ -24,7 +24,7 @@ interface StudentReportInput {
   deposits: StudentDeposit[];
   purchases: StudentPurchase[];
   subscriptions: Array<{ id: string; start_date: string; end_date: string; is_active: boolean; subjects?: { name?: string } | null; teacher_name?: string }>;
-  exams: Array<{ id: string; score: number; total: number; submitted_at: string; exams?: { title?: string } | null }>;
+  exams: Array<{ id: string; score: number; total: number; submitted_at: string | null; attempted?: boolean; status?: string; group_title?: string | null; exams?: { title?: string } | null }>;
   videos: Array<{ id: string; progress_seconds: number; duration_seconds: number; content?: { title?: string; type?: string } | null }>;
   activities: Array<{ id: string; action: string; duration_minutes?: number | null; created_at: string | null; content?: { title?: string; type?: string } | null }>;
   teacherChoices: Array<{ id: string; teacher_name?: string; category?: string; stage?: string; grade?: string }>;
