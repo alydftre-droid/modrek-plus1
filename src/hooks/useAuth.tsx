@@ -113,7 +113,6 @@ type BootstrapAuthResult = {
   callbackError: string | null;
 };
 
-const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
 
 const isNativeOAuthRuntime = async () => {
   if (typeof window === "undefined") return false;
@@ -223,7 +222,6 @@ const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> 
   return data.session ?? (await supabase.auth.getSession()).data.session ?? null;
 };
 
-const isDeveloperEmail = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
 
@@ -295,14 +293,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserRole = async (userId: string) => {
     try {
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-
-      if (isDeveloperEmail(authUser?.email)) {
-        return "admin" as AppRole;
-      }
-
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")
@@ -320,7 +310,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return "student" as AppRole;
       }
 
-      return isDeveloperEmail(authUser?.email) ? "admin" : null;
+      return null;
     } catch (e) {
       console.error("fetchUserRole error", e);
       return null;

@@ -26,8 +26,6 @@ type StudentProfileRouteState = {
   section?: string | null;
 };
 
-const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
-const isDeveloperAccount = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => {
   if (!profile?.education_type || !profile?.stage || !profile?.grade) return false;
@@ -246,7 +244,7 @@ const Index = () => {
     if (isLoading || !user) return;
     const postOAuthRedirect = consumePostOAuthRedirect();
     if (postOAuthRedirect) { navigate(postOAuthRedirect, { replace: true }); return; }
-    if (role === "admin" || isDeveloperAccount(user.email)) { navigate("/admin", { replace: true }); return; }
+    if (role === "admin") { navigate("/admin", { replace: true }); return; }
     if (role === "teacher") { navigate("/teacher", { replace: true }); return; }
     if (role === "student") {
       let cancelled = false;

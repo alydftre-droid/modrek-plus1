@@ -8,7 +8,6 @@ import {
 
 const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
 const SUPABASE_STORAGE_KEY_PREFIX = "sb-";
-const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
 
 let inFlightOAuthProcessing: Promise<OAuthProcessResult> | null = null;
 
@@ -148,12 +147,8 @@ export async function processSupabaseOAuthCallback(source: string, callbackUrl?:
     const confirmedSession = sessionResult.data.session ?? (await supabase.auth.getSession()).data.session ?? null;
     const persistedSessionKeys = readSupabasePersistedSessionKeys();
 
-    if (typeof window !== "undefined" && confirmedSession?.user) {
-      const nextPath = DEVELOPER_EMAILS.has(confirmedSession.user.email?.trim().toLowerCase() ?? "")
-        ? "/admin"
-        : "/dashboard";
-      window.sessionStorage.setItem(POST_OAUTH_REDIRECT_KEY, nextPath);
-    }
+    // Post-login destination is resolved from the user's role by the router
+    // (see src/pages/Index.tsx). No email-based or hardcoded destination here.
 
     cleanOAuthCallbackUrl();
     finalizeGoogleOAuthAttempt({

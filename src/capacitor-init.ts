@@ -61,7 +61,7 @@ export async function initCapacitor() {
             } catch (err) { /* non-fatal */ console.debug("[swallowed]", err); }
             window.dispatchEvent(new CustomEvent('modrek:oauth-callback-processed', { detail: result }));
             if (result.session?.user) {
-              window.location.replace(result.session.user.email?.trim().toLowerCase() === 'aliana200713@gmail.com' ? '/admin' : '/dashboard');
+              window.location.replace('/');
             }
           }
         } catch (error) {

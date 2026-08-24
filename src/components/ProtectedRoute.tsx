@@ -5,8 +5,6 @@ import { Loader2 } from "lucide-react";
 
 type Role = "student" | "teacher" | "admin" | "support";
 
-const DEVELOPER_EMAILS = new Set(["aliana200713@gmail.com", "alyedaft@gmail.com"]);
-const isDeveloperAccount = (email?: string | null) => DEVELOPER_EMAILS.has(email?.trim().toLowerCase() ?? "");
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -21,7 +19,7 @@ const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { user, role, isLoading, isHydrated, isRoleResolved, isAuthReady, isBanned, session } = useAuth();
   const location = useLocation();
-  const effectiveRole = isDeveloperAccount(user?.email) ? "admin" : role;
+  const effectiveRole = role;
 
   console.info("[auth-guard] route_check", {
     path: location.pathname,
