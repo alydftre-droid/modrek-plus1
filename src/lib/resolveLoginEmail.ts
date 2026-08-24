@@ -4,14 +4,18 @@
 // enumerate user emails with it.
 import { supabase } from "@/integrations/supabase/client";
 
-export type ResolveLoginEmailResult =
-  | { ok: true; email: string }
-  | { ok: false; message: string };
+export type ResolveLoginEmailResult = {
+  ok: boolean;
+  /** Present when ok === true. */
+  email: string;
+  /** Arabic, user-facing reason when ok === false. */
+  message: string;
+};
 
 export async function resolveLoginEmailByPhone(phone: string): Promise<ResolveLoginEmailResult> {
   const digits = (phone || "").replace(/\D/g, "");
   if (digits.length < 8) {
-    return { ok: false, message: "أدخل رقم هاتف صالحاً" };
+    return { ok: false, email: "", message: "أدخل رقم هاتف صالحاً" };
   }
 
   try {
@@ -22,7 +26,7 @@ export async function resolveLoginEmailByPhone(phone: string): Promise<ResolveLo
     const payload = (data || {}) as { ok?: boolean; email?: string; reason?: string };
 
     if (payload.ok && payload.email) {
-      return { ok: true, email: String(payload.email).trim().toLowerCase() };
+      return { ok: true, email: String(payload.email).trim().toLowerCase(), message: "" };
     }
 
     let reason = payload.reason;
@@ -35,10 +39,10 @@ export async function resolveLoginEmailByPhone(phone: string): Promise<ResolveLo
     }
 
     if (reason === "rate_limited") {
-      return { ok: false, message: "محاولات كثيرة من هذا الجهاز. انتظر قليلاً ثم أعد المحاولة." };
+      return { ok: false, email: "", message: "محاولات كثيرة من هذا الجهاز. انتظر قليلاً ثم أعد المحاولة." };
     }
-    return { ok: false, message: "لا يوجد حساب مرتبط بهذا الرقم" };
+    return { ok: false, email: "", message: "لا يوجد حساب مرتبط بهذا الرقم" };
   } catch {
-    return { ok: false, message: "تعذر التحقق من الرقم حالياً. حاول مرة أخرى." };
+    return { ok: false, email: "", message: "تعذر التحقق من الرقم حالياً. حاول مرة أخرى." };
   }
 }
