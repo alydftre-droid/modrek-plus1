@@ -77,3 +77,8 @@ verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = true
+
+# Public on purpose: used before sign-in to resolve phone -> account email.
+# Protected by per-IP rate limiting inside the function/database.
+[functions.resolve-login-email]
+verify_jwt = false
