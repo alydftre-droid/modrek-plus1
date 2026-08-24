@@ -74,7 +74,7 @@ export const DSTextarea = React.forwardRef<HTMLTextAreaElement, DSTextareaProps>
 );
 DSTextarea.displayName = "DSTextarea";
 
-export interface DSSearchProps extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type DSSearchProps = React.InputHTMLAttributes<HTMLInputElement>;
 export const DSSearch = React.forwardRef<HTMLInputElement, DSSearchProps>(
   ({ className = "", placeholder = "بحث...", ...props }, ref) => (
     <div className="relative">
