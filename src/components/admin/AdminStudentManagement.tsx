@@ -455,20 +455,75 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
       setRechargeCodeUses(((rcR.data as any[]) ?? []).map((u: any) => ({ ...u, code: codeMap.get(u.code_id) })));
 
       setVideos(videoData.map(v => ({ ...v, content: contentMap.get(v.content_id) })));
-      setExams(examData.map(e => ({ ...e, exams: examMap.get(e.exam_id) })));
+
+      // Merge every published exam in the student's groups with his attempts (absent = لم يحل)
+      const groupExams = (gexR.data as any[]) ?? [];
+      const bestAttemptByExam = new Map<string, any>();
+      examData.forEach((a: any) => {
+        const prev = bestAttemptByExam.get(a.exam_id);
+        const ratio = (v: any) => (v?.total > 0 ? v.score / v.total : 0);
+        if (!prev || ratio(a) > ratio(prev)) bestAttemptByExam.set(a.exam_id, a);
+      });
+      const seenExamIds = new Set<string>();
+      const mergedExams: any[] = [];
+      groupExams.forEach((ex: any) => {
+        seenExamIds.add(ex.id);
+        const attempt = bestAttemptByExam.get(ex.id);
+        const g = groupMap.get(ex.group_id);
+        mergedExams.push({
+          id: attempt?.id ?? `exam-${ex.id}`,
+          exam_id: ex.id,
+          exams: { title: ex.title },
+          group_title: g?.title ?? null,
+          attempted: Boolean(attempt),
+          status: attempt ? "حل الامتحان" : "متغيب",
+          score: attempt?.score ?? 0,
+          total: attempt?.total ?? Number(ex.total_marks ?? 0),
+          submitted_at: attempt?.submitted_at ?? null,
+        });
+      });
+      examData.forEach((a: any) => {
+        if (a.exam_id && seenExamIds.has(a.exam_id)) return;
+        if (bestAttemptByExam.get(a.exam_id)?.id !== a.id) return;
+        const ex = examMap.get(a.exam_id) as any;
+        mergedExams.push({
+          id: a.id,
+          exam_id: a.exam_id,
+          exams: { title: ex?.title ?? "امتحان" },
+          group_title: ex?.group_id ? (groupMap.get(ex.group_id) as any)?.title ?? null : null,
+          attempted: true,
+          status: "حل الامتحان",
+          score: a.score ?? 0,
+          total: a.total ?? Number(ex?.total_marks ?? 0),
+          submitted_at: a.submitted_at ?? null,
+        });
+      });
+      mergedExams.sort((a, b) => {
+        if (a.attempted !== b.attempted) return a.attempted ? -1 : 1;
+        return String(b.submitted_at ?? "").localeCompare(String(a.submitted_at ?? ""));
+      });
+      setExams(mergedExams);
       setActivities(actData.map((a: any) => ({ ...a, content: contentMap.get(a.content_id) })));
       setTeachers(teacherData.map((t: any) => ({ ...t, teacher_name: teacherMap.get(t.teacher_id) })));
-      setSubs(subsData.map((s: any) => ({ ...s, teacher_name: teacherMap.get(s.teacher_id), subjects: subjectMap.get(s.subject_id) })));
+      setSubs(subsData.map((s: any) => {
+        const subj: any = subjectMap.get(s.subject_id);
+        return {
+          ...s,
+          teacher_name: teacherMap.get(s.teacher_id),
+          subjects: subj ? { ...subj, name: mainSubjectLabel(subj) } : subj,
+        };
+      }));
       setPurchases(purchData.map(p => {
         const g = groupMap.get(p.group_id);
-        const subj = g?.subject_id ? subjectMap.get(g.subject_id) : null;
+        const subj: any = g?.subject_id ? subjectMap.get(g.subject_id) : null;
         return {
           ...p,
           group_title: g?.title,
-          subject_name: subj?.name,
+          subject_name: subj ? mainSubjectLabel(subj) : undefined,
           teacher_name: g?.teacher_id ? teacherMap.get(g.teacher_id) : (g?.created_by ? teacherMap.get(g.created_by) : undefined),
         };
       }));
+
     } catch (e) { console.error(e); toast.error("تعذر تحميل ملف الطالب"); } finally { setLoading(false); }
   }, [student.id, onUpdate]);
 
