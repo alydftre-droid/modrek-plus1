@@ -95,15 +95,17 @@ export function detectAnswerIntent(content: unknown, options: ScopeOptions = {})
   const t = raw.replace(/[أإآ]/g, "ا").replace(/\s+/g, " ");
   const image = hasImage(content) || options.hasImage === true;
 
+  // An attached image means the student is asking about that image; it wins over
+  // generic exam/practice wording ("حل الامتحان كامل من الصورة").
+  if (image) {
+    if (rx.allQuestions.test(t)) return "IMAGE_EXAM_FULL";
+    if (!rx.practice.test(t) && !rx.summary.test(t)) return "IMAGE_QUESTION";
+  }
   if (rx.exam.test(t)) return "EXAM";
   if (rx.practice.test(t)) return "PRACTICE";
   if (rx.summary.test(t)) return "SUMMARY";
   if (rx.review.test(t)) return "REVIEW";
   if (rx.comparison.test(t)) return "COMPARISON";
-  if (image) {
-    if (rx.allQuestions.test(t)) return "IMAGE_EXAM_FULL";
-    return "IMAGE_QUESTION";
-  }
   if (rx.mcq.test(t)) return "MCQ";
   if (rx.howSolved.test(t)) return "EXPLANATION";
   if (rx.fullLesson.test(t)) return "FULL_LESSON";
