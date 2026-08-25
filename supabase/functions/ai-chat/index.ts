@@ -10,6 +10,8 @@ import {
   logRagPipeline,
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
+import { hybridResearch } from "../_shared/modrekWebResearch.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
