@@ -12,6 +12,7 @@ import {
   logRagPipeline,
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
+import { hybridResearch } from "../_shared/modrekWebResearch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -178,8 +179,22 @@ Deno.serve(async (req) => {
 
         });
         logRagPipeline("modrek-ai-study", rag);
-        knowledgeBlock = `\n\n${buildLibraryContextBlock(rag)}\n`;
-        allowExternal = !rag.found;
+
+        // Hybrid decision engine: library first, trusted web research only when
+        // the retrieved coverage is incomplete.
+        const research = await hybridResearch({
+          admin: adminEarly,
+          surface: "modrek-ai-study",
+          query: trimmedQ,
+          library: rag,
+          scope,
+        }).catch((e) => {
+          console.warn("[modrek-ai-study] hybrid research failed", String(e).slice(0, 200));
+          return null;
+        });
+
+        knowledgeBlock = `\n\n${buildLibraryContextBlock(rag)}\n${research?.contextBlock ? `\n${research.contextBlock}\n` : ""}`;
+        allowExternal = !rag.found || Boolean(research?.usedWeb);
       }
     } catch (retrievalErr) {
       console.warn("[modrek-ai-study] library retrieval failed", String(retrievalErr).slice(0, 300));

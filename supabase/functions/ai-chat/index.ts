@@ -10,6 +10,8 @@ import {
   logRagPipeline,
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
+import { hybridResearch } from "../_shared/modrekWebResearch.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -525,11 +527,28 @@ ${g ? `- ${g}.` : ""}
 
           });
           logRagPipeline("ai-chat", rag);
+
+          // Intelligent hybrid: the engine decides on its own whether the
+          // library is enough or a trusted external search is required.
+          const research = await hybridResearch({
+            admin: serviceClient,
+            surface: "ai-chat",
+            query: lastQuery,
+            library: rag,
+            scope: rag.scope,
+          }).catch((e) => {
+            console.warn("[ai-chat] hybrid research failed", String(e).slice(0, 200));
+            return null;
+          });
+
           systemPrompt += `\n\n${MODREK_ASSISTANT_SCOPE_RULES}\n\n${buildLibraryContextBlock(rag)}\n\n${
             rag.found
               ? "اعتمد على محتوى المكتبة أعلاه أولًا وبشكل أساسي في الشرح، والتزم بالدرس/الوحدة المطلوبة."
               : "المكتبة لم ترجع محتوى مطابقًا: وضّح ذلك بجملة قصيرة ثم اشرح من المنهج الرسمي المناسب للصف والنظام، وممنوع اختراع أسماء دروس أو كتب."
-          }\n- لا تسأل الطالب عن صفه أو مرحلته أو نظامه أو شعبته أبدًا؛ كلها معروفة أعلاه.`;
+          }\n- لا تسأل الطالب عن صفه أو مرحلته أو نظامه أو شعبته أبدًا؛ كلها معروفة أعلاه.${
+            research?.contextBlock ? `\n\n${research.contextBlock}` : ""
+          }`;
+
         }
       } catch (ragErr) {
         console.warn("[ai-chat] library rag failed", String(ragErr).slice(0, 250));

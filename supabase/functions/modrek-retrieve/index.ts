@@ -15,6 +15,7 @@ import {
   logRagPipeline,
   type LibraryRagResult,
 } from "../_shared/modrekLibraryRag.ts";
+import { hybridResearch } from "../_shared/modrekWebResearch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -271,6 +272,20 @@ Deno.serve(async (req) => {
     const libraryUsed = libraryResults.length > 0;
     const effectiveBelowThreshold = libraryUsed ? false : belowThreshold;
 
+    // 8b) Hybrid decision engine — evaluate coverage and, when the platform
+    // library is incomplete, attach trusted external research to the payload.
+    const research = await hybridResearch({
+      admin,
+      surface: "modrek-retrieve",
+      query: effectiveQuery,
+      library: libraryRag,
+      scope: libraryRag?.scope ?? null,
+      forceRefresh: Boolean(force_refresh),
+    }).catch((e) => {
+      console.warn("[modrek-retrieve] hybrid research failed", String(e).slice(0, 200));
+      return null;
+    });
+
     const payload = {
       intent: intent.intent,
       intent_meta: intent,
@@ -288,6 +303,20 @@ Deno.serve(async (req) => {
       results_count: context.length,
       below_threshold: effectiveBelowThreshold,
       suggest_external: effectiveBelowThreshold,
+      research: research
+        ? {
+            coverage: round(research.evaluation.coverage),
+            decision: research.evaluation.decision,
+            reasons: research.evaluation.reasons,
+            used_web: research.usedWeb,
+            engine: research.outcome.engine,
+            cached: research.outcome.cached,
+            error: research.outcome.error,
+            web_results: research.outcome.results,
+            web_digest: research.outcome.digest,
+            context_block: research.contextBlock || null,
+          }
+        : null,
       image_ocr: imageOcr,
       results: context,
       generated_at: new Date().toISOString(),

@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2, Plus, X, Save } from "lucide-react";
 import AiProviderSettings from "@/components/admin/settings/AiProviderSettings";
 import AiDiagnosticsPanel from "@/components/admin/settings/AiDiagnosticsPanel";
+import WebResearchSettings from "@/components/admin/settings/WebResearchSettings";
 
 
 type Settings = {
@@ -86,6 +87,8 @@ export default function AiSettingsPage() {
       <AiProviderSettings />
 
       <AiDiagnosticsPanel />
+
+      <WebResearchSettings />
 
       <p className="text-sm text-muted-foreground">
         إعدادات الوظائف الخاصة بـ OpenRouter: تحكّم في قائمة الموديلات لكل وظيفة، وحدود المحاولات، وتفعيل البث المباشر للردود (Streaming).
