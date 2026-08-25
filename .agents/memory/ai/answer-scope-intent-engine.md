@@ -27,4 +27,14 @@ Wired surfaces: `ai-chat` (student branch only — admin and lesson-studio JSON
 modes untouched) and `modrek-ai-study`. RAG, hybrid web research, safety, and
 persona are unchanged.
 
-Tests: `supabase/functions/_shared/answerScope_test.ts` (16 tests).
+Also wired: `modrek-ai-exams` (exam generation stays inside the requested
+lesson/scope, `explanation` fields kept to 1-2 lines), `library-explain`
+(page/vision path — a student question answers that question only; no question
+still gives the full page explanation), `library-analyze-region`, `library-chat`.
+
+Image paths use `resolveAnswerScope(text, { hasImage: true })`. Intents:
+`IMAGE_QUESTION` (extract and answer only the asked question, never the other
+questions on the sheet) and `IMAGE_EXAM_FULL` (only when the student asks for all
+questions / the whole exam). An attached image outranks generic exam wording.
+
+Tests: `supabase/functions/_shared/answerScope_test.ts` (19 tests).
