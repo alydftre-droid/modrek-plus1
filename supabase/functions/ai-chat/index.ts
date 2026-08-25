@@ -11,6 +11,7 @@ import {
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
+import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 
 
 const corsHeaders = {
@@ -555,6 +556,13 @@ ${g ? `- ${g}.` : ""}
       }
     }
 
+
+    // ---- Answer Scope Engine: intent -> scope -> length (students only) ----
+    if (!isAdmin && !isLessonStudio) {
+      const answerScope = resolveAnswerScopeFromMessages(messages as any);
+      console.log("[ai-chat] answer intent:", answerScope.intent);
+      systemPrompt += `\n\n${buildAnswerScopeBlock(answerScope)}`;
+    }
 
     // Build messages with vision support for page images
     const buildMessages = () => {

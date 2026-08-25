@@ -13,6 +13,7 @@ import {
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
+import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -201,6 +202,10 @@ Deno.serve(async (req) => {
       allowExternal = true;
     }
 
+    // Intent -> scope -> length. Only controls answer size/scope, nothing else.
+    const answerScope = resolveAnswerScopeFromMessages(messages);
+    console.log("[modrek-ai-study] answer intent:", answerScope.intent);
+
     const systemPrompt = buildTeacherEnginePrompt(`${scopeBlock || `بيانات الطالب:
 - الاسم: ${profile?.full_name || "الطالب"}
 - المرحلة: ${stage || "غير محددة"}
@@ -223,7 +228,9 @@ ${knowledgeBlock}
       : "لا تستخدم مصادر خارجية؛ اعتمد على محتوى المكتبة أعلاه فقط، وإذا كان ناقصًا قل ذلك صراحةً."}
 3. لا تسأل الطالب عن مرحلته أو صفه أو نظامه أو شعبته أبدًا.
 4. إذا لم يذكر الطالب المادة صراحة، استخدم سياق المحادثة أو آخر مادة تحدثتما عنها.
-5. اربط الشرح دائمًا بمنهج الصف والمرحلة المذكورين أعلاه وبطريقة الامتحان المصري.`);
+5. اربط الشرح دائمًا بمنهج الصف والمرحلة المذكورين أعلاه وبطريقة الامتحان المصري.
+
+${buildAnswerScopeBlock(answerScope)}`, { concise: !answerScope.expansive });
 
 
 

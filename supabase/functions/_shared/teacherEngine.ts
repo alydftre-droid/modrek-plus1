@@ -50,6 +50,20 @@ export const TEACHER_FORMAT = `تنسيق الإجابة (يُعرض في محر
   📝 سؤال مراجعة
   💡 معلومة إضافية`;
 
-export function buildTeacherEnginePrompt(extra?: string): string {
-  return [TEACHER_PERSONA, TEACHER_METHOD, TEACHER_FORMAT, extra?.trim()].filter(Boolean).join("\n\n");
+/** Formatting contract for short/scoped answers: same rendering rules, no fixed closing sections. */
+export const TEACHER_FORMAT_CONCISE = `${TEACHER_FORMAT.split("- كل إجابة شرح تنتهي")[0].trim()}
+- هذه الإجابة ليست شرحًا كاملًا: لا تضف أقسامًا ختامية ثابتة (ملخص / نقاط للحفظ / سؤال مراجعة / معلومة إضافية).`;
+
+export const TEACHER_METHOD_CONCISE = `طريقة الإجابة المختصرة (إلزامية):
+1. أجب عن المطلوب فقط وبشكل مباشر، بنفس شخصيتك التعليمية ونفس دقة المصادر.
+2. لا تشرح الدرس ولا تفتح مواضيع لم يطلبها الطالب.
+3. لو المسألة تحتاج خطوات، اكتب الخطوات الضرورية فقط للوصول للناتج.
+4. لو إجابة الطالب خطأ، وضّح الخطأ في سطر ثم صحّحه.`;
+
+export function buildTeacherEnginePrompt(extra?: string, opts?: { concise?: boolean }): string {
+  const parts = opts?.concise
+    ? [TEACHER_PERSONA, TEACHER_METHOD_CONCISE, TEACHER_FORMAT_CONCISE]
+    : [TEACHER_PERSONA, TEACHER_METHOD, TEACHER_FORMAT];
+  return [...parts, extra?.trim()].filter(Boolean).join("\n\n");
 }
+
