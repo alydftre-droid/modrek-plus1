@@ -15,6 +15,7 @@ const cases: Array<[string, unknown, string]> = [
   ["review", "راجع لي الدرس الأول", "REVIEW"],
   ["why", "ليه الإجابة دي صح؟", "SHORT_ANSWER"],
   ["ambiguous", "اشرح لي الصرف", "AMBIGUOUS"],
+  ["image_all", [{ type: "text", text: "حل الامتحان كامل من الصورة" }, { type: "image_url", image_url: { url: "x" } }], "IMAGE_EXAM_FULL"],
   ["compare", "قارن بين النكرة والمعرفة", "COMPARISON"],
 ];
 
@@ -36,4 +37,17 @@ Deno.test("scope block forbids auto-expansion only for short answers", () => {
   const long = buildAnswerScopeBlock(resolveAnswerScope("اشرح لي الدرس الأول بالتفصيل"));
   assert(long.includes("الأسلوب التعليمي الكامل"));
   assert(!long.includes("Progressive Disclosure"));
+});
+
+Deno.test("out-of-band images are treated as image questions", () => {
+  const scope = resolveAnswerScope("حل السؤال الثالث فقط", { hasImage: true });
+  assertEquals(scope.intent, "IMAGE_QUESTION");
+  assertEquals(scope.expansive, false);
+  assert(buildAnswerScopeBlock(scope).includes("ممنوع حل أسئلة أخرى"));
+});
+
+Deno.test("full-image exam solving stays expansive", () => {
+  const scope = resolveAnswerScope("حل كل الأسئلة في الصورة", { hasImage: true });
+  assertEquals(scope.intent, "IMAGE_EXAM_FULL");
+  assertEquals(scope.expansive, true);
 });
