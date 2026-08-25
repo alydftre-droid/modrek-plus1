@@ -28,6 +28,7 @@ import {
 } from "../_shared/openrouter.ts";
 import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/auth.ts";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { resolveAnswerScope, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -253,7 +254,9 @@ Deno.serve(async (req) => {
 - لا تستخدم Markdown ولا رموز.
 - سياق السؤال: ${scopeLabel}.
 - إذا كان السؤال عن الكتاب بالكامل، اذكر أرقام الصفحات ذات الصلة في نهاية الرد بصيغة: (انظر صفحة X).
-- التزم بمحتوى الكتاب أولاً، وإن لم يكن كافياً استخدم معرفتك العامة بالمادة.`;
+- التزم بمحتوى الكتاب أولاً، وإن لم يكن كافياً استخدم معرفتك العامة بالمادة.
+
+${buildAnswerScopeBlock(resolveAnswerScope(message))}`;
 
     const userPrompt = `${message}\n\n---محتوى ${scopeLabel}---\n${context || "(لا يوجد نص مستخرج لهذا الجزء)"}`.slice(0, 12000);
 

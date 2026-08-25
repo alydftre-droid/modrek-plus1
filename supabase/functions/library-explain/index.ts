@@ -19,6 +19,7 @@ import {
 } from "../_shared/openrouter.ts";
 import { getAccessibleLibraryBook } from "../_shared/auth.ts";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { resolveAnswerScope, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -177,6 +178,14 @@ Deno.serve(async (req) => {
 - إذا سأل الطالب سؤالاً محدداً، أجب عليه أولاً ثم اربطه بمحتوى الصفحة.
 - ممنوع تمامًا أن تقول إنك لا ترى الصفحة أو أنه لا يوجد نص واضح؛ اعتمد على الصورة ومعرفتك بالمادة وقدّم شرحًا مفيدًا دائمًا.`;
 
+    // Scope discipline: when the student asked a specific question about the page
+    // (or an image of it), answer that question only — never expand into a full
+    // lesson. With no question the page-explanation flow stays untouched.
+    const pageScope = userQuestion ? resolveAnswerScope(userQuestion, { hasImage: true }) : null;
+    const scopedSystemPrompt = pageScope
+      ? `${systemPrompt}\n\n${buildAnswerScopeBlock(pageScope)}`
+      : systemPrompt;
+
     const contextBlock = context
       ? `\n\nالنص المستخرج من الصفحة (قد يكون ناقصًا، والصورة هي المرجع الأساسي):\n${context}`
       : hasImage
@@ -199,7 +208,7 @@ Deno.serve(async (req) => {
       models: chatSettings.models_to_try,
       body: {
         messages: [
-          { role: "system", content: systemPrompt },
+          { role: "system", content: scopedSystemPrompt },
           { role: "user", content: userContent },
         ],
         temperature: 0.6,
