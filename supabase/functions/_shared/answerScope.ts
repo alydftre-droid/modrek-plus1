@@ -14,6 +14,7 @@ export type AnswerIntent =
   | "PROBLEM_SOLVING"
   | "MCQ"
   | "IMAGE_QUESTION"
+  | "IMAGE_EXAM_FULL"
   | "EXPLANATION"
   | "FULL_LESSON"
   | "SUMMARY"
@@ -47,6 +48,8 @@ const rx = {
   howSolved: /(طريقة الحل|ازاي (حلت|نحل)|إزاي (حلت|نحل)|خطوات الحل)/,
   mcq: /(اختر|اختيار من متعدد|\(أ\)|\(ب\)|\ba\)|أي (من|الإجابات)|الإجابة الصحيحة)/,
   why: /(ليه|لماذا|علل|سبب)/,
+  allQuestions: /(كل الاسئلة|كل الأسئلة|جميع الاسئلة|جميع الأسئلة|الامتحان كامل|الورقة كاملة|كل المسائل|حل الامتحان)/,
+  singleQuestion: /(السؤال (الاول|الأول|الثاني|الثالث|الرابع|الخامس|رقم)|سؤال رقم|بس|فقط)/,
 };
 
 function textOf(content: unknown): string {
@@ -70,7 +73,8 @@ const SCOPES: Record<AnswerIntent, { label: string; size: string; expansive: boo
   DIRECT_QUESTION: { label: "سؤال مباشر", size: "إجابة مباشرة مختصرة، بدون مقدمات ولا استطراد.", expansive: false },
   PROBLEM_SOLVING: { label: "حل مسألة", size: "حل المسألة المطلوبة فقط بخطواتها الضرورية، بدون شرح الدرس ولا مسائل إضافية.", expansive: false },
   MCQ: { label: "اختيار من متعدد", size: "الإجابة الصحيحة + سبب مختصر في سطر أو سطرين.", expansive: false },
-  IMAGE_QUESTION: { label: "سؤال من صورة", size: "أجب عن السؤال/الأسئلة المطلوبة فقط في الصورة، ولا تحل غيرها.", expansive: false },
+  IMAGE_QUESTION: { label: "سؤال من صورة", size: "استخرج السؤال المطلوب فقط من الصورة وأجب عنه فقط، ولا تحل بقية الأسئلة ولا تشرح الدرس.", expansive: false },
+  IMAGE_EXAM_FULL: { label: "حل امتحان كامل من صورة", size: "حل كل الأسئلة الموجودة في الصورة بالترتيب، بإيجاز لكل سؤال.", expansive: true },
   COMPARISON: { label: "مقارنة", size: "جدول أو نقاط مقارنة مختصرة للفروق المطلوبة فقط.", expansive: false },
   EXPLANATION: { label: "طلب شرح", size: "شرح تعليمي كامل بأسلوب المدرس.", expansive: true },
   FULL_LESSON: { label: "شرح درس كامل", size: "شرح كامل ومنظم للدرس بأسلوب المدرس.", expansive: true },
@@ -81,17 +85,25 @@ const SCOPES: Record<AnswerIntent, { label: string; size: string; expansive: boo
   AMBIGUOUS: { label: "طلب غير واضح", size: "اسأل سؤالًا توضيحيًا قصيرًا واحدًا فقط بدل إعطاء شرح ضخم.", expansive: false },
 };
 
-export function detectAnswerIntent(content: unknown): AnswerIntent {
+export type ScopeOptions = {
+  /** force the image branch when the image is sent out-of-band (page render, region crop, upload). */
+  hasImage?: boolean;
+};
+
+export function detectAnswerIntent(content: unknown, options: ScopeOptions = {}): AnswerIntent {
   const raw = textOf(content).trim();
   const t = raw.replace(/[أإآ]/g, "ا").replace(/\s+/g, " ");
-  const image = hasImage(content);
+  const image = hasImage(content) || options.hasImage === true;
 
   if (rx.exam.test(t)) return "EXAM";
   if (rx.practice.test(t)) return "PRACTICE";
   if (rx.summary.test(t)) return "SUMMARY";
   if (rx.review.test(t)) return "REVIEW";
   if (rx.comparison.test(t)) return "COMPARISON";
-  if (image) return "IMAGE_QUESTION";
+  if (image) {
+    if (rx.allQuestions.test(t)) return "IMAGE_EXAM_FULL";
+    return "IMAGE_QUESTION";
+  }
   if (rx.mcq.test(t)) return "MCQ";
   if (rx.howSolved.test(t)) return "EXPLANATION";
   if (rx.fullLesson.test(t)) return "FULL_LESSON";
@@ -108,8 +120,8 @@ export function detectAnswerIntent(content: unknown): AnswerIntent {
   return "SHORT_ANSWER";
 }
 
-export function resolveAnswerScope(content: unknown): AnswerScope {
-  const intent = detectAnswerIntent(content);
+export function resolveAnswerScope(content: unknown, options: ScopeOptions = {}): AnswerScope {
+  const intent = detectAnswerIntent(content, options);
   const s = SCOPES[intent];
   return { intent, label: s.label, size: s.size, expansive: s.expansive };
 }
@@ -132,5 +144,10 @@ ${scope.expansive
 - Progressive Disclosure: أعطِ الإجابة الأساسية أولًا، ثم — عند الحاجة فقط — اقتراح واحد قصير للتوسع مثل: "لو تحب، أقدر أشرحلك الدرس بالتفصيل." اقتراح واحد فقط، وليس قائمة اقتراحات.
 - لا تكرر نص السؤال، ولا تعد صياغة المعلومة أكثر من مرة، ولا تكتب مقدمات.
 - وجود محتوى كثير في المكتبة عن الموضوع ليس سببًا لتوسيع الإجابة.`}
+${scope.intent === "IMAGE_QUESTION"
+      ? `- قواعد الصور: اقرأ الصورة، حدّد السؤال الذي طلبه الطالب بالنص، أعد كتابته في سطر واحد كحد أقصى، ثم أجب عنه فقط. ممنوع حل أسئلة أخرى ظاهرة في الصورة أو شرح الدرس الذي جاءت منه.`
+      : scope.intent === "IMAGE_EXAM_FULL"
+        ? `- قواعد الصور: حل كل أسئلة الصورة بالترتيب مع رقم كل سؤال، وبإيجاز في كل سؤال بدون شرح الدرس.`
+        : ""}
 - لا تستخدم عددًا ثابتًا من الكلمات: الطول يتحدد من نية الطالب أعلاه.`;
 }
