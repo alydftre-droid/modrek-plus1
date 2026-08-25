@@ -5,6 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 import {
   detectSubject,
   retrieveFromLibrary,
@@ -1311,6 +1312,9 @@ Deno.serve(async (req) => {
       contextKeys: Object.keys(conversationContext || {}),
     });
 
+    const answerScope = resolveAnswerScopeFromMessages(messages as any);
+    logStep(traceId, "ANSWER_SCOPE", { intent: answerScope.intent, expansive: answerScope.expansive });
+
     const intentSystem = `استخرج طلب امتحان تدريبي من رسالة الطالب وأرجع JSON فقط:
 {
   "subject": "اسم المادة أو null",
@@ -1421,6 +1425,9 @@ Deno.serve(async (req) => {
 أنشئ امتحاناً تدريبياً لا يؤثر على الدرجات الرسمية، لكنه يجب أن يستخدم نفس جودة امتحانات المعلم.
 
 ${MODREK_ASSISTANT_SCOPE_RULES}
+
+${buildAnswerScopeBlock(answerScope)}
+- التزم بنطاق الطلب أعلاه: لا تولّد أسئلة عن دروس أو موضوعات لم يطلبها الطالب، واجعل حقل explanation سطرًا أو سطرين فقط.
 
 بيانات الطالب: ${studentLevel || "غير محدد"}
 المادة: ${subjectHint || subjectRow.name || "المادة المناسبة"}

@@ -20,6 +20,7 @@ import {
 } from "../_shared/aiSettings.ts";
 import { buildVisionMessages } from "../_shared/openrouter.ts";
 import { getAccessibleLibraryBook } from "../_shared/auth.ts";
+import { resolveAnswerScope, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,6 +101,7 @@ Deno.serve(async (req) => {
       ? `منطقة الصورة بالإحداثيات (px): x=${Math.round(bbox.x)}, y=${Math.round(bbox.y)}, w=${Math.round(bbox.w)}, h=${Math.round(bbox.h)}`
       : `منطقة الصورة كنسبة مئوية من الصفحة: x=${Number(bbox.x).toFixed(1)}%, y=${Number(bbox.y).toFixed(1)}%, w=${Number(bbox.w).toFixed(1)}%, h=${Number(bbox.h).toFixed(1)}%`;
 
+    const regionScope = resolveAnswerScope(question, { hasImage: true });
     const systemPrompt = `أنت معلم عربي متمكن. أنت تنظر إلى صورة صفحة من كتاب "${book.title}" مادة "${book.subject_name_ar || ""}". ركّز فقط على المنطقة المحددة (${kind}) وليس الصفحة بأكملها.`;
 
     const userPrompt = `${bboxDescription}
@@ -109,7 +111,9 @@ Deno.serve(async (req) => {
 - إن كانت معادلة اشرح رموزها والغرض منها.
 - إن كان جدولاً استخرج الأعمدة والصفوف واستنتاجاتها.
 - إن كان رسماً اشرح المحاور والعلاقات والدلالة.
-- لا تستخدم Markdown ولا رموز التنسيق.`;
+- لا تستخدم Markdown ولا رموز التنسيق.
+
+${buildAnswerScopeBlock(regionScope)}`;
 
     const { apiKey } = await resolveOpenRouterApiKey(admin);
     if (!apiKey) return json({ error: "openrouter_key_missing" }, 500);
