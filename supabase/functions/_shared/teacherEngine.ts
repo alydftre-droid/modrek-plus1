@@ -54,14 +54,16 @@ export const TEACHER_FORMAT = `تنسيق الإجابة (يُعرض في محر
 export const TEACHER_FORMAT_CONCISE = `${TEACHER_FORMAT.split("- كل إجابة شرح تنتهي")[0].trim()}
 - هذه الإجابة ليست شرحًا كاملًا: لا تضف أقسامًا ختامية ثابتة (ملخص / نقاط للحفظ / سؤال مراجعة / معلومة إضافية).`;
 
-export function buildTeacherEnginePrompt(
-  extra?: string,
-  opts?: { concise?: boolean; skipMethod?: boolean },
-): string {
-  const format = opts?.concise ? TEACHER_FORMAT_CONCISE : TEACHER_FORMAT;
-  const parts = [TEACHER_PERSONA];
-  if (!opts?.concise || !opts?.skipMethod) parts.push(TEACHER_METHOD);
-  parts.push(format, extra?.trim());
-  return parts.filter(Boolean).join("\n\n");
+export const TEACHER_METHOD_CONCISE = `طريقة الإجابة المختصرة (إلزامية):
+1. أجب عن المطلوب فقط وبشكل مباشر، بنفس شخصيتك التعليمية ونفس دقة المصادر.
+2. لا تشرح الدرس ولا تفتح مواضيع لم يطلبها الطالب.
+3. لو المسألة تحتاج خطوات، اكتب الخطوات الضرورية فقط للوصول للناتج.
+4. لو إجابة الطالب خطأ، وضّح الخطأ في سطر ثم صحّحه.`;
+
+export function buildTeacherEnginePrompt(extra?: string, opts?: { concise?: boolean }): string {
+  const parts = opts?.concise
+    ? [TEACHER_PERSONA, TEACHER_METHOD_CONCISE, TEACHER_FORMAT_CONCISE]
+    : [TEACHER_PERSONA, TEACHER_METHOD, TEACHER_FORMAT];
+  return [...parts, extra?.trim()].filter(Boolean).join("\n\n");
 }
 
