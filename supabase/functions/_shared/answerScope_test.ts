@@ -51,3 +51,9 @@ Deno.test("full-image exam solving stays expansive", () => {
   assertEquals(scope.intent, "IMAGE_EXAM_FULL");
   assertEquals(scope.expansive, true);
 });
+
+Deno.test("image + explain request stays expansive", () => {
+  const scope = resolveAnswerScope("اشرح هذا العنصر بالتفصيل", { hasImage: true });
+  assertEquals(scope.intent, "IMAGE_EXPLANATION");
+  assertEquals(scope.expansive, true);
+});
