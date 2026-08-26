@@ -15,6 +15,7 @@ export type AnswerIntent =
   | "MCQ"
   | "IMAGE_QUESTION"
   | "IMAGE_EXAM_FULL"
+  | "IMAGE_EXPLANATION"
   | "EXPLANATION"
   | "FULL_LESSON"
   | "SUMMARY"
@@ -74,6 +75,7 @@ const SCOPES: Record<AnswerIntent, { label: string; size: string; expansive: boo
   PROBLEM_SOLVING: { label: "حل مسألة", size: "حل المسألة المطلوبة فقط بخطواتها الضرورية، بدون شرح الدرس ولا مسائل إضافية.", expansive: false },
   MCQ: { label: "اختيار من متعدد", size: "الإجابة الصحيحة + سبب مختصر في سطر أو سطرين.", expansive: false },
   IMAGE_QUESTION: { label: "سؤال من صورة", size: "استخرج السؤال المطلوب فقط من الصورة وأجب عنه فقط، ولا تحل بقية الأسئلة ولا تشرح الدرس.", expansive: false },
+  IMAGE_EXPLANATION: { label: "شرح صورة/عنصر من صفحة", size: "شرح تعليمي كامل ومنظم للعنصر أو الصفحة المعروضة في الصورة.", expansive: true },
   IMAGE_EXAM_FULL: { label: "حل امتحان كامل من صورة", size: "حل كل الأسئلة الموجودة في الصورة بالترتيب، بإيجاز لكل سؤال.", expansive: true },
   COMPARISON: { label: "مقارنة", size: "جدول أو نقاط مقارنة مختصرة للفروق المطلوبة فقط.", expansive: false },
   EXPLANATION: { label: "طلب شرح", size: "شرح تعليمي كامل بأسلوب المدرس.", expansive: true },
@@ -99,6 +101,9 @@ export function detectAnswerIntent(content: unknown, options: ScopeOptions = {})
   // generic exam/practice wording ("حل الامتحان كامل من الصورة").
   if (image) {
     if (rx.allQuestions.test(t)) return "IMAGE_EXAM_FULL";
+    // "اشرح هذه الصورة/هذا الشكل/الصفحة بالتفصيل" is an explanation request, not a
+    // question hidden inside the image.
+    if (rx.explainDetailed.test(t) || rx.fullLesson.test(t)) return "IMAGE_EXPLANATION";
     if (!rx.practice.test(t) && !rx.summary.test(t)) return "IMAGE_QUESTION";
   }
   if (rx.exam.test(t)) return "EXAM";
@@ -150,6 +155,8 @@ ${scope.intent === "IMAGE_QUESTION"
       ? `- قواعد الصور: اقرأ الصورة، حدّد السؤال الذي طلبه الطالب بالنص، أعد كتابته في سطر واحد كحد أقصى، ثم أجب عنه فقط. ممنوع حل أسئلة أخرى ظاهرة في الصورة أو شرح الدرس الذي جاءت منه.`
       : scope.intent === "IMAGE_EXAM_FULL"
         ? `- قواعد الصور: حل كل أسئلة الصورة بالترتيب مع رقم كل سؤال، وبإيجاز في كل سؤال بدون شرح الدرس.`
-        : ""}
+        : scope.intent === "IMAGE_EXPLANATION"
+          ? `- قواعد الصور: اشرح محتوى الصورة/المنطقة المحددة نفسها بالتفصيل (رسم/جدول/معادلة/نص) بأسلوب المدرس، ولا تبحث عن سؤال مخفي داخل الصورة.`
+          : ""}
 - لا تستخدم عددًا ثابتًا من الكلمات: الطول يتحدد من نية الطالب أعلاه.`;
 }
