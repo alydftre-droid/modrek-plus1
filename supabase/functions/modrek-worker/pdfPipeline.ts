@@ -196,6 +196,8 @@ export function countPdfPagesFromRawBytes(bytes: Uint8Array): number {
   const chunk = 512 * 1024;
   const carrySize = 800;
   let carry = "";
+  let best = 0;
+  let pageObjects = 0;
   for (let i = 0; i < bytes.length; i += chunk) {
     const text = carry + new TextDecoder("latin1").decode(bytes.subarray(i, Math.min(bytes.length, i + chunk)));
     // 1) /Type /Pages ... /Count N (take the largest, i.e. the root page tree)
@@ -210,8 +212,6 @@ export function countPdfPagesFromRawBytes(bytes: Uint8Array): number {
     pageObjects += text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
     carry = text.slice(-carrySize);
   }
-  let best = 0;
-  let pageObjects = 0;
   return pageObjects;
 }
 
