@@ -191,23 +191,27 @@ export function planPageBatches(
  * files that both unpdf and pdf-lib refuse to load, and needs no LLM call.
  */
 export function countPdfPagesFromRawBytes(bytes: Uint8Array): number {
-  // Only the header/trailer text matters; decode as latin1-ish for speed.
-  let text = "";
-  const chunk = 1 << 20;
+  // Decode in bounded windows; never materialize a 100-300MB PDF as one giant
+  // string because this counter runs before the book is split.
+  const chunk = 512 * 1024;
+  const carrySize = 800;
+  let carry = "";
   for (let i = 0; i < bytes.length; i += chunk) {
-    text += new TextDecoder("latin1").decode(bytes.subarray(i, Math.min(bytes.length, i + chunk)));
+    const text = carry + new TextDecoder("latin1").decode(bytes.subarray(i, Math.min(bytes.length, i + chunk)));
+    // 1) /Type /Pages ... /Count N (take the largest, i.e. the root page tree)
+    for (const m of text.matchAll(/\/Type\s*\/Pages[\s\S]{0,400}?\/Count\s+(\d+)/g)) {
+      best = Math.max(best, Number(m[1]) || 0);
+    }
+    for (const m of text.matchAll(/\/Count\s+(\d+)[\s\S]{0,400}?\/Type\s*\/Pages/g)) {
+      best = Math.max(best, Number(m[1]) || 0);
+    }
+    if (best > 0) return best;
+
+    pageObjects += text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
+    carry = text.slice(-carrySize);
   }
-  // 1) /Type /Pages ... /Count N (take the largest, i.e. the root page tree)
   let best = 0;
-  for (const m of text.matchAll(/\/Type\s*\/Pages[\s\S]{0,400}?\/Count\s+(\d+)/g)) {
-    best = Math.max(best, Number(m[1]) || 0);
-  }
-  for (const m of text.matchAll(/\/Count\s+(\d+)[\s\S]{0,400}?\/Type\s*\/Pages/g)) {
-    best = Math.max(best, Number(m[1]) || 0);
-  }
-  if (best > 0) return best;
-  // 2) count page objects directly
-  const pageObjects = text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
+  let pageObjects = 0;
   return pageObjects;
 }
 
