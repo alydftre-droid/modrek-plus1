@@ -7000,6 +7000,7 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_group_content: { Args: { _content_id: string }; Returns: Json }
       diagnose_student_group_exam_visibility: {
         Args: { _group_id: string; _sub_subject_id?: string }
         Returns: {
