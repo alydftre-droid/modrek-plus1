@@ -3,7 +3,7 @@ import {
   TEACHER_DELETE_WINDOW_MS,
   canDeleteTeacherContent,
   isWithinTeacherDeleteWindow,
-} from "./contentDeletionWindow";
+} from "../../src/lib/contentDeletionWindow";
 
 const uploadedAt = new Date("2026-08-26T10:00:00.000Z");
 
