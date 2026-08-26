@@ -137,6 +137,23 @@ export default function TeacherWalletPage() {
     refetchIntervalInBackground: true,
   });
 
+  useEffect(() => {
+    const channel = supabase
+      .channel(`teacher-withdrawal-settings-${user?.id || "guest"}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "platform_settings" },
+        (payload) => {
+          const changedKey = String((payload.new as { key?: string } | null)?.key || (payload.old as { key?: string } | null)?.key || "");
+          if (changedKey.startsWith("withdrawal_")) {
+            qc.invalidateQueries({ queryKey: ["withdrawal-settings"] });
+          }
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [qc, user?.id]);
+
   const { data: currentRecords = [], isLoading: earningsLoading } = useQuery({
     queryKey: ["teacher-earnings-current", user?.id],
     queryFn: async () => {
@@ -992,13 +1009,17 @@ export default function TeacherWalletPage() {
             iconBg="bg-emerald-500"
             icon={<CheckCircle className="h-5 w-5 text-white" />}
             title={isWithdrawalOpen ? "السحب مفتوح الآن" : "السحب موقوف حالياً"}
-            subtitle={isWithdrawalOpen ? "يمكنك سحب أرباحك في أي وقت" : (settings?.notice || `سيُفتح ${openDateLabel} - ${openTimeLabel}`)}
+            subtitle={isWithdrawalOpen
+              ? "يمكنك تقديم طلب السحب الآن"
+              : settings?.requestsState === "scheduled"
+                ? `سيُفتح ${openDateLabel} - ${openTimeLabel}`
+                : (settings?.notice || `سيُفتح ${openDateLabel} - ${openTimeLabel}`)}
           />
           <InfoPill
             iconBg="bg-blue-500"
             icon={<Calendar className="h-5 w-5 text-white" />}
             title="موعد السحب القادم"
-            subtitle={settings?.requestsState === "open" ? "مفتوح الآن" : `${openDateLabel} - ${openTimeLabel}`}
+            subtitle={isWithdrawalOpen ? "مفتوح الآن" : `${openDateLabel} - ${openTimeLabel}`}
           />
           <InfoPill
             iconBg="bg-violet-500"
