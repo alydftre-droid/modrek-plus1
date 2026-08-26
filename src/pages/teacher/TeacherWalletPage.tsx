@@ -103,24 +103,28 @@ export default function TeacherWalletPage() {
   const { data: settings } = useQuery({
     queryKey: ["withdrawal-settings"],
     queryFn: async () => {
-      const [{ data: data }, { data: profileRate }, { data: effectiveRate }] = await Promise.all([
-        supabase.from("platform_settings").select("key, value")
-          .in("key", ["withdrawal_open_day", "withdrawal_manual_state", "withdrawal_notice_message", "teacher_commission_rate", "withdrawal_requests_state", "withdrawal_requests_open_at"]),
+      const [{ data: windowData, error: windowError }, { data: data }, { data: profileRate }, { data: effectiveRate }] = await Promise.all([
+        supabase.rpc("get_withdrawal_requests_window" as any),
+        supabase.from("platform_settings").select("key, value").in("key", ["teacher_commission_rate"]),
         user ? supabase.from("profiles").select("commission_rate, pending_commission_rate, pending_effective_date").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null }),
         user ? supabase.rpc("get_effective_teacher_commission", { _teacher_id: user.id }) : Promise.resolve({ data: null }),
       ]);
+      if (windowError) throw windowError;
 
       const m = new Map((data || []).map((r: any) => [r.key, r.value]));
+      const window = (windowData || {}) as any;
       const resolvedRate = normalizeCommissionRate(
         effectiveRate ?? profileRate?.commission_rate ?? m.get("teacher_commission_rate") ?? 0.7,
       );
 
       return {
-        openDay: parseInt(m.get("withdrawal_open_day") || "25"),
-        manual: m.get("withdrawal_manual_state") || "auto",
-        requestsState: m.get("withdrawal_requests_state") || "auto",
-        requestsOpenAt: m.get("withdrawal_requests_open_at") || "",
-        notice: m.get("withdrawal_notice_message") || "",
+        openDay: Number(window.open_day || 25),
+        manual: String(window.manual_state || "auto"),
+        requestsState: String(window.state || "auto"),
+        requestsOpenAt: String(window.open_at || ""),
+        notice: String(window.notice || ""),
+        isOpen: window.is_open === true,
+        nowCairo: String(window.now_cairo || ""),
         rate: resolvedRate,
         pendingRate: profileRate?.pending_commission_rate ?? null,
         pendingEffectiveDate: profileRate?.pending_effective_date ?? null,
@@ -129,7 +133,8 @@ export default function TeacherWalletPage() {
     enabled: !!user,
     staleTime: 0,
     refetchOnMount: "always",
-    refetchInterval: 15000,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
   });
 
   const { data: currentRecords = [], isLoading: earningsLoading } = useQuery({
@@ -224,12 +229,6 @@ export default function TeacherWalletPage() {
   const pendingWithdrawal = withdrawals.find((w: any) => w.status === "pending");
   const totalAll = balance + frozen;
 
-  // Cairo "now" so the developer-defined open time is timezone-accurate.
-  const cairoNow = useMemo(
-    () => new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" })),
-    [settings],
-  );
-
   // Developer-defined scheduled open moment (local Cairo wall clock).
   const scheduledOpenAt = useMemo(() => {
     const raw = String(settings?.requestsOpenAt || "").trim();
@@ -243,15 +242,8 @@ export default function TeacherWalletPage() {
 
   const isWithdrawalOpen = useMemo(() => {
     if (!settings) return false;
-    if (settings.requestsState === "open") return true;
-    if (settings.requestsState === "closed") return false;
-    if (settings.requestsState === "scheduled") {
-      return !!scheduledOpenAt && cairoNow.getTime() >= scheduledOpenAt.getTime();
-    }
-    if (settings.manual === "open") return true;
-    if (settings.manual === "closed") return false;
-    return cairoNow.getDate() >= settings.openDay;
-  }, [settings, scheduledOpenAt, cairoNow]);
+    return settings.isOpen;
+  }, [settings]);
 
   const daysUntilOpen = useMemo(() => {
     if (!settings || isWithdrawalOpen) return 0;
