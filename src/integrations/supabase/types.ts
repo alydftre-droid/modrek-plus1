@@ -6720,6 +6720,10 @@ export type Database = {
         Args: { _month: number; _year: number }
         Returns: Json
       }
+      admin_set_withdrawal_requests_window: {
+        Args: { _notice?: string; _open_at?: string; _state: string }
+        Returns: Json
+      }
       admin_set_withdrawal_schedule:
         | {
             Args: {
@@ -7605,6 +7609,7 @@ export type Database = {
         }[]
       }
       get_teacher_exam_roster: { Args: { _exam_id: string }; Returns: Json }
+      get_withdrawal_requests_window: { Args: never; Returns: Json }
       grade_exam_attempt_core: {
         Args: {
           _attempt_id: string
@@ -7658,6 +7663,7 @@ export type Database = {
         Returns: boolean
       }
       is_valid_target_section: { Args: { _value: string }; Returns: boolean }
+      is_withdrawal_requests_open: { Args: never; Returns: boolean }
       library_book_progress_v2: { Args: { p_book_id: string }; Returns: Json }
       library_canonical_track_name: { Args: { _code: string }; Returns: string }
       library_canonical_track_sort: { Args: { _code: string }; Returns: number }
