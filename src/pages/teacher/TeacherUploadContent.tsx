@@ -951,7 +951,10 @@ const TeacherUploadContent = () => {
                   </Button>
                 )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  {canDeleteTeacherContent({ createdAt: item.created_at, isAdminMode }) && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  )}
+
                 </div>
               </CardContent>
             </Card>
