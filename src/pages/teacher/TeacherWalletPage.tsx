@@ -367,7 +367,11 @@ export default function TeacherWalletPage() {
         refId: String(result.request_id || "").slice(0, 8).toUpperCase(),
       });
       invalidateAll();
-    } catch (e: any) { console.error(e); toast.error(e?.message || "خطأ"); }
+    } catch (e: any) {
+      console.error(e);
+      const raw = String(e?.message || "");
+      toast.error(raw.includes("WITHDRAWALS_CLOSED") ? (settings?.notice || "طلبات السحب مغلقة حالياً") : (raw || "خطأ"));
+    }
     finally { setSubmitting(false); }
   };
 
