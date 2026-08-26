@@ -25,6 +25,8 @@ import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { getOriginalDeveloperAccessToken, isImpersonating } from "@/lib/devImpersonation";
 import LessonCardText from "@/components/content/LessonCardText";
+import { canDeleteTeacherContent } from "@/lib/contentDeletionWindow";
+
 import {
   BookOpen,
   ChevronLeft,
@@ -640,20 +642,63 @@ const TeacherUploadContent = () => {
     setEditOpen(true);
   };
 
+  // Deleting through a single server-side RPC that enforces the 24h teacher window.
+  // When a developer is impersonating a teacher, use the ORIGINAL developer token so
+  // the server sees an admin (same pattern as the free-preview toggle below).
+  const callDeleteGroupContent = async (contentId: string) => {
+    const originalDeveloperToken = isDevImpersonation ? getOriginalDeveloperAccessToken() : null;
+    if (originalDeveloperToken) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+      if (!supabaseUrl || !publishableKey) throw new Error("تعذر تجهيز اتصال قاعدة البيانات");
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/delete_group_content`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${originalDeveloperToken}`,
+          apikey: publishableKey,
+        },
+        body: JSON.stringify({ _content_id: contentId }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.message || body?.error || "فشل حذف المحتوى");
+      return body;
+    }
+    const { data, error } = await (supabase.rpc as any)("delete_group_content", { _content_id: contentId });
+    if (error) throw new Error(error.message);
+    return data;
+  };
+
   const handleDelete = async (item: ContentRow) => {
+
+    if (!canDeleteTeacherContent({ createdAt: item.created_at, isAdminMode })) {
+      toast({
+        title: "غير مسموح",
+        description: "انتهت مهلة الحذف (24 ساعة من وقت الرفع). تواصل مع الإدارة.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!confirm("هل أنت متأكد من حذف هذا المحتوى؟")) return;
     try {
       const parsed = extractStoragePathFromPublicUrl(item.file_url);
       if (parsed) await supabase.storage.from(parsed.bucket).remove([parsed.path]);
-      const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", effectiveUserId);
-      if (error) throw error;
+      await callDeleteGroupContent(item.id);
       toast({ title: "تم", description: "تم حذف المحتوى" });
       if (selectedGroup) fetchGroupContent(selectedGroup.id);
     } catch (e: any) {
       console.error(e);
-      toast({ title: "خطأ", description: "فشل حذف المحتوى", variant: "destructive" });
+      const raw = String(e?.message || "");
+      toast({
+        title: "خطأ",
+        description: raw.includes("DELETE_WINDOW_EXPIRED")
+          ? "لا يمكن حذف هذا المحتوى بعد مرور 24 ساعة من وقت الرفع."
+          : "فشل حذف المحتوى",
+        variant: "destructive",
+      });
     }
   };
+
 
   // ===== Developer-only: toggle "Free Preview" via long-press =====
   const [freePreviewItem, setFreePreviewItem] = useState<ContentRow | null>(null);
@@ -906,7 +951,10 @@ const TeacherUploadContent = () => {
                   </Button>
                 )}
                   <Button variant="ghost" size="icon" className="h-8 w-8" type="button" onClick={(e) => { e.preventDefault(); openEdit(item); }}><Edit className="h-3.5 w-3.5" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  {canDeleteTeacherContent({ createdAt: item.created_at, isAdminMode }) && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" type="button" onClick={(e) => { e.preventDefault(); handleDelete(item); }}><Trash2 className="h-3.5 w-3.5" /></Button>
+                  )}
+
                 </div>
               </CardContent>
             </Card>
