@@ -1148,6 +1148,182 @@ const relativeAr = (s?: string | null) => {
   return `منذ ${mo} شهر`;
 };
 
+// ============================================================
+// WITHDRAWAL REQUESTS WINDOW (developer opens the teacher button)
+// ============================================================
+function WithdrawalRequestsWindowCard() {
+  const [state, setState] = useState<"auto" | "open" | "closed" | "scheduled">("auto");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("09:00");
+  const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  const load = async () => {
+    const { data } = await supabase
+      .from("platform_settings")
+      .select("key, value")
+      .in("key", ["withdrawal_requests_state", "withdrawal_requests_open_at", "withdrawal_notice_message"]);
+    const m = new Map((data || []).map((r: any) => [r.key, r.value]));
+    const st = (m.get("withdrawal_requests_state") || "auto") as any;
+    setState(["auto", "open", "closed", "scheduled"].includes(st) ? st : "auto");
+    const raw = String(m.get("withdrawal_requests_open_at") || "").trim();
+    if (raw) {
+      const [d, t = "09:00"] = raw.split(" ");
+      setDate(d);
+      setTime(t.slice(0, 5));
+    }
+    setNotice(m.get("withdrawal_notice_message") || "");
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const t = setInterval(() => setTick((v) => v + 1), 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const cairoNow = useMemo(
+    () => new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" })),
+    [tick],
+  );
+
+  const scheduledAt = useMemo(() => {
+    if (!date) return null;
+    const [y, mo, d] = date.split("-").map(Number);
+    const [h, mi] = time.split(":").map(Number);
+    if (!y || !mo || !d) return null;
+    return new Date(y, mo - 1, d, h || 0, mi || 0, 0);
+  }, [date, time]);
+
+  const isOpenNow =
+    state === "open" ? true
+      : state === "closed" ? false
+        : state === "scheduled" ? !!scheduledAt && cairoNow.getTime() >= scheduledAt.getTime()
+          : null; // auto = legacy monthly rule
+
+  const save = async () => {
+    if (state === "scheduled" && !date) { toast.error("حدّد تاريخ ووقت فتح السحب"); return; }
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.rpc("admin_set_withdrawal_requests_window" as any, {
+        _state: state,
+        _open_at: state === "scheduled" ? `${date} ${time}` : null,
+        _notice: notice || null,
+      });
+      if (error) throw error;
+      const r = data as any;
+      if (!r?.success) throw new Error(r?.error || "فشل الحفظ");
+      toast.success(
+        state === "open" ? "تم فتح طلبات السحب للمعلمين الآن"
+          : state === "closed" ? "تم إيقاف طلبات السحب"
+            : state === "scheduled" ? `سيُفتح زر طلب السحب في ${date} — ${time}`
+              : "تم تعيين الفتح التلقائي الشهري",
+      );
+      await load();
+    } catch (e: any) {
+      toast.error(e?.message || "خطأ في الحفظ");
+    } finally { setSaving(false); }
+  };
+
+  const OPTIONS: { key: typeof state; label: string; desc: string; cls: string; icon: any }[] = [
+    { key: "open", label: "فتح الآن", desc: "زر طلب السحب متاح لكل المعلمين فورًا", cls: "from-emerald-500 to-green-600", icon: Unlock },
+    { key: "scheduled", label: "موعد محدد", desc: "يُفتح تلقائيًا في تاريخ وساعة تحددها", cls: "from-blue-500 to-indigo-600", icon: CalendarDays },
+    { key: "closed", label: "إيقاف", desc: "لا يستطيع أي معلم تقديم طلب سحب", cls: "from-rose-500 to-red-600", icon: Lock },
+    { key: "auto", label: "تلقائي شهري", desc: "يفتح يوم السحب الشهري المعتاد", cls: "from-slate-500 to-slate-700", icon: RefreshCw },
+  ];
+
+  return (
+    <Card className="rounded-3xl border-slate-200 shadow-md overflow-hidden">
+      <div className="bg-gradient-to-l from-emerald-600 to-teal-600 px-4 py-3 text-white">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <HandCoins className="h-4 w-4" />
+            <div>
+              <p className="text-sm font-black">فتح طلبات السحب للمعلمين</p>
+              <p className="text-[11px] opacity-90">تحكّم كامل في موعد ظهور زر «تقديم طلب سحب»</p>
+            </div>
+          </div>
+          <Badge className={`text-[10px] font-black border-0 ${isOpenNow === true ? "bg-white text-emerald-700" : isOpenNow === false ? "bg-rose-100 text-rose-700" : "bg-white/20 text-white"}`}>
+            {isOpenNow === true ? "مفتوح الآن" : isOpenNow === false ? "مغلق حالياً" : "تلقائي"}
+          </Badge>
+        </div>
+      </div>
+      <CardContent className="p-4 space-y-4">
+        {loading ? (
+          <Skeleton className="h-24 w-full rounded-2xl" />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              {OPTIONS.map((o) => {
+                const Icon = o.icon;
+                const active = state === o.key;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    onClick={() => setState(o.key)}
+                    className={`text-right rounded-2xl p-3 border transition ${
+                      active
+                        ? `bg-gradient-to-br ${o.cls} text-white border-transparent shadow-md`
+                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Icon className="h-4 w-4" />
+                      <span className="text-xs font-black">{o.label}</span>
+                    </div>
+                    <p className={`text-[10px] mt-1 leading-4 ${active ? "opacity-90" : "text-slate-500"}`}>{o.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {state === "scheduled" && (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px] font-bold text-slate-700">تاريخ الفتح</Label>
+                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 h-10 rounded-xl bg-white" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px] font-bold text-slate-700">الساعة (توقيت القاهرة)</Label>
+                    <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1 h-10 rounded-xl bg-white" />
+                  </div>
+                </div>
+                {scheduledAt && (
+                  <p className="text-[11px] font-bold text-blue-800 flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    {cairoNow.getTime() >= scheduledAt.getTime()
+                      ? "الموعد حان — السحب مفتوح للمعلمين"
+                      : `يُفتح بعد ${Math.ceil((scheduledAt.getTime() - cairoNow.getTime()) / 60000)} دقيقة`}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <Label className="text-[11px] font-bold text-slate-700">رسالة تُعرض للمعلم عند الإغلاق</Label>
+              <Input
+                value={notice}
+                onChange={(e) => setNotice(e.target.value)}
+                placeholder="مثال: سيُفتح السحب يوم 28 أغسطس الساعة 9 صباحاً"
+                className="mt-1 h-10 rounded-xl"
+              />
+            </div>
+
+            <Button onClick={save} disabled={saving} className="w-full h-11 rounded-xl font-black bg-emerald-600 hover:bg-emerald-700">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Save className="h-4 w-4 ml-1" />}
+              حفظ إعدادات فتح السحب
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function WithdrawalsTab({ overview, onReload }: any) {
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1238,6 +1414,8 @@ function WithdrawalsTab({ overview, onReload }: any) {
 
   return (
     <div className="space-y-3">
+      <WithdrawalRequestsWindowCard />
+
       {/* Detailed KPI grid – clickable, live numbers + totals */}
       <div className="grid grid-cols-3 gap-2">
         <KPI k="pending" />
