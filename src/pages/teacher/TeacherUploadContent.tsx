@@ -640,7 +640,35 @@ const TeacherUploadContent = () => {
     setEditOpen(true);
   };
 
+  // Deleting through a single server-side RPC that enforces the 24h teacher window.
+  // When a developer is impersonating a teacher, use the ORIGINAL developer token so
+  // the server sees an admin (same pattern as the free-preview toggle below).
+  const callDeleteGroupContent = async (contentId: string) => {
+    const originalDeveloperToken = isDevImpersonation ? getOriginalDeveloperAccessToken() : null;
+    if (originalDeveloperToken) {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+      if (!supabaseUrl || !publishableKey) throw new Error("تعذر تجهيز اتصال قاعدة البيانات");
+      const response = await fetch(`${supabaseUrl}/rest/v1/rpc/delete_group_content`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${originalDeveloperToken}`,
+          apikey: publishableKey,
+        },
+        body: JSON.stringify({ _content_id: contentId }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.message || body?.error || "فشل حذف المحتوى");
+      return body;
+    }
+    const { data, error } = await (supabase.rpc as any)("delete_group_content", { _content_id: contentId });
+    if (error) throw new Error(error.message);
+    return data;
+  };
+
   const handleDelete = async (item: ContentRow) => {
+
     if (!canDeleteTeacherContent({ createdAt: item.created_at, isAdminMode })) {
       toast({
         title: "غير مسموح",
