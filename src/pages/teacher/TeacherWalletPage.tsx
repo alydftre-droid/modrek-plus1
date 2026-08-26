@@ -105,7 +105,7 @@ export default function TeacherWalletPage() {
     queryFn: async () => {
       const [{ data: data }, { data: profileRate }, { data: effectiveRate }] = await Promise.all([
         supabase.from("platform_settings").select("key, value")
-          .in("key", ["withdrawal_open_day", "withdrawal_manual_state", "withdrawal_notice_message", "teacher_commission_rate"]),
+          .in("key", ["withdrawal_open_day", "withdrawal_manual_state", "withdrawal_notice_message", "teacher_commission_rate", "withdrawal_requests_state", "withdrawal_requests_open_at"]),
         user ? supabase.from("profiles").select("commission_rate, pending_commission_rate, pending_effective_date").eq("id", user.id).maybeSingle() : Promise.resolve({ data: null }),
         user ? supabase.rpc("get_effective_teacher_commission", { _teacher_id: user.id }) : Promise.resolve({ data: null }),
       ]);
@@ -118,6 +118,8 @@ export default function TeacherWalletPage() {
       return {
         openDay: parseInt(m.get("withdrawal_open_day") || "25"),
         manual: m.get("withdrawal_manual_state") || "auto",
+        requestsState: m.get("withdrawal_requests_state") || "auto",
+        requestsOpenAt: m.get("withdrawal_requests_open_at") || "",
         notice: m.get("withdrawal_notice_message") || "",
         rate: resolvedRate,
         pendingRate: profileRate?.pending_commission_rate ?? null,
@@ -222,12 +224,34 @@ export default function TeacherWalletPage() {
   const pendingWithdrawal = withdrawals.find((w: any) => w.status === "pending");
   const totalAll = balance + frozen;
 
+  // Cairo "now" so the developer-defined open time is timezone-accurate.
+  const cairoNow = useMemo(
+    () => new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Cairo" })),
+    [settings],
+  );
+
+  // Developer-defined scheduled open moment (local Cairo wall clock).
+  const scheduledOpenAt = useMemo(() => {
+    const raw = String(settings?.requestsOpenAt || "").trim();
+    if (!raw) return null;
+    const [datePart, timePart = "00:00"] = raw.split(" ");
+    const [y, mo, d] = datePart.split("-").map(Number);
+    const [h, mi] = timePart.split(":").map(Number);
+    if (!y || !mo || !d) return null;
+    return new Date(y, mo - 1, d, h || 0, mi || 0, 0);
+  }, [settings?.requestsOpenAt]);
+
   const isWithdrawalOpen = useMemo(() => {
     if (!settings) return false;
+    if (settings.requestsState === "open") return true;
+    if (settings.requestsState === "closed") return false;
+    if (settings.requestsState === "scheduled") {
+      return !!scheduledOpenAt && cairoNow.getTime() >= scheduledOpenAt.getTime();
+    }
     if (settings.manual === "open") return true;
     if (settings.manual === "closed") return false;
-    return new Date().getDate() >= settings.openDay;
-  }, [settings]);
+    return cairoNow.getDate() >= settings.openDay;
+  }, [settings, scheduledOpenAt, cairoNow]);
 
   const daysUntilOpen = useMemo(() => {
     if (!settings || isWithdrawalOpen) return 0;
@@ -240,11 +264,21 @@ export default function TeacherWalletPage() {
   // Date when withdrawal opens (e.g. "25 مايو 2026")
   const openDateLabel = useMemo(() => {
     if (!settings) return "";
+    if (settings.requestsState === "scheduled" && scheduledOpenAt) {
+      return scheduledOpenAt.toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" });
+    }
     const today = new Date();
     const d = new Date(today.getFullYear(), today.getMonth(), settings.openDay);
     if (today.getDate() >= settings.openDay) d.setMonth(d.getMonth() + 1);
     return d.toLocaleDateString("ar-EG", { day: "numeric", month: "long", year: "numeric" });
-  }, [settings]);
+  }, [settings, scheduledOpenAt]);
+
+  const openTimeLabel = useMemo(() => {
+    if (settings?.requestsState === "scheduled" && scheduledOpenAt) {
+      return scheduledOpenAt.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" });
+    }
+    return "12:00 ص";
+  }, [settings?.requestsState, scheduledOpenAt]);
 
   // Growth trend across last 6 archives + current
   const growthData = useMemo(() => {
@@ -794,7 +828,7 @@ export default function TeacherWalletPage() {
 
         {/* Banners */}
         <AnimatePresence>
-          {settings?.manual === "closed" && (
+          {(settings?.requestsState === "closed" || (settings?.requestsState !== "open" && settings?.requestsState !== "scheduled" && settings?.manual === "closed")) && (
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}>
               <Banner color="rose" icon={<Lock />} title="السحب موقوف مؤقتاً من الإدارة" subtitle={settings?.notice || "لا يمكن تقديم طلبات سحب حالياً"} />
             </motion.div>
@@ -961,14 +995,14 @@ export default function TeacherWalletPage() {
           <InfoPill
             iconBg="bg-emerald-500"
             icon={<CheckCircle className="h-5 w-5 text-white" />}
-            title={isWithdrawalOpen && settings?.manual !== "closed" ? "السحب مفتوح الآن" : "السحب موقوف حالياً"}
-            subtitle={isWithdrawalOpen && settings?.manual !== "closed" ? "يمكنك سحب أرباحك في أي وقت" : (settings?.notice || "سيُفتح في الموعد التالي")}
+            title={isWithdrawalOpen ? "السحب مفتوح الآن" : "السحب موقوف حالياً"}
+            subtitle={isWithdrawalOpen ? "يمكنك سحب أرباحك في أي وقت" : (settings?.notice || `سيُفتح ${openDateLabel} - ${openTimeLabel}`)}
           />
           <InfoPill
             iconBg="bg-blue-500"
             icon={<Calendar className="h-5 w-5 text-white" />}
             title="موعد السحب القادم"
-            subtitle={`${openDateLabel} - 12:00 ص`}
+            subtitle={settings?.requestsState === "open" ? "مفتوح الآن" : `${openDateLabel} - ${openTimeLabel}`}
           />
           <InfoPill
             iconBg="bg-violet-500"
