@@ -9,6 +9,7 @@ import { aiEmbeddings, resolveFileApiRoute } from "../_shared/aiProvider.ts";
 import { parseCurriculumTitle } from "../_shared/lessonTargeting.ts";
 import {
   classifyPipelineError,
+  countPdfPagesFromRawBytes,
   pageNeedsOcr,
   planPageBatches,
   planPdfParts,
@@ -48,7 +49,7 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // worker can always return cleanly and requeue instead of crashing with 502.
 // Previously STAGE_TIMEOUT_MS=118s + auth/RPC overhead could push a single
 // invocation past the platform budget.
-const STAGE_TIMEOUT_MS = 135_000;
+const STAGE_TIMEOUT_MS = 105_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 // PDF OCR through OpenRouter can take longer than a normal text call when a
 // page is scanned. Keep this under the edge runtime budget so the worker can
@@ -75,7 +76,8 @@ const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
 // Every extraction job then downloads only its own ~10-page part instead of
 // re-downloading and re-parsing the whole 30-100MB book for every page.
 const PDF_PART_PAGES = 10;
-const PARTS_PER_SPLIT_INVOCATION = 6;
+const PARTS_PER_SPLIT_INVOCATION = 1;
+const STALE_RUNNING_JOB_MS = 6 * 60_000;
 // Above this size the book is always split before extraction.
 const PDF_SPLIT_MIN_BYTES = 4 * 1024 * 1024;
 const PDF_SPLIT_MIN_PAGES = 24;
@@ -267,7 +269,7 @@ async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
         .select("id")
         .eq("kind", "extract_page")
         .eq("status", "running")
-        .gt("updated_at", new Date(Date.now() - 3 * 60_000).toISOString())
+        .gt("updated_at", new Date(Date.now() - STALE_RUNNING_JOB_MS).toISOString())
         .limit(1)
         .maybeSingle();
       if (runningPage?.id) continue;
@@ -298,12 +300,20 @@ async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
 }
 
 async function recoverStaleRunningJobs(admin: SupabaseClient) {
-  const staleBefore = new Date(Date.now() - 3 * 60_000).toISOString();
+  const staleBefore = new Date(Date.now() - STALE_RUNNING_JOB_MS).toISOString();
   await admin
     .from("processing_jobs")
     .update({
       status: "retrying",
-      error: "انقطع نبض العامل أو انتهت مهلة المرحلة؛ تمت إعادة الجدولة تلقائياً",
+      error: "انقطع نبض العامل أثناء عملية طويلة أو تعطل تنفيذ المرحلة؛ تمت إعادة الجدولة تلقائياً. افتح آخر نبض/السجل لمعرفة آخر خطوة وصلت لها المعالجة.",
+      output: {
+        stale_recovery: {
+          reason: "worker heartbeat stale",
+          stale_after_minutes: Math.round(STALE_RUNNING_JOB_MS / 60_000),
+          likely_causes: ["PDF parsing took too long", "PDF split exceeded edge runtime", "worker crashed before reporting a structured error"],
+          recovered_at: new Date().toISOString(),
+        },
+      },
       finished_at: new Date().toISOString(),
       next_run_at: new Date(Date.now() + 30_000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -1275,7 +1285,11 @@ async function stageIndex(admin: SupabaseClient, job: any) {
 
 // ---------- helpers ---------------------------------------------------------
 
-async function fetchAssetBytes(admin: SupabaseClient, asset: any): Promise<Uint8Array> {
+async function fetchAssetBytes(
+  admin: SupabaseClient,
+  asset: any,
+  onProgress?: (info: { loaded: number; total: number; pct: number }) => Promise<void>,
+): Promise<Uint8Array> {
   const provider = (asset?.storage_provider ?? "").toLowerCase();
   if (provider !== "bunny") {
     throw new Error(`Modrek library only supports Bunny storage. Got provider='${provider}' for asset ${asset?.id}`);
@@ -1284,7 +1298,7 @@ async function fetchAssetBytes(admin: SupabaseClient, asset: any): Promise<Uint8
   const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
   const r = await fetchWithTimeout(url, { headers: { AccessKey: BUNNY_API_KEY } }, AI_REQUEST_TIMEOUT_MS);
   if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${asset.object_path}`);
-  return new Uint8Array(await r.arrayBuffer());
+  return await readResponseBytesWithProgress(r, Number(asset.byte_size ?? 0), onProgress);
 }
 
 async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, mime: string) {
@@ -1347,18 +1361,67 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   const scanned = !!asset?.metadata?.is_scanned;
 
-  const bytes = await fetchAssetBytes(admin, asset);
+  await setVersionStage(admin, job.version_id, "text_extraction", 26);
+  await updateJobProgress(admin, job, 3, {
+    stage: "pdf_source_download",
+    filename: asset.original_filename,
+    bytes: byteSize,
+  });
+  let lastDownloadHeartbeat = 0;
+  const bytes = await fetchAssetBytes(admin, asset, async (info) => {
+    if (info.loaded - lastDownloadHeartbeat < 2 * 1024 * 1024 && info.loaded < info.total) return;
+    lastDownloadHeartbeat = info.loaded;
+    const pct = 3 + Math.floor(info.pct * 4);
+    await updateJobProgress(admin, job, pct, {
+      stage: "pdf_source_downloading",
+      filename: asset.original_filename,
+      loaded_bytes: info.loaded,
+      total_bytes: info.total,
+    });
+  });
+  await setVersionStage(admin, job.version_id, "text_extraction", 27);
+  await updateJobProgress(admin, job, 8, {
+    stage: "pdf_page_count_start",
+    filename: asset.original_filename,
+    bytes: bytes.byteLength,
+  });
   const parserAttempts: any[] = [];
-  const { pageCount, parser } = await resolvePdfPageCount(
-    bytes,
-    [
-      { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 35_000, "unpdf page-count timeout") },
-      { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 35_000, "pdf-lib page-count timeout") },
-    ],
-    (info) => {
-      parserAttempts.push(info);
-    },
-  );
+  let pageCount = 0;
+  let parser = "";
+  if (byteSize > PDF_SPLIT_MIN_BYTES) {
+    await updateJobProgress(admin, job, 10, {
+      stage: "pdf_page_count_raw_scan",
+      filename: asset.original_filename,
+      bytes: bytes.byteLength,
+    });
+    pageCount = countPdfPagesFromRawBytes(bytes);
+    if (pageCount > 0) {
+      parser = "raw_byte_scan_fast";
+      parserAttempts.push({ parser, ok: true, pages: pageCount });
+    }
+  }
+  if (!pageCount) {
+    const resolved = await resolvePdfPageCount(
+      bytes,
+      [
+        { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
+        { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
+      ],
+      async (info) => {
+        parserAttempts.push(info);
+        await updateJobProgress(admin, job, 11, {
+          stage: "pdf_page_count_parser_attempt",
+          parser: info.parser,
+          ok: info.ok,
+          pages: info.pages ?? null,
+          error: info.error ?? null,
+        });
+      },
+    );
+    pageCount = resolved.pageCount;
+    parser = resolved.parser;
+  }
+  await setVersionStage(admin, job.version_id, "text_extraction", 28);
 
   await log(admin, job.id, "info", "pdf_page_count_resolved", {
     bytes: byteSize,
@@ -1367,11 +1430,26 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     attempts: parserAttempts,
   });
 
-  await admin.from("knowledge_units")
-    .delete()
+  const { count: existingPipelineJobs } = await admin.from("processing_jobs")
+    .select("id", { count: "exact", head: true })
     .eq("version_id", job.version_id)
-    .eq("kind", "page")
-    .eq("metadata->>extraction_stage", "pdf_page_text");
+    .in("kind", ["split_pdf", "extract_page", "merge_text"] as any);
+
+  if (!Number(existingPipelineJobs ?? 0)) {
+    await Promise.all([
+      admin.from("knowledge_units")
+        .delete()
+        .eq("version_id", job.version_id)
+        .eq("kind", "page")
+        .eq("metadata->>extraction_stage", "pdf_page_text"),
+      admin.from("knowledge_page_state")
+        .delete()
+        .eq("version_id", job.version_id),
+      admin.from("knowledge_pdf_parts")
+        .delete()
+        .eq("version_id", job.version_id),
+    ]);
+  }
 
   await admin.from("knowledge_source_versions").update({
     page_count: pageCount,
@@ -1384,6 +1462,12 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     progress_pct: 28,
     error_message: null,
   }).eq("id", job.version_id);
+
+  await ensurePageStateRows(admin, job.version_id, pageCount, {
+    extraction_status: "pending",
+    extractor: "local_pdfjs",
+    ocr_status: scanned ? "pending" : "not_needed",
+  });
 
   const shouldSplit = pageCount > PDF_SPLIT_MIN_PAGES || byteSize > PDF_SPLIT_MIN_BYTES;
 
@@ -1480,12 +1564,35 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
     return;
   }
 
-  const bytes = await fetchAssetBytes(admin, asset);
+  await updateJobProgress(admin, job, Math.max(5, Number(job.progress_pct ?? 5)), {
+    stage: "pdf_split_download_source",
+    page_count: pageCount,
+    pending_parts: pending.length,
+    parts_per_invocation: PARTS_PER_SPLIT_INVOCATION,
+  });
+  let lastDownloadHeartbeat = 0;
+  const bytes = await fetchAssetBytes(admin, asset, async (info) => {
+    if (info.loaded - lastDownloadHeartbeat < 2 * 1024 * 1024 && info.loaded < info.total) return;
+    lastDownloadHeartbeat = info.loaded;
+    await updateJobProgress(admin, job, 10 + Math.floor(info.pct * 8), {
+      stage: "pdf_split_downloading_source",
+      loaded_bytes: info.loaded,
+      total_bytes: info.total,
+      pending_parts: pending.length,
+    });
+  });
   const slice = pending.slice(0, PARTS_PER_SPLIT_INVOCATION);
   let created = 0;
 
   for (const part of slice) {
     try {
+      await updateJobProgress(admin, job, 20 + Math.floor((Number(part.part_index ?? 0) / Math.max(1, parts?.length ?? 1)) * 65), {
+        stage: "pdf_split_part_start",
+        part_index: part.part_index,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        total_parts: parts?.length ?? 0,
+      });
       const partBytes = await withTimeout(
         createPdfPageSubset(bytes, part.page_from, part.page_to),
         45_000,
@@ -1493,6 +1600,13 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
       );
       const objectPath = `${asset.object_path}.parts/part-${String(part.part_index).padStart(4, "0")}.pdf`;
       await uploadBytesToBunny(objectPath, partBytes);
+      await updateJobProgress(admin, job, 25 + Math.floor(((Number(part.part_index ?? 0) + 1) / Math.max(1, parts?.length ?? 1)) * 65), {
+        stage: "pdf_split_part_uploaded",
+        part_index: part.part_index,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        part_bytes: partBytes.byteLength,
+      });
       await admin.from("knowledge_pdf_parts").update({
         object_path: objectPath,
         byte_size: partBytes.byteLength,
@@ -1586,6 +1700,48 @@ async function fetchBunnyObject(objectPath: string): Promise<Uint8Array> {
   const r = await fetchWithTimeout(url, { headers: { AccessKey: BUNNY_API_KEY } }, AI_REQUEST_TIMEOUT_MS);
   if (!r.ok) throw new Error(`bunny download failed ${r.status} for ${objectPath}`);
   return new Uint8Array(await r.arrayBuffer());
+}
+
+async function readResponseBytesWithProgress(
+  response: Response,
+  expectedSize: number,
+  onProgress?: (info: { loaded: number; total: number; pct: number }) => Promise<void>,
+): Promise<Uint8Array> {
+  const total = Math.max(0, Number(response.headers.get("content-length") ?? expectedSize ?? 0));
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    await onProgress?.({ loaded: bytes.byteLength, total: total || bytes.byteLength, pct: 1 });
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+  let lastBeat = 0;
+  try {
+    while (true) {
+      const { value, done } = await withTimeout(reader.read(), 30_000, "bunny download stream timeout");
+      if (done) break;
+      if (!value) continue;
+      chunks.push(value);
+      loaded += value.byteLength;
+      const denominator = total || Math.max(loaded, 1);
+      if (loaded - lastBeat >= 2 * 1024 * 1024 || loaded === total) {
+        lastBeat = loaded;
+        await onProgress?.({ loaded, total: denominator, pct: Math.min(1, loaded / denominator) });
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const out = new Uint8Array(loaded);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  await onProgress?.({ loaded, total: total || loaded, pct: 1 });
+  return out;
 }
 
 async function getPdfPageCountWithPdfLib(bytes: Uint8Array): Promise<number> {
@@ -2552,18 +2708,45 @@ async function markPagesState(
   _bumpRetry = false,
 ) {
   if (!versionId || !pageFrom) return;
-  const rows: any[] = [];
   const last = Math.max(pageFrom, pageTo || pageFrom);
-  for (let page = pageFrom; page <= last && page - pageFrom < 64; page++) {
-    rows.push({ version_id: versionId, page_number: page, page_to: last, ...patch });
+  const cappedLast = Math.min(last, pageFrom + 1_999);
+  for (let start = pageFrom; start <= cappedLast; start += 100) {
+    const end = Math.min(cappedLast, start + 99);
+    const rows: any[] = [];
+    for (let page = start; page <= end; page++) {
+      rows.push({ version_id: versionId, page_number: page, page_to: last, ...patch });
+    }
+    const { error } = await admin
+      .from("knowledge_page_state")
+      .upsert(rows, { onConflict: "version_id,page_number" });
+    if (error) {
+      console.warn("[modrek:warn] page state upsert failed", error.message);
+      return;
+    }
   }
-  if (!rows.length) return;
-  const { error } = await admin
-    .from("knowledge_page_state")
-    .upsert(rows, { onConflict: "version_id,page_number" });
-  if (error) {
-    console.warn("[modrek:warn] page state upsert failed", error.message);
-    return;
+}
+
+async function ensurePageStateRows(
+  admin: SupabaseClient,
+  versionId: string,
+  pageCount: number,
+  patch: Record<string, unknown>,
+) {
+  if (!versionId || !pageCount) return;
+  const total = Math.min(Math.max(0, Math.floor(pageCount)), 2_000);
+  for (let start = 1; start <= total; start += 100) {
+    const end = Math.min(total, start + 99);
+    const rows: any[] = [];
+    for (let page = start; page <= end; page++) {
+      rows.push({ version_id: versionId, page_number: page, page_to: page, ...patch });
+    }
+    const { error } = await admin
+      .from("knowledge_page_state")
+      .upsert(rows, { onConflict: "version_id,page_number", ignoreDuplicates: true });
+    if (error) {
+      console.warn("[modrek:warn] page state ensure failed", error.message);
+      return;
+    }
   }
 }
 
