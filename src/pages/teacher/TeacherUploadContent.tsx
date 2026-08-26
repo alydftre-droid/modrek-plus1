@@ -641,19 +641,34 @@ const TeacherUploadContent = () => {
   };
 
   const handleDelete = async (item: ContentRow) => {
+    if (!canDeleteTeacherContent({ createdAt: item.created_at, isAdminMode })) {
+      toast({
+        title: "غير مسموح",
+        description: "انتهت مهلة الحذف (24 ساعة من وقت الرفع). تواصل مع الإدارة.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!confirm("هل أنت متأكد من حذف هذا المحتوى؟")) return;
     try {
       const parsed = extractStoragePathFromPublicUrl(item.file_url);
       if (parsed) await supabase.storage.from(parsed.bucket).remove([parsed.path]);
-      const { error } = await supabase.from("content").update({ is_active: false }).eq("id", item.id).eq("uploaded_by", effectiveUserId);
-      if (error) throw error;
+      await callDeleteGroupContent(item.id);
       toast({ title: "تم", description: "تم حذف المحتوى" });
       if (selectedGroup) fetchGroupContent(selectedGroup.id);
     } catch (e: any) {
       console.error(e);
-      toast({ title: "خطأ", description: "فشل حذف المحتوى", variant: "destructive" });
+      const raw = String(e?.message || "");
+      toast({
+        title: "خطأ",
+        description: raw.includes("DELETE_WINDOW_EXPIRED")
+          ? "لا يمكن حذف هذا المحتوى بعد مرور 24 ساعة من وقت الرفع."
+          : "فشل حذف المحتوى",
+        variant: "destructive",
+      });
     }
   };
+
 
   // ===== Developer-only: toggle "Free Preview" via long-press =====
   const [freePreviewItem, setFreePreviewItem] = useState<ContentRow | null>(null);
