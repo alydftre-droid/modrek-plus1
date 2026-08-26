@@ -25,6 +25,8 @@ import { getCurrentTermForStageGrade } from "@/lib/termSystem";
 import { normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { getOriginalDeveloperAccessToken, isImpersonating } from "@/lib/devImpersonation";
 import LessonCardText from "@/components/content/LessonCardText";
+import { canDeleteTeacherContent } from "@/lib/contentDeletionWindow";
+
 import {
   BookOpen,
   ChevronLeft,
