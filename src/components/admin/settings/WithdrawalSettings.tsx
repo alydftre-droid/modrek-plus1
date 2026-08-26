@@ -1161,20 +1161,22 @@ function WithdrawalRequestsWindowCard() {
   const [tick, setTick] = useState(0);
 
   const load = async () => {
-    const { data } = await supabase
-      .from("platform_settings")
-      .select("key, value")
-      .in("key", ["withdrawal_requests_state", "withdrawal_requests_open_at", "withdrawal_notice_message"]);
-    const m = new Map((data || []).map((r: any) => [r.key, r.value]));
-    const st = (m.get("withdrawal_requests_state") || "auto") as any;
+    const { data, error } = await supabase.rpc("get_withdrawal_requests_window" as any);
+    if (error) {
+      toast.error("تعذر تحميل حالة طلبات السحب");
+      setLoading(false);
+      return;
+    }
+    const window = (data || {}) as any;
+    const st = (window.state || "auto") as any;
     setState(["auto", "open", "closed", "scheduled"].includes(st) ? st : "auto");
-    const raw = String(m.get("withdrawal_requests_open_at") || "").trim();
+    const raw = String(window.open_at || "").trim();
     if (raw) {
       const [d, t = "09:00"] = raw.split(" ");
       setDate(d);
       setTime(t.slice(0, 5));
     }
-    setNotice(m.get("withdrawal_notice_message") || "");
+    setNotice(String(window.notice || ""));
     setLoading(false);
   };
 
@@ -1227,16 +1229,16 @@ function WithdrawalRequestsWindowCard() {
     } finally { setSaving(false); }
   };
 
-  const OPTIONS: { key: typeof state; label: string; desc: string; cls: string; icon: any }[] = [
-    { key: "open", label: "فتح الآن", desc: "زر طلب السحب متاح لكل المعلمين فورًا", cls: "from-emerald-500 to-green-600", icon: Unlock },
-    { key: "scheduled", label: "موعد محدد", desc: "يُفتح تلقائيًا في تاريخ وساعة تحددها", cls: "from-blue-500 to-indigo-600", icon: CalendarDays },
-    { key: "closed", label: "إيقاف", desc: "لا يستطيع أي معلم تقديم طلب سحب", cls: "from-rose-500 to-red-600", icon: Lock },
-    { key: "auto", label: "تلقائي شهري", desc: "يفتح يوم السحب الشهري المعتاد", cls: "from-slate-500 to-slate-700", icon: RefreshCw },
+  const OPTIONS: { key: typeof state; label: string; desc: string; activeClass: string; icon: any }[] = [
+    { key: "open", label: "فتح الآن", desc: "متاح لكل المعلمين فورًا", activeClass: "bg-emerald-600 text-primary-foreground border-emerald-700", icon: Unlock },
+    { key: "scheduled", label: "موعد محدد", desc: "يفتح تلقائيًا في الموعد", activeClass: "bg-primary text-primary-foreground border-primary", icon: CalendarDays },
+    { key: "closed", label: "إيقاف", desc: "منع تقديم أي طلب جديد", activeClass: "bg-destructive text-destructive-foreground border-destructive", icon: Lock },
+    { key: "auto", label: "تلقائي شهري", desc: "حسب يوم السحب الشهري", activeClass: "bg-foreground text-background border-foreground", icon: RefreshCw },
   ];
 
   return (
-    <Card className="rounded-3xl border-slate-200 shadow-md overflow-hidden">
-      <div className="bg-gradient-to-l from-emerald-600 to-teal-600 px-4 py-3 text-white">
+    <Card className="rounded-2xl border-2 border-border shadow-lg overflow-hidden bg-card">
+      <div className="bg-foreground px-4 py-4 text-background">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <HandCoins className="h-4 w-4" />
@@ -1245,7 +1247,7 @@ function WithdrawalRequestsWindowCard() {
               <p className="text-[11px] opacity-90">تحكّم كامل في موعد ظهور زر «تقديم طلب سحب»</p>
             </div>
           </div>
-          <Badge className={`text-[10px] font-black border-0 ${isOpenNow === true ? "bg-white text-emerald-700" : isOpenNow === false ? "bg-rose-100 text-rose-700" : "bg-white/20 text-white"}`}>
+          <Badge className={`text-[10px] font-black border ${isOpenNow === true ? "bg-emerald-600 text-primary-foreground border-emerald-500" : isOpenNow === false ? "bg-destructive text-destructive-foreground border-destructive" : "bg-background text-foreground border-border"}`}>
             {isOpenNow === true ? "مفتوح الآن" : isOpenNow === false ? "مغلق حالياً" : "تلقائي"}
           </Badge>
         </div>
@@ -1255,45 +1257,48 @@ function WithdrawalRequestsWindowCard() {
           <Skeleton className="h-24 w-full rounded-2xl" />
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {OPTIONS.map((o) => {
                 const Icon = o.icon;
                 const active = state === o.key;
                 return (
-                  <button
+                  <Button
                     key={o.key}
                     type="button"
+                    variant="outline"
                     onClick={() => setState(o.key)}
-                    className={`text-right rounded-2xl p-3 border transition ${
+                    className={`h-auto min-h-[88px] whitespace-normal items-stretch text-right rounded-xl p-3 border-2 transition ${
                       active
-                        ? `bg-gradient-to-br ${o.cls} text-white border-transparent shadow-md`
-                        : "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
+                        ? `${o.activeClass} shadow-md hover:opacity-95`
+                        : "bg-card border-border text-foreground hover:bg-muted"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex w-full flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
                       <Icon className="h-4 w-4" />
                       <span className="text-xs font-black">{o.label}</span>
+                      </div>
+                      <p className={`text-[10px] leading-4 ${active ? "opacity-95" : "text-muted-foreground"}`}>{o.desc}</p>
                     </div>
-                    <p className={`text-[10px] mt-1 leading-4 ${active ? "opacity-90" : "text-slate-500"}`}>{o.desc}</p>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
 
             {state === "scheduled" && (
-              <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-3 space-y-2">
+              <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-[11px] font-bold text-slate-700">تاريخ الفتح</Label>
-                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 h-10 rounded-xl bg-white" />
+                    <Label className="text-[11px] font-bold text-foreground">تاريخ الفتح</Label>
+                    <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="mt-1 h-11 rounded-lg bg-background text-foreground border-border" />
                   </div>
                   <div>
-                    <Label className="text-[11px] font-bold text-slate-700">الساعة (توقيت القاهرة)</Label>
-                    <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1 h-10 rounded-xl bg-white" />
+                    <Label className="text-[11px] font-bold text-foreground">الساعة (توقيت القاهرة)</Label>
+                    <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="mt-1 h-11 rounded-lg bg-background text-foreground border-border" />
                   </div>
                 </div>
                 {scheduledAt && (
-                  <p className="text-[11px] font-bold text-blue-800 flex items-center gap-1">
+                  <p className="text-[11px] font-bold text-primary flex items-center gap-1">
                     <Clock className="h-3.5 w-3.5" />
                     {cairoNow.getTime() >= scheduledAt.getTime()
                       ? "الموعد حان — السحب مفتوح للمعلمين"
@@ -1304,16 +1309,16 @@ function WithdrawalRequestsWindowCard() {
             )}
 
             <div>
-              <Label className="text-[11px] font-bold text-slate-700">رسالة تُعرض للمعلم عند الإغلاق</Label>
+              <Label className="text-[11px] font-bold text-foreground">رسالة تُعرض للمعلم عند الإغلاق</Label>
               <Input
                 value={notice}
                 onChange={(e) => setNotice(e.target.value)}
                 placeholder="مثال: سيُفتح السحب يوم 28 أغسطس الساعة 9 صباحاً"
-                className="mt-1 h-10 rounded-xl"
+                className="mt-1 h-11 rounded-lg border-border bg-background text-foreground"
               />
             </div>
 
-            <Button onClick={save} disabled={saving} className="w-full h-11 rounded-xl font-black bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={save} disabled={saving} className="w-full h-12 rounded-lg font-black">
               {saving ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Save className="h-4 w-4 ml-1" />}
               حفظ إعدادات فتح السحب
             </Button>
