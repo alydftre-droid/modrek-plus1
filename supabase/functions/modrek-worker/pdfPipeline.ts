@@ -207,12 +207,10 @@ export function countPdfPagesFromRawBytes(bytes: Uint8Array): number {
     for (const m of text.matchAll(/\/Count\s+(\d+)[\s\S]{0,400}?\/Type\s*\/Pages/g)) {
       best = Math.max(best, Number(m[1]) || 0);
     }
-    if (best > 0) return best;
-
     pageObjects += text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
     carry = text.slice(-carrySize);
   }
-  return pageObjects;
+  return best > 0 ? best : pageObjects;
 }
 
 /**
