@@ -48,7 +48,7 @@ const MAX_JOBS_PER_INVOCATION = 1;
 // worker can always return cleanly and requeue instead of crashing with 502.
 // Previously STAGE_TIMEOUT_MS=118s + auth/RPC overhead could push a single
 // invocation past the platform budget.
-const STAGE_TIMEOUT_MS = 135_000;
+const STAGE_TIMEOUT_MS = 105_000;
 const AI_REQUEST_TIMEOUT_MS = 60_000;
 // PDF OCR through OpenRouter can take longer than a normal text call when a
 // page is scanned. Keep this under the edge runtime budget so the worker can
@@ -75,7 +75,8 @@ const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
 // Every extraction job then downloads only its own ~10-page part instead of
 // re-downloading and re-parsing the whole 30-100MB book for every page.
 const PDF_PART_PAGES = 10;
-const PARTS_PER_SPLIT_INVOCATION = 6;
+const PARTS_PER_SPLIT_INVOCATION = 1;
+const STALE_RUNNING_JOB_MS = 6 * 60_000;
 // Above this size the book is always split before extraction.
 const PDF_SPLIT_MIN_BYTES = 4 * 1024 * 1024;
 const PDF_SPLIT_MIN_PAGES = 24;
@@ -298,12 +299,20 @@ async function claimNextJob(admin: SupabaseClient): Promise<any | null> {
 }
 
 async function recoverStaleRunningJobs(admin: SupabaseClient) {
-  const staleBefore = new Date(Date.now() - 3 * 60_000).toISOString();
+  const staleBefore = new Date(Date.now() - STALE_RUNNING_JOB_MS).toISOString();
   await admin
     .from("processing_jobs")
     .update({
       status: "retrying",
-      error: "انقطع نبض العامل أو انتهت مهلة المرحلة؛ تمت إعادة الجدولة تلقائياً",
+      error: "انقطع نبض العامل أثناء عملية طويلة أو تعطل تنفيذ المرحلة؛ تمت إعادة الجدولة تلقائياً. افتح آخر نبض/السجل لمعرفة آخر خطوة وصلت لها المعالجة.",
+      output: {
+        stale_recovery: {
+          reason: "worker heartbeat stale",
+          stale_after_minutes: Math.round(STALE_RUNNING_JOB_MS / 60_000),
+          likely_causes: ["PDF parsing took too long", "PDF split exceeded edge runtime", "worker crashed before reporting a structured error"],
+          recovered_at: new Date().toISOString(),
+        },
+      },
       finished_at: new Date().toISOString(),
       next_run_at: new Date(Date.now() + 30_000).toISOString(),
       updated_at: new Date().toISOString(),
@@ -1347,7 +1356,17 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const byteSize = Number(asset.byte_size ?? 0);
   const scanned = !!asset?.metadata?.is_scanned;
 
+  await updateJobProgress(admin, job, 3, {
+    stage: "pdf_source_download",
+    filename: asset.original_filename,
+    bytes: byteSize,
+  });
   const bytes = await fetchAssetBytes(admin, asset);
+  await updateJobProgress(admin, job, 8, {
+    stage: "pdf_page_count_start",
+    filename: asset.original_filename,
+    bytes: bytes.byteLength,
+  });
   const parserAttempts: any[] = [];
   const { pageCount, parser } = await resolvePdfPageCount(
     bytes,
@@ -1367,11 +1386,26 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     attempts: parserAttempts,
   });
 
-  await admin.from("knowledge_units")
-    .delete()
+  const { count: existingPipelineJobs } = await admin.from("processing_jobs")
+    .select("id", { count: "exact", head: true })
     .eq("version_id", job.version_id)
-    .eq("kind", "page")
-    .eq("metadata->>extraction_stage", "pdf_page_text");
+    .in("kind", ["split_pdf", "extract_page", "merge_text"] as any);
+
+  if (!Number(existingPipelineJobs ?? 0)) {
+    await Promise.all([
+      admin.from("knowledge_units")
+        .delete()
+        .eq("version_id", job.version_id)
+        .eq("kind", "page")
+        .eq("metadata->>extraction_stage", "pdf_page_text"),
+      admin.from("knowledge_page_state")
+        .delete()
+        .eq("version_id", job.version_id),
+      admin.from("knowledge_pdf_parts")
+        .delete()
+        .eq("version_id", job.version_id),
+    ]);
+  }
 
   await admin.from("knowledge_source_versions").update({
     page_count: pageCount,
@@ -1384,6 +1418,12 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
     progress_pct: 28,
     error_message: null,
   }).eq("id", job.version_id);
+
+  await ensurePageStateRows(admin, job.version_id, pageCount, {
+    extraction_status: "pending",
+    extractor: "local_pdfjs",
+    ocr_status: scanned ? "pending" : "not_needed",
+  });
 
   const shouldSplit = pageCount > PDF_SPLIT_MIN_PAGES || byteSize > PDF_SPLIT_MIN_BYTES;
 
@@ -1480,12 +1520,25 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
     return;
   }
 
+  await updateJobProgress(admin, job, Math.max(5, Number(job.progress_pct ?? 5)), {
+    stage: "pdf_split_download_source",
+    page_count: pageCount,
+    pending_parts: pending.length,
+    parts_per_invocation: PARTS_PER_SPLIT_INVOCATION,
+  });
   const bytes = await fetchAssetBytes(admin, asset);
   const slice = pending.slice(0, PARTS_PER_SPLIT_INVOCATION);
   let created = 0;
 
   for (const part of slice) {
     try {
+      await updateJobProgress(admin, job, 20 + Math.floor((Number(part.part_index ?? 0) / Math.max(1, parts?.length ?? 1)) * 65), {
+        stage: "pdf_split_part_start",
+        part_index: part.part_index,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        total_parts: parts?.length ?? 0,
+      });
       const partBytes = await withTimeout(
         createPdfPageSubset(bytes, part.page_from, part.page_to),
         45_000,
@@ -1493,6 +1546,13 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
       );
       const objectPath = `${asset.object_path}.parts/part-${String(part.part_index).padStart(4, "0")}.pdf`;
       await uploadBytesToBunny(objectPath, partBytes);
+      await updateJobProgress(admin, job, 25 + Math.floor(((Number(part.part_index ?? 0) + 1) / Math.max(1, parts?.length ?? 1)) * 65), {
+        stage: "pdf_split_part_uploaded",
+        part_index: part.part_index,
+        page_from: part.page_from,
+        page_to: part.page_to,
+        part_bytes: partBytes.byteLength,
+      });
       await admin.from("knowledge_pdf_parts").update({
         object_path: objectPath,
         byte_size: partBytes.byteLength,
@@ -2552,18 +2612,45 @@ async function markPagesState(
   _bumpRetry = false,
 ) {
   if (!versionId || !pageFrom) return;
-  const rows: any[] = [];
   const last = Math.max(pageFrom, pageTo || pageFrom);
-  for (let page = pageFrom; page <= last && page - pageFrom < 64; page++) {
-    rows.push({ version_id: versionId, page_number: page, page_to: last, ...patch });
+  const cappedLast = Math.min(last, pageFrom + 1_999);
+  for (let start = pageFrom; start <= cappedLast; start += 100) {
+    const end = Math.min(cappedLast, start + 99);
+    const rows: any[] = [];
+    for (let page = start; page <= end; page++) {
+      rows.push({ version_id: versionId, page_number: page, page_to: last, ...patch });
+    }
+    const { error } = await admin
+      .from("knowledge_page_state")
+      .upsert(rows, { onConflict: "version_id,page_number" });
+    if (error) {
+      console.warn("[modrek:warn] page state upsert failed", error.message);
+      return;
+    }
   }
-  if (!rows.length) return;
-  const { error } = await admin
-    .from("knowledge_page_state")
-    .upsert(rows, { onConflict: "version_id,page_number" });
-  if (error) {
-    console.warn("[modrek:warn] page state upsert failed", error.message);
-    return;
+}
+
+async function ensurePageStateRows(
+  admin: SupabaseClient,
+  versionId: string,
+  pageCount: number,
+  patch: Record<string, unknown>,
+) {
+  if (!versionId || !pageCount) return;
+  const total = Math.min(Math.max(0, Math.floor(pageCount)), 2_000);
+  for (let start = 1; start <= total; start += 100) {
+    const end = Math.min(total, start + 99);
+    const rows: any[] = [];
+    for (let page = start; page <= end; page++) {
+      rows.push({ version_id: versionId, page_number: page, page_to: page, ...patch });
+    }
+    const { error } = await admin
+      .from("knowledge_page_state")
+      .upsert(rows, { onConflict: "version_id,page_number", ignoreDuplicates: true });
+    if (error) {
+      console.warn("[modrek:warn] page state ensure failed", error.message);
+      return;
+    }
   }
 }
 
