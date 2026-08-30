@@ -391,8 +391,8 @@ export default function DemoAccountsPage() {
               حذف نهائي
             </AlertDialogAction>
           </AlertDialogFooter>
-        </AlertDialogFooter>
-      </AlertDialogContent>
+        </AlertDialogContent>
+
       </AlertDialog>
     </div>
   );
