@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1374,6 +1374,87 @@ export type Database = {
           target_id?: string | null
           target_label?: string | null
           target_meta?: Json
+        }
+        Relationships: []
+      }
+      demo_account_audit_logs: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          created_at: string
+          demo_email: string | null
+          demo_role: string | null
+          demo_user_id: string | null
+          id: string
+          metadata: Json
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          demo_email?: string | null
+          demo_role?: string | null
+          demo_user_id?: string | null
+          id?: string
+          metadata?: Json
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          created_at?: string
+          demo_email?: string | null
+          demo_role?: string | null
+          demo_user_id?: string | null
+          id?: string
+          metadata?: Json
+        }
+        Relationships: []
+      }
+      demo_accounts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          is_active: boolean
+          label: string
+          last_login_at: string | null
+          last_password_reset_at: string | null
+          notes: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          is_active?: boolean
+          label: string
+          last_login_at?: string | null
+          last_password_reset_at?: string | null
+          notes?: string | null
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_login_at?: string | null
+          last_password_reset_at?: string | null
+          notes?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -4745,6 +4826,7 @@ export type Database = {
           grade: string | null
           id: string
           is_banned: boolean | null
+          is_demo: boolean
           is_test_account: boolean
           pending_commission_rate: number | null
           pending_effective_date: string | null
@@ -4769,6 +4851,7 @@ export type Database = {
           grade?: string | null
           id: string
           is_banned?: boolean | null
+          is_demo?: boolean
           is_test_account?: boolean
           pending_commission_rate?: number | null
           pending_effective_date?: string | null
@@ -4793,6 +4876,7 @@ export type Database = {
           grade?: string | null
           id?: string
           is_banned?: boolean | null
+          is_demo?: boolean
           is_test_account?: boolean
           pending_commission_rate?: number | null
           pending_effective_date?: string | null
@@ -6645,6 +6729,35 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_list_demo_accounts: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          is_banned: boolean
+          label: string
+          last_login_at: string
+          last_password_reset_at: string
+          role: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      admin_list_demo_audit_logs: {
+        Args: { _limit?: number }
+        Returns: {
+          action: string
+          actor_email: string
+          created_at: string
+          demo_email: string
+          demo_role: string
+          id: string
+          metadata: Json
+        }[]
+      }
       admin_list_overview_snapshots: { Args: never; Returns: Json }
       admin_list_student_deposits: {
         Args: {
@@ -7640,6 +7753,7 @@ export type Database = {
       }
       increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
       is_approved_teacher: { Args: { _user_id: string }; Returns: boolean }
+      is_demo_account: { Args: { _user_id: string }; Returns: boolean }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_exam_non_answer: { Args: { _answer: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }

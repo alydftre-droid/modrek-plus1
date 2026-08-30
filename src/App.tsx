@@ -118,6 +118,8 @@ const DeveloperSmartReportsPage = lazy(() => import("@/pages/admin/DeveloperSmar
 const DeveloperTeacherDetailPage = lazy(() => import("@/pages/admin/DeveloperTeacherDetailPage"));
 const DeveloperTeacherStudentsPage = lazy(() => import("@/pages/admin/DeveloperTeacherStudentsPage"));
 const DeveloperTestStudentsPage = lazy(() => import("@/pages/admin/DeveloperTestStudentsPage"));
+const DemoAccountsPage = lazy(() => import("@/pages/admin/DemoAccountsPage"));
+
 const TeacherHomePage = lazy(() => import("@/pages/teacher/TeacherHomePage"));
 const TeacherAssistantPage = lazy(() => import("@/pages/teacher/TeacherAssistantPage"));
 const TeacherGradeDashboard = lazy(() => import("@/pages/teacher/TeacherGradeDashboard"));
@@ -329,6 +331,8 @@ function AnimatedRoutes() {
               <Route path="/admin/notifications" element={<ProtectedRoute allowedRoles={["admin"]}><NotificationsPage /></ProtectedRoute>} />
               <Route path="/admin/notifications/:id" element={<ProtectedRoute allowedRoles={["admin"]}><NotificationDetailPage /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={["admin"]}><SettingsPage /></ProtectedRoute>} />
+              <Route path="/admin/demo-accounts" element={<ProtectedRoute allowedRoles={["admin"]}><div dir="rtl" className="p-4 lg:p-8 max-w-6xl mx-auto"><DemoAccountsPage /></div></ProtectedRoute>} />
+
               <Route path="/admin/students" element={<ProtectedRoute allowedRoles={["admin"]}><StudentsPage /></ProtectedRoute>} />
               <Route path="/admin/subjects-page" element={<ProtectedRoute allowedRoles={["admin"]}><SubjectsPage /></ProtectedRoute>} />
               <Route path="/admin/teachers" element={<ProtectedRoute allowedRoles={["admin"]}><TeachersPage /></ProtectedRoute>} />

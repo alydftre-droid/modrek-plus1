@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles, MessageCircle, ClipboardList, ShieldAlert } from "lucide-react";
+import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles, MessageCircle, ClipboardList, ShieldAlert, FlaskConical } from "lucide-react";
 import PlatformInfoSettings from "@/components/admin/settings/PlatformInfoSettings";
 import TermManagement from "@/components/admin/settings/TermManagement";
 import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
@@ -8,8 +8,9 @@ import AiSettingsPage from "@/pages/admin/AiSettingsPage";
 import SupportChannelsSettings from "@/components/admin/settings/SupportChannelsSettings";
 import SupportLogsPage from "@/pages/admin/SupportLogsPage";
 import DeletionAuditPage from "@/pages/admin/DeletionAuditPage";
+import DemoAccountsPage from "@/pages/admin/DemoAccountsPage";
 
-type SettingsSection = "menu" | "info" | "terms" | "withdrawal" | "ai" | "support" | "support-logs" | "audit";
+type SettingsSection = "menu" | "info" | "terms" | "withdrawal" | "ai" | "support" | "support-logs" | "audit" | "demo";
 
 const sections = [
   { id: "info" as const, label: "معلومات المنصة", icon: Globe, desc: "البيانات العامة، الصيانة، التواصل، الأمان", color: "text-blue-600 bg-blue-100" },
@@ -18,8 +19,10 @@ const sections = [
   { id: "withdrawal" as const, label: "إعدادات السحب", icon: Wallet, desc: "موعد فتح السحب وإيقافه المؤقت", color: "text-emerald-600 bg-emerald-100" },
   { id: "terms" as const, label: "تبديل الترم", icon: CalendarRange, desc: "إدارة الترم الدراسي لكل مرحلة وصف", color: "text-purple-600 bg-purple-100" },
   { id: "ai" as const, label: "إعدادات الذكاء الاصطناعي", icon: Sparkles, desc: "تحكم في الموديلات وحدود المحاولات والـ Streaming", color: "text-pink-600 bg-pink-100" },
+  { id: "demo" as const, label: "حسابات الديمو", icon: FlaskConical, desc: "إنشاء وإدارة حسابات ديمو (مطور/معلم/طالب) معزولة عن الإنتاج", color: "text-cyan-600 bg-cyan-100" },
   { id: "audit" as const, label: "سجل عمليات الحذف", icon: ShieldAlert, desc: "كل عمليات حذف المحتوى والمعلمين مع حالة Bunny", color: "text-rose-600 bg-rose-100" },
 ];
+
 
 
 const SettingsPage = () => {
@@ -48,6 +51,8 @@ const SettingsPage = () => {
         {activeSection === "terms" && <TermManagement />}
         {activeSection === "ai" && <AiSettingsPage />}
         {activeSection === "audit" && <DeletionAuditPage />}
+        {activeSection === "demo" && <DemoAccountsPage />}
+
       </div>
     );
   }
