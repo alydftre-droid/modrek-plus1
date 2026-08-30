@@ -118,6 +118,8 @@ const DeveloperSmartReportsPage = lazy(() => import("@/pages/admin/DeveloperSmar
 const DeveloperTeacherDetailPage = lazy(() => import("@/pages/admin/DeveloperTeacherDetailPage"));
 const DeveloperTeacherStudentsPage = lazy(() => import("@/pages/admin/DeveloperTeacherStudentsPage"));
 const DeveloperTestStudentsPage = lazy(() => import("@/pages/admin/DeveloperTestStudentsPage"));
+const DemoAccountsPage = lazy(() => import("@/pages/admin/DemoAccountsPage"));
+
 const TeacherHomePage = lazy(() => import("@/pages/teacher/TeacherHomePage"));
 const TeacherAssistantPage = lazy(() => import("@/pages/teacher/TeacherAssistantPage"));
 const TeacherGradeDashboard = lazy(() => import("@/pages/teacher/TeacherGradeDashboard"));
