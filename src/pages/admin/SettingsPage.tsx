@@ -51,6 +51,8 @@ const SettingsPage = () => {
         {activeSection === "terms" && <TermManagement />}
         {activeSection === "ai" && <AiSettingsPage />}
         {activeSection === "audit" && <DeletionAuditPage />}
+        {activeSection === "demo" && <DemoAccountsPage />}
+
       </div>
     );
   }
