@@ -8,6 +8,13 @@
       "when": 1788055989871,
       "tag": "0000_demo_accounts_system",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788056999890,
+      "tag": "0001_demo_accounts_grants",
+      "breakpoints": true
     }
   ]
 }
