@@ -137,3 +137,41 @@ export async function endImpersonation() {
     await supabase.auth.signOut();
   }
 }
+
+/**
+ * Demo account impersonation (admin only).
+ * Uses the `admin-demo-accounts` edge function, which enforces the admin role
+ * server-side and refuses demo-admin targets.
+ */
+export async function startDemoImpersonation(demoId: string) {
+  const { data: { session: original } } = await supabase.auth.getSession();
+  if (!original) throw new Error("لا توجد جلسة نشطة للمطور");
+  localStorage.setItem(ORIGINAL_SESSION_KEY, JSON.stringify(original));
+
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-demo-accounts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${original.access_token}`,
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    body: JSON.stringify({ action: "impersonate", demo_id: demoId }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(data?.error || "فشل الدخول إلى حساب الديمو");
+
+  const { error: setErr } = await supabase.auth.setSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  });
+  if (setErr) throw setErr;
+
+  const meta: ImpersonationMeta = {
+    target_id: data.target.id,
+    full_name: data.target.full_name,
+    started_at: new Date().toISOString(),
+    role: data.target.role === "teacher" ? "teacher" : "student",
+  };
+  localStorage.setItem(IMPERSONATION_META_KEY, JSON.stringify(meta));
+  return meta;
+}
