@@ -95,6 +95,17 @@ export async function resolveStudentScope(admin: any, userId: string): Promise<S
   const eduRaw = normalizeAr(profile?.education_type || "");
   const sectionCode = eduRaw.includes("ازهر") || eduRaw === "azhar" ? "azhar" : eduRaw ? "general" : null;
 
+  // Tenant resolution: never trusted from the request body.
+  let platformId: string | null = null;
+  const { data: membership } = await admin
+    .from("platform_memberships")
+    .select("platform_id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  platformId = membership?.platform_id ?? null;
+
   return {
     userId,
     fullName: profile?.full_name ?? null,
@@ -103,7 +114,9 @@ export async function resolveStudentScope(admin: any, userId: string): Promise<S
     gradeCode,
     trackCodes,
     sectionCode,
+    platformId,
     labels: {
+
       stage: stageCode === "secondary" ? "المرحلة الثانوية" : stageCode === "preparatory" ? "المرحلة الإعدادية" : stageCode === "primary" ? "المرحلة الابتدائية" : null,
       grade: gradeCode ? GRADE_LABELS[gradeCode] ?? null : null,
       track: profile?.section || null,
