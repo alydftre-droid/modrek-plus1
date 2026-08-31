@@ -696,12 +696,24 @@ export async function recordWebResearchLog(opts: {
 
 // ------------------------------------------------------------- orchestration --
 
+export interface ResearchCitation {
+  index: number;
+  title: string;
+  url: string;
+  domain: string;
+  tier: number;
+}
+
 export interface HybridResearchResult {
   evaluation: CoverageEvaluation;
   outcome: WebResearchOutcome;
   /** Prompt block to append after the library context block ("" when unused). */
   contextBlock: string;
+  /** أمر الإجابة الحاسم: يمنع الرد بـ"غير موجود" ثم التوقف. */
+  mandateBlock: string;
   usedWeb: boolean;
+  /** المصادر المعروضة للطالب — فقط عند استخدام البحث فعليًا. */
+  citations: ResearchCitation[];
 }
 
 /**
@@ -717,13 +729,24 @@ export async function hybridResearch(opts: {
   scope?: StudentScope | null;
   config?: WebResearchConfig;
   forceRefresh?: boolean;
+  /** موضوع/مادة عند عدم توفر نتيجة مكتبة (مثل مساعد المعلم). */
+  subject?: string | null;
+  lesson?: string | null;
 }): Promise<HybridResearchResult> {
   const config = opts.config ?? await loadWebResearchConfig(opts.admin);
-  const evaluation = evaluateLibraryCoverage(opts.library, config, opts.surface);
+  const evaluation = evaluateLibraryCoverage(opts.library, config, opts.surface, opts.query);
   const scope = opts.scope ?? opts.library?.scope ?? null;
 
   if (!evaluation.needs_web) {
-    return { evaluation, outcome: { ...EMPTY_OUTCOME, query: opts.query }, contextBlock: "", usedWeb: false };
+    const outcome = { ...EMPTY_OUTCOME, query: opts.query };
+    return {
+      evaluation,
+      outcome,
+      contextBlock: "",
+      mandateBlock: buildAnswerMandateBlock(evaluation, outcome),
+      usedWeb: false,
+      citations: [],
+    };
   }
 
   const outcome = await runWebResearch({
@@ -731,12 +754,14 @@ export async function hybridResearch(opts: {
     query: opts.query,
     config,
     scope,
-    subject: opts.library?.understanding?.subject ?? null,
-    lesson: opts.library?.lesson?.title ?? null,
-    forceRefresh: opts.forceRefresh,
+    subject: opts.library?.understanding?.subject ?? opts.subject ?? null,
+    lesson: opts.library?.lesson?.title ?? opts.lesson ?? null,
+    // معلومة حديثة => لا نعتمد على الكاش.
+    forceRefresh: opts.forceRefresh || evaluation.needs_fresh,
   });
 
   const contextBlock = buildWebResearchBlock(outcome, evaluation);
+  const mandateBlock = buildAnswerMandateBlock(evaluation, outcome);
   await recordWebResearchLog({
     admin: opts.admin,
     surface: opts.surface,
@@ -753,9 +778,22 @@ export async function hybridResearch(opts: {
     engine: outcome.engine,
     results: outcome.results.length,
     cached: outcome.cached,
+    fresh: evaluation.needs_fresh,
+    verify: evaluation.needs_verification,
     error: outcome.error,
     reasons: evaluation.reasons,
   }));
 
-  return { evaluation, outcome, contextBlock, usedWeb: outcome.ran && outcome.results.length > 0 };
+  const usedWeb = outcome.ran && outcome.results.length > 0;
+  const citations: ResearchCitation[] = usedWeb
+    ? outcome.results.map((r, i) => ({
+        index: i + 1,
+        title: r.title || r.domain,
+        url: r.url,
+        domain: r.domain,
+        tier: sourceTier(r.domain, config.trusted_domains),
+      }))
+    : [];
+
+  return { evaluation, outcome, contextBlock, mandateBlock, usedWeb, citations };
 }
