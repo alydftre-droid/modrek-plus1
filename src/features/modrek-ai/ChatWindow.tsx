@@ -5,6 +5,7 @@ import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2,
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
 import { RichMarkdown } from "./RichMarkdown";
+import { LessonDiagramCard } from "./LessonDiagramCard";
 import {
   appendMessage,
   createConversation,
@@ -245,6 +246,7 @@ export default function ModrekChatWindow({
         const asstMsg = await appendMessage(activeConv.id, {
           role: "assistant",
           parts: [{ type: "text", text: result.reply }],
+          metadata: result.diagram?.code ? { diagram: result.diagram } : {},
         });
         setMessages((prev) => [...prev, asstMsg]);
       }
@@ -446,6 +448,9 @@ export default function ModrekChatWindow({
                 </div>
                 <div className="max-w-[92%] min-w-0 rounded-2xl rounded-tl-sm px-4 py-3 bg-white border border-slate-200 shadow-sm text-slate-900">
                   <RichMarkdown>{text}</RichMarkdown>
+                  {(m.metadata as any)?.diagram?.code && (
+                    <LessonDiagramCard diagram={(m.metadata as any).diagram} />
+                  )}
                   {examId && (
                     <Button
                       size="sm"
