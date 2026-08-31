@@ -182,9 +182,28 @@ Deno.serve(async (req) => {
     // (or an image of it), answer that question only — never expand into a full
     // lesson. With no question the page-explanation flow stays untouched.
     const pageScope = userQuestion ? resolveAnswerScope(userQuestion, { hasImage: true }) : null;
-    const scopedSystemPrompt = pageScope
-      ? `${systemPrompt}\n\n${buildAnswerScopeBlock(pageScope)}`
-      : systemPrompt;
+
+    // Automatic external research only when neither page text nor page image exist.
+    let researchBlock = "";
+    if (!context && !hasImage) {
+      const research = await hybridResearch({
+        admin,
+        surface: "library-explain",
+        query: userQuestion || `${book.title} صفحة ${pageNumber}`,
+        library: null,
+        subject: book.subject_name_ar || book.title || null,
+      }).catch((e) => {
+        console.warn("library-explain research_failed", String(e).slice(0, 200));
+        return null;
+      });
+      researchBlock = [research?.contextBlock, research?.mandateBlock].filter(Boolean).join("\n\n");
+    }
+
+    const scopedSystemPrompt = [
+      systemPrompt,
+      pageScope ? buildAnswerScopeBlock(pageScope) : "",
+      researchBlock,
+    ].filter(Boolean).join("\n\n");
 
     const contextBlock = context
       ? `\n\nالنص المستخرج من الصفحة (قد يكون ناقصًا، والصورة هي المرجع الأساسي):\n${context}`
