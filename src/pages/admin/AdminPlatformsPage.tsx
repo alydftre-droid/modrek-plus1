@@ -260,9 +260,14 @@ function CreatePlatformDialog({
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState("#2563eb");
+  const [teacherMode, setTeacherMode] = useState<"existing" | "new">("existing");
   const [teacherId, setTeacherId] = useState("");
   const [teacherQuery, setTeacherQuery] = useState("");
+  const [newTeacherName, setNewTeacherName] = useState("");
+  const [newTeacherEmail, setNewTeacherEmail] = useState("");
+  const [newTeacherPassword, setNewTeacherPassword] = useState("");
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [slugState, setSlugState] = useState<"idle" | "checking" | "free" | "taken">("idle");
   const [saving, setSaving] = useState(false);
@@ -271,6 +276,7 @@ function CreatePlatformDialog({
     if (!open) {
       setStep(1); setName(""); setSlug(""); setDescription(""); setLogoUrl("");
       setBrandColor("#2563eb"); setTeacherId(""); setSubjectIds([]); setSlugState("idle");
+      setTeacherMode("existing"); setNewTeacherName(""); setNewTeacherEmail(""); setNewTeacherPassword("");
     }
   }, [open]);
 
@@ -290,28 +296,79 @@ function CreatePlatformDialog({
   const filteredTeachers = teachers.filter((t) =>
     !teacherQuery || (t.full_name || "").includes(teacherQuery) || (t.email || "").includes(teacherQuery));
 
+  const uploadLogo = async (file: File) => {
+    if (!file.type.startsWith("image/")) return toast.error("اختر صورة صحيحة");
+    if (file.size > 5 * 1024 * 1024) return toast.error("حجم الشعار يجب أن يكون أقل من 5 ميجابايت");
+    setUploadingLogo(true);
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `platform-logos/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
+        upsert: true, contentType: file.type,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
+      setLogoUrl(data.publicUrl);
+      toast.success("تم رفع الشعار");
+    } catch (e) {
+      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const submit = async () => {
     setSaving(true);
-    const { error } = await supabase.rpc("admin_create_teacher_platform", {
-      _name: name,
-      _slug: slug,
-      _owner_teacher_id: teacherId,
-      _subject_ids: subjectIds,
-      _description: description || null,
-      _logo_url: logoUrl || null,
-      _brand_color: brandColor || null,
-    });
-    setSaving(false);
-    if (error) return toast.error("تعذر إنشاء المنصة: " + error.message);
-    toast.success("تم إنشاء المنصة بنجاح");
-    onOpenChange(false);
-    onCreated();
+    try {
+      let ownerId = teacherId;
+
+      if (teacherMode === "new") {
+        const { data, error } = await supabase.functions.invoke("admin-create-platform-teacher", {
+          body: {
+            full_name: newTeacherName.trim(),
+            email: newTeacherEmail.trim(),
+            password: newTeacherPassword,
+          },
+        });
+        const payload = data as { teacher_id?: string; error?: string } | null;
+        if (error || !payload?.teacher_id) {
+          toast.error("تعذر إنشاء حساب المعلم: " + (payload?.error || error?.message || ""));
+          return;
+        }
+        ownerId = payload.teacher_id;
+      }
+
+      const { error } = await supabase.rpc("admin_create_teacher_platform", {
+        _name: name,
+        _slug: slug,
+        _owner_teacher_id: ownerId,
+        _subject_ids: subjectIds,
+        _description: description || null,
+        _logo_url: logoUrl || null,
+        _brand_color: brandColor || null,
+      });
+      if (error) {
+        toast.error("تعذر إنشاء المنصة: " + error.message);
+        return;
+      }
+      toast.success("تم إنشاء المنصة بنجاح");
+      onOpenChange(false);
+      onCreated();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const canNext =
     step === 1 ? Boolean(name.trim()) && slugState === "free"
-    : step === 2 ? Boolean(teacherId)
+    : step === 2
+      ? (teacherMode === "existing"
+          ? Boolean(teacherId)
+          : newTeacherName.trim().length >= 3
+            && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newTeacherEmail.trim())
+            && newTeacherPassword.length >= 8)
     : subjectIds.length > 0;
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -341,8 +398,25 @@ function CreatePlatformDialog({
               </p>
             </div>
             <div>
-              <Label>رابط الشعار (اختياري)</Label>
-              <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." />
+              <Label>شعار المنصة (اختياري)</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <div className="h-14 w-14 rounded-xl overflow-hidden border flex items-center justify-center shrink-0"
+                  style={{ background: brandColor }}>
+                  {logoUrl
+                    ? <img src={logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
+                    : <Building2 className="h-5 w-5 text-white" />}
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Input type="file" accept="image/*" disabled={uploadingLogo}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                  <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="أو الصق رابط الشعار https://..." />
+                </div>
+              </div>
+              {uploadingLogo && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> جارٍ رفع الشعار...
+                </p>
+              )}
             </div>
             <div>
               <Label>لون الهوية</Label>
@@ -356,25 +430,57 @@ function CreatePlatformDialog({
         )}
 
         {step === 2 && (
-          <div className="space-y-2">
-            <Label>اختر المعلم</Label>
-            <Input placeholder="ابحث بالاسم أو البريد..." value={teacherQuery} onChange={(e) => setTeacherQuery(e.target.value)} />
-            <div className="max-h-64 overflow-y-auto rounded-lg border divide-y">
-              {filteredTeachers.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setTeacherId(t.id)}
-                  className={`w-full text-start p-2 text-sm hover:bg-muted/40 ${teacherId === t.id ? "bg-primary/10" : ""}`}
-                >
-                  <div className="font-medium">{t.full_name}</div>
-                  <div className="text-xs text-muted-foreground">{t.email}</div>
-                </button>
-              ))}
-              {filteredTeachers.length === 0 && <p className="p-3 text-xs text-muted-foreground">لا نتائج</p>}
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Button type="button" variant={teacherMode === "existing" ? "default" : "outline"}
+                onClick={() => setTeacherMode("existing")}>معلم موجود</Button>
+              <Button type="button" variant={teacherMode === "new" ? "default" : "outline"}
+                onClick={() => setTeacherMode("new")}>معلم جديد</Button>
             </div>
+
+            {teacherMode === "existing" ? (
+              <div className="space-y-2">
+                <Label>اختر المعلم</Label>
+                <Input placeholder="ابحث بالاسم أو البريد..." value={teacherQuery} onChange={(e) => setTeacherQuery(e.target.value)} />
+                <div className="max-h-64 overflow-y-auto rounded-lg border divide-y">
+                  {filteredTeachers.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setTeacherId(t.id)}
+                      className={`w-full text-start p-2 text-sm hover:bg-muted/40 ${teacherId === t.id ? "bg-primary/10" : ""}`}
+                    >
+                      <div className="font-medium">{t.full_name}</div>
+                      <div className="text-xs text-muted-foreground">{t.email}</div>
+                    </button>
+                  ))}
+                  {filteredTeachers.length === 0 && <p className="p-3 text-xs text-muted-foreground">لا نتائج</p>}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <Label>اسم المعلم</Label>
+                  <Input value={newTeacherName} onChange={(e) => setNewTeacherName(e.target.value)} placeholder="أحمد محمد" />
+                </div>
+                <div>
+                  <Label>البريد الإلكتروني (حساب الدخول)</Label>
+                  <Input type="email" dir="ltr" value={newTeacherEmail}
+                    onChange={(e) => setNewTeacherEmail(e.target.value)} placeholder="teacher@gmail.com" />
+                </div>
+                <div>
+                  <Label>كلمة المرور</Label>
+                  <Input type="text" dir="ltr" value={newTeacherPassword}
+                    onChange={(e) => setNewTeacherPassword(e.target.value)} placeholder="8 أحرف على الأقل" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    سيتم إنشاء حساب معلم جديد مؤكد البريد، ويستخدمه المعلم للدخول إلى منصته.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
+
 
         {step === 3 && (
           <div className="space-y-2">
