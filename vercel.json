@@ -190,7 +190,7 @@
       "destination": "/app-shell.html"
     },
     {
-      "source": "/admin/:section(subscriptions|upload|subjects|content|notifications|settings|students|subjects-page|teachers|support|smart-reports|library|bundled-packages|ads|modrek-library|test-students|modrek-analytics|student-wallets)",
+      "source": "/admin/:section(subscriptions|upload|subjects|content|notifications|settings|students|subjects-page|teachers|support|smart-reports|library|bundled-packages|ads|modrek-library|test-students|modrek-analytics|student-wallets|platforms)",
       "destination": "/app-shell.html"
     },
     {
