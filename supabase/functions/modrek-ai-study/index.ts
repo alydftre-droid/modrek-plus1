@@ -207,8 +207,9 @@ Deno.serve(async (req) => {
           return null;
         });
 
-        knowledgeBlock = `\n\n${buildLibraryContextBlock(rag)}\n${research?.contextBlock ? `\n${research.contextBlock}\n` : ""}`;
-        allowExternal = !rag.found || Boolean(research?.usedWeb);
+        const researchActive = Boolean(research?.evaluation?.needs_web);
+        knowledgeBlock = `\n\n${buildLibraryContextBlock(rag, { researchActive })}\n${research?.contextBlock ? `\n${research.contextBlock}\n` : ""}${research?.mandateBlock ? `\n${research.mandateBlock}\n` : ""}`;
+        allowExternal = !rag.found || Boolean(research?.usedWeb) || researchActive;
       }
     } catch (retrievalErr) {
       console.warn("[modrek-ai-study] library retrieval failed", String(retrievalErr).slice(0, 300));
