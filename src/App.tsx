@@ -10,6 +10,8 @@ import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import PageTransition from "@/components/PageTransition";
+import { platformSlugFromHostname } from "@/lib/platformHost";
+
 import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
 import RouteActivityTracker from "@/components/RouteActivityTracker";
