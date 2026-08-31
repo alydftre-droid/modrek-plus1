@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles, MessageCircle, ClipboardList, ShieldAlert, FlaskConical } from "lucide-react";
+import { Settings, Globe, CalendarRange, ChevronLeft, Library, Wallet, Sparkles, MessageCircle, ClipboardList, ShieldAlert, FlaskConical, Building2 } from "lucide-react";
 import PlatformInfoSettings from "@/components/admin/settings/PlatformInfoSettings";
 import TermManagement from "@/components/admin/settings/TermManagement";
 import WithdrawalSettings from "@/components/admin/settings/WithdrawalSettings";
