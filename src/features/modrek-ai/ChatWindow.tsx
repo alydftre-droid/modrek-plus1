@@ -5,6 +5,7 @@ import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2,
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
 import { RichMarkdown } from "./RichMarkdown";
+import { LessonDiagramCard } from "./LessonDiagramCard";
 import {
   appendMessage,
   createConversation,
