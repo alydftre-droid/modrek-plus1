@@ -83,7 +83,7 @@ export default function AdminPlatformsPage() {
     load();
     supabase.from("profiles").select("id, full_name, email").eq("role", "teacher").order("full_name")
       .then(({ data }) => setTeachers((data as TeacherOption[]) || []));
-    supabase.from("subjects").select("id, name, stage, grade").eq("is_active", true).order("name")
+    supabase.from("subjects").select("id, name, category, stage, grade, section").eq("is_active", true)
       .then(({ data }) => setSubjects((data as SubjectOption[]) || []));
   }, []);
 
