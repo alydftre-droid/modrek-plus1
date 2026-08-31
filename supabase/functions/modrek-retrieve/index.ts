@@ -82,7 +82,10 @@ interface UserContext {
   section_id: string | null;
   track_id: string | null;
   subject_ids: string[];
+  /** Teacher-platform tenant; null = official platform. Never taken from the body. */
+  platform_id: string | null;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -229,6 +232,7 @@ Deno.serve(async (req) => {
         source_type_code: tier,
         filters: derivedFilters,
         match_count: PER_TIER_LIMIT,
+        platform_id: user.platform_id ?? null,
       });
       if (rows.length > 0) {
         const top = rows[0].composite_score ?? 0;
@@ -386,7 +390,7 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
   }
   const ctx: UserContext = {
     user_id, role: null, stage_id: null, grade_id: null,
-    section_id: null, track_id: null, subject_ids: [],
+    section_id: null, track_id: null, subject_ids: [], platform_id: null,
   };
   if (!user_id) return ctx;
 
@@ -395,6 +399,7 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
   // We resolve them into real library_* taxonomy ids through the shared scope.
   const scope = await resolveStudentScope(admin, user_id);
   ctx.role = scope.role;
+  ctx.platform_id = scope.platformId ?? null;
   const ids = await resolveLibraryTaxonomyIds(admin, scope);
   ctx.stage_id = ids.stage_id;
   ctx.grade_id = ids.grade_id;
@@ -494,7 +499,7 @@ function buildFilters(user: UserContext, intent: IntentResult, overrides: any, o
 
 async function hybridSearch(admin: any, args: {
   embedding: number[]; text: string; source_type_code: string;
-  filters: any; match_count: number;
+  filters: any; match_count: number; platform_id: string | null;
 }) {
   // Resolve source_type_id from code
   const { data: type } = await admin
@@ -514,7 +519,22 @@ async function hybridSearch(admin: any, args: {
     p_min_similarity: 0.30,
   });
   if (error) { console.error("hybrid_search error", error); return []; }
-  return (data ?? []) as any[];
+  const rows = (data ?? []) as any[];
+  if (!rows.length) return rows;
+
+  // Tenant isolation: retrieval runs with the service role, so every matched
+  // chunk is re-checked against the caller's platform before it can ground an
+  // answer. A platform student never sees another platform's (or the official
+  // platform's) sources, and vice versa.
+  const sourceIds = Array.from(new Set(rows.map((r: any) => r.source_id).filter(Boolean)));
+  const { data: sources } = await admin
+    .from("knowledge_sources").select("id,platform_id").in("id", sourceIds);
+  const allowed = new Set(
+    (sources ?? [])
+      .filter((s: any) => (s.platform_id ?? null) === (args.platform_id ?? null))
+      .map((s: any) => String(s.id)),
+  );
+  return rows.filter((r: any) => allowed.has(String(r.source_id)));
 }
 
 async function readCache(admin: any, key: string) {

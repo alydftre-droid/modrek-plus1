@@ -7,7 +7,7 @@
 // Response: { items: [{kind, title, book_id, page_number, reason}] }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { getAccessibleLibraryBook } from "../_shared/auth.ts";
+import { getAccessibleLibraryBook, resolveUserPlatformId } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
     const studentId = userData.user.id;
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const studentPlatformId = await resolveUserPlatformId(admin, studentId);
     const body = await req.json().catch(() => ({}));
     const bookId = body.book_id ? String(body.book_id) : null;
     const limit = Math.min(12, Math.max(3, Number(body.limit) || 6));
@@ -142,6 +143,8 @@ Deno.serve(async (req) => {
         const { data: others } = await admin.from("library_books")
           .select("id,title,subject_name_ar,access_tier")
           .eq("subject_id", b.subject_id)
+          // Tenant isolation: only recommend books from the student's platform.
+          [studentPlatformId ? "eq" : "is"]("platform_id", studentPlatformId)
           .eq("status", "ready")
           .eq("access_tier", "free")
           .neq("id", targetBook)

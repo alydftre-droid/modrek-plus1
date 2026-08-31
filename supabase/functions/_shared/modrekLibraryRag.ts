@@ -30,8 +30,21 @@ export interface StudentScope {
   gradeCode: string | null;      // sec1 | sec2 | sec3 | pr1 ...
   trackCodes: string[];          // scientific | sci_science | sci_math | literary
   sectionCode: "azhar" | "general" | null;
+  /**
+   * Teacher-platform tenant this user belongs to, resolved server-side from
+   * platform_memberships. `null` = the official Modrek Plus platform.
+   * Retrieval runs with the service role, so this is the only thing keeping
+   * one platform's corpus out of another platform's answers.
+   */
+  platformId: string | null;
   labels: { stage: string | null; grade: string | null; track: string | null; system: string };
 }
+
+/** Restrict any table that carries `platform_id` to the caller's tenant. */
+export function applyPlatformScope(query: any, platformId: string | null) {
+  return platformId ? query.eq("platform_id", platformId) : query.is("platform_id", null);
+}
+
 
 const STAGE_ALIASES: Record<string, string> = {
   secondary: "secondary", "ثانوي": "secondary", "الثانوي": "secondary", "المرحلة الثانوية": "secondary",
@@ -82,6 +95,17 @@ export async function resolveStudentScope(admin: any, userId: string): Promise<S
   const eduRaw = normalizeAr(profile?.education_type || "");
   const sectionCode = eduRaw.includes("ازهر") || eduRaw === "azhar" ? "azhar" : eduRaw ? "general" : null;
 
+  // Tenant resolution: never trusted from the request body.
+  let platformId: string | null = null;
+  const { data: membership } = await admin
+    .from("platform_memberships")
+    .select("platform_id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  platformId = membership?.platform_id ?? null;
+
   return {
     userId,
     fullName: profile?.full_name ?? null,
@@ -90,7 +114,9 @@ export async function resolveStudentScope(admin: any, userId: string): Promise<S
     gradeCode,
     trackCodes,
     sectionCode,
+    platformId,
     labels: {
+
       stage: stageCode === "secondary" ? "المرحلة الثانوية" : stageCode === "preparatory" ? "المرحلة الإعدادية" : stageCode === "primary" ? "المرحلة الابتدائية" : null,
       grade: gradeCode ? GRADE_LABELS[gradeCode] ?? null : null,
       track: profile?.section || null,
@@ -401,6 +427,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
     .eq("status", "ready")
     .order("created_at", { ascending: false })
     .limit(200);
+  q = applyPlatformScope(q, scope.platformId);
 
   if (gradeRow?.id) q = q.eq("grade_id", gradeRow.id);
   else if (stageRow?.id) q = q.eq("stage_id", stageRow.id);
@@ -414,9 +441,11 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
         .eq("status", "ready")
         .order("created_at", { ascending: false })
         .limit(200);
+      modern = applyPlatformScope(modern, scope.platformId);
       if (gradeRow?.id) modern = modern.eq("grade_id", gradeRow.id);
       else if (stageRow?.id) modern = modern.eq("stage_id", stageRow.id);
       return modern;
+
     })(),
   ]);
   if (error) { console.warn("[modrekLibraryRag] books_query_failed", error.message); return []; }

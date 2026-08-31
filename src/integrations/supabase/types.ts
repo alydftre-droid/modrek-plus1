@@ -8531,6 +8531,10 @@ export type Database = {
         Args: { _attempt_id?: string; _exam_id: string }
         Returns: Json
       }
+      storage_platform_path_ok: {
+        Args: { _name: string; _user_id: string }
+        Returns: boolean
+      }
       student_has_modrek_training_attempt: {
         Args: { _exam_id: string; _student_id: string }
         Returns: boolean

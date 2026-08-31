@@ -36,6 +36,13 @@
       "when": 1788193847355,
       "tag": "0004_platform_tenant_isolation_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788194798853,
+      "tag": "0005_platform_storage_isolation",
+      "breakpoints": true
     }
   ]
 }
