@@ -200,12 +200,14 @@ export default function AdminPlatformsPage() {
                 <div className="flex items-center gap-2 text-muted-foreground text-xs">
                   <Users className="h-3.5 w-3.5" /> {Number(row.student_count || 0)} طالب
                 </div>
-                <div className="rounded-lg bg-muted/50 p-2 text-xs break-all">
-                  <div>{platformUrl(row.slug)}</div>
-                  <div className="text-muted-foreground">{platformFallbackUrl(row.slug)}</div>
+                <div className="rounded-lg bg-muted/50 p-2 text-xs break-all space-y-1">
+                  <div className="font-medium">{platformFallbackUrl(row.slug)}</div>
+                  <div className="text-muted-foreground">
+                    {platformUrl(row.slug)} · يعمل بعد إضافة سجل DNS بديل (*) للنطاق
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" className="gap-1" onClick={() => copy(platformUrl(row.slug))}>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => copy(platformFallbackUrl(row.slug))}>
                     <Copy className="h-3.5 w-3.5" /> نسخ
                   </Button>
                   <Button size="sm" variant="outline" className="gap-1" asChild>
@@ -213,6 +215,7 @@ export default function AdminPlatformsPage() {
                       <ExternalLink className="h-3.5 w-3.5" /> فتح
                     </a>
                   </Button>
+
                   <Button size="sm" variant="outline" className="gap-1" onClick={() => setManage(row)}>
                     <Settings2 className="h-3.5 w-3.5" /> إدارة
                   </Button>
