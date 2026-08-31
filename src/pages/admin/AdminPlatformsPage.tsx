@@ -571,10 +571,13 @@ function ManagePlatformDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState("#2563eb");
-  const [subjectIds, setSubjectIds] = useState<string[]>([]);
+  const [scope, setScope] = useState<TeacherFormData>(EMPTY_SCOPE);
   const [students, setStudents] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const subjectIds = useMemo(() => resolveSubjectIds(scope, subjects), [scope, subjects]);
 
   useEffect(() => {
     if (!platform) return;
@@ -582,10 +585,26 @@ function ManagePlatformDialog({
     setDescription(platform.description || "");
     setLogoUrl(platform.logo_url || "");
     setBrandColor(platform.brand_color || "#2563eb");
-    setSubjectIds(platform.subject_ids || []);
+    setScope({ ...EMPTY_SCOPE, ...scopeFromSubjectIds(platform.subject_ids || [], subjects) });
     supabase.rpc("admin_list_platform_students", { _platform_id: platform.id })
       .then(({ data }) => setStudents((data as any[]) || []));
-  }, [platform?.id]);
+  }, [platform?.id, subjects]);
+
+  const uploadLogo = async (file: File) => {
+    if (!platform) return;
+    if (!file.type.startsWith("image/")) return toast.error("اختر صورة صحيحة");
+    if (file.size > 5 * 1024 * 1024) return toast.error("حجم الشعار يجب أن يكون أقل من 5 ميجابايت");
+    setUploadingLogo(true);
+    try {
+      setLogoUrl(await uploadPlatformLogo(platform.id, file));
+      toast.success("تم رفع الشعار — اضغط حفظ للتأكيد");
+    } catch (e) {
+      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
 
   const save = async () => {
     if (!platform) return;
