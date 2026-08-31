@@ -29,6 +29,7 @@ import {
 import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/auth.ts";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import { resolveAnswerScope, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
+import { hybridResearch } from "../_shared/modrekWebResearch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -249,14 +250,32 @@ Deno.serve(async (req) => {
     // 6) Prompt
     const scopeLabel = scope === "book" ? "الكتاب بالكامل" : scope === "section" ? "هذا الجزء المحدد" : `الصفحة ${pageNumber || ""}`;
 
+    // نفس محرك القرار المركزي: نص الكتاب أولًا، وبحث خارجي موثوق عند نقص المحتوى.
+    let researchBlock = "";
+    if (String(context || "").trim().length < 400) {
+      const research = await hybridResearch({
+        admin,
+        surface: "library-chat",
+        query: message,
+        library: null,
+        subject: book.subject_name_ar || book.title || null,
+      }).catch((e) => {
+        console.warn("library-chat research_failed", String(e).slice(0, 200));
+        return null;
+      });
+      researchBlock = [research?.contextBlock, research?.mandateBlock].filter(Boolean).join("\n\n");
+    }
+
     const systemPrompt = `أنت معلم عربي متمكن يشرح كتاب "${book.title}" مادة "${book.subject_name_ar || ""}".
 - اجب بالعربية الفصحى المبسطة، مباشرة بدون مقدمات مثل "بالطبع".
 - لا تستخدم Markdown ولا رموز.
 - سياق السؤال: ${scopeLabel}.
 - إذا كان السؤال عن الكتاب بالكامل، اذكر أرقام الصفحات ذات الصلة في نهاية الرد بصيغة: (انظر صفحة X).
-- التزم بمحتوى الكتاب أولاً، وإن لم يكن كافياً استخدم معرفتك العامة بالمادة.
+- التزم بمحتوى الكتاب أولاً، وإن لم يكن كافياً استخدم المصادر الخارجية المرفقة أو معرفتك بالمنهج الرسمي، وممنوع الاكتفاء بالقول إن المحتوى غير موجود.
 
-${buildAnswerScopeBlock(resolveAnswerScope(message))}`;
+${buildAnswerScopeBlock(resolveAnswerScope(message))}
+
+${researchBlock}`;
 
     const userPrompt = `${message}\n\n---محتوى ${scopeLabel}---\n${context || "(لا يوجد نص مستخرج لهذا الجزء)"}`.slice(0, 12000);
 

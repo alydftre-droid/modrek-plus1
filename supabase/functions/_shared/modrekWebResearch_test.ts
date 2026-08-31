@@ -100,3 +100,47 @@ Deno.test("no web results yields explicit NOT_FOUND guidance", () => {
   const block = buildWebResearchBlock({ ran: true, engine: "model", query: "q", results: [], digest: null, cached: false, duration_ms: 5, error: null }, ev);
   assert(block.includes("WEB_RESULT = NOT_FOUND"));
 });
+
+Deno.test("fresh-info questions force hybrid even with strong library", async () => {
+  const { evaluateLibraryCoverage: ev2 } = await import("./modrekWebResearch.ts");
+  const ev = ev2(rag(), DEFAULT_WEB_RESEARCH_CONFIG, "ai-chat", "ما هو المحذوف من المنهج هذا العام؟");
+  assertEquals(ev.decision, "hybrid");
+  assertEquals(ev.needs_web, true);
+  assertEquals(ev.needs_fresh, true);
+});
+
+Deno.test("law/date questions are flagged for cross-verification", () => {
+  const ev = evaluateLibraryCoverage(rag(), DEFAULT_WEB_RESEARCH_CONFIG, "ai-chat", "اكتب قانون نيوتن الثاني");
+  assertEquals(ev.needs_verification, true);
+});
+
+Deno.test("official domains rank above trusted educational ones", async () => {
+  const { sourceTier } = await import("./modrekWebResearch.ts");
+  const trusted = DEFAULT_WEB_RESEARCH_CONFIG.trusted_domains;
+  assert(sourceTier("moe.gov.eg", trusted) > sourceTier("wikipedia.org", trusted));
+  assert(sourceTier("wikipedia.org", trusted) > sourceTier("random-blog.net", trusted));
+});
+
+Deno.test("mandate forbids refusing when web sources exist", async () => {
+  const { buildAnswerMandateBlock } = await import("./modrekWebResearch.ts");
+  const ev = evaluateLibraryCoverage(rag({ confidence: "none", passages: [], lesson: null, selected_book: null }), DEFAULT_WEB_RESEARCH_CONFIG, "ai-chat", "الدرس الاول في الفقه");
+  const block = buildAnswerMandateBlock(ev, {
+    ran: true, engine: "tavily", query: "q", cached: false, duration_ms: 5, error: null, digest: null,
+    results: [{ title: "t", url: "https://moe.gov.eg/x", domain: "moe.gov.eg", snippet: "s" }],
+  } as any);
+  assert(block.includes("ممنوع"));
+  assert(!block.includes("توقف عن الإجابة"));
+});
+
+Deno.test("mandate still demands a real answer when web search returns nothing", async () => {
+  const { buildAnswerMandateBlock } = await import("./modrekWebResearch.ts");
+  const ev = evaluateLibraryCoverage(rag({ confidence: "none", passages: [], lesson: null, selected_book: null }), DEFAULT_WEB_RESEARCH_CONFIG, "ai-chat", "الدرس الاول في الفقه");
+  const block = buildAnswerMandateBlock(ev, { ran: true, engine: "model", query: "q", cached: false, duration_ms: 5, error: null, digest: null, results: [] } as any);
+  assert(block.includes("اشرح"));
+});
+
+Deno.test("exams and library surfaces are enabled by default", () => {
+  assertEquals(DEFAULT_WEB_RESEARCH_CONFIG.surfaces["modrek-ai-exams"], true);
+  assertEquals(DEFAULT_WEB_RESEARCH_CONFIG.surfaces["library-chat"], true);
+  assertEquals(DEFAULT_WEB_RESEARCH_CONFIG.surfaces["library-explain"], true);
+});

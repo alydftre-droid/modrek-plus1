@@ -43,7 +43,9 @@ const DEFAULTS: WebResearchConfig = {
     "ai-chat": true,
     "modrek-ai-study": true,
     "modrek-retrieve": true,
-    "modrek-ai-exams": false,
+    "modrek-ai-exams": true,
+    "library-chat": true,
+    "library-explain": true,
     "teacher-assistant": true,
   },
 };
@@ -53,6 +55,8 @@ const SURFACE_LABELS: Record<string, string> = {
   "modrek-ai-study": "مساعد المذاكرة Modrek AI",
   "modrek-retrieve": "محرك الاسترجاع (API)",
   "modrek-ai-exams": "مولّد الامتحانات",
+  "library-chat": "محادثة كتب المكتبة",
+  "library-explain": "شرح صفحات/صور المكتبة",
   "teacher-assistant": "مساعد المعلم",
 };
 

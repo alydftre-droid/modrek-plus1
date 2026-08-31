@@ -549,13 +549,14 @@ ${g ? `- ${g}.` : ""}
             return null;
           });
 
-          systemPrompt += `\n\n${MODREK_ASSISTANT_SCOPE_RULES}\n\n${buildLibraryContextBlock(rag)}\n\n${
+          const researchActive = Boolean(research?.evaluation?.needs_web);
+          systemPrompt += `\n\n${MODREK_ASSISTANT_SCOPE_RULES}\n\n${buildLibraryContextBlock(rag, { researchActive })}\n\n${
             rag.found
               ? "اعتمد على محتوى المكتبة أعلاه أولًا وبشكل أساسي في الشرح، والتزم بالدرس/الوحدة المطلوبة."
-              : "المكتبة لم ترجع محتوى مطابقًا: وضّح ذلك بجملة قصيرة ثم اشرح من المنهج الرسمي المناسب للصف والنظام، وممنوع اختراع أسماء دروس أو كتب."
+              : "المكتبة لم تكفِ: أكمل من المصادر الخارجية المرفقة أو من المنهج الرسمي المناسب للصف والنظام، وممنوع الاكتفاء بالقول إن الدرس غير موجود، وممنوع اختراع أسماء دروس أو كتب."
           }\n- لا تسأل الطالب عن صفه أو مرحلته أو نظامه أو شعبته أبدًا؛ كلها معروفة أعلاه.${
             research?.contextBlock ? `\n\n${research.contextBlock}` : ""
-          }`;
+          }${research?.mandateBlock ? `\n\n${research.mandateBlock}` : ""}`;
 
         }
       } catch (ragErr) {

@@ -307,7 +307,9 @@ async function callRetrieve(req: Request, payload: Record<string, any>) {
 }
 
 function buildContextBlock(retrieval: any): string {
-  if (!retrieval || !Array.isArray(retrieval.results) || retrieval.results.length === 0) return "";
+  const research = retrieval?.research;
+  const researchTail = [research?.context_block, research?.mandate_block].filter(Boolean).join("\n\n");
+  if (!retrieval || !Array.isArray(retrieval.results) || retrieval.results.length === 0) return researchTail;
   const parts: string[] = [];
   let total = 0;
   for (let i = 0; i < retrieval.results.length; i++) {
@@ -320,21 +322,38 @@ function buildContextBlock(retrieval: any): string {
     parts.push(block);
     total += block.length;
   }
-  return parts.join("\n\n---\n\n");
+  const libraryBlock = parts.join("\n\n---\n\n");
+  return researchTail ? `${libraryBlock}\n\n${researchTail}` : libraryBlock;
 }
 
 function extractCitations(retrieval: any) {
-  if (!retrieval?.results) return [];
-  return retrieval.results.map((r: any, i: number) => ({
-    index: i + 1,
-    source_id: r.citation?.source_id ?? null,
-    source_title: r.citation?.source_title ?? null,
-    source_type: r.citation?.source_type ?? null,
-    unit_title: r.citation?.unit_title ?? null,
-    page_from: r.citation?.page_from ?? null,
-    page_to: r.citation?.page_to ?? null,
-    confidence: r.confidence ?? null,
-  }));
+  const library = Array.isArray(retrieval?.results)
+    ? retrieval.results.map((r: any, i: number) => ({
+        index: i + 1,
+        source_id: r.citation?.source_id ?? null,
+        source_title: r.citation?.source_title ?? null,
+        source_type: r.citation?.source_type ?? null,
+        unit_title: r.citation?.unit_title ?? null,
+        page_from: r.citation?.page_from ?? null,
+        page_to: r.citation?.page_to ?? null,
+        confidence: r.confidence ?? null,
+      }))
+    : [];
+  // مصادر البحث الخارجي تُعرض للطالب فقط عند استخدام البحث فعليًا.
+  const web = Array.isArray(retrieval?.research?.citations)
+    ? retrieval.research.citations.map((c: any, i: number) => ({
+        index: library.length + i + 1,
+        source_id: null,
+        source_title: c.title ?? c.domain ?? null,
+        source_type: "web",
+        unit_title: c.domain ?? null,
+        page_from: null,
+        page_to: null,
+        url: c.url ?? null,
+        confidence: null,
+      }))
+    : [];
+  return [...library, ...web];
 }
 
 // ---------- REASONING PROMPTS ----------
@@ -347,8 +366,9 @@ function buildReasoningMessages(args: {
   const guidelines = `أنت "Modrek AI"، مساعد تعليمي عربي احترافي.
 - التزم بلغة عربية فصيحة واضحة، ومناسبة لمستوى الطالب.
 - اعتمد أولًا على المصادر المرفقة من مكتبة المنصة (إن وجدت). لا تنسخ حرفيًا، بل أعد الصياغة.
-- عند الاعتماد على مصدر اذكر الاستشهاد داخل النص هكذا: (المصدر رقم N).
-- إذا لم تكن المصادر كافية، وضّح ذلك بصراحة ولا تخترع معلومات.
+- عند الاعتماد على مصدر اذكر الاستشهاد داخل النص هكذا: (المصدر رقم N)، وللمصادر الخارجية بالشكل [و1].
+- إذا كانت مصادر المكتبة غير كافية وتوجد مصادر خارجية مرفقة، أكمل منها وأدرج الروابط تحت عنوان "مصادر خارجية".
+- ممنوع الاكتفاء بالقول إن المحتوى غير موجود؛ أجب فعليًا من المصادر المتاحة أو من المنهج الرسمي، وبدون اختراع معلومات.
 - للمسائل الرياضية أظهر الخطوات بالتسلسل، وليس الناتج فقط.
 - استخدم Markdown مع عناوين وقوائم مرتبة عند الحاجة.`;
 

@@ -1180,7 +1180,10 @@ export function buildStudentScopeBlock(scope: StudentScope): string {
 - الشعبة: ${scope.labels.track || "غير محددة"}`;
 }
 
-export function buildLibraryContextBlock(result: LibraryRagResult): string {
+export function buildLibraryContextBlock(
+  result: LibraryRagResult,
+  opts: { researchActive?: boolean } = {},
+): string {
   const parts: string[] = [];
 
   if (result.understanding.intent === "list_books") {
@@ -1215,13 +1218,23 @@ export function buildLibraryContextBlock(result: LibraryRagResult): string {
     );
   }
 
-  if (result.ambiguity) parts.push(`## تنبيه ثقة منخفضة\n${result.ambiguity}\nاطرح هذا السؤال التوضيحي على الطالب قبل الشرح إذا لم يكن المحتوى المسترجع كافيًا.`);
+  if (result.ambiguity) {
+    parts.push(
+      opts.researchActive
+        ? `## تنبيه ثقة منخفضة\n${result.ambiguity}\nلا تتوقف عند هذا التنبيه: أكمل الإجابة من المصادر الخارجية أدناه، ويمكنك إضافة سؤال توضيحي واحد في نهاية الرد.`
+        : `## تنبيه ثقة منخفضة\n${result.ambiguity}\nاطرح هذا السؤال التوضيحي على الطالب قبل الشرح إذا لم يكن المحتوى المسترجع كافيًا.`,
+    );
+  }
 
   if (!result.found) {
     parts.push(
-      `## نتيجة البحث في المكتبة: LIBRARY_RESULT = NOT_FOUND\n` +
-      `لم يُعثر على محتوى مطابق داخل مكتبة Modrek لهذا السؤال. لا تخترع محتوى الكتاب؛ ` +
-      `وضّح للطالب أن الدرس غير متاح في المكتبة، ثم أجب من مصدر تعليمي رسمي موثوق مع ذكر ذلك بجملة قصيرة، أو اطرح سؤالًا توضيحيًا.`,
+      opts.researchActive
+        ? `## نتيجة البحث في المكتبة: LIBRARY_RESULT = NOT_FOUND\n` +
+          `لم يُعثر على محتوى مطابق داخل مكتبة Modrek لهذا السؤال، ولذلك تم تشغيل بحث خارجي موثوق تلقائيًا. ` +
+          `ممنوع الاكتفاء بإخبار الطالب أن الدرس غير موجود؛ اعتمد على المصادر الخارجية أدناه وأجب إجابة تعليمية كاملة، ولا تخترع محتوى كتاب أو أرقام صفحات.`
+        : `## نتيجة البحث في المكتبة: LIBRARY_RESULT = NOT_FOUND\n` +
+          `لم يُعثر على محتوى مطابق داخل مكتبة Modrek لهذا السؤال. لا تخترع محتوى الكتاب؛ ` +
+          `وضّح ذلك بجملة قصيرة ثم أجب فعليًا من المنهج الرسمي الموثوق المناسب لصف الطالب ونظامه.`,
     );
   } else {
     parts.push(`## مستوى الثقة الداخلي: ${result.confidence}`);
