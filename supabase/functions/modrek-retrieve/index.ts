@@ -170,7 +170,7 @@ Deno.serve(async (req) => {
           text_rank: null,
           source_id: p.book_id,
           source_title: p.book_title,
-          source_type_code: "library_book",
+          source_type_code: p.source_type,
           unit_id: null,
           unit_kind: "lesson",
           unit_title: p.lesson_title,

@@ -269,7 +269,7 @@ const ASSESSMENT_SOURCE_TYPES = new Set(["exam", "ministry_model", "question_ban
 export function sourceTypeAllowedForIntent(sourceType: string, intent: ModrekIntent): boolean {
   const type = String(sourceType || "book").toLowerCase();
   if (intent === "list_books") return true;
-  if (intent === "solve_question" || intent === "review" || intent === "generate_exam") {
+  if (intent === "solve_question" || intent === "review") {
     return INSTRUCTIONAL_SOURCE_TYPES.has(type) || ASSESSMENT_SOURCE_TYPES.has(type);
   }
   return INSTRUCTIONAL_SOURCE_TYPES.has(type);
@@ -287,6 +287,7 @@ export interface LibraryPassage {
   page_to: number | null;
   score: number;
   source: PassageSource;
+  source_type: string;
   similarity?: number | null;
   keyword_rank?: number | null;
 }
@@ -967,6 +968,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       page_to: p.page_number ?? null,
       score,
       source,
+      source_type: book.source_type,
     });
   };
 
@@ -1030,6 +1032,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       page_to: row.page_number ?? row.page_to ?? null,
       score: 0.5 + Number(row.similarity || 0) * 0.45,
       source: "vector",
+      source_type: (bookById.get(bookId) || selected).source_type,
       similarity: Number(row.similarity || 0),
     });
   }
@@ -1045,6 +1048,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       page_to: row.page_number ?? null,
       score: 0.55 + Number(row.rank || 0) * 0.4,
       source: "keyword_chunk",
+      source_type: (bookById.get(bookId) || selected).source_type,
       keyword_rank: Number(row.rank || 0),
     });
   }

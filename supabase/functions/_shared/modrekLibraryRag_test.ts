@@ -186,7 +186,8 @@ Deno.test("lesson explanations reject exam and question-bank sources", () => {
 });
 
 Deno.test("assessment requests may use assessment sources", () => {
-  assertEquals(sourceTypeAllowedForIntent("exam", "generate_exam"), true);
+  assertEquals(sourceTypeAllowedForIntent("exam", "generate_exam"), false);
+  assertEquals(sourceTypeAllowedForIntent("question_bank", "generate_exam"), false);
   assertEquals(sourceTypeAllowedForIntent("question_bank", "solve_question"), true);
   assertEquals(sourceTypeAllowedForIntent("book", "generate_exam"), true);
 });
