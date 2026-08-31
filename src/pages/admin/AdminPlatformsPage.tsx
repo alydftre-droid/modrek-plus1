@@ -74,7 +74,21 @@ export default function AdminPlatformsPage() {
 
   const load = async () => {
     setLoading(true);
-    const { data, error } = await supabase.rpc("admin_list_teacher_platforms");
+    let { data, error } = await supabase.rpc("admin_list_teacher_platforms");
+
+    // PGRST202 = the Data API schema cache is stale right after a migration.
+    // Fall back to a direct read (admins pass RLS) so the page still works.
+    if (error?.code === "PGRST202") {
+      const fallback = await supabase
+        .from("teacher_platforms")
+        .select("id, name, slug, logo_url, brand_color, status, owner_teacher_id, created_at")
+        .order("created_at", { ascending: false });
+      if (!fallback.error) {
+        data = fallback.data as unknown as typeof data;
+        error = null;
+      }
+    }
+
     if (error) reportRpcError({
       title: "تعذر تحميل المنصات",
       error,
@@ -84,6 +98,7 @@ export default function AdminPlatformsPage() {
     setRows((data as PlatformRow[]) || []);
     setLoading(false);
   };
+
 
   useEffect(() => {
     load();
