@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Building, IdCard, Phone, BookOpen } from "lucide-react";
 
-const PREPARATORY_GRADES = [
+export const PREPARATORY_GRADES = [
   "الصف الأول الإعدادي",
   "الصف الثاني الإعدادي",
   "الصف الثالث الإعدادي",
