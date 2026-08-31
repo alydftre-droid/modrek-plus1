@@ -79,7 +79,9 @@ export const DEFAULT_WEB_RESEARCH_CONFIG: WebResearchConfig = {
     "ai-chat": true,
     "modrek-ai-study": true,
     "modrek-retrieve": true,
-    "modrek-ai-exams": false,
+    "modrek-ai-exams": true,
+    "library-chat": true,
+    "library-explain": true,
     "teacher-assistant": true,
   },
 };
