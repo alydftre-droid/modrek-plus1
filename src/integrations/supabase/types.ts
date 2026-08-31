@@ -4598,6 +4598,53 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_memberships: {
+        Row: {
+          id: string
+          joined_at: string
+          member_role: string
+          platform_id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          member_role?: string
+          platform_id: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          member_role?: string
+          platform_id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_memberships_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_platforms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_reserved_slugs: {
+        Row: {
+          slug: string
+        }
+        Insert: {
+          slug: string
+        }
+        Update: {
+          slug?: string
+        }
+        Relationships: []
+      }
       platform_settings: {
         Row: {
           created_at: string | null
@@ -5891,6 +5938,81 @@ export type Database = {
         }
         Relationships: []
       }
+      teacher_platform_subjects: {
+        Row: {
+          created_at: string
+          platform_id: string
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          platform_id: string
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          platform_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teacher_platform_subjects_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_platforms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "teacher_platform_subjects_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teacher_platforms: {
+        Row: {
+          brand_color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          owner_teacher_id: string
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_teacher_id: string
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_teacher_id?: string
+          slug?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       teacher_profiles: {
         Row: {
           achievements: Json
@@ -6698,6 +6820,18 @@ export type Database = {
             }
             Returns: Json
           }
+      admin_create_teacher_platform: {
+        Args: {
+          _brand_color?: string
+          _description?: string
+          _logo_url?: string
+          _name: string
+          _owner_teacher_id: string
+          _slug: string
+          _subject_ids: string[]
+        }
+        Returns: string
+      }
       admin_delete_overview_snapshot: { Args: { _id: string }; Returns: Json }
       admin_financial_close_preview: { Args: never; Returns: Json }
       admin_financial_overview: { Args: never; Returns: Json }
@@ -6759,6 +6893,17 @@ export type Database = {
         }[]
       }
       admin_list_overview_snapshots: { Args: never; Returns: Json }
+      admin_list_platform_students: {
+        Args: { _platform_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          joined_at: string
+          status: string
+          student_code: string
+          user_id: string
+        }[]
+      }
       admin_list_student_deposits: {
         Args: {
           _from?: string
@@ -6773,6 +6918,25 @@ export type Database = {
           _to?: string
         }
         Returns: Json
+      }
+      admin_list_teacher_platforms: {
+        Args: never
+        Returns: {
+          brand_color: string
+          created_at: string
+          description: string
+          id: string
+          logo_url: string
+          name: string
+          owner_teacher_id: string
+          slug: string
+          status: string
+          student_count: number
+          subject_ids: string[]
+          subject_names: string[]
+          teacher_email: string
+          teacher_name: string
+        }[]
       }
       admin_list_teacher_wallets: {
         Args: { _limit?: number; _offset?: number; _search?: string }
@@ -6819,6 +6983,10 @@ export type Database = {
           updated_count: number
           updated_ids: string[]
         }[]
+      }
+      admin_set_platform_status: {
+        Args: { _platform_id: string; _status: string }
+        Returns: undefined
       }
       admin_set_teacher_commission: {
         Args: {
@@ -6906,6 +7074,17 @@ export type Database = {
       admin_teacher_monthly_statement: {
         Args: { _period_label: string; _teacher_id: string }
         Returns: Json
+      }
+      admin_update_teacher_platform: {
+        Args: {
+          _brand_color?: string
+          _description?: string
+          _logo_url?: string
+          _name?: string
+          _platform_id: string
+          _subject_ids?: string[]
+        }
+        Returns: undefined
       }
       admin_withdrawal_scheduler_diagnostics: { Args: never; Returns: Json }
       ai_rate_limit_consume: {
@@ -7618,6 +7797,20 @@ export type Database = {
         Args: { _attempt_id: string }
         Returns: Json
       }
+      get_platform_by_slug: {
+        Args: { _slug: string }
+        Returns: {
+          brand_color: string
+          description: string
+          id: string
+          logo_url: string
+          name: string
+          owner_teacher_id: string
+          slug: string
+          status: string
+          teacher_name: string
+        }[]
+      }
       get_student_group_content_catalog: {
         Args: { _group_id: string; _sub_subject_id?: string }
         Returns: {
@@ -8110,6 +8303,19 @@ export type Database = {
         }
         Returns: number
       }
+      my_platform: {
+        Args: never
+        Returns: {
+          brand_color: string
+          id: string
+          logo_url: string
+          member_role: string
+          name: string
+          owner_teacher_id: string
+          slug: string
+          status: string
+        }[]
+      }
       normalize_content_education_type: {
         Args: { _value: string }
         Returns: string
@@ -8129,6 +8335,15 @@ export type Database = {
         Returns: string
       }
       normalize_price_scope_text: { Args: { p_value: string }; Returns: string }
+      platform_join_as_student: { Args: { _slug: string }; Returns: string }
+      platform_scope_ok: {
+        Args: { _owner_id: string; _viewer_id: string }
+        Returns: boolean
+      }
+      platform_subject_ok: {
+        Args: { _subject_id: string; _viewer_id: string }
+        Returns: boolean
+      }
       price_requires_education_split:
         | { Args: { p_category: string }; Returns: boolean }
         | {
@@ -8329,6 +8544,7 @@ export type Database = {
         Args: { _group_id: string; _subject_id: string; _term: string }
         Returns: boolean
       }
+      user_platform_id: { Args: { _user_id: string }; Returns: string }
       validate_financial_closing_functions: { Args: never; Returns: Json }
       validate_recharge_code: {
         Args: { code_text: string }
