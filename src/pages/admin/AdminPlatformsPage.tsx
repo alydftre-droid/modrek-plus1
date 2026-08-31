@@ -74,64 +74,19 @@ export default function AdminPlatformsPage() {
 
   const load = async () => {
     setLoading(true);
-    // Read the source tables directly. Unlike an RPC, this path does not depend
-    // on PostgREST's function-signature cache and therefore cannot raise PGRST202.
-    const [platformsResult, profilesResult, platformSubjectsResult, subjectsResult, membershipsResult] =
-      await Promise.all([
-        supabase.from("teacher_platforms")
-          .select("id, name, slug, description, logo_url, brand_color, status, owner_teacher_id, created_at")
-          .order("created_at", { ascending: false }),
-        supabase.from("profiles").select("id, full_name, email").eq("role", "teacher"),
-        supabase.from("teacher_platform_subjects").select("platform_id, subject_id"),
-        supabase.from("subjects").select("id, name"),
-        supabase.from("platform_memberships")
-          .select("platform_id")
-          .eq("member_role", "student")
-          .eq("status", "active"),
-      ]);
-
-    const loadError = platformsResult.error || profilesResult.error || platformSubjectsResult.error
-      || subjectsResult.error || membershipsResult.error;
-    if (loadError) {
+    const { data, error } = await supabase.rpc("admin_list_teacher_platforms");
+    if (error) {
       reportRpcError({
         title: "تعذر تحميل المنصات",
-        error: loadError,
-        operation: "تحميل بيانات منصات المعلمين",
+        error,
+        operation: "RPC admin_list_teacher_platforms",
         sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:77",
       });
       setRows([]);
       setLoading(false);
       return;
     }
-
-    const profilesById = new Map((profilesResult.data || []).map((profile) => [profile.id, profile]));
-    const subjectNamesById = new Map((subjectsResult.data || []).map((subject) => [subject.id, subject.name]));
-    const subjectsByPlatform = new Map<string, Array<{ id: string; name: string }>>();
-    for (const link of platformSubjectsResult.data || []) {
-      const linked = subjectsByPlatform.get(link.platform_id) || [];
-      linked.push({ id: link.subject_id, name: subjectNamesById.get(link.subject_id) || "مادة غير متاحة" });
-      subjectsByPlatform.set(link.platform_id, linked);
-    }
-    const studentsByPlatform = new Map<string, number>();
-    for (const membership of membershipsResult.data || []) {
-      studentsByPlatform.set(
-        membership.platform_id,
-        (studentsByPlatform.get(membership.platform_id) || 0) + 1,
-      );
-    }
-
-    setRows((platformsResult.data || []).map((platform) => {
-      const teacher = profilesById.get(platform.owner_teacher_id);
-      const linkedSubjects = subjectsByPlatform.get(platform.id) || [];
-      return {
-        ...platform,
-        teacher_name: teacher?.full_name || null,
-        teacher_email: teacher?.email || null,
-        subject_names: [...new Set(linkedSubjects.map((subject) => subject.name))],
-        subject_ids: linkedSubjects.map((subject) => subject.id),
-        student_count: studentsByPlatform.get(platform.id) || 0,
-      };
-    }));
+    setRows((data as PlatformRow[]) || []);
     setLoading(false);
   };
 
