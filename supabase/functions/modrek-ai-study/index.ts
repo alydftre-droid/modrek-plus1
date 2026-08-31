@@ -13,7 +13,7 @@ import {
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
-import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
+import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock, isDeepTeaching } from "../_shared/answerScope.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,6 +147,8 @@ Deno.serve(async (req) => {
     let knowledgeBlock = "";
     let allowExternal = true;
     let scopeBlock = "";
+    let deepTeaching = false;
+
     try {
       const lastUser = [...messages].reverse().find((m: any) => m.role === "user");
       const queryText = typeof lastUser?.content === "string"
@@ -165,6 +167,8 @@ Deno.serve(async (req) => {
         .filter(Boolean)
         .slice(-6, -1);
 
+      const earlyScope = resolveAnswerScopeFromMessages(messages);
+      deepTeaching = isDeepTeaching(earlyScope);
       const scope = await resolveStudentScope(adminEarly, userId);
       scopeBlock = buildStudentScopeBlock(scope);
 
@@ -174,7 +178,7 @@ Deno.serve(async (req) => {
           query: trimmedQ,
           history,
           contextSubject: (conversationContext as any)?.subject_name ?? null,
-          maxPassages: 8,
+          maxPassages: deepTeaching ? 24 : 8,
           surface: "modrek-ai-study",
           scope,
 
@@ -204,6 +208,7 @@ Deno.serve(async (req) => {
 
     // Intent -> scope -> length. Only controls answer size/scope, nothing else.
     const answerScope = resolveAnswerScopeFromMessages(messages);
+    deepTeaching = isDeepTeaching(answerScope);
     console.log("[modrek-ai-study] answer intent:", answerScope.intent);
 
     const systemPrompt = buildTeacherEnginePrompt(`${scopeBlock || `بيانات الطالب:
@@ -248,8 +253,14 @@ ${buildAnswerScopeBlock(answerScope)}`, { concise: !answerScope.expansive });
     const result = await callGeminiWithFallback({
       apiKey: GEMINI_API_KEY,
       models: ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
-      body: { temperature: 0.5, messages: gwMessages },
-      timeoutMs: 45000,
+      body: {
+        temperature: 0.5,
+        messages: gwMessages,
+        // Full-lesson explanations need the whole output budget so the answer
+        // is never cut short mid-lesson.
+        max_tokens: deepTeaching ? 16384 : 4096,
+      },
+      timeoutMs: deepTeaching ? 120000 : 45000,
     });
 
     if (!result.ok) {
