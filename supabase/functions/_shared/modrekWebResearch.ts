@@ -297,18 +297,28 @@ function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, "").toLowerCase(); } catch { return ""; }
 }
 
+/** المستوى 3 = رسمي (وزارة/أزهر/جامعة)، 2 = تعليمي موثوق، 1 = مقبول. */
+export function sourceTier(domain: string, trusted: string[]): number {
+  const d = String(domain || "").toLowerCase();
+  const isOfficial = /(^|\.)(moe\.gov\.eg|azhar\.eg|azhar\.edu\.eg|elearning\.moe\.gov\.eg)$/.test(d)
+    || /\.gov(\.|$)/.test(d) || /\.edu(\.|$)/.test(d);
+  if (isOfficial) return 3;
+  const matched = trusted.some((t) => d === t || d.endsWith(`.${t}`));
+  return matched ? 2 : 1;
+}
+
 function filterResults(results: WebResult[], config: WebResearchConfig): WebResult[] {
-  const blocked = new Set(config.blocked_domains);
+  const blocked = config.blocked_domains;
   const trusted = config.trusted_domains;
   const matches = (domain: string, list: string[]) => list.some((d) => domain === d || domain.endsWith(`.${d}`));
   const cleaned = results.filter((r) => {
     if (!r.url || !r.domain) return false;
-    if (matches(r.domain, [...blocked])) return false;
+    if (matches(r.domain, blocked)) return false;
     if (config.restrict_to_trusted && !matches(r.domain, trusted)) return false;
     return true;
   });
-  // Trusted educational sources first.
-  cleaned.sort((a, b) => Number(matches(b.domain, trusted)) - Number(matches(a.domain, trusted)));
+  // ترتيب جودة المصدر: رسمي ثم تعليمي موثوق ثم البقية.
+  cleaned.sort((a, b) => sourceTier(b.domain, trusted) - sourceTier(a.domain, trusted));
   return cleaned.slice(0, config.max_results);
 }
 
