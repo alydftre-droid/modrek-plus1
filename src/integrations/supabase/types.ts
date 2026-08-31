@@ -2661,6 +2661,7 @@ export type Database = {
           id: string
           language: string
           metadata: Json
+          platform_id: string | null
           publication_year: number | null
           publisher: string | null
           section_id: string | null
@@ -2685,6 +2686,7 @@ export type Database = {
           id?: string
           language?: string
           metadata?: Json
+          platform_id?: string | null
           publication_year?: number | null
           publisher?: string | null
           section_id?: string | null
@@ -2709,6 +2711,7 @@ export type Database = {
           id?: string
           language?: string
           metadata?: Json
+          platform_id?: string | null
           publication_year?: number | null
           publisher?: string | null
           section_id?: string | null
@@ -2736,6 +2739,13 @@ export type Database = {
             columns: ["grade_id"]
             isOneToOne: false
             referencedRelation: "library_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_platforms"
             referencedColumns: ["id"]
           },
           {
@@ -3233,6 +3243,7 @@ export type Database = {
           id: string
           page_count: number | null
           pdf_path: string | null
+          platform_id: string | null
           processing_error: string | null
           processing_progress: number
           processing_stage: string | null
@@ -3262,6 +3273,7 @@ export type Database = {
           id?: string
           page_count?: number | null
           pdf_path?: string | null
+          platform_id?: string | null
           processing_error?: string | null
           processing_progress?: number
           processing_stage?: string | null
@@ -3291,6 +3303,7 @@ export type Database = {
           id?: string
           page_count?: number | null
           pdf_path?: string | null
+          platform_id?: string | null
           processing_error?: string | null
           processing_progress?: number
           processing_stage?: string | null
@@ -3320,6 +3333,13 @@ export type Database = {
             columns: ["grade_id"]
             isOneToOne: false
             referencedRelation: "library_grades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "library_books_platform_id_fkey"
+            columns: ["platform_id"]
+            isOneToOne: false
+            referencedRelation: "teacher_platforms"
             referencedColumns: ["id"]
           },
           {
@@ -8335,15 +8355,33 @@ export type Database = {
         Returns: string
       }
       normalize_price_scope_text: { Args: { p_value: string }; Returns: string }
+      platform_actor_ok: { Args: { _owner: string }; Returns: boolean }
+      platform_attempt_ok: { Args: { _attempt_id: string }; Returns: boolean }
+      platform_book_ok: { Args: { _book_id: string }; Returns: boolean }
+      platform_content_ok: { Args: { _content_id: string }; Returns: boolean }
+      platform_exam_ok: { Args: { _exam_id: string }; Returns: boolean }
+      platform_group_ok: { Args: { _group_id: string }; Returns: boolean }
       platform_join_as_student: { Args: { _slug: string }; Returns: string }
+      platform_question_ok: { Args: { _question_id: string }; Returns: boolean }
+      platform_row_ok: { Args: { _platform_id: string }; Returns: boolean }
+      platform_scope_for_user: {
+        Args: { _user_id: string }
+        Returns: {
+          owner_teacher_id: string
+          platform_id: string
+          subject_ids: string[]
+        }[]
+      }
       platform_scope_ok: {
         Args: { _owner_id: string; _viewer_id: string }
         Returns: boolean
       }
+      platform_source_ok: { Args: { _source_id: string }; Returns: boolean }
       platform_subject_ok: {
         Args: { _subject_id: string; _viewer_id: string }
         Returns: boolean
       }
+      platform_version_ok: { Args: { _version_id: string }; Returns: boolean }
       price_requires_education_split:
         | { Args: { p_category: string }; Returns: boolean }
         | {
