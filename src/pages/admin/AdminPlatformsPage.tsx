@@ -9,12 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Building2, Plus, Copy, ExternalLink, Settings2, Users, Power, PowerOff, Archive, Loader2,
 } from "lucide-react";
 import { normalizePlatformSlug, platformUrl, platformFallbackUrl } from "@/lib/platformHost";
+import TeacherRegistrationForm, { type TeacherFormData } from "@/components/auth/TeacherRegistrationForm";
+import {
+  resolveSubjectGroups, resolveSubjectIds, scopeFromSubjectIds, type PlatformSubjectRow,
+} from "@/lib/platformSubjectResolution";
 
 interface PlatformRow {
   id: string;
@@ -34,7 +37,25 @@ interface PlatformRow {
 }
 
 interface TeacherOption { id: string; full_name: string; email: string | null }
-interface SubjectOption { id: string; name: string; stage: string | null; grade: string | null }
+type SubjectOption = PlatformSubjectRow;
+
+const EMPTY_SCOPE: TeacherFormData = {
+  school: "", employeeId: "", phone: "",
+  stages: [], grades: [], subject: "", subjects: [], educationType: "",
+  teachesIntegratedScience: false,
+};
+
+/** platforms/{platform_id}/branding/<file> — matches the storage RLS path contract. */
+async function uploadPlatformLogo(platformId: string, file: File) {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `platforms/${platformId}/branding/logo-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
+    upsert: true, contentType: file.type,
+  });
+  if (error) throw error;
+  return supabase.storage.from("teacher-profiles").getPublicUrl(path).data.publicUrl;
+}
+
 
 const STATUS_LABEL: Record<string, string> = {
   active: "نشطة",
