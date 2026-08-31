@@ -530,16 +530,19 @@ function CreatePlatformDialog({
 
 
         {step === 3 && (
-          <div className="space-y-2">
-            <Label>المواد المسموح بها داخل المنصة</Label>
-            <SubjectPicker
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pe-1">
+            <Label>المواد والصفوف المسموح بها داخل المنصة</Label>
+            <p className="text-xs text-muted-foreground">
+              نفس نظام اختيار المواد المستخدم في تسجيل المعلمين.
+            </p>
+            <TeacherScopePicker
+              scope={scope}
               subjects={subjects}
-              selected={subjectIds}
-              onToggle={(id) => setSubjectIds((prev) =>
-                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+              onChange={(patch) => setScope((prev) => ({ ...prev, ...patch }))}
             />
           </div>
         )}
+
 
         <DialogFooter className="gap-2">
           {step > 1 && <Button variant="outline" onClick={() => setStep(step - 1)}>السابق</Button>}
