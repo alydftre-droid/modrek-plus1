@@ -82,6 +82,20 @@ const SettingsPage = () => {
         ))}
 
         <button
+          onClick={() => navigate("/admin/platforms")}
+          className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-right w-full"
+        >
+          <div className="p-3 rounded-xl text-indigo-600 bg-indigo-100">
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <p className="font-semibold text-sm">منصات المعلمين</p>
+            <p className="text-xs text-muted-foreground">إنشاء منصة خاصة لمعلم واحد، تعديل الهوية، تفعيل/تعطيل الرابط</p>
+          </div>
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+        </button>
+
+        <button
           onClick={() => navigate("/admin/modrek-library")}
           className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors text-right w-full"
         >
