@@ -15,11 +15,11 @@ function stringifyFunctionMessage(value: unknown): string | undefined {
 export async function callStudyAssistant(input: {
   messages: any[];
   conversationContext?: Record<string, any>;
-}): Promise<{ reply: string }> {
+}): Promise<{ reply: string; diagram?: { format: "mermaid" | "svg"; code: string; title?: string } | null }> {
   const { data, error } = await supabase.functions.invoke("modrek-ai-study", { body: input });
   if (error) throw new Error(error.message || "تعذر الاتصال بالمساعد");
   if ((data as any)?.error) throw new Error((data as any).error);
-  return data as { reply: string };
+  return data as { reply: string; diagram?: { format: "mermaid" | "svg"; code: string; title?: string } | null };
 }
 
 function buildUserFacingExamError(body: any, fallback?: string) {
