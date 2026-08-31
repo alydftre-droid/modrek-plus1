@@ -480,7 +480,7 @@ function CreatePlatformDialog({
               <Label>اسم الرابط (slug)</Label>
               <Input value={slug} onChange={(e) => setSlug(normalizePlatformSlug(e.target.value))} placeholder="ahmed" />
               <p className="text-xs mt-1 text-muted-foreground break-all">
-                {slug ? platformUrl(slug) : "—"}
+                {slug ? platformFallbackUrl(slug) : "—"}
                 {slugState === "checking" && " · جارٍ التحقق..."}
                 {slugState === "free" && " · متاح ✅"}
                 {slugState === "taken" && " · غير متاح ❌"}
