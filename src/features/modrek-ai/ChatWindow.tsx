@@ -447,6 +447,9 @@ export default function ModrekChatWindow({
                 </div>
                 <div className="max-w-[92%] min-w-0 rounded-2xl rounded-tl-sm px-4 py-3 bg-white border border-slate-200 shadow-sm text-slate-900">
                   <RichMarkdown>{text}</RichMarkdown>
+                  {(m.metadata as any)?.diagram?.code && (
+                    <LessonDiagramCard diagram={(m.metadata as any).diagram} />
+                  )}
                   {examId && (
                     <Button
                       size="sm"
