@@ -315,6 +315,10 @@ Deno.serve(async (req) => {
             web_results: research.outcome.results,
             web_digest: research.outcome.digest,
             context_block: research.contextBlock || null,
+            mandate_block: research.mandateBlock || null,
+            citations: research.citations,
+            needs_fresh: research.evaluation.needs_fresh,
+            needs_verification: research.evaluation.needs_verification,
           }
         : null,
       image_ocr: imageOcr,
