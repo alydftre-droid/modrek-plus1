@@ -18,6 +18,7 @@ import TeacherRegistrationForm, { type TeacherFormData } from "@/components/auth
 import {
   resolveSubjectGroups, resolveSubjectIds, scopeFromSubjectIds, type PlatformSubjectRow,
 } from "@/lib/platformSubjectResolution";
+import { reportBackendError, reportRpcError } from "@/lib/rpcErrorReporter";
 
 interface PlatformRow {
   id: string;
@@ -74,7 +75,12 @@ export default function AdminPlatformsPage() {
   const load = async () => {
     setLoading(true);
     const { data, error } = await supabase.rpc("admin_list_teacher_platforms");
-    if (error) toast.error("تعذر تحميل المنصات: " + error.message);
+    if (error) reportRpcError({
+      title: "تعذر تحميل المنصات",
+      error,
+      operation: "RPC admin_list_teacher_platforms",
+      sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:77",
+    });
     setRows((data as PlatformRow[]) || []);
     setLoading(false);
   };
@@ -98,7 +104,13 @@ export default function AdminPlatformsPage() {
     const { error } = await supabase.rpc("admin_set_platform_status", {
       _platform_id: row.id, _status: status,
     });
-    if (error) return toast.error(error.message);
+    if (error) return reportRpcError({
+      title: "تعذر تحديث حالة المنصة",
+      error,
+      operation: "RPC admin_set_platform_status",
+      sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:104",
+      context: { platform_id: row.id, requested_status: status },
+    });
     toast.success("تم تحديث حالة المنصة");
     load();
   };
@@ -352,7 +364,9 @@ function CreatePlatformDialog({
       let ownerId = teacherId;
 
       if (teacherMode === "new") {
+        const traceId = crypto.randomUUID();
         const { data, error } = await supabase.functions.invoke("admin-create-platform-teacher", {
+          headers: { "x-trace-id": traceId },
           body: {
             full_name: newTeacherName.trim(),
             email: newTeacherEmail.trim(),
@@ -361,7 +375,14 @@ function CreatePlatformDialog({
         });
         const payload = data as { teacher_id?: string; error?: string } | null;
         if (error || !payload?.teacher_id) {
-          toast.error("تعذر إنشاء حساب المعلم: " + (payload?.error || error?.message || ""));
+          await reportBackendError({
+            title: "تعذر إنشاء حساب المعلم",
+            error: error || payload || new Error("لم تُرجع الوظيفة معرّف المعلم"),
+            responseData: payload,
+            operation: "Edge Function admin-create-platform-teacher",
+            sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:367",
+            context: { trace_id: traceId, teacher_email_domain: newTeacherEmail.split("@")[1] || null },
+          });
           return;
         }
         ownerId = payload.teacher_id;
@@ -377,7 +398,13 @@ function CreatePlatformDialog({
         _brand_color: brandColor || null,
       });
       if (error) {
-        toast.error("تعذر إنشاء المنصة: " + error.message);
+        reportRpcError({
+          title: "تعذر إنشاء المنصة",
+          error,
+          operation: "RPC admin_create_teacher_platform",
+          sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:392",
+          context: { owner_teacher_id: ownerId, subject_count: subjectIds.length, slug },
+        });
         return;
       }
 
@@ -394,7 +421,13 @@ function CreatePlatformDialog({
             _subject_ids: subjectIds,
           });
         } catch (e) {
-          toast.warning("تم إنشاء المنصة لكن تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+          reportRpcError({
+            title: "تم إنشاء المنصة لكن تعذر رفع الشعار",
+            error: e,
+            operation: "Storage teacher-profiles/platforms/branding",
+            sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:415",
+            context: { platform_id: platformId, file_type: logoFile.type, file_size: logoFile.size },
+          });
         }
       }
 
@@ -599,7 +632,13 @@ function ManagePlatformDialog({
       setLogoUrl(await uploadPlatformLogo(platform.id, file));
       toast.success("تم رفع الشعار — اضغط حفظ للتأكيد");
     } catch (e) {
-      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+      reportRpcError({
+        title: "تعذر رفع الشعار",
+        error: e,
+        operation: "Storage teacher-profiles/platforms/branding",
+        sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:625",
+        context: { platform_id: platform.id, file_type: file.type, file_size: file.size },
+      });
     } finally {
       setUploadingLogo(false);
     }
@@ -618,7 +657,13 @@ function ManagePlatformDialog({
       _subject_ids: subjectIds,
     });
     setSaving(false);
-    if (error) return toast.error(error.message);
+    if (error) return reportRpcError({
+      title: "تعذر حفظ تعديلات المنصة",
+      error,
+      operation: "RPC admin_update_teacher_platform",
+      sourceHint: "src/pages/admin/AdminPlatformsPage.tsx:650",
+      context: { platform_id: platform.id, subject_count: subjectIds.length },
+    });
     toast.success("تم حفظ التعديلات");
     onOpenChange(false);
     onSaved();
