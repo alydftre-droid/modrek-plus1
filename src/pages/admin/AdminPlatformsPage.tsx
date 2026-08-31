@@ -638,8 +638,25 @@ function ManagePlatformDialog({
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <Label>رابط الشعار</Label>
-            <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
+            <Label>شعار المنصة</Label>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="h-14 w-14 rounded-xl overflow-hidden border flex items-center justify-center shrink-0"
+                style={{ background: brandColor }}>
+                {logoUrl
+                  ? <img src={logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
+                  : <Building2 className="h-5 w-5 text-white" />}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Input type="file" accept="image/*" disabled={uploadingLogo}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="رابط الشعار https://..." />
+              </div>
+            </div>
+            {uploadingLogo && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> جارٍ رفع الشعار...
+              </p>
+            )}
           </div>
           <div>
             <Label>لون الهوية</Label>
@@ -650,14 +667,14 @@ function ManagePlatformDialog({
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
           <div>
-            <Label>المواد</Label>
-            <SubjectPicker
+            <Label>المواد والصفوف</Label>
+            <TeacherScopePicker
+              scope={scope}
               subjects={subjects}
-              selected={subjectIds}
-              onToggle={(id) => setSubjectIds((prev) =>
-                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+              onChange={(patch) => setScope((prev) => ({ ...prev, ...patch }))}
             />
           </div>
+
           <div>
             <Label>طلاب المنصة ({students.length})</Label>
             <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
