@@ -210,6 +210,18 @@ const RouteFallback = () => (
 const PlatformLanding = lazy(() => import("./pages/platform/PlatformLanding"));
 const AdminPlatformsPage = lazy(() => import("./pages/admin/AdminPlatformsPage"));
 
+/**
+ * Root route: on a teacher-platform subdomain (ahmed.modrekplus.com) the home
+ * page is the tenant landing page, never the official Modrek Plus marketing
+ * page. On the official domain it stays the normal landing page.
+ */
+function TenantHome() {
+  const slug = platformSlugFromHostname(
+    typeof window === "undefined" ? "" : window.location.hostname,
+  );
+  return slug ? <PlatformLanding /> : <Index />;
+}
+
 function AnimatedRoutes() {
   return (
     <PageTransition>
@@ -217,8 +229,9 @@ function AnimatedRoutes() {
       <Suspense fallback={<RouteFallback />}>
       <Routes>
               {/* Public */}
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<TenantHome />} />
               <Route path="/p/:slug" element={<PlatformLanding />} />
+
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
