@@ -1180,7 +1180,10 @@ export function buildStudentScopeBlock(scope: StudentScope): string {
 - الشعبة: ${scope.labels.track || "غير محددة"}`;
 }
 
-export function buildLibraryContextBlock(result: LibraryRagResult): string {
+export function buildLibraryContextBlock(
+  result: LibraryRagResult,
+  opts: { researchActive?: boolean } = {},
+): string {
   const parts: string[] = [];
 
   if (result.understanding.intent === "list_books") {
