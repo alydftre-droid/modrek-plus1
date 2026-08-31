@@ -52,6 +52,69 @@ export interface ReportRpcErrorOptions {
   duration?: number;
 }
 
+type BackendErrorDetails = {
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+  status?: number | null;
+  trace_id?: string | null;
+  stage?: string | null;
+  source?: string | null;
+};
+
+async function readFunctionResponse(error: unknown): Promise<BackendErrorDetails> {
+  const err = (error || {}) as Record<string, any>;
+  const response = err.context;
+  if (!(response instanceof Response)) return {};
+
+  let body: BackendErrorDetails = {};
+  try {
+    const text = await response.clone().text();
+    if (text) {
+      try {
+        body = JSON.parse(text) as BackendErrorDetails;
+      } catch {
+        body = { details: text.slice(0, 1500) };
+      }
+    }
+  } catch {
+    // The response body may already be consumed; headers/status still help.
+  }
+
+  return {
+    ...body,
+    status: body.status || response.status,
+    trace_id: body.trace_id || response.headers.get("x-trace-id"),
+  };
+}
+
+/**
+ * Edge Function equivalent of reportRpcError. It reads the actual non-2xx
+ * response body instead of reducing every failure to "Edge Function returned...".
+ */
+export async function reportBackendError(
+  opts: ReportRpcErrorOptions & { responseData?: unknown },
+): Promise<void> {
+  const responseBody = await readFunctionResponse(opts.error);
+  const suppliedBody = opts.responseData && typeof opts.responseData === "object"
+    ? opts.responseData as BackendErrorDetails
+    : {};
+  const original = (opts.error || {}) as Record<string, any>;
+  const merged = { ...original, ...responseBody, ...suppliedBody };
+  reportRpcError({
+    ...opts,
+    error: merged,
+    context: {
+      ...opts.context,
+      trace_id: merged.trace_id || null,
+      backend_stage: merged.stage || null,
+      backend_source: merged.source || null,
+      http_status: merged.status || null,
+    },
+  });
+}
+
 export function reportRpcError(opts: ReportRpcErrorOptions): void {
   const { title, error, operation, context, sourceHint, duration = 12000 } = opts;
   const err = (error || {}) as Record<string, any>;
@@ -96,6 +159,10 @@ export function reportRpcError(opts: ReportRpcErrorOptions): void {
     hint ? `hint: ${hint}` : null,
     details ? `details: ${details}` : null,
     `source: ${payload.source}`,
+    context?.backend_source ? `backend source: ${context.backend_source}` : null,
+    context?.backend_stage ? `backend stage: ${context.backend_stage}` : null,
+    context?.http_status ? `HTTP status: ${context.http_status}` : null,
+    context?.trace_id ? `Trace ID: ${context.trace_id}` : null,
   ]
     .filter(Boolean)
     .join("\n");
