@@ -242,30 +242,44 @@ export default function AdminPlatformsPage() {
   );
 }
 
-function SubjectPicker({
-  subjects, selected, onToggle,
-}: { subjects: SubjectOption[]; selected: string[]; onToggle: (id: string) => void }) {
-  const [q, setQ] = useState("");
-  const filtered = subjects.filter((s) =>
-    !q || s.name.includes(q) || (s.grade || "").includes(q) || (s.stage || "").includes(q));
+/**
+ * Reuses the OFFICIAL teacher-registration selection screen (stage → grades → subjects
+ * → education type) and shows which real subject rows it resolves to.
+ */
+function TeacherScopePicker({
+  scope, onChange, subjects,
+}: { scope: TeacherFormData; onChange: (patch: Partial<TeacherFormData>) => void; subjects: SubjectOption[] }) {
+  const groups = useMemo(() => resolveSubjectGroups(scope, subjects), [scope, subjects]);
   return (
-    <div className="space-y-2">
-      <Input placeholder="ابحث عن مادة..." value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="max-h-56 overflow-y-auto rounded-lg border divide-y">
-        {filtered.map((s) => (
-          <label key={s.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-muted/40">
-            <Checkbox checked={selected.includes(s.id)} onCheckedChange={() => onToggle(s.id)} />
-            <span className="truncate">{s.name}</span>
-            <span className="text-xs text-muted-foreground ms-auto">{s.grade || s.stage || ""}</span>
-          </label>
-        ))}
-        {filtered.length === 0 && (
-          <p className="p-3 text-xs text-muted-foreground">لا نتائج</p>
+    <div className="space-y-4">
+      <TeacherRegistrationForm
+        formData={scope}
+        onChange={onChange}
+        errors={{}}
+        hidePersonalFields
+      />
+      <div className="rounded-lg border p-3 space-y-2">
+        <p className="text-xs font-semibold">
+          المواد الرسمية التي سيتم ربطها بالمنصة ({groups.reduce((n, g) => n + g.ids.length, 0)})
+        </p>
+        {groups.length === 0 ? (
+          <p className="text-xs text-muted-foreground">اختر المرحلة والصفوف والمواد أعلاه.</p>
+        ) : (
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {groups.map((g) => (
+              <div key={`${g.selection}-${g.grade}`} className="text-xs flex items-start gap-2">
+                <Badge variant="outline" className="text-[10px] shrink-0">{g.grade}</Badge>
+                <span className="font-medium shrink-0">{g.selection}</span>
+                <span className="text-muted-foreground truncate">{g.names.join("، ")}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 }
+
 
 function CreatePlatformDialog({
   open, onOpenChange, teachers, subjects, onCreated,
