@@ -683,7 +683,7 @@ function ManagePlatformDialog({
       <DialogContent dir="rtl" className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>إدارة المنصة</DialogTitle>
-          <DialogDescription>{platform ? platformUrl(platform.slug) : ""}</DialogDescription>
+          <DialogDescription>{platform ? platformFallbackUrl(platform.slug) : ""}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
