@@ -20,6 +20,7 @@ import {
 import { getAccessibleLibraryBook } from "../_shared/auth.ts";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import { resolveAnswerScope, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
+import { hybridResearch } from "../_shared/modrekWebResearch.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
