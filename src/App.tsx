@@ -469,6 +469,7 @@ function App() {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <AuthProvider>
         <BrowserRouter>
+          <PlatformProvider>
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
@@ -483,7 +484,9 @@ function App() {
           <AppUpdateDialog />
           <PlatformBrandBar />
           <AnimatedRoutes />
+          </PlatformProvider>
         </BrowserRouter>
+
         <Toaster />
         <ShadcnToaster />
       </AuthProvider>
