@@ -254,6 +254,25 @@ export interface LibraryBookRef {
   access_tier: string | null;
   /** The platform currently has two upload pipelines; retrieval must read both. */
   pipeline: "library" | "knowledge";
+  /** Semantic purpose of the uploaded source (book, notes, exam, ...). */
+  source_type: string;
+}
+
+const INSTRUCTIONAL_SOURCE_TYPES = new Set(["book", "booklet", "notes", "summary", "teacher_file", "other"]);
+const ASSESSMENT_SOURCE_TYPES = new Set(["exam", "ministry_model", "question_bank", "worksheet"]);
+
+/**
+ * A request to explain a lesson must never be grounded on an exam, answer key,
+ * question bank, or worksheet. Assessment sources are only evidence for an
+ * explicitly assessment-oriented request (solve/review/generate an exam).
+ */
+export function sourceTypeAllowedForIntent(sourceType: string, intent: ModrekIntent): boolean {
+  const type = String(sourceType || "book").toLowerCase();
+  if (intent === "list_books") return true;
+  if (intent === "solve_question" || intent === "review") {
+    return INSTRUCTIONAL_SOURCE_TYPES.has(type) || ASSESSMENT_SOURCE_TYPES.has(type);
+  }
+  return INSTRUCTIONAL_SOURCE_TYPES.has(type);
 }
 
 export type PassageSource = "page" | "lesson_pages" | "vector" | "keyword_chunk" | "keyword_page" | "outline_sample";
@@ -268,6 +287,7 @@ export interface LibraryPassage {
   page_to: number | null;
   score: number;
   source: PassageSource;
+  source_type: string;
   similarity?: number | null;
   keyword_rank?: number | null;
 }
@@ -390,7 +410,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
     (() => {
       let modern = admin
         .from("knowledge_sources")
-        .select("id,title,term,grade_id,track_id,stage_id,section_id,subject_id,sub_subject_id")
+        .select("id,title,term,grade_id,track_id,stage_id,section_id,subject_id,sub_subject_id,source_type:knowledge_source_types(code)")
         .eq("status", "ready")
         .order("created_at", { ascending: false })
         .limit(200);
@@ -449,6 +469,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
       page_count: b.page_count ?? null,
       access_tier: tier,
       pipeline: "library",
+      source_type: "book",
     });
   }
 
@@ -488,6 +509,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
         page_count: null,
         access_tier: "free",
         pipeline: "knowledge",
+        source_type: String(Array.isArray(b.source_type) ? b.source_type[0]?.code : b.source_type?.code || "other"),
       });
     }
   }
@@ -838,9 +860,10 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
   if (!scope.gradeCode) notes.push("لم يتم تحديد صف الطالب في ملفه الشخصي بدقة.");
   if (!accessible.length) reasons.push("no_accessible_books_for_scope");
 
+  const intentCompatible = accessible.filter((b) => sourceTypeAllowedForIntent(b.source_type, understanding.intent));
   const subjectBooks = understanding.subject
-    ? accessible.filter((b) => subjectMatches({ subject_name_ar: b.subject, sub_subject_name: b.sub_subject, title: b.title }, understanding.subject))
-    : accessible;
+    ? intentCompatible.filter((b) => subjectMatches({ subject_name_ar: b.subject, sub_subject_name: b.sub_subject, title: b.title }, understanding.subject))
+    : intentCompatible;
 
   const trace: RagTrace = {
     query: String(args.query || "").slice(0, 500),
@@ -945,6 +968,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       page_to: p.page_number ?? null,
       score,
       source,
+      source_type: book.source_type,
     });
   };
 
@@ -1008,6 +1032,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       page_to: row.page_number ?? row.page_to ?? null,
       score: 0.5 + Number(row.similarity || 0) * 0.45,
       source: "vector",
+      source_type: (bookById.get(bookId) || selected).source_type,
       similarity: Number(row.similarity || 0),
     });
   }
@@ -1023,6 +1048,7 @@ export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promi
       page_to: row.page_number ?? null,
       score: 0.55 + Number(row.rank || 0) * 0.4,
       source: "keyword_chunk",
+      source_type: (bookById.get(bookId) || selected).source_type,
       keyword_rank: Number(row.rank || 0),
     });
   }

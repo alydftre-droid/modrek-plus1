@@ -1173,27 +1173,13 @@ async function retrieveStudyContext(admin: any, subjectId: string, query: string
       .or(`title.ilike.${like},description.ilike.${like},sub_subject.ilike.${like}`)
       .limit(5);
 
-    let unitQuery = admin
-      .from("knowledge_units")
-      .select("title, content_text, page_from, page_to, knowledge_source_versions!inner(source_id, knowledge_sources!inner(title, subject_id))")
-      .or(`title.ilike.${like},content_text.ilike.${like}`)
-      .limit(5);
-
-    if (librarySubjectIds.length > 0) {
-      unitQuery = unitQuery.in("knowledge_source_versions.knowledge_sources.subject_id", librarySubjectIds);
-    } else {
-      unitQuery = unitQuery.eq("knowledge_source_versions.knowledge_sources.subject_id", subjectId);
-    }
-
-    const [{ data: contentRows }, { data: unitRows }, { data: chunkRows }] = await Promise.all([
-      contentQuery,
-      unitQuery,
-      admin
-        .from("content_chunks")
-        .select("content, metadata")
-        .textSearch("search_tsv", keys.join(" | "), { type: "websearch" })
-        .limit(5),
-    ]);
+    // The unified RAG above is the sole reader for knowledge_sources because it
+    // enforces grade, subject, lesson lock and source purpose. The old fallback
+    // searched content_chunks globally and could feed a training exam to a
+    // lesson request. Keep this fallback limited to teacher course lessons.
+    const [{ data: contentRows }] = await Promise.all([contentQuery]);
+    const unitRows: any[] = [];
+    const chunkRows: any[] = [];
 
     diagnostics.rag.contentRows = (contentRows || []).length;
     diagnostics.rag.knowledgeRows = (unitRows || []).length;

@@ -9,6 +9,7 @@ import {
   understandQuery,
   listAccessibleBooks,
   retrieveFromLibrary,
+  sourceTypeAllowedForIntent,
   buildStudentScopeBlock,
   buildLibraryContextBlock,
 } from "./modrekLibraryRag.ts";
@@ -175,6 +176,22 @@ Deno.test("unit request is detected as unit, not lesson", () => {
   assertEquals(u.lesson?.number, 3);
 });
 
+Deno.test("lesson explanations reject exam and question-bank sources", () => {
+  assertEquals(sourceTypeAllowedForIntent("book", "explain_lesson"), true);
+  assertEquals(sourceTypeAllowedForIntent("notes", "explain_lesson"), true);
+  assertEquals(sourceTypeAllowedForIntent("exam", "explain_lesson"), false);
+  assertEquals(sourceTypeAllowedForIntent("ministry_model", "explain_lesson"), false);
+  assertEquals(sourceTypeAllowedForIntent("question_bank", "explain_lesson"), false);
+  assertEquals(sourceTypeAllowedForIntent("worksheet", "explain_lesson"), false);
+});
+
+Deno.test("assessment requests may use assessment sources", () => {
+  assertEquals(sourceTypeAllowedForIntent("exam", "generate_exam"), false);
+  assertEquals(sourceTypeAllowedForIntent("question_bank", "generate_exam"), false);
+  assertEquals(sourceTypeAllowedForIntent("question_bank", "solve_question"), true);
+  assertEquals(sourceTypeAllowedForIntent("book", "generate_exam"), true);
+});
+
 // ------------------------------------------------------ curriculum shielding -
 
 const BOOKS = [
@@ -280,6 +297,42 @@ Deno.test("retrieval reads a ready Modrek upload from knowledge_sources/content_
   assertEquals(rag.selected_book?.pipeline, "knowledge");
   assertEquals(rag.lesson?.title, "الدرس الأول: الحديث الشريف");
   assert(rag.passages.some((p) => p.text.includes("مكانته")));
+});
+
+Deno.test("lesson request never explains an uploaded exam as if it were a book", async () => {
+  const examSource = {
+    id: "ks-fiqh-exam", title: "الورقة الامتحانية التجريبية في الفقه", status: "ready",
+    stage_id: "st-sec", grade_id: "g-sec2", section_id: "sc-gen", track_id: null,
+    subject_id: "subject-fiqh", sub_subject_id: null, term: 1,
+    source_type: { code: "exam" },
+  };
+  (TAX as any).library_subjects = [{ id: "subject-fiqh", name_ar: "الفقه" }];
+  (TAX as any).library_sub_subjects = [];
+  const admin = stubClient({
+    profiles: [GENERAL_SCI_SEC2],
+    library_books: [],
+    knowledge_sources: [examSource],
+    knowledge_lesson_index: [{
+      source_id: examSource.id, unit_id: "exam-unit", title: "الدرس الأول في الفقه",
+      kind: "lesson", lesson_number: 1, number_source: "explicit", ordinal: 1,
+    }],
+    content_chunks: [{
+      id: "exam-question", source_id: examSource.id, unit_id: "exam-unit", ordinal: 1,
+      content: "ما هو زمن الإجابة المخصص لامتحان الفقه؟ ساعتان.",
+      metadata: { lesson_unit_id: "exam-unit" },
+    }],
+  });
+
+  const rag = await retrieveFromLibrary(admin, {
+    userId: GENERAL_SCI_SEC2.id,
+    query: "اشرح الدرس الأول في الفقه",
+    log: false,
+  });
+
+  assertEquals(rag.found, false);
+  assertEquals(rag.subject_books.length, 0);
+  assertEquals(rag.passages.length, 0);
+  assert(!buildLibraryContextBlock(rag).includes("زمن الإجابة"));
 });
 
 Deno.test("subject outside the student's library returns a clean not-found", async () => {
