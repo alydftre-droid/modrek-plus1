@@ -63,6 +63,11 @@ export function enforceCanonicalRuntimeOrigin() {
   const expectedOrigin = "https://modrekplus.com";
   if (window.location.origin === expectedOrigin) return;
 
+  // Teacher platforms live on subdomains of the canonical domain
+  // (e.g. https://ahmed.modrekplus.com). They are first-class tenants and must
+  // NOT be redirected back to the root domain.
+  if (/^https:\/\/[a-z0-9-]+\.modrekplus\.com$/.test(window.location.origin)) return;
+
   // Web-only canonical enforcement: never redirect from localhost/capacitor
   // (covers dev and any embedded webview contexts).
   const origin = window.location.origin;

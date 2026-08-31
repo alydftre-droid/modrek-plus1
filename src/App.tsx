@@ -18,6 +18,8 @@ import TikTokPixelTracker from "@/components/TikTokPixelTracker";
 
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { PlatformProvider } from "@/hooks/usePlatform";
+import PlatformBrandBar from "@/components/platform/PlatformBrandBar";
 import LazyRouteBoundary from "@/components/LazyRouteBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
 import { DATA_SCHEMA_VERSION } from "@/lib/dataIntegrity/cacheVersion";
@@ -205,6 +207,9 @@ const RouteFallback = () => (
   </div>
 );
 
+const PlatformLanding = lazy(() => import("./pages/platform/PlatformLanding"));
+const AdminPlatformsPage = lazy(() => import("./pages/admin/AdminPlatformsPage"));
+
 function AnimatedRoutes() {
   return (
     <PageTransition>
@@ -213,6 +218,7 @@ function AnimatedRoutes() {
       <Routes>
               {/* Public */}
               <Route path="/" element={<Index />} />
+              <Route path="/p/:slug" element={<PlatformLanding />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
@@ -364,6 +370,7 @@ function AnimatedRoutes() {
               <Route path="/admin/modrek-analytics" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekAnalyticsPage /></ProtectedRoute>} />
               <Route path="/admin/modrek-indexing" element={<ProtectedRoute allowedRoles={["admin"]}><ModrekIndexingDiagnosticsPage /></ProtectedRoute>} />
 
+              <Route path="/admin/platforms" element={<ProtectedRoute allowedRoles={["admin"]}><AdminPlatformsPage /></ProtectedRoute>} />
               <Route path="/admin/student-wallets" element={<ProtectedRoute allowedRoles={["admin"]}><StudentWalletPage /></ProtectedRoute>} />
               <Route path="/admin/student-wallets/:id" element={<ProtectedRoute allowedRoles={["admin"]}><StudentDepositDetailPage /></ProtectedRoute>} />
 
@@ -464,6 +471,7 @@ function App() {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <AuthProvider>
         <BrowserRouter>
+          <PlatformProvider>
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
@@ -476,8 +484,11 @@ function App() {
           <StudentDsScope />
           <AppSplash />
           <AppUpdateDialog />
+          <PlatformBrandBar />
           <AnimatedRoutes />
+          </PlatformProvider>
         </BrowserRouter>
+
         <Toaster />
         <ShadcnToaster />
       </AuthProvider>
