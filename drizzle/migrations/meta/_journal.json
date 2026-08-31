@@ -57,6 +57,13 @@
       "when": 1788198613424,
       "tag": "0007_platform_branding_policies_on_teacher_profiles_bucket",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788204606341,
+      "tag": "0008_grant_teacher_platform_data_api_access",
+      "breakpoints": true
     }
   ]
 }
