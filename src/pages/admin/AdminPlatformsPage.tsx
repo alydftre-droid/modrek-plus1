@@ -295,7 +295,8 @@ function CreatePlatformDialog({
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
   const [brandColor, setBrandColor] = useState("#2563eb");
   const [teacherMode, setTeacherMode] = useState<"existing" | "new">("existing");
   const [teacherId, setTeacherId] = useState("");
@@ -303,14 +304,17 @@ function CreatePlatformDialog({
   const [newTeacherName, setNewTeacherName] = useState("");
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [newTeacherPassword, setNewTeacherPassword] = useState("");
-  const [subjectIds, setSubjectIds] = useState<string[]>([]);
+  const [scope, setScope] = useState<TeacherFormData>(EMPTY_SCOPE);
   const [slugState, setSlugState] = useState<"idle" | "checking" | "free" | "taken">("idle");
   const [saving, setSaving] = useState(false);
+
+  const subjectIds = useMemo(() => resolveSubjectIds(scope, subjects), [scope, subjects]);
 
   useEffect(() => {
     if (!open) {
       setStep(1); setName(""); setSlug(""); setDescription(""); setLogoUrl("");
-      setBrandColor("#2563eb"); setTeacherId(""); setSubjectIds([]); setSlugState("idle");
+      setLogoFile(null); setLogoPreview("");
+      setBrandColor("#2563eb"); setTeacherId(""); setScope(EMPTY_SCOPE); setSlugState("idle");
       setTeacherMode("existing"); setNewTeacherName(""); setNewTeacherEmail(""); setNewTeacherPassword("");
     }
   }, [open]);
@@ -331,25 +335,15 @@ function CreatePlatformDialog({
   const filteredTeachers = teachers.filter((t) =>
     !teacherQuery || (t.full_name || "").includes(teacherQuery) || (t.email || "").includes(teacherQuery));
 
-  const uploadLogo = async (file: File) => {
+  /**
+   * The logo is stored under platforms/{platform_id}/branding/, so the file is kept
+   * locally during the wizard and uploaded right after the platform row exists.
+   */
+  const pickLogo = (file: File) => {
     if (!file.type.startsWith("image/")) return toast.error("اختر صورة صحيحة");
     if (file.size > 5 * 1024 * 1024) return toast.error("حجم الشعار يجب أن يكون أقل من 5 ميجابايت");
-    setUploadingLogo(true);
-    try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const path = `platform-logos/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
-        upsert: true, contentType: file.type,
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-      setLogoUrl(data.publicUrl);
-      toast.success("تم رفع الشعار");
-    } catch (e) {
-      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
-    } finally {
-      setUploadingLogo(false);
-    }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
   };
 
   const submit = async () => {
@@ -373,7 +367,7 @@ function CreatePlatformDialog({
         ownerId = payload.teacher_id;
       }
 
-      const { error } = await supabase.rpc("admin_create_teacher_platform", {
+      const { data: newId, error } = await supabase.rpc("admin_create_teacher_platform", {
         _name: name,
         _slug: slug,
         _owner_teacher_id: ownerId,
@@ -386,6 +380,24 @@ function CreatePlatformDialog({
         toast.error("تعذر إنشاء المنصة: " + error.message);
         return;
       }
+
+      const platformId = newId as unknown as string;
+      if (logoFile && platformId) {
+        try {
+          const url = await uploadPlatformLogo(platformId, logoFile);
+          await supabase.rpc("admin_update_teacher_platform", {
+            _platform_id: platformId,
+            _name: name,
+            _description: description || null,
+            _logo_url: url,
+            _brand_color: brandColor || null,
+            _subject_ids: subjectIds,
+          });
+        } catch (e) {
+          toast.warning("تم إنشاء المنصة لكن تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+        }
+      }
+
       toast.success("تم إنشاء المنصة بنجاح");
       onOpenChange(false);
       onCreated();
