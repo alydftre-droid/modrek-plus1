@@ -87,7 +87,7 @@ export default function AdminPlatformsPage() {
   };
 
   return (
-    <div dir="rtl" className="space-y-6">
+    <div dir="rtl" className="min-h-screen p-4 md:p-8 max-w-6xl mx-auto space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl gradient-mudrik flex items-center justify-center">
