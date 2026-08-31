@@ -159,9 +159,32 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: fullName, role: "teacher" },
     });
     if (createErr || !created.user) {
+      // Orphan auth user (no profiles row) from a previously failed attempt:
+      // adopt it instead of dead-ending the wizard.
+      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const orphan = list?.users?.find((u) => (u.email || "").toLowerCase() === email);
+      if (orphan) {
+        await admin.auth.admin.updateUserById(orphan.id, {
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: fullName, role: "teacher" },
+        });
+        await admin.from("profiles").upsert({
+          id: orphan.id, full_name: fullName, email, phone, role: "teacher",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" });
+        await admin.from("user_roles").upsert({ user_id: orphan.id, role: "teacher" }, { onConflict: "user_id,role" });
+        await admin.from("user_roles").delete().eq("user_id", orphan.id).eq("role", "student");
+        await admin.from("teacher_profiles").upsert(
+          { teacher_id: orphan.id, is_approved: true, updated_at: new Date().toISOString() },
+          { onConflict: "teacher_id" },
+        );
+        return json({ teacher_id: orphan.id, email, full_name: fullName, reused: true, trace_id: traceId }, 200, traceId);
+      }
       return fail("تعذر إنشاء مستخدم المعلم في نظام المصادقة", 400, "create_auth_user", createErr?.message);
     }
     const teacherId = created.user.id;
+
 
     const cleanup = async (reason: string) => {
       console.error("[admin-create-platform-teacher] rollback:", reason);
