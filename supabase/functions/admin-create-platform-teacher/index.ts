@@ -71,33 +71,85 @@ Deno.serve(async (req) => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail("البريد الإلكتروني غير صحيح", 400, "validate_input");
     if (password.length < 8) return fail("كلمة المرور يجب أن تكون 8 أحرف على الأقل", 400, "validate_input");
 
-    // If the email already exists we reuse the account when it is a teacher,
-    // instead of blocking the whole platform wizard with a 409.
+    // If the email already exists we reuse the account instead of blocking the
+    // whole platform wizard. A leftover account from a previously failed run is
+    // still flagged `student` by the signup trigger, so we promote it to teacher
+    // as long as it has no real student footprint and is not an admin.
     const { data: existingProfile } = await admin
       .from("profiles")
       .select("id, role, full_name")
       .eq("email", email)
       .maybeSingle();
     if (existingProfile) {
-      if (existingProfile.role !== "teacher") {
-        return fail("هذا البريد مستخدم بالفعل لحساب غير معلم، اختر بريدًا آخر", 409, "check_duplicate_profile");
+      const teacherId = existingProfile.id;
+
+      const { data: roles } = await admin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", teacherId);
+      const roleList = (roles || []).map((r) => String(r.role));
+
+      if (roleList.includes("admin")) {
+        return fail("هذا البريد يخص حساب مطور، اختر بريدًا آخر", 409, "check_duplicate_profile");
       }
+
+      const isTeacherAlready = existingProfile.role === "teacher" || roleList.includes("teacher");
+      if (!isTeacherAlready) {
+        const [subs, attempts, choices, wallet] = await Promise.all([
+          admin.from("subscriptions").select("id", { count: "exact", head: true }).eq("student_id", teacherId),
+          admin.from("exam_attempts").select("id", { count: "exact", head: true }).eq("student_id", teacherId),
+          admin.from("student_teacher_choices").select("id", { count: "exact", head: true }).eq("student_id", teacherId),
+          admin.from("wallets").select("balance").eq("user_id", teacherId).maybeSingle(),
+        ]);
+        const footprint = (subs.count || 0) + (attempts.count || 0) + (choices.count || 0);
+        const balance = Number(wallet.data?.balance || 0);
+        if (footprint > 0 || balance > 0) {
+          return fail(
+            "هذا البريد مستخدم بالفعل لحساب طالب فعلي (لديه بيانات دراسية)، اختر بريدًا آخر",
+            409,
+            "check_duplicate_profile",
+          );
+        }
+      }
+
+      // Promote / repair the account into a clean teacher account.
+      const { error: promoteErr } = await admin.from("profiles").update({
+        role: "teacher",
+        full_name: existingProfile.full_name || fullName,
+        phone: phone ?? undefined,
+        updated_at: new Date().toISOString(),
+      }).eq("id", teacherId);
+      if (promoteErr) {
+        return fail("تعذر تحويل الحساب الموجود إلى حساب معلم", 400, "promote_existing_profile", promoteErr.message);
+      }
+
       await admin.from("user_roles").upsert(
-        { user_id: existingProfile.id, role: "teacher" },
+        { user_id: teacherId, role: "teacher" },
         { onConflict: "user_id,role" },
       );
+      await admin.from("user_roles").delete().eq("user_id", teacherId).eq("role", "student");
       await admin.from("teacher_profiles").upsert(
-        { teacher_id: existingProfile.id, is_approved: true, updated_at: new Date().toISOString() },
+        { teacher_id: teacherId, is_approved: true, updated_at: new Date().toISOString() },
         { onConflict: "teacher_id" },
       );
+      if (password.length >= 8) {
+        await admin.auth.admin.updateUserById(teacherId, {
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: existingProfile.full_name || fullName, role: "teacher" },
+        });
+      }
+
       return json({
-        teacher_id: existingProfile.id,
+        teacher_id: teacherId,
         email,
         full_name: existingProfile.full_name || fullName,
         reused: true,
+        promoted: !isTeacherAlready,
         trace_id: traceId,
       }, 200, traceId);
     }
+
 
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -107,9 +159,32 @@ Deno.serve(async (req) => {
       user_metadata: { full_name: fullName, role: "teacher" },
     });
     if (createErr || !created.user) {
+      // Orphan auth user (no profiles row) from a previously failed attempt:
+      // adopt it instead of dead-ending the wizard.
+      const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const orphan = list?.users?.find((u) => (u.email || "").toLowerCase() === email);
+      if (orphan) {
+        await admin.auth.admin.updateUserById(orphan.id, {
+          password,
+          email_confirm: true,
+          user_metadata: { full_name: fullName, role: "teacher" },
+        });
+        await admin.from("profiles").upsert({
+          id: orphan.id, full_name: fullName, email, phone, role: "teacher",
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" });
+        await admin.from("user_roles").upsert({ user_id: orphan.id, role: "teacher" }, { onConflict: "user_id,role" });
+        await admin.from("user_roles").delete().eq("user_id", orphan.id).eq("role", "student");
+        await admin.from("teacher_profiles").upsert(
+          { teacher_id: orphan.id, is_approved: true, updated_at: new Date().toISOString() },
+          { onConflict: "teacher_id" },
+        );
+        return json({ teacher_id: orphan.id, email, full_name: fullName, reused: true, trace_id: traceId }, 200, traceId);
+      }
       return fail("تعذر إنشاء مستخدم المعلم في نظام المصادقة", 400, "create_auth_user", createErr?.message);
     }
     const teacherId = created.user.id;
+
 
     const cleanup = async (reason: string) => {
       console.error("[admin-create-platform-teacher] rollback:", reason);
