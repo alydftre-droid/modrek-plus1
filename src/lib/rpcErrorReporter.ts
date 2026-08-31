@@ -119,7 +119,13 @@ export function reportRpcError(opts: ReportRpcErrorOptions): void {
   const { title, error, operation, context, sourceHint, duration = 12000 } = opts;
   const err = (error || {}) as Record<string, any>;
   const code = err.code || err.status || null;
-  const message = err.message || err.error_description || String(error ?? "unknown error");
+  const rawMessage = err.message ?? err.error ?? err.error_description ?? error;
+  const message = typeof rawMessage === "string"
+    ? rawMessage
+    : rawMessage
+      ? (() => { try { return JSON.stringify(rawMessage); } catch { return String(rawMessage); } })()
+      : "unknown error";
+
   const hint = err.hint || null;
   const details = err.details || null;
   const location = parseCallerLocation();

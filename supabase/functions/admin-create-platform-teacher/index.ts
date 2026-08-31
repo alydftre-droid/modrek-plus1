@@ -71,13 +71,34 @@ Deno.serve(async (req) => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail("البريد الإلكتروني غير صحيح", 400, "validate_input");
     if (password.length < 8) return fail("كلمة المرور يجب أن تكون 8 أحرف على الأقل", 400, "validate_input");
 
-    // Reject duplicates early with a clear message.
+    // If the email already exists we reuse the account when it is a teacher,
+    // instead of blocking the whole platform wizard with a 409.
     const { data: existingProfile } = await admin
       .from("profiles")
-      .select("id")
+      .select("id, role, full_name")
       .eq("email", email)
       .maybeSingle();
-    if (existingProfile) return fail("هذا البريد مستخدم بالفعل داخل المنصة", 409, "check_duplicate_profile");
+    if (existingProfile) {
+      if (existingProfile.role !== "teacher") {
+        return fail("هذا البريد مستخدم بالفعل لحساب غير معلم، اختر بريدًا آخر", 409, "check_duplicate_profile");
+      }
+      await admin.from("user_roles").upsert(
+        { user_id: existingProfile.id, role: "teacher" },
+        { onConflict: "user_id,role" },
+      );
+      await admin.from("teacher_profiles").upsert(
+        { teacher_id: existingProfile.id, is_approved: true, updated_at: new Date().toISOString() },
+        { onConflict: "teacher_id" },
+      );
+      return json({
+        teacher_id: existingProfile.id,
+        email,
+        full_name: existingProfile.full_name || fullName,
+        reused: true,
+        trace_id: traceId,
+      }, 200, traceId);
+    }
+
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,
