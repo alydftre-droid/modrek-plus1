@@ -205,12 +205,12 @@ export function evaluateLibraryCoverage(
 
   if (!result) {
     reasons.push("لا توجد نتيجة استرجاع من المكتبة");
-    return {
+    return finish({
       coverage: 0,
       decision: surfaceEnabled ? "web_only" : "no_source",
       needs_web: surfaceEnabled,
       reasons,
-    };
+    });
   }
 
   const passages = result.passages || [];
@@ -238,26 +238,31 @@ export function evaluateLibraryCoverage(
   const intent = result.understanding?.intent;
   if (intent === "list_books") {
     reasons.push("سؤال عن كتب المنصة — بيانات داخلية فقط");
-    return { coverage, decision: "library_only", needs_web: false, reasons };
+    return finish({ coverage, decision: "library_only", needs_web: false, reasons });
   }
 
   if (!surfaceEnabled) {
     reasons.push(config.enabled ? `البحث الخارجي معطّل لهذه الواجهة (${surface})` : "البحث الخارجي معطّل من لوحة المطور");
-    return { coverage, decision: coverage > 0 ? "library_only" : "no_source", needs_web: false, reasons };
+    return finish({ coverage, decision: coverage > 0 ? "library_only" : "no_source", needs_web: false, reasons });
   }
 
   if (coverage >= config.min_library_coverage) {
+    // معلومة حديثة مطلوبة: المكتبة وحدها لا تكفي حتى لو كانت التغطية عالية.
+    if (fresh) {
+      reasons.push("السؤال يحتاج معلومة حديثة — تحقّق خارجي مع محتوى المكتبة");
+      return finish({ coverage, decision: "hybrid", needs_web: true, reasons });
+    }
     reasons.push(`تغطية المكتبة كافية (${coverage.toFixed(2)})`);
-    return { coverage, decision: "library_only", needs_web: false, reasons };
+    return finish({ coverage, decision: "library_only", needs_web: false, reasons });
   }
 
   if (coverage <= config.web_only_below) {
     reasons.push(`تغطية المكتبة ضعيفة جدًا (${coverage.toFixed(2)}) — بحث خارجي أساسي`);
-    return { coverage, decision: "web_only", needs_web: true, reasons };
+    return finish({ coverage, decision: "web_only", needs_web: true, reasons });
   }
 
   reasons.push(`تغطية جزئية (${coverage.toFixed(2)}) — دمج المكتبة مع بحث خارجي`);
-  return { coverage, decision: "hybrid", needs_web: true, reasons };
+  return finish({ coverage, decision: "hybrid", needs_web: true, reasons });
 }
 
 // -------------------------------------------------------------- web search --
