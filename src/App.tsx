@@ -18,6 +18,8 @@ import TikTokPixelTracker from "@/components/TikTokPixelTracker";
 
 import AppUpdateDialog from "@/components/AppUpdateDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { PlatformProvider } from "@/hooks/usePlatform";
+import PlatformBrandBar from "@/components/platform/PlatformBrandBar";
 import LazyRouteBoundary from "@/components/LazyRouteBoundary";
 import { isJsonSafe, shouldPersistQueryKey } from "@/lib/queryCacheGuard";
 import { DATA_SCHEMA_VERSION } from "@/lib/dataIntegrity/cacheVersion";

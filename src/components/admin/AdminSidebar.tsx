@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3, Users, GraduationCap, Upload, BookOpen, Bell, Settings, LogOut,
-  MessageSquare, Info, User, Wallet, Megaphone, Library, Sparkles,
+  MessageSquare, Info, User, Wallet, Megaphone, Library, Sparkles, Building2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ const menuItems = [
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },
   { id: "student-wallets", label: "محفظة الطلاب", icon: Wallet, route: "/admin/student-wallets" },
+  { id: "platforms", label: "منصات المعلمين", icon: Building2, route: "/admin/platforms" },
   { id: "content", label: "المحتوى", icon: Upload },
   { id: "subjects", label: "المواد", icon: BookOpen },
   { id: "notifications", label: "الإشعارات", icon: Bell },
