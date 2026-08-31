@@ -29,6 +29,8 @@ export type WebResearchSurface =
   | "modrek-ai-study"
   | "modrek-retrieve"
   | "modrek-ai-exams"
+  | "library-chat"
+  | "library-explain"
   | "teacher-assistant";
 
 export interface WebResearchConfig {
