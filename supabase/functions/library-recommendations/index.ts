@@ -33,9 +33,9 @@ Deno.serve(async (req) => {
     const { data: userData } = await userClient.auth.getUser();
     if (!userData?.user) return json({ error: "unauthorized" }, 401);
     const studentId = userData.user.id;
-    const studentPlatformId = await resolveUserPlatformId(admin, studentId);
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
+    const studentPlatformId = await resolveUserPlatformId(admin, studentId);
     const body = await req.json().catch(() => ({}));
     const bookId = body.book_id ? String(body.book_id) : null;
     const limit = Math.min(12, Math.max(3, Number(body.limit) || 6));
