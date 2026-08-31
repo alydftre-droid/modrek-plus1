@@ -1379,6 +1379,8 @@ Deno.serve(async (req) => {
     // lesson request -> lesson pages only, unit -> unit pages, whole curriculum -> book-wide sampling.
     let libraryBlock = "";
     let libraryFound = false;
+    let researchBlock = "";
+    let researchUsedWeb = false;
     try {
       if (!userId) throw new Error("no user id for library rag");
       const historyTexts = (messages as any[])
@@ -1397,12 +1399,29 @@ Deno.serve(async (req) => {
       });
       logRagPipeline("modrek-ai-exams", rag, { traceId });
       libraryFound = rag.found;
-      libraryBlock = buildLibraryContextBlock(rag);
+
+      // نفس محرك القرار المركزي: المكتبة أولًا، وبحث خارجي موثوق عند نقص التغطية.
+      const research = await hybridResearch({
+        admin,
+        surface: "modrek-ai-exams",
+        query: `${userText} ${chapter || ""}`.trim(),
+        library: rag,
+        scope: rag.scope,
+      }).catch((e) => {
+        logError(traceId, "HYBRID_RESEARCH_FAILED_NON_BLOCKING", e);
+        return null;
+      });
+      researchUsedWeb = Boolean(research?.usedWeb);
+      researchBlock = [research?.contextBlock, research?.mandateBlock].filter(Boolean).join("\n\n");
+      libraryBlock = buildLibraryContextBlock(rag, { researchActive: Boolean(research?.evaluation?.needs_web) });
+
       diagnostics.rag.libraryBooks = rag.accessible_books.length;
       diagnostics.rag.librarySelectedBook = rag.selected_book?.title ?? null;
       diagnostics.rag.libraryLesson = rag.lesson?.title ?? null;
       diagnostics.rag.libraryPassages = rag.passages.length;
       diagnostics.rag.libraryConfidence = rag.confidence;
+      (diagnostics.rag as any).researchDecision = research?.evaluation?.decision ?? null;
+      (diagnostics.rag as any).researchUsedWeb = researchUsedWeb;
     } catch (ragError) {
       logError(traceId, "LIBRARY_RAG_FAILED_NON_BLOCKING", ragError);
     }
