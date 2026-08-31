@@ -43,6 +43,13 @@
       "when": 1788194798853,
       "tag": "0005_platform_storage_isolation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788198577550,
+      "tag": "0006_fix_platform_rpc_grants_and_logo_storage",
+      "breakpoints": true
     }
   ]
 }

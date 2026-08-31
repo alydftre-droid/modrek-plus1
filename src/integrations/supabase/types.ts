@@ -7168,6 +7168,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_manage_platform_branding: {
+        Args: { _platform_id: string; _user_id: string }
+        Returns: boolean
+      }
       catalog_subjects_match: {
         Args: {
           p_candidate_category: string
