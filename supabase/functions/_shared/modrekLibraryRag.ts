@@ -427,6 +427,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
     .eq("status", "ready")
     .order("created_at", { ascending: false })
     .limit(200);
+  q = applyPlatformScope(q, scope.platformId);
 
   if (gradeRow?.id) q = q.eq("grade_id", gradeRow.id);
   else if (stageRow?.id) q = q.eq("stage_id", stageRow.id);
@@ -440,9 +441,11 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
         .eq("status", "ready")
         .order("created_at", { ascending: false })
         .limit(200);
+      modern = applyPlatformScope(modern, scope.platformId);
       if (gradeRow?.id) modern = modern.eq("grade_id", gradeRow.id);
       else if (stageRow?.id) modern = modern.eq("stage_id", stageRow.id);
       return modern;
+
     })(),
   ]);
   if (error) { console.warn("[modrekLibraryRag] books_query_failed", error.message); return []; }
