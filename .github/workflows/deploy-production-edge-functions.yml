@@ -133,6 +133,50 @@ jobs:
             exit 1
           fi
 
+      - name: Verify production Teacher Platforms schema contract
+        run: |
+          set -euo pipefail
+
+          probe() {
+            local label="$1"
+            local path="$2"
+            local method="$3"
+            local payload="${4:-}"
+            local output="/tmp/teacher-platforms-${label}.json"
+            local status
+
+            if [ "$method" = "POST" ]; then
+              status="$(curl -sS -o "$output" -w '%{http_code}' -X POST "$PRODUCTION_SUPABASE_URL/rest/v1/$path" \
+                -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+                -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+                -H "Content-Type: application/json" \
+                --data "$payload")"
+            else
+              status="$(curl -sS -o "$output" -w '%{http_code}' "$PRODUCTION_SUPABASE_URL/rest/v1/$path" \
+                -H "apikey: $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY" \
+                -H "Authorization: Bearer $PRODUCTION_SUPABASE_SERVICE_ROLE_KEY")"
+            fi
+
+            if grep -qiE 'PGRST202|PGRST205|Could not find the (table|function)|schema cache' "$output"; then
+              echo "::error::$label is absent from the production REST schema cache (HTTP $status)."
+              cat "$output"
+              exit 1
+            fi
+            if [ "$status" = "404" ]; then
+              echo "::error::$label returned an unexpected HTTP 404."
+              cat "$output"
+              exit 1
+            fi
+            echo "$label is visible in production (HTTP $status)."
+          }
+
+          probe table 'teacher_platforms?select=id&limit=1' GET
+          probe list-rpc 'rpc/admin_list_teacher_platforms' POST '{}'
+          # A deliberately unauthenticated request must reach the function and be
+          # rejected by its internal admin check, not fail schema discovery.
+          probe create-rpc 'rpc/admin_create_teacher_platform' POST \
+            '{"_name":"contract-probe","_slug":"contract-probe","_owner_teacher_id":"00000000-0000-0000-0000-000000000000","_subject_ids":[],"_description":null,"_logo_url":null,"_brand_color":null}'
+
       - name: Require production runtime secrets
         run: |
           set -euo pipefail
