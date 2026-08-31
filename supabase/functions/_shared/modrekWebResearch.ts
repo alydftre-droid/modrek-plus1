@@ -152,9 +152,35 @@ export interface CoverageEvaluation {
   decision: ResearchDecision;
   needs_web: boolean;
   reasons: string[];
+  /** السؤال يحتاج معلومة حديثة (أخبار/تغييرات/سنة حالية) — لا يُعتمد على الكاش. */
+  needs_fresh: boolean;
+  /** إجابة تحتاج تحقق متقاطع من أكثر من مصدر (أرقام/تواريخ/أحكام/قوانين). */
+  needs_verification: boolean;
 }
 
 const CONFIDENCE_BASE: Record<string, number> = { high: 0.85, medium: 0.6, low: 0.32, none: 0 };
+
+const FRESH_PATTERNS = [
+  /أخبار/, /آخر\s*تحديث/, /مستجد/, /تعديلات?\s*(المنهج|الوزار)/, /المحذوف/, /حذف\s*من\s*المنهج/,
+  /هذا\s*العام/, /العام\s*الدراسي/, /جدول\s*الامتحانات/, /نتيج(ة|ه)\s*/, /موعد/, /٢٠٢|20(2[5-9]|3\d)/,
+];
+
+const VERIFY_PATTERNS = [
+  /قانون/, /معادل(ة|ه)/, /تعريف/, /حكم\s*(شرعي|الـ)?/, /دليل/, /تاريخ/, /سنة/, /رقم/, /نسبة/,
+  /احسب/, /اثبت/, /برهن/, /فرق\s*بين/,
+];
+
+/** هل السؤال يحتاج معلومة حديثة؟ (يُلزم البحث الخارجي ويتجاوز الكاش) */
+export function needsFreshInfo(query: string): boolean {
+  const q = String(query || "");
+  return FRESH_PATTERNS.some((re) => re.test(q));
+}
+
+/** هل الإجابة تحتاج تحقّقًا متقاطعًا بين مصادر متعددة؟ */
+export function needsVerification(query: string): boolean {
+  const q = String(query || "");
+  return VERIFY_PATTERNS.some((re) => re.test(q));
+}
 
 /**
  * Deterministic completeness evaluator for a library retrieval result.
@@ -165,9 +191,17 @@ export function evaluateLibraryCoverage(
   result: LibraryRagResult | null,
   config: WebResearchConfig,
   surface: WebResearchSurface,
+  query = "",
 ): CoverageEvaluation {
   const reasons: string[] = [];
   const surfaceEnabled = config.enabled && config.surfaces[surface] !== false;
+  const fresh = needsFreshInfo(query);
+  const verify = needsVerification(query);
+  const finish = (e: Omit<CoverageEvaluation, "needs_fresh" | "needs_verification">): CoverageEvaluation => ({
+    ...e,
+    needs_fresh: fresh && e.needs_web,
+    needs_verification: verify,
+  });
 
   if (!result) {
     reasons.push("لا توجد نتيجة استرجاع من المكتبة");
