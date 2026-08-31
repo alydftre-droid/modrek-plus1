@@ -114,9 +114,18 @@
   ],
   "rewrites": [
     {
+      "source": "/p/:slug",
+      "destination": "/app-shell.html"
+    },
+    {
+      "source": "/p/:slug/:path*",
+      "destination": "/app-shell.html"
+    },
+    {
       "source": "/teacher/register",
       "destination": "/teacher-register/index.html"
     },
+
     {
       "source": "/:route(auth|forgot-password|reset-password|delete-account|pending-approval|select-education-type|dashboard|subjects|teacher-selection|profile|ai-chat|ai|student-exam|about-platform|support|wallet|student-subject|student-profile|student-progress|notifications|my-courses|my-library|category-subjects|student-security|teacher|admin)",
       "destination": "/app-shell.html"
