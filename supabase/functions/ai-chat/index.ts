@@ -11,7 +11,7 @@ import {
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
-import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
+import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock, isDeepTeaching } from "../_shared/answerScope.ts";
 
 
 const corsHeaders = {
@@ -510,6 +510,13 @@ ${g ? `- ${g}.` : ""}
 `;
     }
 
+    // Detect the student's intent BEFORE retrieval so full-lesson requests get
+    // enough lesson coverage and a large enough output budget.
+    const studentScope = (!isAdmin && !isLessonStudio)
+      ? resolveAnswerScopeFromMessages(messages as any)
+      : null;
+    const deepTeaching = studentScope ? isDeepTeaching(studentScope) : false;
+
     // ---- Unified Modrek library RAG (all subjects: شرعية / عربية / أدبية / لغات / علمية) ----
     if (!isAdmin && !isLessonStudio) {
       try {
@@ -523,7 +530,7 @@ ${g ? `- ${g}.` : ""}
             userId,
             query: lastQuery,
             history: userTurns.slice(-6, -1),
-            maxPassages: 8,
+            maxPassages: deepTeaching ? 24 : 8,
             surface: "ai-chat",
 
           });
@@ -558,10 +565,9 @@ ${g ? `- ${g}.` : ""}
 
 
     // ---- Answer Scope Engine: intent -> scope -> length (students only) ----
-    if (!isAdmin && !isLessonStudio) {
-      const answerScope = resolveAnswerScopeFromMessages(messages as any);
-      console.log("[ai-chat] answer intent:", answerScope.intent);
-      systemPrompt += `\n\n${buildAnswerScopeBlock(answerScope)}`;
+    if (studentScope) {
+      console.log("[ai-chat] answer intent:", studentScope.intent);
+      systemPrompt += `\n\n${buildAnswerScopeBlock(studentScope)}`;
     }
 
     // Build messages with vision support for page images
@@ -610,9 +616,15 @@ ${g ? `- ${g}.` : ""}
     const result = await callGeminiWithFallback({
       apiKey: GEMINI_API_KEY,
       models,
-      body: { temperature: 0.5, messages: buildMessages(), stream: useStream },
+      body: {
+        temperature: 0.5,
+        messages: buildMessages(),
+        stream: useStream,
+        // Full-lesson explanations must never be cut short mid-lesson.
+        ...(deepTeaching ? { max_tokens: 16384 } : {}),
+      },
       fallbackDelayMs: settings.fallback_delay_ms,
-      timeoutMs: 45000,
+      timeoutMs: deepTeaching ? 120000 : 45000,
     });
 
     if (!result.ok) {
