@@ -82,7 +82,10 @@ interface UserContext {
   section_id: string | null;
   track_id: string | null;
   subject_ids: string[];
+  /** Teacher-platform tenant; null = official platform. Never taken from the body. */
+  platform_id: string | null;
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
