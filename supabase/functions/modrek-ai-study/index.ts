@@ -273,11 +273,71 @@ ${buildAnswerScopeBlock(answerScope)}`, { concise: !answerScope.expansive });
     }
 
     const data = await result.response.json().catch(() => ({} as any));
-    const reply = data?.choices?.[0]?.message?.content ?? "";
+    let reply = data?.choices?.[0]?.message?.content ?? "";
     if (!reply) {
       return json({ reply: "لم يصلني رد مكتمل هذه المرة. أعد صياغة سؤالك بشكل أقصر وسأحاول فورًا.", fallback: true });
     }
-    return json({ reply, usage: data?.usage ?? null });
+
+    // ---------- Anti-truncation: continue a lesson that hit the token budget ----------
+    if (deepTeaching && isTruncated(data?.choices?.[0])) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const cont = await callGeminiWithFallback({
+          apiKey: GEMINI_API_KEY,
+          models: ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
+          body: {
+            temperature: 0.4,
+            messages: [
+              ...gwMessages,
+              { role: "assistant", content: reply },
+              { role: "user", content: CONTINUE_INSTRUCTION },
+            ],
+            max_tokens: 12288,
+          },
+          timeoutMs: 120000,
+          functionName: "modrek-ai-study",
+        }).catch(() => null);
+        if (!cont?.ok) break;
+        const contData = await cont.response.json().catch(() => ({} as any));
+        const chunk = contData?.choices?.[0]?.message?.content ?? "";
+        if (!chunk.trim()) break;
+        reply = stitchContinuation(reply, chunk);
+        if (!isTruncated(contData?.choices?.[0])) break;
+      }
+    }
+
+    // ---------- Repetition cleanup ----------
+    reply = dedupeRepeatedBlocks(reply);
+
+    // ---------- Automatic standalone lesson diagram ----------
+    let diagram: LessonDiagram | null = null;
+    if (deepTeaching) {
+      try {
+        const diagRes = await callGeminiWithFallback({
+          apiKey: GEMINI_API_KEY,
+          models: ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
+          body: {
+            temperature: 0.2,
+            messages: [
+              { role: "system", content: LESSON_DIAGRAM_SYSTEM },
+              { role: "user", content: `هذا هو شرح الدرس الذي قُدّم للطالب. ولّد رسمًا توضيحيًا واحدًا يلخّصه:\n\n${reply.slice(0, 12000)}` },
+            ],
+            max_tokens: 1200,
+          },
+          timeoutMs: 45000,
+          functionName: "modrek-ai-study",
+          task: "lesson-diagram",
+        });
+        if (diagRes.ok) {
+          const diagData = await diagRes.response.json().catch(() => ({} as any));
+          diagram = parseLessonDiagram(diagData?.choices?.[0]?.message?.content ?? "");
+        }
+      } catch (e) {
+        console.warn("[modrek-ai-study] diagram generation failed", String(e).slice(0, 200));
+      }
+    }
+
+    return json({ reply, diagram, usage: data?.usage ?? null });
+
   } catch (e) {
     console.error("[modrek-ai-study] error", e);
     return json({ error: (e as Error)?.message || "Internal error" }, 500);
