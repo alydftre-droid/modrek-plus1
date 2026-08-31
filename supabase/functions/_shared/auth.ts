@@ -74,20 +74,51 @@ export type LibraryBookAccessResult =
   | { ok: true; book: Record<string, unknown> }
   | { ok: false; status: number; error: string };
 
+/**
+ * Teacher-platform tenant of a user, resolved server-side.
+ * `null` = the official Modrek Plus platform.
+ */
+export async function resolveUserPlatformId(admin: any, userId: string): Promise<string | null> {
+  const { data } = await admin
+    .from("platform_memberships")
+    .select("platform_id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  return data?.platform_id ?? null;
+}
+
 export async function getAccessibleLibraryBook(
   admin: any,
   bookId: string,
   userId: string,
   select = "id,title,subject_name_ar,status,access_tier,page_count",
 ): Promise<LibraryBookAccessResult> {
+  const selectWithPlatform = select.includes("platform_id") ? select : `${select},platform_id`;
   const { data: book, error } = await admin
     .from("library_books")
-    .select(select)
+    .select(selectWithPlatform)
     .eq("id", bookId)
     .maybeSingle();
 
   if (error) return { ok: false, status: 500, error: error.message || "book_lookup_failed" };
   if (!book) return { ok: false, status: 404, error: "book_not_found" };
+
+  // Tenant isolation: these functions run with the service role, so the
+  // platform boundary has to be enforced here as well as in RLS.
+  const isAdmin = await admin
+    .rpc("has_role", { _user_id: userId, _role: "admin" })
+    .then((r: any) => r?.data === true)
+    .catch(() => false);
+  if (!isAdmin) {
+    const userPlatformId = await resolveUserPlatformId(admin, userId);
+    const bookPlatformId = (book as any).platform_id ?? null;
+    if ((bookPlatformId ?? null) !== (userPlatformId ?? null)) {
+      return { ok: false, status: 404, error: "book_not_found" };
+    }
+  }
+
   if (book.status !== "ready") return { ok: false, status: 403, error: "not_ready" };
   if (book.access_tier === "free") return { ok: true, book };
 
@@ -98,6 +129,7 @@ export async function getAccessibleLibraryBook(
   if (accessError) return { ok: false, status: 500, error: accessError.message || "access_check_failed" };
   return allowed === true ? { ok: true, book } : { ok: false, status: 403, error: "not_accessible" };
 }
+
 
 export function postgrestIlikeTokens(input: string, minLength = 2, maxTokens = 5): string[] {
   return String(input || "")
