@@ -30,8 +30,21 @@ export interface StudentScope {
   gradeCode: string | null;      // sec1 | sec2 | sec3 | pr1 ...
   trackCodes: string[];          // scientific | sci_science | sci_math | literary
   sectionCode: "azhar" | "general" | null;
+  /**
+   * Teacher-platform tenant this user belongs to, resolved server-side from
+   * platform_memberships. `null` = the official Modrek Plus platform.
+   * Retrieval runs with the service role, so this is the only thing keeping
+   * one platform's corpus out of another platform's answers.
+   */
+  platformId: string | null;
   labels: { stage: string | null; grade: string | null; track: string | null; system: string };
 }
+
+/** Restrict any table that carries `platform_id` to the caller's tenant. */
+export function applyPlatformScope(query: any, platformId: string | null) {
+  return platformId ? query.eq("platform_id", platformId) : query.is("platform_id", null);
+}
+
 
 const STAGE_ALIASES: Record<string, string> = {
   secondary: "secondary", "ثانوي": "secondary", "الثانوي": "secondary", "المرحلة الثانوية": "secondary",
