@@ -147,6 +147,8 @@ Deno.serve(async (req) => {
     let knowledgeBlock = "";
     let allowExternal = true;
     let scopeBlock = "";
+    let deepTeaching = false;
+
     try {
       const lastUser = [...messages].reverse().find((m: any) => m.role === "user");
       const queryText = typeof lastUser?.content === "string"
