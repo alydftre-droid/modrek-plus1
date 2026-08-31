@@ -44,6 +44,17 @@ const TIER_ORDER = [
   "worksheet", "teacher_file", "other",
 ];
 
+const INSTRUCTIONAL_TIERS = ["book", "booklet", "notes", "summary", "teacher_file", "other"];
+
+function tiersForIntent(intent: Intent): string[] {
+  // Explanation/search must not mistake an exam sheet or question bank for a
+  // lesson. Assessment material is considered only for explicit assessment work.
+  if (["generate_exam", "extract_questions", "analyze_exam", "solve_question", "review"].includes(intent)) {
+    return TIER_ORDER;
+  }
+  return INSTRUCTIONAL_TIERS;
+}
+
 const CONFIDENCE_MIN = 0.55;   // composite threshold to accept
 const PER_TIER_LIMIT = 8;
 const FINAL_CONTEXT_LIMIT = 6;
@@ -212,7 +223,7 @@ Deno.serve(async (req) => {
     // 6) Tiered hybrid search — book → booklet → notes → summary → exam → ...
     let selectedTier: string | null = null;
     let allResults: any[] = [];
-    for (const tier of TIER_ORDER) {
+    for (const tier of tiersForIntent(intent.intent)) {
       const rows = await hybridSearch(admin, {
         embedding, text: effectiveQuery,
         source_type_code: tier,
@@ -270,7 +281,9 @@ Deno.serve(async (req) => {
     }));
 
     const libraryUsed = libraryResults.length > 0;
-    const effectiveBelowThreshold = libraryUsed ? false : belowThreshold;
+    // A source existing is not the same as that source covering the requested
+    // lesson. Keep the signal low when lesson lock rejected the library result.
+    const effectiveBelowThreshold = libraryRag ? !libraryRag.found : belowThreshold;
 
     // 8b) Hybrid decision engine — evaluate coverage and, when the platform
     // library is incomplete, attach trusted external research to the payload.

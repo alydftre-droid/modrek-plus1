@@ -9,6 +9,7 @@ import {
   understandQuery,
   listAccessibleBooks,
   retrieveFromLibrary,
+  sourceTypeAllowedForIntent,
   buildStudentScopeBlock,
   buildLibraryContextBlock,
 } from "./modrekLibraryRag.ts";
@@ -173,6 +174,21 @@ Deno.test("unit request is detected as unit, not lesson", () => {
   const u = understandQuery("اشرح الوحدة الثالثة في الجغرافيا");
   assertEquals(u.lesson?.kind, "unit");
   assertEquals(u.lesson?.number, 3);
+});
+
+Deno.test("lesson explanations reject exam and question-bank sources", () => {
+  assertEquals(sourceTypeAllowedForIntent("book", "explain_lesson"), true);
+  assertEquals(sourceTypeAllowedForIntent("notes", "explain_lesson"), true);
+  assertEquals(sourceTypeAllowedForIntent("exam", "explain_lesson"), false);
+  assertEquals(sourceTypeAllowedForIntent("ministry_model", "explain_lesson"), false);
+  assertEquals(sourceTypeAllowedForIntent("question_bank", "explain_lesson"), false);
+  assertEquals(sourceTypeAllowedForIntent("worksheet", "explain_lesson"), false);
+});
+
+Deno.test("assessment requests may use assessment sources", () => {
+  assertEquals(sourceTypeAllowedForIntent("exam", "generate_exam"), true);
+  assertEquals(sourceTypeAllowedForIntent("question_bank", "solve_question"), true);
+  assertEquals(sourceTypeAllowedForIntent("book", "generate_exam"), true);
 });
 
 // ------------------------------------------------------ curriculum shielding -
