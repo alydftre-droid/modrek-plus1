@@ -142,6 +142,8 @@ Deno.serve(async (req) => {
         const { data: others } = await admin.from("library_books")
           .select("id,title,subject_name_ar,access_tier")
           .eq("subject_id", b.subject_id)
+          // Tenant isolation: only recommend books from the student's platform.
+          [studentPlatformId ? "eq" : "is"]("platform_id", studentPlatformId)
           .eq("status", "ready")
           .eq("access_tier", "free")
           .neq("id", targetBook)
