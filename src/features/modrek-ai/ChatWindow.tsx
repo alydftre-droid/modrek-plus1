@@ -245,6 +245,7 @@ export default function ModrekChatWindow({
         const asstMsg = await appendMessage(activeConv.id, {
           role: "assistant",
           parts: [{ type: "text", text: result.reply }],
+          metadata: result.diagram?.code ? { diagram: result.diagram } : {},
         });
         setMessages((prev) => [...prev, asstMsg]);
       }
