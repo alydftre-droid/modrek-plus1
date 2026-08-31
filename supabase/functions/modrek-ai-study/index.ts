@@ -14,6 +14,15 @@ import {
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
 import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock, isDeepTeaching } from "../_shared/answerScope.ts";
+import {
+  dedupeRepeatedBlocks,
+  isTruncated,
+  stitchContinuation,
+  CONTINUE_INSTRUCTION,
+  LESSON_DIAGRAM_SYSTEM,
+  parseLessonDiagram,
+  type LessonDiagram,
+} from "../_shared/lessonAnswerPostProcess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
