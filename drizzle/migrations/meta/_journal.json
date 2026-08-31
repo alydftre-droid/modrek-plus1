@@ -15,6 +15,13 @@
       "when": 1788056999890,
       "tag": "0001_demo_accounts_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788137025281,
+      "tag": "0002_demo_accounts_revoke_anon",
+      "breakpoints": true
     }
   ]
 }
