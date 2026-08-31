@@ -9,12 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
   Building2, Plus, Copy, ExternalLink, Settings2, Users, Power, PowerOff, Archive, Loader2,
 } from "lucide-react";
 import { normalizePlatformSlug, platformUrl, platformFallbackUrl } from "@/lib/platformHost";
+import TeacherRegistrationForm, { type TeacherFormData } from "@/components/auth/TeacherRegistrationForm";
+import {
+  resolveSubjectGroups, resolveSubjectIds, scopeFromSubjectIds, type PlatformSubjectRow,
+} from "@/lib/platformSubjectResolution";
 
 interface PlatformRow {
   id: string;
@@ -34,7 +37,25 @@ interface PlatformRow {
 }
 
 interface TeacherOption { id: string; full_name: string; email: string | null }
-interface SubjectOption { id: string; name: string; stage: string | null; grade: string | null }
+type SubjectOption = PlatformSubjectRow;
+
+const EMPTY_SCOPE: TeacherFormData = {
+  school: "", employeeId: "", phone: "",
+  stages: [], grades: [], subject: "", subjects: [], educationType: "",
+  teachesIntegratedScience: false,
+};
+
+/** platforms/{platform_id}/branding/<file> — matches the storage RLS path contract. */
+async function uploadPlatformLogo(platformId: string, file: File) {
+  const ext = (file.name.split(".").pop() || "png").toLowerCase();
+  const path = `platforms/${platformId}/branding/logo-${Date.now()}.${ext}`;
+  const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
+    upsert: true, contentType: file.type,
+  });
+  if (error) throw error;
+  return supabase.storage.from("teacher-profiles").getPublicUrl(path).data.publicUrl;
+}
+
 
 const STATUS_LABEL: Record<string, string> = {
   active: "نشطة",
@@ -62,7 +83,7 @@ export default function AdminPlatformsPage() {
     load();
     supabase.from("profiles").select("id, full_name, email").eq("role", "teacher").order("full_name")
       .then(({ data }) => setTeachers((data as TeacherOption[]) || []));
-    supabase.from("subjects").select("id, name, stage, grade").eq("is_active", true).order("name")
+    supabase.from("subjects").select("id, name, category, stage, grade, section").eq("is_active", true)
       .then(({ data }) => setSubjects((data as SubjectOption[]) || []));
   }, []);
 
@@ -221,30 +242,44 @@ export default function AdminPlatformsPage() {
   );
 }
 
-function SubjectPicker({
-  subjects, selected, onToggle,
-}: { subjects: SubjectOption[]; selected: string[]; onToggle: (id: string) => void }) {
-  const [q, setQ] = useState("");
-  const filtered = subjects.filter((s) =>
-    !q || s.name.includes(q) || (s.grade || "").includes(q) || (s.stage || "").includes(q));
+/**
+ * Reuses the OFFICIAL teacher-registration selection screen (stage → grades → subjects
+ * → education type) and shows which real subject rows it resolves to.
+ */
+function TeacherScopePicker({
+  scope, onChange, subjects,
+}: { scope: TeacherFormData; onChange: (patch: Partial<TeacherFormData>) => void; subjects: SubjectOption[] }) {
+  const groups = useMemo(() => resolveSubjectGroups(scope, subjects), [scope, subjects]);
   return (
-    <div className="space-y-2">
-      <Input placeholder="ابحث عن مادة..." value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="max-h-56 overflow-y-auto rounded-lg border divide-y">
-        {filtered.map((s) => (
-          <label key={s.id} className="flex items-center gap-2 p-2 text-sm cursor-pointer hover:bg-muted/40">
-            <Checkbox checked={selected.includes(s.id)} onCheckedChange={() => onToggle(s.id)} />
-            <span className="truncate">{s.name}</span>
-            <span className="text-xs text-muted-foreground ms-auto">{s.grade || s.stage || ""}</span>
-          </label>
-        ))}
-        {filtered.length === 0 && (
-          <p className="p-3 text-xs text-muted-foreground">لا نتائج</p>
+    <div className="space-y-4">
+      <TeacherRegistrationForm
+        formData={scope}
+        onChange={onChange}
+        errors={{}}
+        hidePersonalFields
+      />
+      <div className="rounded-lg border p-3 space-y-2">
+        <p className="text-xs font-semibold">
+          المواد الرسمية التي سيتم ربطها بالمنصة ({groups.reduce((n, g) => n + g.ids.length, 0)})
+        </p>
+        {groups.length === 0 ? (
+          <p className="text-xs text-muted-foreground">اختر المرحلة والصفوف والمواد أعلاه.</p>
+        ) : (
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {groups.map((g) => (
+              <div key={`${g.selection}-${g.grade}`} className="text-xs flex items-start gap-2">
+                <Badge variant="outline" className="text-[10px] shrink-0">{g.grade}</Badge>
+                <span className="font-medium shrink-0">{g.selection}</span>
+                <span className="text-muted-foreground truncate">{g.names.join("، ")}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
   );
 }
+
 
 function CreatePlatformDialog({
   open, onOpenChange, teachers, subjects, onCreated,
@@ -260,7 +295,8 @@ function CreatePlatformDialog({
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
   const [brandColor, setBrandColor] = useState("#2563eb");
   const [teacherMode, setTeacherMode] = useState<"existing" | "new">("existing");
   const [teacherId, setTeacherId] = useState("");
@@ -268,14 +304,17 @@ function CreatePlatformDialog({
   const [newTeacherName, setNewTeacherName] = useState("");
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [newTeacherPassword, setNewTeacherPassword] = useState("");
-  const [subjectIds, setSubjectIds] = useState<string[]>([]);
+  const [scope, setScope] = useState<TeacherFormData>(EMPTY_SCOPE);
   const [slugState, setSlugState] = useState<"idle" | "checking" | "free" | "taken">("idle");
   const [saving, setSaving] = useState(false);
+
+  const subjectIds = useMemo(() => resolveSubjectIds(scope, subjects), [scope, subjects]);
 
   useEffect(() => {
     if (!open) {
       setStep(1); setName(""); setSlug(""); setDescription(""); setLogoUrl("");
-      setBrandColor("#2563eb"); setTeacherId(""); setSubjectIds([]); setSlugState("idle");
+      setLogoFile(null); setLogoPreview("");
+      setBrandColor("#2563eb"); setTeacherId(""); setScope(EMPTY_SCOPE); setSlugState("idle");
       setTeacherMode("existing"); setNewTeacherName(""); setNewTeacherEmail(""); setNewTeacherPassword("");
     }
   }, [open]);
@@ -296,25 +335,15 @@ function CreatePlatformDialog({
   const filteredTeachers = teachers.filter((t) =>
     !teacherQuery || (t.full_name || "").includes(teacherQuery) || (t.email || "").includes(teacherQuery));
 
-  const uploadLogo = async (file: File) => {
+  /**
+   * The logo is stored under platforms/{platform_id}/branding/, so the file is kept
+   * locally during the wizard and uploaded right after the platform row exists.
+   */
+  const pickLogo = (file: File) => {
     if (!file.type.startsWith("image/")) return toast.error("اختر صورة صحيحة");
     if (file.size > 5 * 1024 * 1024) return toast.error("حجم الشعار يجب أن يكون أقل من 5 ميجابايت");
-    setUploadingLogo(true);
-    try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
-      const path = `platform-logos/${crypto.randomUUID()}.${ext}`;
-      const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
-        upsert: true, contentType: file.type,
-      });
-      if (error) throw error;
-      const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
-      setLogoUrl(data.publicUrl);
-      toast.success("تم رفع الشعار");
-    } catch (e) {
-      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
-    } finally {
-      setUploadingLogo(false);
-    }
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
   };
 
   const submit = async () => {
@@ -338,7 +367,7 @@ function CreatePlatformDialog({
         ownerId = payload.teacher_id;
       }
 
-      const { error } = await supabase.rpc("admin_create_teacher_platform", {
+      const { data: newId, error } = await supabase.rpc("admin_create_teacher_platform", {
         _name: name,
         _slug: slug,
         _owner_teacher_id: ownerId,
@@ -351,6 +380,24 @@ function CreatePlatformDialog({
         toast.error("تعذر إنشاء المنصة: " + error.message);
         return;
       }
+
+      const platformId = newId as unknown as string;
+      if (logoFile && platformId) {
+        try {
+          const url = await uploadPlatformLogo(platformId, logoFile);
+          await supabase.rpc("admin_update_teacher_platform", {
+            _platform_id: platformId,
+            _name: name,
+            _description: description || null,
+            _logo_url: url,
+            _brand_color: brandColor || null,
+            _subject_ids: subjectIds,
+          });
+        } catch (e) {
+          toast.warning("تم إنشاء المنصة لكن تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+        }
+      }
+
       toast.success("تم إنشاء المنصة بنجاح");
       onOpenChange(false);
       onCreated();
@@ -402,22 +449,23 @@ function CreatePlatformDialog({
               <div className="flex items-center gap-3 mt-1">
                 <div className="h-14 w-14 rounded-xl overflow-hidden border flex items-center justify-center shrink-0"
                   style={{ background: brandColor }}>
-                  {logoUrl
-                    ? <img src={logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
+                  {(logoPreview || logoUrl)
+                    ? <img src={logoPreview || logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
                     : <Building2 className="h-5 w-5 text-white" />}
                 </div>
                 <div className="flex-1 space-y-2">
-                  <Input type="file" accept="image/*" disabled={uploadingLogo}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                  <Input type="file" accept="image/*"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) pickLogo(f); }} />
                   <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="أو الصق رابط الشعار https://..." />
                 </div>
               </div>
-              {uploadingLogo && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> جارٍ رفع الشعار...
+              {logoFile && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  سيتم رفع الشعار تلقائيًا بعد إنشاء المنصة.
                 </p>
               )}
             </div>
+
             <div>
               <Label>لون الهوية</Label>
               <Input type="color" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="h-10 w-24 p-1" />
@@ -483,16 +531,19 @@ function CreatePlatformDialog({
 
 
         {step === 3 && (
-          <div className="space-y-2">
-            <Label>المواد المسموح بها داخل المنصة</Label>
-            <SubjectPicker
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto pe-1">
+            <Label>المواد والصفوف المسموح بها داخل المنصة</Label>
+            <p className="text-xs text-muted-foreground">
+              نفس نظام اختيار المواد المستخدم في تسجيل المعلمين.
+            </p>
+            <TeacherScopePicker
+              scope={scope}
               subjects={subjects}
-              selected={subjectIds}
-              onToggle={(id) => setSubjectIds((prev) =>
-                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+              onChange={(patch) => setScope((prev) => ({ ...prev, ...patch }))}
             />
           </div>
         )}
+
 
         <DialogFooter className="gap-2">
           {step > 1 && <Button variant="outline" onClick={() => setStep(step - 1)}>السابق</Button>}
@@ -520,10 +571,13 @@ function ManagePlatformDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState("#2563eb");
-  const [subjectIds, setSubjectIds] = useState<string[]>([]);
+  const [scope, setScope] = useState<TeacherFormData>(EMPTY_SCOPE);
   const [students, setStudents] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const subjectIds = useMemo(() => resolveSubjectIds(scope, subjects), [scope, subjects]);
 
   useEffect(() => {
     if (!platform) return;
@@ -531,10 +585,26 @@ function ManagePlatformDialog({
     setDescription(platform.description || "");
     setLogoUrl(platform.logo_url || "");
     setBrandColor(platform.brand_color || "#2563eb");
-    setSubjectIds(platform.subject_ids || []);
+    setScope({ ...EMPTY_SCOPE, ...scopeFromSubjectIds(platform.subject_ids || [], subjects) });
     supabase.rpc("admin_list_platform_students", { _platform_id: platform.id })
       .then(({ data }) => setStudents((data as any[]) || []));
-  }, [platform?.id]);
+  }, [platform?.id, subjects]);
+
+  const uploadLogo = async (file: File) => {
+    if (!platform) return;
+    if (!file.type.startsWith("image/")) return toast.error("اختر صورة صحيحة");
+    if (file.size > 5 * 1024 * 1024) return toast.error("حجم الشعار يجب أن يكون أقل من 5 ميجابايت");
+    setUploadingLogo(true);
+    try {
+      setLogoUrl(await uploadPlatformLogo(platform.id, file));
+      toast.success("تم رفع الشعار — اضغط حفظ للتأكيد");
+    } catch (e) {
+      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
 
   const save = async () => {
     if (!platform) return;
@@ -568,8 +638,25 @@ function ManagePlatformDialog({
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div>
-            <Label>رابط الشعار</Label>
-            <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} />
+            <Label>شعار المنصة</Label>
+            <div className="flex items-center gap-3 mt-1">
+              <div className="h-14 w-14 rounded-xl overflow-hidden border flex items-center justify-center shrink-0"
+                style={{ background: brandColor }}>
+                {logoUrl
+                  ? <img src={logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
+                  : <Building2 className="h-5 w-5 text-white" />}
+              </div>
+              <div className="flex-1 space-y-2">
+                <Input type="file" accept="image/*" disabled={uploadingLogo}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="رابط الشعار https://..." />
+              </div>
+            </div>
+            {uploadingLogo && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> جارٍ رفع الشعار...
+              </p>
+            )}
           </div>
           <div>
             <Label>لون الهوية</Label>
@@ -580,14 +667,14 @@ function ManagePlatformDialog({
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
           </div>
           <div>
-            <Label>المواد</Label>
-            <SubjectPicker
+            <Label>المواد والصفوف</Label>
+            <TeacherScopePicker
+              scope={scope}
               subjects={subjects}
-              selected={subjectIds}
-              onToggle={(id) => setSubjectIds((prev) =>
-                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])}
+              onChange={(patch) => setScope((prev) => ({ ...prev, ...patch }))}
             />
           </div>
+
           <div>
             <Label>طلاب المنصة ({students.length})</Label>
             <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">

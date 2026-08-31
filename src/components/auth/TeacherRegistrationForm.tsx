@@ -11,19 +11,19 @@ import {
 } from "@/components/ui/select";
 import { Building, IdCard, Phone, BookOpen } from "lucide-react";
 
-const PREPARATORY_GRADES = [
+export const PREPARATORY_GRADES = [
   "الصف الأول الإعدادي",
   "الصف الثاني الإعدادي",
   "الصف الثالث الإعدادي",
 ];
 
-const SECONDARY_GRADES = [
+export const SECONDARY_GRADES = [
   "الصف الأول الثانوي",
   "الصف الثاني الثانوي",
   "الصف الثالث الثانوي",
 ];
 
-const PREPARATORY_SUBJECTS = [
+export const PREPARATORY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
   "رياضيات",
@@ -33,7 +33,7 @@ const PREPARATORY_SUBJECTS = [
   "العلوم المتكاملة",
 ];
 
-const SECONDARY_SUBJECTS = [
+export const SECONDARY_SUBJECTS = [
   "المواد العربية",
   "المواد الشرعية",
   "أحياء",
