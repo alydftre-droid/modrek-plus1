@@ -260,9 +260,14 @@ function CreatePlatformDialog({
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [brandColor, setBrandColor] = useState("#2563eb");
+  const [teacherMode, setTeacherMode] = useState<"existing" | "new">("existing");
   const [teacherId, setTeacherId] = useState("");
   const [teacherQuery, setTeacherQuery] = useState("");
+  const [newTeacherName, setNewTeacherName] = useState("");
+  const [newTeacherEmail, setNewTeacherEmail] = useState("");
+  const [newTeacherPassword, setNewTeacherPassword] = useState("");
   const [subjectIds, setSubjectIds] = useState<string[]>([]);
   const [slugState, setSlugState] = useState<"idle" | "checking" | "free" | "taken">("idle");
   const [saving, setSaving] = useState(false);
@@ -271,6 +276,7 @@ function CreatePlatformDialog({
     if (!open) {
       setStep(1); setName(""); setSlug(""); setDescription(""); setLogoUrl("");
       setBrandColor("#2563eb"); setTeacherId(""); setSubjectIds([]); setSlugState("idle");
+      setTeacherMode("existing"); setNewTeacherName(""); setNewTeacherEmail(""); setNewTeacherPassword("");
     }
   }, [open]);
 
@@ -290,28 +296,79 @@ function CreatePlatformDialog({
   const filteredTeachers = teachers.filter((t) =>
     !teacherQuery || (t.full_name || "").includes(teacherQuery) || (t.email || "").includes(teacherQuery));
 
+  const uploadLogo = async (file: File) => {
+    if (!file.type.startsWith("image/")) return toast.error("اختر صورة صحيحة");
+    if (file.size > 5 * 1024 * 1024) return toast.error("حجم الشعار يجب أن يكون أقل من 5 ميجابايت");
+    setUploadingLogo(true);
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase();
+      const path = `platform-logos/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
+        upsert: true, contentType: file.type,
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("teacher-profiles").getPublicUrl(path);
+      setLogoUrl(data.publicUrl);
+      toast.success("تم رفع الشعار");
+    } catch (e) {
+      toast.error("تعذر رفع الشعار: " + ((e as Error)?.message || ""));
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const submit = async () => {
     setSaving(true);
-    const { error } = await supabase.rpc("admin_create_teacher_platform", {
-      _name: name,
-      _slug: slug,
-      _owner_teacher_id: teacherId,
-      _subject_ids: subjectIds,
-      _description: description || null,
-      _logo_url: logoUrl || null,
-      _brand_color: brandColor || null,
-    });
-    setSaving(false);
-    if (error) return toast.error("تعذر إنشاء المنصة: " + error.message);
-    toast.success("تم إنشاء المنصة بنجاح");
-    onOpenChange(false);
-    onCreated();
+    try {
+      let ownerId = teacherId;
+
+      if (teacherMode === "new") {
+        const { data, error } = await supabase.functions.invoke("admin-create-platform-teacher", {
+          body: {
+            full_name: newTeacherName.trim(),
+            email: newTeacherEmail.trim(),
+            password: newTeacherPassword,
+          },
+        });
+        const payload = data as { teacher_id?: string; error?: string } | null;
+        if (error || !payload?.teacher_id) {
+          toast.error("تعذر إنشاء حساب المعلم: " + (payload?.error || error?.message || ""));
+          return;
+        }
+        ownerId = payload.teacher_id;
+      }
+
+      const { error } = await supabase.rpc("admin_create_teacher_platform", {
+        _name: name,
+        _slug: slug,
+        _owner_teacher_id: ownerId,
+        _subject_ids: subjectIds,
+        _description: description || null,
+        _logo_url: logoUrl || null,
+        _brand_color: brandColor || null,
+      });
+      if (error) {
+        toast.error("تعذر إنشاء المنصة: " + error.message);
+        return;
+      }
+      toast.success("تم إنشاء المنصة بنجاح");
+      onOpenChange(false);
+      onCreated();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const canNext =
     step === 1 ? Boolean(name.trim()) && slugState === "free"
-    : step === 2 ? Boolean(teacherId)
+    : step === 2
+      ? (teacherMode === "existing"
+          ? Boolean(teacherId)
+          : newTeacherName.trim().length >= 3
+            && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(newTeacherEmail.trim())
+            && newTeacherPassword.length >= 8)
     : subjectIds.length > 0;
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
