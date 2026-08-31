@@ -449,22 +449,23 @@ function CreatePlatformDialog({
               <div className="flex items-center gap-3 mt-1">
                 <div className="h-14 w-14 rounded-xl overflow-hidden border flex items-center justify-center shrink-0"
                   style={{ background: brandColor }}>
-                  {logoUrl
-                    ? <img src={logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
+                  {(logoPreview || logoUrl)
+                    ? <img src={logoPreview || logoUrl} alt="شعار المنصة" className="h-full w-full object-cover" />
                     : <Building2 className="h-5 w-5 text-white" />}
                 </div>
                 <div className="flex-1 space-y-2">
-                  <Input type="file" accept="image/*" disabled={uploadingLogo}
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); }} />
+                  <Input type="file" accept="image/*"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) pickLogo(f); }} />
                   <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="أو الصق رابط الشعار https://..." />
                 </div>
               </div>
-              {uploadingLogo && (
-                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> جارٍ رفع الشعار...
+              {logoFile && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  سيتم رفع الشعار تلقائيًا بعد إنشاء المنصة.
                 </p>
               )}
             </div>
+
             <div>
               <Label>لون الهوية</Label>
               <Input type="color" value={brandColor} onChange={(e) => setBrandColor(e.target.value)} className="h-10 w-24 p-1" />
