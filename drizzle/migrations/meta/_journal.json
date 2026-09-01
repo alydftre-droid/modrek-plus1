@@ -134,6 +134,13 @@
       "when": 1788234399195,
       "tag": "0018_refresh_select_my_teacher_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788235292668,
+      "tag": "0019_restore_select_my_teacher_rpc_all_environments",
+      "breakpoints": true
     }
   ]
 }
