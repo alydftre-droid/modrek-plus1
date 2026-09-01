@@ -1355,6 +1355,11 @@ async function resolvePdfPageCountRanged(
     }
   }
 
+  // Read head AND tail windows and keep the largest page-tree /Count found: a
+  // partial window can contain a page-tree *subtree*, so trusting the first hit
+  // would silently truncate the book.
+  let bestPages = 0;
+  let bestParser = "";
   for (const win of windows) {
     try {
       const slice = await fetchAssetRange(asset, win.start, win.end);
@@ -1362,16 +1367,18 @@ async function resolvePdfPageCountRanged(
         await onAttempt({ parser: win.name, ok: false, error: "range request not supported by storage" });
         continue;
       }
-      const pages = countPdfPagesFromRawBytes(slice);
-      if (pages > 0) {
-        await onAttempt({ parser: win.name, ok: true, pages });
-        return { pageCount: pages, parser: win.name };
+      const pages = countPdfPagesFromRawBytes(slice, { requirePageTree: true });
+      await onAttempt({ parser: win.name, ok: pages > 0, pages, error: pages > 0 ? undefined : "no page tree found in window" });
+      if (pages > bestPages) {
+        bestPages = pages;
+        bestParser = win.name;
       }
-      await onAttempt({ parser: win.name, ok: false, error: "no page tree found in window" });
     } catch (err: any) {
       await onAttempt({ parser: win.name, ok: false, error: String(err?.message ?? err).slice(0, 300) });
     }
   }
+  if (bestPages > 0) return { pageCount: bestPages, parser: bestParser };
+
 
   if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
     // Refuse to load a huge book into the isolate: that is exactly the crash
