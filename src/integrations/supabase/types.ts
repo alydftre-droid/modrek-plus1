@@ -6003,6 +6003,7 @@ export type Database = {
           owner_teacher_id: string
           slug: string
           status: string
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -6016,6 +6017,7 @@ export type Database = {
           owner_teacher_id: string
           slug: string
           status?: string
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -6029,9 +6031,18 @@ export type Database = {
           owner_teacher_id?: string
           slug?: string
           status?: string
+          tenant_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "teacher_platforms_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teacher_profiles: {
         Row: {
@@ -6326,6 +6337,180 @@ export type Database = {
           transfer_receipt_url?: string | null
         }
         Relationships: []
+      }
+      tenant_accounts: {
+        Row: {
+          auth_user_id: string
+          created_at: string
+          education_type: string | null
+          full_name: string | null
+          grade: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          section: string | null
+          stage: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id: string
+          created_at?: string
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          section?: string | null
+          stage?: string | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string
+          created_at?: string
+          education_type?: string | null
+          full_name?: string | null
+          grade?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          section?: string | null
+          stage?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_accounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_session_contexts: {
+        Row: {
+          activated_at: string
+          auth_user_id: string
+          expires_at: string | null
+          session_id: string
+          tenant_account_id: string
+          tenant_id: string
+        }
+        Insert: {
+          activated_at?: string
+          auth_user_id: string
+          expires_at?: string | null
+          session_id: string
+          tenant_account_id: string
+          tenant_id: string
+        }
+        Update: {
+          activated_at?: string
+          auth_user_id?: string
+          expires_at?: string | null
+          session_id?: string
+          tenant_account_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_session_contexts_tenant_account_id_fkey"
+            columns: ["tenant_account_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_session_contexts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_teacher_config: {
+        Row: {
+          education_types: string[]
+          grades: string[]
+          owner_teacher_id: string
+          stages: string[]
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          education_types?: string[]
+          grades?: string[]
+          owner_teacher_id: string
+          stages?: string[]
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          education_types?: string[]
+          grades?: string[]
+          owner_teacher_id?: string
+          stages?: string[]
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_teacher_config_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          status: string
+          teacher_platform_id: string | null
+          tenant_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          status?: string
+          teacher_platform_id?: string | null
+          tenant_type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          status?: string
+          teacher_platform_id?: string | null
+          tenant_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenants_teacher_platform_id_fkey"
+            columns: ["teacher_platform_id"]
+            isOneToOne: true
+            referencedRelation: "teacher_platforms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       test_student_security_events: {
         Row: {
