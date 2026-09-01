@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import TeacherProfileCard from "@/components/teacher/TeacherProfileCard";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
 import TeacherSelectionErrorDialog, {
+  buildTeacherDataDiagnostic,
   buildTeacherSelectionDiagnostic,
   type TeacherSelectionDiagnostic,
 } from "@/components/student/TeacherSelectionErrorDialog";
@@ -130,6 +131,24 @@ const TeacherSelection = () => {
       const { data: assignments, error: assignError } = assignmentsRes;
 
       if (assignError) throw assignError;
+      if (choiceRes.error || profileRes.error || requestMatchesRes.error) {
+        const firstError = choiceRes.error || profileRes.error || requestMatchesRes.error;
+        setSelectionError(buildTeacherDataDiagnostic({
+          title: "تعذّر تحميل بيانات اختيار المعلم",
+          reason: "فشل استعلام أساسي قبل تكوين قائمة المعلمين.",
+          operation: "load_teacher_selection_prerequisites",
+          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (queries: student_teacher_choices/profiles/approved_teacher_assignments)",
+          context: { stage, grade, category, choiceCategoryKey, choiceCategoryVariants, effectiveCategoryVariants },
+          error: firstError,
+          checks: [
+            { name: "student_teacher_choices", status: choiceRes.error ? "error" : choiceRes.data ? "ok" : "empty", count: choiceRes.data ? 1 : 0, error: choiceRes.error },
+            { name: "student profile", status: profileRes.error ? "error" : profileRes.data ? "ok" : "empty", count: profileRes.data ? 1 : 0, error: profileRes.error },
+            { name: "teacher_assignments", status: assignmentsRes.error ? "error" : assignments?.length ? "ok" : "empty", count: assignments?.length || 0, error: assignmentsRes.error },
+            { name: "approved_teacher_assignments", status: requestMatchesRes.error ? "error" : requestMatchesRes.data?.length ? "ok" : "empty", count: requestMatchesRes.data?.length || 0, error: requestMatchesRes.error },
+          ],
+        }));
+        return;
+      }
 
       const requestAssignments = ((requestMatchesRes.data as TeacherRequestMatch[] | null) || [])
         .filter((request) => (request.assigned_stages || []).includes(stage) && (request.assigned_grades || []).some((requestGrade) => gradeVariants.includes(requestGrade)))
@@ -147,7 +166,17 @@ const TeacherSelection = () => {
 
       if (combinedAssignments.length === 0) {
         setTeachers([]);
-        setLoading(false);
+        setSelectionError(buildTeacherDataDiagnostic({
+          title: "لم تظهر حسابات المعلمين",
+          reason: "استعلامات المعلمين نجحت، لكنها أعادت صفر تعيينات مطابقة.",
+          operation: "filter_teacher_assignments",
+          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (combinedAssignments empty)",
+          context: { stage, grade, category, educationType: eduType, choiceCategoryKey, effectiveCategoryVariants, gradeVariants },
+          checks: [
+            { name: "teacher_assignments", status: assignments?.length ? "ok" : "empty", count: assignments?.length || 0 },
+            { name: "approved_teacher_assignments", status: requestMatchesRes.data?.length ? "ok" : "empty", count: requestMatchesRes.data?.length || 0 },
+          ],
+        }));
         return;
       }
 
@@ -163,18 +192,44 @@ const TeacherSelection = () => {
 
       if (filtered.length === 0) {
         setTeachers([]);
-        setLoading(false);
+        setSelectionError(buildTeacherDataDiagnostic({
+          title: "تم استبعاد جميع المعلمين",
+          reason: "توجد تعيينات، لكن فلتر نوع التعليم أو القسم استبعدها كلها.",
+          operation: "filter_assignments_for_student",
+          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (filtered assignments empty)",
+          context: { stage, grade, category, normalizedSection, educationType: eduType, combinedAssignments: combinedAssignments.length },
+          checks: [{ name: "filtered teacher assignments", status: "empty", count: 0 }],
+        }));
         return;
       }
 
       // Get unique teacher IDs
       const teacherIds = [...new Set(filtered.map(a => a.teacher_id))];
 
-      const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
+      const [profileRowsRes, teacherProfilesRes, fallbackProfilesRes] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds),
         supabase.from("public_teacher_profiles" as any).select("id, full_name, avatar_url").in("id", teacherIds),
         supabase.from("teacher_directory" as any).select("id, full_name, avatar_url").in("id", teacherIds),
       ]);
+      const profileRows = profileRowsRes.data;
+      const teacherProfiles = teacherProfilesRes.data;
+      const fallbackProfiles = fallbackProfilesRes.data;
+      const profileError = profileRowsRes.error || teacherProfilesRes.error || fallbackProfilesRes.error;
+      if (profileError || !profileRows?.length) {
+        setSelectionError(buildTeacherDataDiagnostic({
+          title: profileError ? "فشل تحميل ملفات المعلمين" : "بيانات صور وفيديوهات المعلمين محجوبة",
+          reason: profileError ? "أحد استعلامات ملف المعلم فشل." : "تم العثور على حسابات المعلمين، لكن جدول ملفات المعلمين أعاد صفر صفوف؛ غالبًا توجد مشكلة صلاحيات قراءة أو عزل منصة.",
+          operation: "load_teacher_profiles_media",
+          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (teacher profile Promise.all)",
+          context: { stage, grade, category, teacherIds },
+          error: profileError,
+          checks: [
+            { name: "teacher_profiles (bio/photo/video)", status: profileRowsRes.error ? "error" : profileRows?.length ? "ok" : "empty", count: profileRows?.length || 0, error: profileRowsRes.error },
+            { name: "public_teacher_profiles (name/avatar)", status: teacherProfilesRes.error ? "error" : teacherProfiles?.length ? "ok" : "empty", count: teacherProfiles?.length || 0, error: teacherProfilesRes.error },
+            { name: "teacher_directory fallback", status: fallbackProfilesRes.error ? "error" : fallbackProfiles?.length ? "ok" : "empty", count: fallbackProfiles?.length || 0, error: fallbackProfilesRes.error },
+          ],
+        }));
+      }
 
       const normalizeName = (name?: string | null) => (name || "").trim();
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, normalizeName(p.full_name)]) || []);
@@ -214,7 +269,14 @@ const TeacherSelection = () => {
       setTeachers(teacherList);
     } catch (e) {
       console.error("Error fetching teachers:", e);
-      toast.error("خطأ في تحميل المعلمين");
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "خطأ في تحميل المعلمين",
+        reason: "توقفت عملية تحميل قائمة المعلمين بسبب خطأ غير متوقع.",
+        operation: "fetchTeachers",
+        source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (catch)",
+        context: { stage, grade, category, choiceCategoryKey, choiceCategoryVariants },
+        error: e,
+      }));
     } finally {
       setLoading(false);
     }
