@@ -113,6 +113,13 @@
       "when": 1788227534066,
       "tag": "0015_retire_legacy_platform_isolation_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788230539127,
+      "tag": "0016_secure_tenant_teacher_choice",
+      "breakpoints": true
     }
   ]
 }
