@@ -7465,6 +7465,20 @@ export type Database = {
         Args: { _period_end: string; _period_start: string }
         Returns: Json
       }
+      _qa_probe: {
+        Args: { _uid: string }
+        Returns: {
+          k: string
+          v: string
+        }[]
+      }
+      _qa_probe2: {
+        Args: { _tid: string; _uid: string }
+        Returns: {
+          k: string
+          v: string
+        }[]
+      }
       ad_target_includes_me: { Args: { _target_id: string }; Returns: boolean }
       admin_add_student_wallet_credit: {
         Args: { _amount: number; _reason?: string; _student_id: string }
@@ -9258,6 +9272,7 @@ export type Database = {
         Returns: boolean
       }
       tenant_activate_session: { Args: { _slug: string }; Returns: Json }
+      tenant_book_visible: { Args: { _book_id: string }; Returns: boolean }
       tenant_end_session: { Args: never; Returns: undefined }
       tenant_register_student: {
         Args: {
@@ -9272,6 +9287,7 @@ export type Database = {
       }
       tenant_row_visible: { Args: { _tenant_id: string }; Returns: boolean }
       tenant_signup_origin_slug: { Args: { _uid: string }; Returns: string }
+      tenant_source_visible: { Args: { _source_id: string }; Returns: boolean }
       tenant_teacher_config_for_slug: {
         Args: { _slug: string }
         Returns: {
