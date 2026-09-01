@@ -127,6 +127,13 @@
       "when": 1788232639012,
       "tag": "0017_secure_tenant_teacher_choice",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788234399195,
+      "tag": "0018_refresh_select_my_teacher_rpc",
+      "breakpoints": true
     }
   ]
 }
