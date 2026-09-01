@@ -9160,6 +9160,30 @@ export type Database = {
         }
         Returns: Json
       }
+      select_my_teacher: {
+        Args: {
+          _category: string
+          _grade: string
+          _stage: string
+          _teacher_id: string
+        }
+        Returns: {
+          category: string
+          created_at: string
+          grade: string
+          id: string
+          stage: string
+          student_id: string
+          teacher_id: string
+          tenant_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "student_teacher_choices"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_subject_default_price: {
         Args: {
           p_category: string

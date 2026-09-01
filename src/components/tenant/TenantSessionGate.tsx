@@ -11,6 +11,8 @@ import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { usePlatform } from "@/hooks/usePlatform";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   activateTenantSession,
   currentTenantSlug,
@@ -27,11 +29,13 @@ export default function TenantSessionGate({ children }: { children: React.ReactN
   const official = isOfficialTenantHost();
   const [denied, setDenied] = useState<TenantDenyReason | null>(null);
   const activatedFor = useRef<string | null>(null);
+  const [readyFor, setReadyFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isHydrated) return;
     if (!user) {
       activatedFor.current = null;
+      setReadyFor(null);
       setDenied(null);
       return;
     }
@@ -45,6 +49,7 @@ export default function TenantSessionGate({ children }: { children: React.ReactN
       if (cancelled) return;
       if (result.ok === true) {
         setDenied(null);
+        setReadyFor(token);
         return;
       }
       const reason = (result as { ok: false; reason: TenantDenyReason }).reason;
@@ -52,6 +57,7 @@ export default function TenantSessionGate({ children }: { children: React.ReactN
       // is logged, not enforced. Teacher tenants are strict.
       if (official) {
         console.warn("[tenant] official activation failed:", reason);
+        setReadyFor(token);
         return;
       }
       setDenied(reason);
@@ -84,8 +90,8 @@ export default function TenantSessionGate({ children }: { children: React.ReactN
           <p className="text-xs text-muted-foreground">
             حسابات مدرك Plus وحسابات المنصات الأخرى لا تعمل على هذه المنصة.
           </p>
-          <button
-            className="w-full rounded-xl bg-primary text-primary-foreground py-2.5 font-semibold"
+          <Button
+            className="w-full"
             onClick={() => {
               setDenied(null);
               activatedFor.current = null;
@@ -93,8 +99,17 @@ export default function TenantSessionGate({ children }: { children: React.ReactN
             }}
           >
             إنشاء حساب على هذه المنصة
-          </button>
+          </Button>
         </div>
+      </div>
+    );
+  }
+
+  const activeToken = user ? `${user.id}::${slug}` : null;
+  if (activeToken && readyFor !== activeToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background" aria-label="جاري تأمين جلسة المنصة">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }

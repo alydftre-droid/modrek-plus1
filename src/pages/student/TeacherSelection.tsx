@@ -167,13 +167,15 @@ const TeacherSelection = () => {
 
       const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url, cover_image_url, professional_title, experience_years, qualifications, achievements").in("teacher_id", teacherIds),
-        supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
-        supabase.from("teacher_directory" as any).select("id, full_name").in("id", teacherIds),
+        supabase.from("public_teacher_profiles" as any).select("id, full_name, avatar_url").in("id", teacherIds),
+        supabase.from("teacher_directory" as any).select("id, full_name, avatar_url").in("id", teacherIds),
       ]);
 
       const normalizeName = (name?: string | null) => (name || "").trim();
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, normalizeName(p.full_name)]) || []);
       const fallbackNameMap = new Map(fallbackProfiles?.map(p => [p.id, normalizeName(p.full_name)]) || []);
+      const avatarMap = new Map(teacherProfiles?.map(p => [p.id, p.avatar_url as string | null]) || []);
+      const fallbackAvatarMap = new Map(fallbackProfiles?.map(p => [p.id, p.avatar_url as string | null]) || []);
       const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
 
       // Group grades per teacher
@@ -192,7 +194,7 @@ const TeacherSelection = () => {
           teacher_id: teacherId,
           teacher_name: nameMap.get(teacherId) || fallbackNameMap.get(teacherId) || "اسم المعلم غير متاح",
           bio: profile?.bio || null,
-          photo_url: profile?.photo_url || null,
+          photo_url: profile?.photo_url || avatarMap.get(teacherId) || fallbackAvatarMap.get(teacherId) || null,
           video_url: profile?.video_url || null,
           cover_image_url: profile?.cover_image_url || null,
           professional_title: profile?.professional_title || null,
@@ -245,18 +247,12 @@ const TeacherSelection = () => {
         }
       }
 
-      const { error } = await supabase
-        .from("student_teacher_choices")
-        .upsert(
-          {
-            student_id: user.id,
-            teacher_id: teacherId,
-            category: choiceCategoryKey,
-            stage,
-            grade,
-          },
-          { onConflict: "student_id,category,stage,grade" }
-        );
+      const { error } = await supabase.rpc("select_my_teacher", {
+        _teacher_id: teacherId,
+        _category: choiceCategoryKey,
+        _stage: stage,
+        _grade: grade,
+      });
       if (error) throw error;
 
 

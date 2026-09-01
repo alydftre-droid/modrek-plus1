@@ -792,18 +792,12 @@ const StudentSubjectView = () => {
         await purgePurchasesForTeacher(existingChoice);
       }
 
-      const { error } = await supabase
-        .from("student_teacher_choices")
-        .upsert(
-          {
-            student_id: user.id,
-            teacher_id: teacherId,
-            category: choiceCategoryKey,
-            stage,
-            grade,
-          },
-          { onConflict: "student_id,category,stage,grade" }
-        );
+      const { error } = await supabase.rpc("select_my_teacher", {
+        _teacher_id: teacherId,
+        _category: choiceCategoryKey,
+        _stage: stage,
+        _grade: grade,
+      });
       if (error) throw error;
       setExistingChoice(teacherId);
       const t = teachers.find(t => t.teacher_id === teacherId);
