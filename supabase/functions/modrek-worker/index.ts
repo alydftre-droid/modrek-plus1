@@ -77,6 +77,10 @@ const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
 // re-downloading and re-parsing the whole 30-100MB book for every page.
 const PDF_PART_PAGES = 10;
 const PARTS_PER_SPLIT_INVOCATION = 1;
+// One split invocation keeps carving parts out of the single downloaded buffer
+// until this budget elapses, then requeues itself. Kept well under the stage
+// timeout so the job always finishes cleanly instead of being killed mid-flight.
+const SPLIT_INVOCATION_BUDGET_MS = 55_000;
 const STALE_RUNNING_JOB_MS = 6 * 60_000;
 // Above this size the book is always split before extraction.
 const PDF_SPLIT_MIN_BYTES = 4 * 1024 * 1024;
@@ -1301,6 +1305,113 @@ async function fetchAssetBytes(
   return await readResponseBytesWithProgress(r, Number(asset.byte_size ?? 0), onProgress);
 }
 
+// --- Ranged reads: page counting must NEVER download the whole book ---------
+// Downloading a 30-100MB PDF into memory inside extract_text was the real cause
+// of the "stuck at text extraction forever, no error" reports: the isolate was
+// killed (OOM / stream stall) before it could write any structured failure, the
+// job went back to `retrying` on the stale-heartbeat sweep, and the loop
+// repeated silently. Page counting now reads only a few MB via HTTP Range.
+const PDF_RANGE_TAIL_BYTES = 3 * 1024 * 1024;
+const PDF_RANGE_HEAD_BYTES = 4 * 1024 * 1024;
+const PDF_RANGE_BIG_TAIL_BYTES = 12 * 1024 * 1024;
+const PDF_FULL_DOWNLOAD_SAFE_BYTES = 20 * 1024 * 1024;
+
+async function fetchAssetRange(asset: any, start: number, endInclusive: number): Promise<Uint8Array | null> {
+  const provider = (asset?.storage_provider ?? "").toLowerCase();
+  if (provider !== "bunny") return null;
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) return null;
+  const from = Math.max(0, Math.floor(start));
+  const to = Math.max(from, Math.floor(endInclusive));
+  const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+  const r = await fetchWithTimeout(
+    url,
+    { headers: { AccessKey: BUNNY_API_KEY, Range: `bytes=${from}-${to}` } },
+    45_000,
+  );
+  if (r.status !== 206) {
+    // Server ignored the Range header — drop the body instead of buffering the
+    // whole file, and let the caller fall back.
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    return null;
+  }
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+/**
+ * Resolve the page count of a PDF without materialising the whole file.
+ * Order: tail window -> head window -> larger tail window -> (small files only)
+ * full download with unpdf/pdf-lib. Every attempt is reported for the developer
+ * diagnostics panel.
+ */
+async function resolvePdfPageCountRanged(
+  admin: SupabaseClient,
+  job: any,
+  asset: any,
+  onAttempt: (info: { parser: string; ok: boolean; pages?: number; error?: string }) => Promise<void>,
+): Promise<{ pageCount: number; parser: string }> {
+  const byteSize = Number(asset.byte_size ?? 0);
+  const windows: { name: string; start: number; end: number }[] = [];
+  if (byteSize > 0) {
+    windows.push({ name: `range_tail_${Math.round(PDF_RANGE_TAIL_BYTES / 1024 / 1024)}mb`, start: Math.max(0, byteSize - PDF_RANGE_TAIL_BYTES), end: byteSize - 1 });
+    windows.push({ name: `range_head_${Math.round(PDF_RANGE_HEAD_BYTES / 1024 / 1024)}mb`, start: 0, end: Math.min(byteSize - 1, PDF_RANGE_HEAD_BYTES - 1) });
+    if (byteSize > PDF_RANGE_BIG_TAIL_BYTES) {
+      windows.push({ name: `range_tail_${Math.round(PDF_RANGE_BIG_TAIL_BYTES / 1024 / 1024)}mb`, start: byteSize - PDF_RANGE_BIG_TAIL_BYTES, end: byteSize - 1 });
+    }
+  }
+
+  // Read head AND tail windows and keep the largest page-tree /Count found: a
+  // partial window can contain a page-tree *subtree*, so trusting the first hit
+  // would silently truncate the book.
+  let bestPages = 0;
+  let bestParser = "";
+  for (const win of windows) {
+    try {
+      const slice = await fetchAssetRange(asset, win.start, win.end);
+      if (!slice?.byteLength) {
+        await onAttempt({ parser: win.name, ok: false, error: "range request not supported by storage" });
+        continue;
+      }
+      const pages = countPdfPagesFromRawBytes(slice, { requirePageTree: true });
+      await onAttempt({ parser: win.name, ok: pages > 0, pages, error: pages > 0 ? undefined : "no page tree found in window" });
+      if (pages > bestPages) {
+        bestPages = pages;
+        bestParser = win.name;
+      }
+    } catch (err: any) {
+      await onAttempt({ parser: win.name, ok: false, error: String(err?.message ?? err).slice(0, 300) });
+    }
+  }
+  if (bestPages > 0) return { pageCount: bestPages, parser: bestParser };
+
+
+  if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
+    // Refuse to load a huge book into the isolate: that is exactly the crash
+    // loop we are fixing. Surface a real, actionable error instead of hanging.
+    throw new Error(
+      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف. `
+      + "الملف على الأرجح مضغوط بصيغة xref-stream غير مكتملة أو تالف. "
+      + "أعد رفع نسخة PDF سليمة (يمكن ضغطها أو تقسيمها إلى أجزاء أصغر) ثم أعد تشغيل المرحلة.",
+    );
+  }
+
+  const bytes = await fetchAssetBytes(admin, asset, async (info) => {
+    await updateJobProgress(admin, job, 9, {
+      stage: "pdf_page_count_full_download",
+      loaded_bytes: info.loaded,
+      total_bytes: info.total,
+    });
+  });
+  return await resolvePdfPageCount(
+    bytes,
+    [
+      { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
+      { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
+    ],
+    onAttempt,
+  );
+}
+
+
 async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, mime: string) {
   const bytes = await fetchAssetBytes(admin, asset);
   if (mime === "text/plain") {
@@ -1362,66 +1473,30 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const scanned = !!asset?.metadata?.is_scanned;
 
   await setVersionStage(admin, job.version_id, "text_extraction", 26);
-  await updateJobProgress(admin, job, 3, {
-    stage: "pdf_source_download",
-    filename: asset.original_filename,
-    bytes: byteSize,
-  });
-  let lastDownloadHeartbeat = 0;
-  const bytes = await fetchAssetBytes(admin, asset, async (info) => {
-    if (info.loaded - lastDownloadHeartbeat < 2 * 1024 * 1024 && info.loaded < info.total) return;
-    lastDownloadHeartbeat = info.loaded;
-    const pct = 3 + Math.floor(info.pct * 4);
-    await updateJobProgress(admin, job, pct, {
-      stage: "pdf_source_downloading",
-      filename: asset.original_filename,
-      loaded_bytes: info.loaded,
-      total_bytes: info.total,
-    });
-  });
-  await setVersionStage(admin, job.version_id, "text_extraction", 27);
-  await updateJobProgress(admin, job, 8, {
+  await updateJobProgress(admin, job, 5, {
     stage: "pdf_page_count_start",
     filename: asset.original_filename,
-    bytes: bytes.byteLength,
+    bytes: byteSize,
+    strategy: "ranged_read_no_full_download",
+    memory: memorySnapshot(),
   });
+
   const parserAttempts: any[] = [];
-  let pageCount = 0;
-  let parser = "";
-  if (byteSize > PDF_SPLIT_MIN_BYTES) {
-    await updateJobProgress(admin, job, 10, {
-      stage: "pdf_page_count_raw_scan",
-      filename: asset.original_filename,
-      bytes: bytes.byteLength,
+  const resolved = await resolvePdfPageCountRanged(admin, job, asset, async (info) => {
+    parserAttempts.push(info);
+    await updateJobProgress(admin, job, 11, {
+      stage: "pdf_page_count_parser_attempt",
+      parser: info.parser,
+      ok: info.ok,
+      pages: info.pages ?? null,
+      error: info.error ?? null,
+      memory: memorySnapshot(),
     });
-    pageCount = countPdfPagesFromRawBytes(bytes);
-    if (pageCount > 0) {
-      parser = "raw_byte_scan_fast";
-      parserAttempts.push({ parser, ok: true, pages: pageCount });
-    }
-  }
-  if (!pageCount) {
-    const resolved = await resolvePdfPageCount(
-      bytes,
-      [
-        { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
-        { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
-      ],
-      async (info) => {
-        parserAttempts.push(info);
-        await updateJobProgress(admin, job, 11, {
-          stage: "pdf_page_count_parser_attempt",
-          parser: info.parser,
-          ok: info.ok,
-          pages: info.pages ?? null,
-          error: info.error ?? null,
-        });
-      },
-    );
-    pageCount = resolved.pageCount;
-    parser = resolved.parser;
-  }
+  });
+  const pageCount = resolved.pageCount;
+  const parser = resolved.parser;
   await setVersionStage(admin, job.version_id, "text_extraction", 28);
+
 
   await log(admin, job.id, "info", "pdf_page_count_resolved", {
     bytes: byteSize,
@@ -1581,10 +1656,17 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
       pending_parts: pending.length,
     });
   });
-  const slice = pending.slice(0, PARTS_PER_SPLIT_INVOCATION);
+  // The source download is by far the most expensive step here, so amortise it:
+  // keep carving parts out of the SAME buffer until the invocation time budget
+  // runs out, instead of re-downloading the whole book for every 10 pages.
+  const splitDeadline = Date.now() + SPLIT_INVOCATION_BUDGET_MS;
+  let processed = 0;
   let created = 0;
 
-  for (const part of slice) {
+  for (const part of pending) {
+    if (processed > 0 && Date.now() > splitDeadline) break;
+    processed++;
+
     try {
       await updateJobProgress(admin, job, 20 + Math.floor((Number(part.part_index ?? 0) / Math.max(1, parts?.length ?? 1)) * 65), {
         stage: "pdf_split_part_start",
@@ -1657,11 +1739,12 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
     }
   }
 
-  const remaining = pending.length - slice.length;
+  const remaining = pending.length - processed;
   if (remaining > 0) {
     await admin.from("processing_jobs").update({
       status: "pending",
-      input: { ...input, next_part: Number(input.next_part ?? 0) + slice.length },
+      input: { ...input, next_part: Number(input.next_part ?? 0) + processed },
+
       attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
       next_run_at: new Date(Date.now() + 3_000).toISOString(),
       updated_at: new Date().toISOString(),
