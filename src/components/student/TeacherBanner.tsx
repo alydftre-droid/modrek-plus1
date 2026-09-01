@@ -27,6 +27,10 @@ import { normalizeSectionForSubjects } from "@/lib/educationSection";
 import { buildTeacherEducationTypeMap, filterAssignmentsForStudent, TEACHER_ASSIGNMENT_CATEGORY_VARIANTS, TEACHER_ASSIGNMENT_GRADE_VARIANTS } from "@/lib/teacherFiltering";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
+import TeacherSelectionErrorDialog, {
+  buildTeacherSelectionDiagnostic,
+  type TeacherSelectionDiagnostic,
+} from "@/components/student/TeacherSelectionErrorDialog";
 
 const categoryToArabic: Record<string, string> = {
   arabic: "المواد العربية",
@@ -86,6 +90,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
   const [activeVideoName, setActiveVideoName] = useState("");
   const [showPaywall, setShowPaywall] = useState(false);
   const [selectedTeacherName, setSelectedTeacherName] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<TeacherSelectionDiagnostic | null>(null);
 
   useEffect(() => {
     if (!user || !category || !stage || !grade) return;
@@ -231,7 +236,13 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
       setShowPaywall(true);
     } catch (e) {
       console.error("Error selecting teacher:", e);
-      toast.error("خطأ في اختيار المعلم");
+      setSelectionError(buildTeacherSelectionDiagnostic({
+        error: e,
+        source: "src/components/student/TeacherBanner.tsx::handleSelectTeacher",
+        stage,
+        grade,
+        category,
+      }));
     } finally {
       setSelecting(false);
     }
@@ -406,6 +417,12 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
           teacherName={selectedTeacherName}
         />
       )}
+      <TeacherSelectionErrorDialog
+        diagnostic={selectionError}
+        onOpenChange={(open) => {
+          if (!open) setSelectionError(null);
+        }}
+      />
     </>
   );
 };

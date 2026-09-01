@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import TeacherProfileCard from "@/components/teacher/TeacherProfileCard";
 import PaywallDialog from "@/components/subscription/PaywallDialog";
+import TeacherSelectionErrorDialog, {
+  buildTeacherSelectionDiagnostic,
+  type TeacherSelectionDiagnostic,
+} from "@/components/student/TeacherSelectionErrorDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import {
   ChevronLeft,
@@ -91,6 +95,7 @@ const TeacherSelection = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [selectionError, setSelectionError] = useState<TeacherSelectionDiagnostic | null>(null);
 
   useEffect(() => {
     if (!user || !stage || !grade || !category) return;
@@ -264,7 +269,13 @@ const TeacherSelection = () => {
       setShowPaywall(true);
     } catch (e) {
       console.error("Error selecting teacher:", e);
-      toast.error("خطأ في اختيار المعلم");
+      setSelectionError(buildTeacherSelectionDiagnostic({
+        error: e,
+        source: "src/pages/student/TeacherSelection.tsx::handleSelectTeacher",
+        stage,
+        grade,
+        category: choiceCategoryKey,
+      }));
     }
   };
 
@@ -386,6 +397,12 @@ const TeacherSelection = () => {
             studentId={user?.id || ""}
           />
         )}
+        <TeacherSelectionErrorDialog
+          diagnostic={selectionError}
+          onOpenChange={(open) => {
+            if (!open) setSelectionError(null);
+          }}
+        />
       </main>
     </div>
   );
