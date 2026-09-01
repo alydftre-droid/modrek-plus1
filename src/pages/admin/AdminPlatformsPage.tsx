@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import {
   Building2, Plus, Copy, ExternalLink, Settings2, Users, Power, PowerOff, Archive, Loader2,
 } from "lucide-react";
-import { normalizePlatformSlug, platformUrl, platformFallbackUrl } from "@/lib/platformHost";
+import { normalizePlatformSlug, isValidPlatformSlug, platformUrl, platformFallbackUrl } from "@/lib/platformHost";
 import TeacherRegistrationForm, { type TeacherFormData } from "@/components/auth/TeacherRegistrationForm";
 import {
   resolveSubjectGroups, resolveSubjectIds, scopeFromSubjectIds, type PlatformSubjectRow,
@@ -326,7 +326,7 @@ function CreatePlatformDialog({
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [newTeacherPassword, setNewTeacherPassword] = useState("");
   const [scope, setScope] = useState<TeacherFormData>(EMPTY_SCOPE);
-  const [slugState, setSlugState] = useState<"idle" | "checking" | "free" | "taken">("idle");
+  const [slugState, setSlugState] = useState<"idle" | "invalid" | "checking" | "free" | "taken">("idle");
   const [saving, setSaving] = useState(false);
 
   const subjectIds = useMemo(() => resolveSubjectIds(scope, subjects), [scope, subjects]);
@@ -342,6 +342,10 @@ function CreatePlatformDialog({
 
   useEffect(() => {
     if (!slug) { setSlugState("idle"); return; }
+    // The DB enforces ^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$ (3-32 chars). Validate the
+    // format before the availability lookup, otherwise a short slug like "yo"
+    // shows as available and the insert fails on teacher_platforms_slug_chk.
+    if (!isValidPlatformSlug(slug)) { setSlugState("invalid"); return; }
     setSlugState("checking");
     const t = setTimeout(async () => {
       const [reserved, existing] = await Promise.all([
@@ -352,6 +356,7 @@ function CreatePlatformDialog({
     }, 400);
     return () => clearTimeout(t);
   }, [slug]);
+
 
   const filteredTeachers = teachers.filter((t) =>
     !teacherQuery || (t.full_name || "").includes(teacherQuery) || (t.email || "").includes(teacherQuery));
@@ -407,6 +412,17 @@ function CreatePlatformDialog({
         _brand_color: brandColor || null,
       });
       if (error) {
+        const msg = error.message || "";
+        if (msg.includes("slug_invalid")) {
+          toast.error("اسم الرابط غير صالح: حروف إنجليزية صغيرة وأرقام وشرطة فقط، من 3 إلى 32 حرفًا");
+          setStep(1);
+          return;
+        }
+        if (msg.includes("slug_taken") || msg.includes("slug_reserved")) {
+          toast.error("اسم الرابط محجوز أو مستخدم بالفعل، اختر اسمًا آخر");
+          setStep(1);
+          return;
+        }
         reportRpcError({
           title: "تعذر إنشاء المنصة",
           error,
@@ -484,7 +500,13 @@ function CreatePlatformDialog({
                 {slugState === "checking" && " · جارٍ التحقق..."}
                 {slugState === "free" && " · متاح ✅"}
                 {slugState === "taken" && " · غير متاح ❌"}
+                {slugState === "invalid" && " · غير صالح ❌"}
               </p>
+              <p className="text-[11px] mt-1 text-muted-foreground">
+                حروف إنجليزية صغيرة وأرقام وشرطة (-) فقط، من 3 إلى 32 حرفًا، ولا يبدأ أو ينتهي بشرطة.
+                الأسماء العربية لا تصلح للرابط، اكتب مقابلها بالإنجليزية مثل <span dir="ltr">youssef</span>.
+              </p>
+
             </div>
             <div>
               <Label>شعار المنصة (اختياري)</Label>
