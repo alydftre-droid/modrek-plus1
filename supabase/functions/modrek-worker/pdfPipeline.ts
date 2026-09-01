@@ -190,7 +190,10 @@ export function planPageBatches(
  * Last-resort page counter: scans the raw PDF bytes for page objects. Works on
  * files that both unpdf and pdf-lib refuse to load, and needs no LLM call.
  */
-export function countPdfPagesFromRawBytes(bytes: Uint8Array): number {
+export function countPdfPagesFromRawBytes(
+  bytes: Uint8Array,
+  options: { requirePageTree?: boolean } = {},
+): number {
   // Decode in bounded windows; never materialize a 100-300MB PDF as one giant
   // string because this counter runs before the book is split.
   const chunk = 512 * 1024;
@@ -210,8 +213,12 @@ export function countPdfPagesFromRawBytes(bytes: Uint8Array): number {
     pageObjects += text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
     carry = text.slice(-carrySize);
   }
-  return best > 0 ? best : pageObjects;
+  if (best > 0) return best;
+  // Counting individual /Type /Page objects is only meaningful for a complete
+  // file: on a partial (ranged) window it would badly undercount the book.
+  return options.requirePageTree ? 0 : pageObjects;
 }
+
 
 /**
  * Resolve a page count through every available parser before giving up.
