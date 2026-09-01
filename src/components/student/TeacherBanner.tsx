@@ -213,27 +213,13 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
     if (!user) return;
     setSelecting(true);
     try {
-      if (existingChoice) {
-        const { error } = await supabase
-          .from("student_teacher_choices")
-          .update({ teacher_id: teacherId })
-          .eq("student_id", user.id)
-          .eq("category", category)
-          .eq("stage", stage)
-          .eq("grade", grade);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("student_teacher_choices")
-          .insert({
-            student_id: user.id,
-            teacher_id: teacherId,
-            category,
-            stage,
-            grade,
-          });
-        if (error) throw error;
-      }
+      const { error } = await supabase.rpc("select_my_teacher", {
+        _teacher_id: teacherId,
+        _category: category,
+        _stage: stage,
+        _grade: grade,
+      });
+      if (error) throw error;
 
       setSelectedTeacherId(teacherId);
       setExistingChoice(teacherId);
