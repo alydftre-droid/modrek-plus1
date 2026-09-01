@@ -1663,9 +1663,6 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
     if (processed > 0 && Date.now() > splitDeadline) break;
     processed++;
 
-
-
-  for (const part of slice) {
     try {
       await updateJobProgress(admin, job, 20 + Math.floor((Number(part.part_index ?? 0) / Math.max(1, parts?.length ?? 1)) * 65), {
         stage: "pdf_split_part_start",
