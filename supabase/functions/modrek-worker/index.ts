@@ -77,6 +77,10 @@ const EXTRACT_PAGE_MAX_ATTEMPTS = 5;
 // re-downloading and re-parsing the whole 30-100MB book for every page.
 const PDF_PART_PAGES = 10;
 const PARTS_PER_SPLIT_INVOCATION = 1;
+// One split invocation keeps carving parts out of the single downloaded buffer
+// until this budget elapses, then requeues itself. Kept well under the stage
+// timeout so the job always finishes cleanly instead of being killed mid-flight.
+const SPLIT_INVOCATION_BUDGET_MS = 55_000;
 const STALE_RUNNING_JOB_MS = 6 * 60_000;
 // Above this size the book is always split before extraction.
 const PDF_SPLIT_MIN_BYTES = 4 * 1024 * 1024;
