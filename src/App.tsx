@@ -11,7 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import OfficialOnlyRoute from "@/routes/OfficialOnlyRoute";
 import PageTransition from "@/components/PageTransition";
-import { platformSlugFromHostname, platformBasePath, detectPlatformSlug } from "@/lib/platformHost";
+import { platformBasePath, detectPlatformSlug } from "@/lib/platformHost";
 import { tenantCacheKey } from "@/lib/tenant";
 import TenantSessionGate from "@/components/tenant/TenantSessionGate";
 
