@@ -894,6 +894,12 @@ export interface RetrieveArgs {
   contextSubject?: string | null;
   maxPassages?: number;
   scope?: StudentScope;
+  /**
+   * Raw `Authorization` header of the request. REQUIRED for tenant isolation
+   * when `scope` is not supplied: without it the tenant of the request cannot
+   * be resolved and retrieval would silently fall back to the official tenant.
+   */
+  authHeader?: string | null;
   /** Which AI surface asked (study / exams / chat / review) — for telemetry. */
   surface?: string;
   /** Set false to skip writing the developer telemetry row. */
@@ -904,7 +910,8 @@ const MAX_CANDIDATE_BOOKS = 8;
 
 export async function retrieveFromLibrary(admin: any, args: RetrieveArgs): Promise<LibraryRagResult> {
   const startedAt = Date.now();
-  const scope = args.scope ?? await resolveStudentScope(admin, args.userId);
+  const scope = args.scope ?? await resolveStudentScope(admin, args.userId, args.authHeader ?? null);
+
   const understanding = understandQuery(args.query, { history: args.history, contextSubject: args.contextSubject });
   const notes: string[] = [];
   const reasons: string[] = [];
