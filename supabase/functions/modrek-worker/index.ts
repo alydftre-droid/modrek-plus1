@@ -1735,11 +1735,12 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
     }
   }
 
-  const remaining = pending.length - slice.length;
+  const remaining = pending.length - processed;
   if (remaining > 0) {
     await admin.from("processing_jobs").update({
       status: "pending",
-      input: { ...input, next_part: Number(input.next_part ?? 0) + slice.length },
+      input: { ...input, next_part: Number(input.next_part ?? 0) + processed },
+
       attempts: Math.max(0, Number(job.attempts ?? 1) - 1),
       next_run_at: new Date(Date.now() + 3_000).toISOString(),
       updated_at: new Date().toISOString(),
