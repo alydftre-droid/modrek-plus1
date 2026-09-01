@@ -7475,6 +7475,8 @@ export type Database = {
         Args: { _payload: Json }
         Returns: Json
       }
+      current_auth_session_id: { Args: never; Returns: string }
+      current_request_tenant_id: { Args: never; Returns: string }
       debug_student_group_exam_visibility: {
         Args: { _group_id: string; _sub_subject_id?: string }
         Returns: {
@@ -7561,6 +7563,7 @@ export type Database = {
             }
             Returns: undefined
           }
+      effective_request_tenant_id: { Args: never; Returns: string }
       email_queue_dispatch: { Args: never; Returns: undefined }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
@@ -8544,6 +8547,7 @@ export type Database = {
         Returns: string
       }
       normalize_price_scope_text: { Args: { p_value: string }; Returns: string }
+      official_tenant_id: { Args: never; Returns: string }
       platform_actor_ok: { Args: { _owner: string }; Returns: boolean }
       platform_attempt_ok: { Args: { _attempt_id: string }; Returns: boolean }
       platform_book_ok: { Args: { _book_id: string }; Returns: boolean }
@@ -8660,6 +8664,20 @@ export type Database = {
         }
         Returns: string
       }
+      resolve_tenant_public: {
+        Args: { _slug: string }
+        Returns: {
+          brand_color: string
+          description: string
+          logo_url: string
+          name: string
+          owner_teacher_id: string
+          slug: string
+          status: string
+          tenant_id: string
+          tenant_type: string
+        }[]
+      }
       run_subscription_expiry_automation: { Args: never; Returns: undefined }
       run_teacher_visibility_audit: { Args: never; Returns: Json }
       save_exam_answer: {
@@ -8769,6 +8787,29 @@ export type Database = {
       teacher_wallet_tx_is_for_test_student: {
         Args: { _metadata: Json }
         Returns: boolean
+      }
+      tenant_activate_session: { Args: { _slug: string }; Returns: Json }
+      tenant_end_session: { Args: never; Returns: undefined }
+      tenant_register_student: {
+        Args: {
+          _education_type?: string
+          _full_name: string
+          _grade?: string
+          _section?: string
+          _slug: string
+          _stage?: string
+        }
+        Returns: Json
+      }
+      tenant_row_visible: { Args: { _tenant_id: string }; Returns: boolean }
+      tenant_teacher_config_for_slug: {
+        Args: { _slug: string }
+        Returns: {
+          education_types: string[]
+          grades: string[]
+          stages: string[]
+          tenant_id: string
+        }[]
       }
       term_grade_key: { Args: { _grade: string }; Returns: string }
       term_item_matches_current_system_term: {

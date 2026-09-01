@@ -71,6 +71,13 @@
       "when": 1788221559042,
       "tag": "0009_create_tenant_v2_core",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788222713221,
+      "tag": "0010_tenant_v2_auth_isolation_core",
+      "breakpoints": true
     }
   ]
 }
