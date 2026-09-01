@@ -28,6 +28,7 @@ import { buildTeacherEducationTypeMap, filterAssignmentsForStudent, TEACHER_ASSI
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import TeacherSelectionErrorDialog, {
+  buildTeacherDataDiagnostic,
   buildTeacherSelectionDiagnostic,
   type TeacherSelectionDiagnostic,
 } from "@/components/student/TeacherSelectionErrorDialog";
@@ -119,6 +120,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
 
       const choiceData = choiceDataRes.data;
       const studentEducationType = (studentProfileRes.data as any)?.education_type || null;
+      if (choiceDataRes.error || studentProfileRes.error) throw choiceDataRes.error || studentProfileRes.error;
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
@@ -129,7 +131,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
         || [category, categoryToArabic[category] || category].filter((v, i, a) => a.indexOf(v) === i);
       const gradePatterns = TEACHER_ASSIGNMENT_GRADE_VARIANTS[grade] || gradeToArabicPatterns[grade] || [grade];
 
-      const [{ data: assignments, error: assignError }, { data: requestMatches }] = await Promise.all([
+      const [assignmentsRes, requestMatchesRes] = await Promise.all([
         supabase
           .from("teacher_assignments")
           .select("teacher_id, grade, section, education_type")
@@ -141,7 +143,11 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
           .in("assigned_category", categoriesToSearch),
       ]);
 
-      if (assignError) throw assignError;
+      const assignments = assignmentsRes.data;
+      const assignError = assignmentsRes.error;
+      const requestMatches = requestMatchesRes.data;
+
+      if (assignError || requestMatchesRes.error) throw assignError || requestMatchesRes.error;
 
       const requestAssignments = ((requestMatches as TeacherRequestMatch[] | null) || [])
         .filter((request) => (request.assigned_stages || []).includes(stage) && (request.assigned_grades || []).some((requestGrade) => gradePatterns.includes(requestGrade)))
@@ -169,17 +175,46 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
 
       if (!filteredAssignments || filteredAssignments.length === 0) {
         setTeachers([]);
-        setLoading(false);
+        setSelectionError(buildTeacherDataDiagnostic({
+          title: "لم تظهر حسابات المعلمين",
+          reason: combinedAssignments.length ? "فلتر الطالب استبعد جميع التعيينات." : "استعلام تعيينات المعلمين نجح لكنه أعاد صفراً.",
+          operation: "load_banner_teacher_assignments",
+          source: "src/components/student/TeacherBanner.tsx::fetchTeachers (filteredAssignments empty)",
+          context: { stage, grade, category, normalizedSection, studentEducationType, categoriesToSearch, gradePatterns },
+          checks: [
+            { name: "teacher_assignments", status: assignments?.length ? "ok" : "empty", count: assignments?.length || 0 },
+            { name: "approved_teacher_assignments", status: requestMatches?.length ? "ok" : "empty", count: requestMatches?.length || 0 },
+          ],
+        }));
         return;
       }
 
       const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-      const [{ data: profileRows }, { data: teacherProfiles }, { data: fallbackProfiles }] = await Promise.all([
+      const [profileRowsRes, teacherProfilesRes, fallbackProfilesRes] = await Promise.all([
         supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
         supabase.from("public_teacher_profiles" as any).select("id, full_name, avatar_url").in("id", teacherIds),
         supabase.from("teacher_directory" as any).select("id, full_name, avatar_url").in("id", teacherIds),
       ]);
+      const profileRows = profileRowsRes.data;
+      const teacherProfiles = teacherProfilesRes.data;
+      const fallbackProfiles = fallbackProfilesRes.data;
+      const profileError = profileRowsRes.error || teacherProfilesRes.error || fallbackProfilesRes.error;
+      if (profileError || !profileRows?.length) {
+        setSelectionError(buildTeacherDataDiagnostic({
+          title: profileError ? "فشل تحميل ملفات المعلمين" : "صور وفيديوهات المعلمين غير ظاهرة",
+          reason: profileError ? "فشل استعلام من استعلامات ملف المعلم." : "عُثر على المعلمين لكن teacher_profiles أعاد صفر صفوف؛ غالبًا توجد مشكلة صلاحيات قراءة.",
+          operation: "load_banner_teacher_profiles",
+          source: "src/components/student/TeacherBanner.tsx::fetchTeachers (profile Promise.all)",
+          context: { stage, grade, category, teacherIds },
+          error: profileError,
+          checks: [
+            { name: "teacher_profiles", status: profileRowsRes.error ? "error" : profileRows?.length ? "ok" : "empty", count: profileRows?.length || 0, error: profileRowsRes.error },
+            { name: "public_teacher_profiles", status: teacherProfilesRes.error ? "error" : teacherProfiles?.length ? "ok" : "empty", count: teacherProfiles?.length || 0, error: teacherProfilesRes.error },
+            { name: "teacher_directory", status: fallbackProfilesRes.error ? "error" : fallbackProfiles?.length ? "ok" : "empty", count: fallbackProfiles?.length || 0, error: fallbackProfilesRes.error },
+          ],
+        }));
+      }
 
       const normalizeName = (name?: string | null) => (name || "").trim();
       const nameMap = new Map(teacherProfiles?.map(p => [p.id, normalizeName(p.full_name)]) || []);
@@ -211,6 +246,14 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
       setTeachers(teacherList);
     } catch (e) {
       console.error("Error fetching teachers:", e);
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "خطأ في تحميل بيانات المعلمين",
+        reason: "توقفت عملية تحميل شريط المعلمين بسبب خطأ.",
+        operation: "fetchTeachers",
+        source: "src/components/student/TeacherBanner.tsx::fetchTeachers (catch)",
+        context: { stage, grade, category, section },
+        error: e,
+      }));
     } finally {
       setLoading(false);
     }
@@ -263,7 +306,16 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
     );
   }
 
-  if (teachers.length === 0) return null;
+  if (teachers.length === 0) {
+    return (
+      <TeacherSelectionErrorDialog
+        diagnostic={selectionError}
+        onOpenChange={(open) => {
+          if (!open) setSelectionError(null);
+        }}
+      />
+    );
+  }
 
   return (
     <>

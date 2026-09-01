@@ -1593,7 +1593,12 @@ const StudentSubjectView = () => {
               <CardContent className="p-8 text-center">
                 <BookText className="mx-auto mb-4 h-16 w-16 text-primary/55" />
                 <h3 className="mb-2 text-xl font-bold">لا توجد مجموعات</h3>
-                <p className="text-muted-foreground">لم يقم المعلم بنشر مجموعات بعد</p>
+                <p className="mb-4 text-muted-foreground">تعذّر العثور على مجموعات مطابقة. افتح التقرير لمعرفة السبب الحقيقي.</p>
+                {selectionError ? (
+                  <Button variant="outline" onClick={() => setSelectionError({ ...selectionError })}>
+                    عرض ونسخ تقرير التشخيص
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           ) : (
@@ -1987,6 +1992,13 @@ const StudentSubjectView = () => {
       </main>
 
       {renderSubscribeDialog()}
+
+      <TeacherSelectionErrorDialog
+        diagnostic={selectionError}
+        onOpenChange={(open) => {
+          if (!open) setSelectionError(null);
+        }}
+      />
 
       {/* Protected Video Player */}
       <AnimatePresence>
