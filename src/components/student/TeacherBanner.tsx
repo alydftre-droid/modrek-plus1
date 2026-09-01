@@ -179,7 +179,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
           title: "لم تظهر حسابات المعلمين",
           reason: combinedAssignments.length ? "فلتر الطالب استبعد جميع التعيينات." : "استعلام تعيينات المعلمين نجح لكنه أعاد صفراً.",
           operation: "load_banner_teacher_assignments",
-          source: "src/components/student/TeacherBanner.tsx::fetchTeachers (filteredAssignments empty)",
+          source: "src/components/student/TeacherBanner.tsx:182 :: filteredAssignments empty",
           context: { stage, grade, category, normalizedSection, studentEducationType, categoriesToSearch, gradePatterns },
           checks: [
             { name: "teacher_assignments", status: assignments?.length ? "ok" : "empty", count: assignments?.length || 0 },
@@ -205,7 +205,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
           title: profileError ? "فشل تحميل ملفات المعلمين" : "صور وفيديوهات المعلمين غير ظاهرة",
           reason: profileError ? "فشل استعلام من استعلامات ملف المعلم." : "عُثر على المعلمين لكن teacher_profiles أعاد صفر صفوف؛ غالبًا توجد مشكلة صلاحيات قراءة.",
           operation: "load_banner_teacher_profiles",
-          source: "src/components/student/TeacherBanner.tsx::fetchTeachers (profile Promise.all)",
+          source: "src/components/student/TeacherBanner.tsx:208 :: teacher profile queries",
           context: { stage, grade, category, teacherIds },
           error: profileError,
           checks: [
@@ -250,7 +250,7 @@ const TeacherBanner = ({ category, stage, grade, section, onTeacherSelected, onD
         title: "خطأ في تحميل بيانات المعلمين",
         reason: "توقفت عملية تحميل شريط المعلمين بسبب خطأ.",
         operation: "fetchTeachers",
-        source: "src/components/student/TeacherBanner.tsx::fetchTeachers (catch)",
+        source: "src/components/student/TeacherBanner.tsx:253 :: fetchTeachers catch",
         context: { stage, grade, category, section },
         error: e,
       }));

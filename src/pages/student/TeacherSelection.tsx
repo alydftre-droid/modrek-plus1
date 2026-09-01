@@ -137,7 +137,7 @@ const TeacherSelection = () => {
           title: "تعذّر تحميل بيانات اختيار المعلم",
           reason: "فشل استعلام أساسي قبل تكوين قائمة المعلمين.",
           operation: "load_teacher_selection_prerequisites",
-          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (queries: student_teacher_choices/profiles/approved_teacher_assignments)",
+          source: "src/pages/student/TeacherSelection.tsx:140 :: fetchTeachers prerequisites",
           context: { stage, grade, category, choiceCategoryKey, choiceCategoryVariants, effectiveCategoryVariants },
           error: firstError,
           checks: [
@@ -170,7 +170,7 @@ const TeacherSelection = () => {
           title: "لم تظهر حسابات المعلمين",
           reason: "استعلامات المعلمين نجحت، لكنها أعادت صفر تعيينات مطابقة.",
           operation: "filter_teacher_assignments",
-          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (combinedAssignments empty)",
+          source: "src/pages/student/TeacherSelection.tsx:173 :: combinedAssignments empty",
           context: { stage, grade, category, educationType: eduType, choiceCategoryKey, effectiveCategoryVariants, gradeVariants },
           checks: [
             { name: "teacher_assignments", status: assignments?.length ? "ok" : "empty", count: assignments?.length || 0 },
@@ -196,7 +196,7 @@ const TeacherSelection = () => {
           title: "تم استبعاد جميع المعلمين",
           reason: "توجد تعيينات، لكن فلتر نوع التعليم أو القسم استبعدها كلها.",
           operation: "filter_assignments_for_student",
-          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (filtered assignments empty)",
+          source: "src/pages/student/TeacherSelection.tsx:199 :: filtered assignments empty",
           context: { stage, grade, category, normalizedSection, educationType: eduType, combinedAssignments: combinedAssignments.length },
           checks: [{ name: "filtered teacher assignments", status: "empty", count: 0 }],
         }));
@@ -220,7 +220,7 @@ const TeacherSelection = () => {
           title: profileError ? "فشل تحميل ملفات المعلمين" : "بيانات صور وفيديوهات المعلمين محجوبة",
           reason: profileError ? "أحد استعلامات ملف المعلم فشل." : "تم العثور على حسابات المعلمين، لكن جدول ملفات المعلمين أعاد صفر صفوف؛ غالبًا توجد مشكلة صلاحيات قراءة أو عزل منصة.",
           operation: "load_teacher_profiles_media",
-          source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (teacher profile Promise.all)",
+          source: "src/pages/student/TeacherSelection.tsx:223 :: teacher profile queries",
           context: { stage, grade, category, teacherIds },
           error: profileError,
           checks: [
@@ -273,7 +273,7 @@ const TeacherSelection = () => {
         title: "خطأ في تحميل المعلمين",
         reason: "توقفت عملية تحميل قائمة المعلمين بسبب خطأ غير متوقع.",
         operation: "fetchTeachers",
-        source: "src/pages/student/TeacherSelection.tsx::fetchTeachers (catch)",
+        source: "src/pages/student/TeacherSelection.tsx:276 :: fetchTeachers catch",
         context: { stage, grade, category, choiceCategoryKey, choiceCategoryVariants },
         error: e,
       }));

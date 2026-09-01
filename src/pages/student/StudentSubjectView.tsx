@@ -476,7 +476,7 @@ const StudentSubjectView = () => {
             title: mediaError ? "فشل تحميل صورة وفيديو المعلم" : "ملف المعلم غير ظاهر للطالب",
             reason: mediaError ? "أحد استعلامات ملف المعلم فشل." : "اختيار المعلم موجود، لكن teacher_profiles أعاد صفراً؛ غالبًا تمنع سياسة القراءة وصول الطالب.",
             operation: "load_selected_teacher_profile",
-            source: "src/pages/student/StudentSubjectView.tsx::fetchInit (selected teacher profile Promise.all)",
+            source: "src/pages/student/StudentSubjectView.tsx:479 :: selected teacher profile queries",
             context: { teacherId: choiceData.teacher_id, stage, grade, category, choiceCategoryVariants },
             error: mediaError,
             checks: [
@@ -516,7 +516,7 @@ const StudentSubjectView = () => {
         title: "خطأ في تحميل صفحة المادة",
         reason: "توقفت تهيئة بيانات الطالب أو اختيار المعلم.",
         operation: "fetchInit",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchInit (catch)",
+        source: "src/pages/student/StudentSubjectView.tsx:519 :: fetchInit catch",
         context: { stage, grade, category, choiceCategoryKey, choiceCategoryVariants },
         error: e,
       }));
@@ -559,7 +559,7 @@ const StudentSubjectView = () => {
         title: "فشل تحميل حسابات المعلمين",
         reason: "تعذّر قراءة تعيينات المعلمين المعتمدة.",
         operation: "load_teacher_assignments",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchTeachers (assignment Promise.all)",
+        source: "src/pages/student/StudentSubjectView.tsx:562 :: teacher assignment queries",
         context: { stage, grade, category, categoryVariants, gradeVariants },
         error: assignmentError,
         checks: [
@@ -600,7 +600,7 @@ const StudentSubjectView = () => {
         title: "لم تظهر حسابات المعلمين",
         reason: combinedAssignments.length ? "فلتر نوع التعليم أو القسم استبعد جميع المعلمين." : "استعلامات التعيينات نجحت لكنها أعادت صفراً.",
         operation: "filter_teacher_assignments",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchTeachers (filteredAssignments empty)",
+        source: "src/pages/student/StudentSubjectView.tsx:603 :: filteredAssignments empty",
         context: { stage, grade, category, categoryVariants, gradeVariants, normalizedSection, educationType: educationTypeOverride ?? studentEducationType, combinedAssignments: combinedAssignments.length },
         checks: [{ name: "matching teacher assignments", status: "empty", count: 0 }],
       }));
@@ -624,7 +624,7 @@ const StudentSubjectView = () => {
         title: profileError ? "فشل تحميل ملفات المعلمين" : "صور وفيديوهات المعلمين غير ظاهرة",
         reason: profileError ? "فشل استعلام من استعلامات الملف التعريفي." : "عُثر على المعلمين لكن teacher_profiles أعاد صفر صفوف؛ غالبًا توجد مشكلة RLS أو عزل منصة.",
         operation: "load_teacher_profiles_media",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchTeachers (profile Promise.all)",
+        source: "src/pages/student/StudentSubjectView.tsx:627 :: teacher profile queries",
         context: { stage, grade, category, teacherIds },
         error: profileError,
         checks: [
@@ -700,7 +700,7 @@ const StudentSubjectView = () => {
         title: "فشل تحميل مجموعات المعلم",
         reason: "قاعدة البيانات رفضت أو فشلت في استعلام مجموعات المعلم.",
         operation: "load_content_groups",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchTeacherCourses (content_groups query)",
+        source: "src/pages/student/StudentSubjectView.tsx:703 :: content_groups query",
         context: { teacherId, activeTerm, stage, grade, category, categoryVariants, educationType: effectiveEducationType, section: effectiveStudentSection },
         error: rawGroupsError,
         checks: [{ name: "content_groups", status: "error", error: rawGroupsError }],
@@ -721,7 +721,7 @@ const StudentSubjectView = () => {
         title: "فشل ربط المجموعات بالمواد",
         reason: "ظهرت مجموعات للمعلم لكن تعذّر تحميل المواد المرتبطة بها.",
         operation: "load_group_subjects",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchTeacherCourses (subjects query)",
+        source: "src/pages/student/StudentSubjectView.tsx:724 :: subjects query",
         context: { teacherId, stage, grade, category, rawGroups: rawGroups?.length || 0, subjectIds },
         error: subjectRowsError,
         checks: [{ name: "content_groups", status: rawGroups?.length ? "ok" : "empty", count: rawGroups?.length || 0 }, { name: "subjects", status: "error", error: subjectRowsError }],
@@ -790,7 +790,7 @@ const StudentSubjectView = () => {
         title: "مجموعات المعلم غير ظاهرة",
         reason: rawGroups?.length ? "قاعدة البيانات أعادت مجموعات، لكن مطابقة المادة/الصف/المرحلة أو نوع التعليم استبعدتها." : "استعلام content_groups نجح لكنه أعاد صفر صفوف؛ غالبًا توجد مشكلة RLS أو tenant_id/platform_id أو حالة النشر والفصل الدراسي.",
         operation: "filter_teacher_content_groups",
-        source: "src/pages/student/StudentSubjectView.tsx::fetchTeacherCourses (groups visibility pipeline)",
+        source: "src/pages/student/StudentSubjectView.tsx:793 :: groups visibility pipeline",
         context: { teacherId, activeTerm, stage, grade, category, categoryVariants, educationType: effectiveEducationType, section: effectiveStudentSection, rawGroups: rawGroups?.length || 0, subjects: subjectRows?.length || 0, eligibleGroups: eligibleGroups.length, visibleGroups: groups.length, subjectIds },
         checks: [
           { name: "content_groups query", status: rawGroups?.length ? "ok" : "empty", count: rawGroups?.length || 0 },
