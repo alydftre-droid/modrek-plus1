@@ -84,6 +84,7 @@ interface UserContext {
   subject_ids: string[];
   /** Teacher-platform tenant; null = official platform. Never taken from the body. */
   platform_id: string | null;
+  tenant_id: string;
 }
 
 
@@ -233,6 +234,7 @@ Deno.serve(async (req) => {
         filters: derivedFilters,
         match_count: PER_TIER_LIMIT,
         platform_id: user.platform_id ?? null,
+        tenant_id: user.tenant_id,
       });
       if (rows.length > 0) {
         const top = rows[0].composite_score ?? 0;
@@ -391,6 +393,7 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
   const ctx: UserContext = {
     user_id, role: null, stage_id: null, grade_id: null,
     section_id: null, track_id: null, subject_ids: [], platform_id: null,
+    tenant_id: OFFICIAL_TENANT_ID,
   };
   if (!user_id) return ctx;
 
@@ -400,6 +403,7 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
   const scope = await resolveStudentScope(admin, user_id, auth || null);
   ctx.role = scope.role;
   ctx.platform_id = scope.platformId ?? null;
+  ctx.tenant_id = scope.tenantId;
   const ids = await resolveLibraryTaxonomyIds(admin, scope);
   ctx.stage_id = ids.stage_id;
   ctx.grade_id = ids.grade_id;
@@ -499,7 +503,7 @@ function buildFilters(user: UserContext, intent: IntentResult, overrides: any, o
 
 async function hybridSearch(admin: any, args: {
   embedding: number[]; text: string; source_type_code: string;
-  filters: any; match_count: number; platform_id: string | null;
+  filters: any; match_count: number; platform_id: string | null; tenant_id?: string;
 }) {
   // Resolve source_type_id from code
   const { data: type } = await admin
@@ -528,10 +532,12 @@ async function hybridSearch(admin: any, args: {
   // platform's) sources, and vice versa.
   const sourceIds = Array.from(new Set(rows.map((r: any) => r.source_id).filter(Boolean)));
   const { data: sources } = await admin
-    .from("knowledge_sources").select("id,platform_id").in("id", sourceIds);
+    .from("knowledge_sources").select("id,platform_id,tenant_id").in("id", sourceIds);
   const allowed = new Set(
     (sources ?? [])
       .filter((s: any) => (s.platform_id ?? null) === (args.platform_id ?? null))
+      .filter((s: any) =>
+        (s.tenant_id ?? OFFICIAL_TENANT_ID) === (args.tenant_id ?? OFFICIAL_TENANT_ID))
       .map((s: any) => String(s.id)),
   );
   return rows.filter((r: any) => allowed.has(String(r.source_id)));
