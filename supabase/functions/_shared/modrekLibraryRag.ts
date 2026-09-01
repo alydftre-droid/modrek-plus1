@@ -37,7 +37,20 @@ export interface StudentScope {
    * one platform's corpus out of another platform's answers.
    */
   platformId: string | null;
+  /**
+   * Tenant authorized for the CURRENT request (from tenant_session_contexts).
+   * Retrieval runs with the service role, so this is the only thing keeping
+   * one tenant's corpus out of another tenant's answers.
+   */
+  tenantId: string;
   labels: { stage: string | null; grade: string | null; track: string | null; system: string };
+}
+
+export const OFFICIAL_TENANT_ID = "00000000-0000-4000-8000-000000000001";
+
+/** Restrict any table that carries `tenant_id` to the request's tenant. */
+export function applyTenantScope(query: any, tenantId: string) {
+  return query.eq("tenant_id", tenantId || OFFICIAL_TENANT_ID);
 }
 
 /** Restrict any table that carries `platform_id` to the caller's tenant. */
@@ -80,7 +93,11 @@ const GRADE_LABELS: Record<string, string> = {
   p4: "الصف الرابع الابتدائي", p5: "الصف الخامس الابتدائي", p6: "الصف السادس الابتدائي",
 };
 
-export async function resolveStudentScope(admin: any, userId: string): Promise<StudentScope> {
+export async function resolveStudentScope(
+  admin: any,
+  userId: string,
+  authHeader: string | null = null,
+): Promise<StudentScope> {
   const { data: profile } = await admin
     .from("profiles")
     .select("id, full_name, role, stage, grade, section, education_type")
@@ -106,6 +123,11 @@ export async function resolveStudentScope(admin: any, userId: string): Promise<S
     .maybeSingle();
   platformId = membership?.platform_id ?? null;
 
+  // Request tenant: resolved from the caller's authorized session context, never
+  // from "which platform does this user belong to".
+  const { resolveRequestTenantId } = await import("./auth.ts");
+  const tenantId = await resolveRequestTenantId(admin, authHeader, userId);
+
   return {
     userId,
     fullName: profile?.full_name ?? null,
@@ -115,6 +137,7 @@ export async function resolveStudentScope(admin: any, userId: string): Promise<S
     trackCodes,
     sectionCode,
     platformId,
+    tenantId,
     labels: {
 
       stage: stageCode === "secondary" ? "المرحلة الثانوية" : stageCode === "preparatory" ? "المرحلة الإعدادية" : stageCode === "primary" ? "المرحلة الابتدائية" : null,
@@ -428,6 +451,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
     .order("created_at", { ascending: false })
     .limit(200);
   q = applyPlatformScope(q, scope.platformId);
+  q = applyTenantScope(q, scope.tenantId);
 
   if (gradeRow?.id) q = q.eq("grade_id", gradeRow.id);
   else if (stageRow?.id) q = q.eq("stage_id", stageRow.id);
@@ -442,6 +466,7 @@ export async function listAccessibleBooks(admin: any, scope: StudentScope): Prom
         .order("created_at", { ascending: false })
         .limit(200);
       modern = applyPlatformScope(modern, scope.platformId);
+      modern = applyTenantScope(modern, scope.tenantId);
       if (gradeRow?.id) modern = modern.eq("grade_id", gradeRow.id);
       else if (stageRow?.id) modern = modern.eq("stage_id", stageRow.id);
       return modern;
