@@ -342,6 +342,10 @@ function CreatePlatformDialog({
 
   useEffect(() => {
     if (!slug) { setSlugState("idle"); return; }
+    // The DB enforces ^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$ (3-32 chars). Validate the
+    // format before the availability lookup, otherwise a short slug like "yo"
+    // shows as available and the insert fails on teacher_platforms_slug_chk.
+    if (!isValidPlatformSlug(slug)) { setSlugState("invalid"); return; }
     setSlugState("checking");
     const t = setTimeout(async () => {
       const [reserved, existing] = await Promise.all([
@@ -352,6 +356,7 @@ function CreatePlatformDialog({
     }, 400);
     return () => clearTimeout(t);
   }, [slug]);
+
 
   const filteredTeachers = teachers.filter((t) =>
     !teacherQuery || (t.full_name || "").includes(teacherQuery) || (t.email || "").includes(teacherQuery));
