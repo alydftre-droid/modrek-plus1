@@ -11,7 +11,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import OfficialOnlyRoute from "@/routes/OfficialOnlyRoute";
 import PageTransition from "@/components/PageTransition";
-import { platformSlugFromHostname } from "@/lib/platformHost";
+import { platformBasePath, detectPlatformSlug } from "@/lib/platformHost";
 import { tenantCacheKey } from "@/lib/tenant";
 import TenantSessionGate from "@/components/tenant/TenantSessionGate";
 
@@ -223,9 +223,9 @@ const AdminPlatformsPage = lazy(() => import("./pages/admin/AdminPlatformsPage")
  * page. On the official domain it stays the normal landing page.
  */
 function TenantHome() {
-  const slug = platformSlugFromHostname(
-    typeof window === "undefined" ? "" : window.location.hostname,
-  );
+  // Works for both tenant forms: `<slug>.modrekplus.com` and `/p/<slug>`
+  // (the latter is the router basename, so it resolves to "/" here).
+  const slug = detectPlatformSlug();
   return slug ? <PlatformLanding /> : <Index />;
 }
 
@@ -490,7 +490,7 @@ function App() {
   const tree = (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={platformBasePath() || undefined}>
           <PlatformProvider>
           <TenantSessionGate>
           <StartupRedirectHandler />

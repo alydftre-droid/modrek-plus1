@@ -85,6 +85,21 @@ export function detectPlatformSlug(): string | null {
   return fromPath;
 }
 
+/**
+ * Router basename for the current browsing context.
+ *
+ * On `<slug>.modrekplus.com` the tenant lives in the hostname, so the basename
+ * is empty. On the `/p/<slug>` fallback the basename is that prefix, which
+ * keeps every internal link and redirect (including `/auth`) inside the tenant
+ * instead of silently falling back to the official platform.
+ */
+export function platformBasePath(): string {
+  if (typeof window === "undefined") return "";
+  if (platformSlugFromHostname(window.location.hostname)) return "";
+  const slug = platformSlugFromPathname(window.location.pathname);
+  return slug ? `/p/${slug}` : "";
+}
+
 /** Public URL of a platform (subdomain form). */
 export function platformUrl(slug: string): string {
   return `https://${slug}.${PLATFORM_ROOT_DOMAIN}`;
