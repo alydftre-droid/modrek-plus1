@@ -13,6 +13,7 @@ import {
   resolveLibraryTaxonomyIds,
   retrieveFromLibrary,
   logRagPipeline,
+  OFFICIAL_TENANT_ID,
   type LibraryRagResult,
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
