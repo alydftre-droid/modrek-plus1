@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
+import OfficialOnlyRoute from "@/routes/OfficialOnlyRoute";
 import PageTransition from "@/components/PageTransition";
 import { platformSlugFromHostname } from "@/lib/platformHost";
 import { tenantCacheKey } from "@/lib/tenant";
@@ -255,12 +256,12 @@ function AnimatedRoutes() {
 
               {/* Public SEO / discovery pages */}
               {seoPages.map((page) => (
-                <Route key={page.slug} path={page.slug} element={<SeoLandingPage page={page} />} />
+                <Route key={page.slug} path={page.slug} element={<OfficialOnlyRoute><SeoLandingPage page={page} /></OfficialOnlyRoute>} />
               ))}
               <Route path="/education/azhari" element={<Navigate to="/education/secondary-azhari" replace />} />
               <Route path="/education/general" element={<Navigate to="/education/secondary-general" replace />} />
 
-              <Route path="/teacher-register" element={<TeacherRegister />} />
+              <Route path="/teacher-register" element={<OfficialOnlyRoute><TeacherRegister /></OfficialOnlyRoute>} />
               <Route path="/teacher/register" element={<TeacherRegister />} />
               <Route path="/teacher/terms" element={<TeacherTerms />} />
               <Route path="/teacher-terms" element={<Navigate to="/teacher/terms" replace />} />
@@ -271,7 +272,7 @@ function AnimatedRoutes() {
               <Route path="/dashboard" element={<ProtectedRoute allowedRoles={["student"]}><Dashboard /></ProtectedRoute>} />
               <Route path="/subjects" element={<ProtectedRoute allowedRoles={["student"]}><Subjects /></ProtectedRoute>} />
               <Route path="/subject/:subjectId" element={<ProtectedRoute allowedRoles={["student"]}><SubjectPage /></ProtectedRoute>} />
-              <Route path="/teacher-selection" element={<ProtectedRoute allowedRoles={["student"]}><TeacherSelection /></ProtectedRoute>} />
+              <Route path="/teacher-selection" element={<OfficialOnlyRoute><ProtectedRoute allowedRoles={["student"]}><TeacherSelection /></ProtectedRoute></OfficialOnlyRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
               <Route path="/ai-chat" element={<ProtectedRoute><AiChat /></ProtectedRoute>} />
               <Route path="/subject-ai-chat" element={<Navigate to="/ai" replace />} />
