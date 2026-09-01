@@ -1486,7 +1486,6 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const parser = resolved.parser;
   await setVersionStage(admin, job.version_id, "text_extraction", 28);
 
-  await setVersionStage(admin, job.version_id, "text_extraction", 28);
 
   await log(admin, job.id, "info", "pdf_page_count_resolved", {
     bytes: byteSize,
