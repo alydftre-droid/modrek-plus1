@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import {
   Building2, Plus, Copy, ExternalLink, Settings2, Users, Power, PowerOff, Archive, Loader2,
 } from "lucide-react";
-import { normalizePlatformSlug, platformUrl, platformFallbackUrl } from "@/lib/platformHost";
+import { normalizePlatformSlug, isValidPlatformSlug, platformUrl, platformFallbackUrl } from "@/lib/platformHost";
 import TeacherRegistrationForm, { type TeacherFormData } from "@/components/auth/TeacherRegistrationForm";
 import {
   resolveSubjectGroups, resolveSubjectIds, scopeFromSubjectIds, type PlatformSubjectRow,
