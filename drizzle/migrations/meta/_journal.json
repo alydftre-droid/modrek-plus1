@@ -106,6 +106,13 @@
       "when": 1788226712198,
       "tag": "0014_validate_platform_slug_in_create_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788227534066,
+      "tag": "0015_retire_legacy_platform_isolation_policies",
+      "breakpoints": true
     }
   ]
 }
