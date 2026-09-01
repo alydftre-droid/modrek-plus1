@@ -326,7 +326,7 @@ function CreatePlatformDialog({
   const [newTeacherEmail, setNewTeacherEmail] = useState("");
   const [newTeacherPassword, setNewTeacherPassword] = useState("");
   const [scope, setScope] = useState<TeacherFormData>(EMPTY_SCOPE);
-  const [slugState, setSlugState] = useState<"idle" | "checking" | "free" | "taken">("idle");
+  const [slugState, setSlugState] = useState<"idle" | "invalid" | "checking" | "free" | "taken">("idle");
   const [saving, setSaving] = useState(false);
 
   const subjectIds = useMemo(() => resolveSubjectIds(scope, subjects), [scope, subjects]);
