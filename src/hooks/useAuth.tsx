@@ -616,6 +616,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return { error: error.message };
       }
+      // Tenant isolation: a signup performed on a teacher platform creates an
+      // account inside THAT tenant only (explicit, never an auto-join).
+      try {
+        const { currentTenantSlug, isOfficialTenantHost, registerTenantStudent } =
+          await import("@/lib/tenant");
+        if (!isOfficialTenantHost()) {
+          await registerTenantStudent({
+            slug: currentTenantSlug(),
+            fullName: data.fullName,
+            stage: data.stage ?? null,
+            grade: data.grade ?? null,
+            section: data.section ?? null,
+          });
+        }
+      } catch (tenantError) {
+        console.warn("[tenant] signup registration failed", tenantError);
+      }
       queueExternalSync(["auth", "tables"], true);
       return { error: null };
     } catch (e: any) {
