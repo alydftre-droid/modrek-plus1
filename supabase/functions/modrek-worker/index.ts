@@ -1301,6 +1301,106 @@ async function fetchAssetBytes(
   return await readResponseBytesWithProgress(r, Number(asset.byte_size ?? 0), onProgress);
 }
 
+// --- Ranged reads: page counting must NEVER download the whole book ---------
+// Downloading a 30-100MB PDF into memory inside extract_text was the real cause
+// of the "stuck at text extraction forever, no error" reports: the isolate was
+// killed (OOM / stream stall) before it could write any structured failure, the
+// job went back to `retrying` on the stale-heartbeat sweep, and the loop
+// repeated silently. Page counting now reads only a few MB via HTTP Range.
+const PDF_RANGE_TAIL_BYTES = 3 * 1024 * 1024;
+const PDF_RANGE_HEAD_BYTES = 4 * 1024 * 1024;
+const PDF_RANGE_BIG_TAIL_BYTES = 12 * 1024 * 1024;
+const PDF_FULL_DOWNLOAD_SAFE_BYTES = 20 * 1024 * 1024;
+
+async function fetchAssetRange(asset: any, start: number, endInclusive: number): Promise<Uint8Array | null> {
+  const provider = (asset?.storage_provider ?? "").toLowerCase();
+  if (provider !== "bunny") return null;
+  if (!BUNNY_API_KEY || !BUNNY_ZONE) return null;
+  const from = Math.max(0, Math.floor(start));
+  const to = Math.max(from, Math.floor(endInclusive));
+  const url = `https://${BUNNY_STORAGE_HOST}/${BUNNY_ZONE}/${asset.object_path}`;
+  const r = await fetchWithTimeout(
+    url,
+    { headers: { AccessKey: BUNNY_API_KEY, Range: `bytes=${from}-${to}` } },
+    45_000,
+  );
+  if (r.status !== 206) {
+    // Server ignored the Range header — drop the body instead of buffering the
+    // whole file, and let the caller fall back.
+    try { await r.body?.cancel(); } catch { /* ignore */ }
+    return null;
+  }
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+/**
+ * Resolve the page count of a PDF without materialising the whole file.
+ * Order: tail window -> head window -> larger tail window -> (small files only)
+ * full download with unpdf/pdf-lib. Every attempt is reported for the developer
+ * diagnostics panel.
+ */
+async function resolvePdfPageCountRanged(
+  admin: SupabaseClient,
+  job: any,
+  asset: any,
+  onAttempt: (info: { parser: string; ok: boolean; pages?: number; error?: string }) => Promise<void>,
+): Promise<{ pageCount: number; parser: string }> {
+  const byteSize = Number(asset.byte_size ?? 0);
+  const windows: { name: string; start: number; end: number }[] = [];
+  if (byteSize > 0) {
+    windows.push({ name: `range_tail_${Math.round(PDF_RANGE_TAIL_BYTES / 1024 / 1024)}mb`, start: Math.max(0, byteSize - PDF_RANGE_TAIL_BYTES), end: byteSize - 1 });
+    windows.push({ name: `range_head_${Math.round(PDF_RANGE_HEAD_BYTES / 1024 / 1024)}mb`, start: 0, end: Math.min(byteSize - 1, PDF_RANGE_HEAD_BYTES - 1) });
+    if (byteSize > PDF_RANGE_BIG_TAIL_BYTES) {
+      windows.push({ name: `range_tail_${Math.round(PDF_RANGE_BIG_TAIL_BYTES / 1024 / 1024)}mb`, start: byteSize - PDF_RANGE_BIG_TAIL_BYTES, end: byteSize - 1 });
+    }
+  }
+
+  for (const win of windows) {
+    try {
+      const slice = await fetchAssetRange(asset, win.start, win.end);
+      if (!slice?.byteLength) {
+        await onAttempt({ parser: win.name, ok: false, error: "range request not supported by storage" });
+        continue;
+      }
+      const pages = countPdfPagesFromRawBytes(slice);
+      if (pages > 0) {
+        await onAttempt({ parser: win.name, ok: true, pages });
+        return { pageCount: pages, parser: win.name };
+      }
+      await onAttempt({ parser: win.name, ok: false, error: "no page tree found in window" });
+    } catch (err: any) {
+      await onAttempt({ parser: win.name, ok: false, error: String(err?.message ?? err).slice(0, 300) });
+    }
+  }
+
+  if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
+    // Refuse to load a huge book into the isolate: that is exactly the crash
+    // loop we are fixing. Surface a real, actionable error instead of hanging.
+    throw new Error(
+      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف. `
+      + "الملف على الأرجح مضغوط بصيغة xref-stream غير مكتملة أو تالف. "
+      + "أعد رفع نسخة PDF سليمة (يمكن ضغطها أو تقسيمها إلى أجزاء أصغر) ثم أعد تشغيل المرحلة.",
+    );
+  }
+
+  const bytes = await fetchAssetBytes(admin, asset, async (info) => {
+    await updateJobProgress(admin, job, 9, {
+      stage: "pdf_page_count_full_download",
+      loaded_bytes: info.loaded,
+      total_bytes: info.total,
+    });
+  });
+  return await resolvePdfPageCount(
+    bytes,
+    [
+      { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
+      { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
+    ],
+    onAttempt,
+  );
+}
+
+
 async function extractTextForAsset(admin: SupabaseClient, job: any, asset: any, mime: string) {
   const bytes = await fetchAssetBytes(admin, asset);
   if (mime === "text/plain") {
