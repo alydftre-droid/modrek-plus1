@@ -491,6 +491,7 @@ function App() {
       <AuthProvider>
         <BrowserRouter>
           <PlatformProvider>
+          <TenantSessionGate>
           <StartupRedirectHandler />
           <ScrollToTop />
           <RouteActivityTracker />
@@ -505,6 +506,7 @@ function App() {
           <AppUpdateDialog />
           <PlatformBrandBar />
           <AnimatedRoutes />
+          </TenantSessionGate>
           </PlatformProvider>
         </BrowserRouter>
 

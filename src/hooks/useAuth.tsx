@@ -1080,6 +1080,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { logStudentActivity } = await import("@/lib/activityLogger");
       await logStudentActivity({ action_type: "logout", action_label: "تسجيل خروج" });
     } catch { /* ignore */ }
+    // Tenant isolation: drop the server-side tenant authorization for this
+    // session before the token disappears.
+    try {
+      const { endTenantSession } = await import("@/lib/tenant");
+      await endTenantSession();
+    } catch { /* ignore */ }
     await supabase.auth.signOut();
     clearImpersonationState();
     setUser(null);
