@@ -592,6 +592,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Student signup — creates user (unconfirmed) and immediately sends OTP code
   const signUp = async (data: SignUpData): Promise<{ error: string | null }> => {
     try {
+      // Tenant isolation: stamp the signup with the tenant it happened on so the
+      // backend can never treat it as an official Modrek Plus account.
+      const { currentTenantSlug: originSlug } = await import("@/lib/tenant");
       const { error } = await supabase.auth.signUp({
         email: data.email.trim(),
         password: data.password,
@@ -604,9 +607,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             grade: data.grade,
             section: data.section,
             role: "student",
+            tenant_slug: originSlug(),
           },
         },
       });
+
       if (error) {
         if (error.message.includes("already registered") || error.message.includes("already been registered")) {
           return { error: "هذا البريد الإلكتروني مسجل بالفعل" };

@@ -532,6 +532,8 @@ ${g ? `- ${g}.` : ""}
             history: userTurns.slice(-6, -1),
             maxPassages: deepTeaching ? 24 : 8,
             surface: "ai-chat",
+            authHeader,
+
 
           });
           logRagPipeline("ai-chat", rag);
