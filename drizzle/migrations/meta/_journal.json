@@ -99,6 +99,13 @@
       "when": 1788224108856,
       "tag": "0013_tenant_origin_blocks_official_autoprovision",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788226712198,
+      "tag": "0014_validate_platform_slug_in_create_rpc",
+      "breakpoints": true
     }
   ]
 }
