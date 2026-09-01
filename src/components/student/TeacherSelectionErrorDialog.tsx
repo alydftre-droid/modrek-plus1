@@ -26,6 +26,16 @@ interface BuildDiagnosticOptions {
   category: string;
 }
 
+interface BuildDataDiagnosticOptions {
+  title: string;
+  reason: string;
+  operation: string;
+  source: string;
+  context: Record<string, unknown>;
+  error?: unknown;
+  checks?: Array<{ name: string; status: "ok" | "empty" | "error"; count?: number; error?: unknown }>;
+}
+
 const readable = (value: unknown, fallback: string) => {
   if (typeof value === "string" && value.trim()) return value.trim();
   if (typeof value === "number") return String(value);
@@ -55,6 +65,62 @@ export function buildTeacherSelectionDiagnostic({ error, source, stage, grade, c
     `الوقت UTC: ${new Date().toISOString()}`,
   ].join("\n");
   return { title: "تعذّر اختيار المعلم", reason, code, details, hint, operation, source, report };
+}
+
+const errorFields = (error: unknown) => {
+  const value = (error && typeof error === "object" ? error : {}) as ErrorLike;
+  return {
+    code: readable(value.code ?? value.status, "NO_ERROR_CODE"),
+    message: readable(value.message, error instanceof Error ? error.message : "لا يوجد خطأ صريح من قاعدة البيانات"),
+    details: readable(value.details, "لا توجد تفاصيل إضافية"),
+    hint: readable(value.hint, "لا يوجد اقتراح من قاعدة البيانات"),
+  };
+};
+
+/** Builds a copyable report for silent empty results as well as database errors. */
+export function buildTeacherDataDiagnostic({
+  title,
+  reason,
+  operation,
+  source,
+  context,
+  error,
+  checks = [],
+}: BuildDataDiagnosticOptions): TeacherSelectionDiagnostic {
+  const fields = errorFields(error);
+  const route = typeof window === "undefined" ? "غير متاح" : `${window.location.pathname}${window.location.search}`;
+  const checkLines = checks.map((check) => {
+    const checkError = errorFields(check.error);
+    return `- ${check.name}: ${check.status}${typeof check.count === "number" ? ` (rows=${check.count})` : ""}${check.error ? ` | ${checkError.code}: ${checkError.message}` : ""}`;
+  });
+  const contextLines = Object.entries(context).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(" | ") : String(value ?? "فارغ")}`);
+  const report = [
+    "تقرير تشخيص بيانات المعلم — Modrek Plus",
+    `العنوان: ${title}`,
+    `العملية: ${operation}`,
+    `السبب الظاهر: ${reason}`,
+    `رمز الخطأ: ${fields.code}`,
+    `الرسالة الأصلية: ${fields.message}`,
+    `التفاصيل: ${fields.details}`,
+    `اقتراح قاعدة البيانات: ${fields.hint}`,
+    `الملف/الدالة/السطر: ${source}`,
+    "نتائج خطوات التحميل:",
+    ...(checkLines.length ? checkLines : ["- لا توجد خطوات مسجلة"]),
+    "سياق الطلب:",
+    ...contextLines,
+    `المسار: ${route}`,
+    `الوقت UTC: ${new Date().toISOString()}`,
+  ].join("\n");
+  return {
+    title,
+    reason,
+    code: fields.code,
+    details: fields.details,
+    hint: fields.hint,
+    operation,
+    source,
+    report,
+  };
 }
 
 interface Props {
@@ -95,7 +161,7 @@ export default function TeacherSelectionErrorDialog({ diagnostic, onOpenChange }
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5 shrink-0" />{diagnostic?.title}
           </DialogTitle>
-          <DialogDescription>لم يتم إكمال الاختيار. انسخ التقرير التالي وأرسله للمطور كما هو.</DialogDescription>
+          <DialogDescription>لم تكتمل عملية تحميل بيانات المعلم. انسخ التقرير التالي وأرسله للمطور كما هو.</DialogDescription>
         </DialogHeader>
         {diagnostic && <div className="space-y-3">
           <Alert variant="destructive">

@@ -15,6 +15,7 @@ import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
 import { isBunnyVideo } from "@/lib/bunnyStream";
 import VideoThumb from "@/components/student/VideoThumb";
 import TeacherSelectionErrorDialog, {
+  buildTeacherDataDiagnostic,
   buildTeacherSelectionDiagnostic,
   type TeacherSelectionDiagnostic,
 } from "@/components/student/TeacherSelectionErrorDialog";
@@ -410,11 +411,12 @@ const StudentSubjectView = () => {
       setCurrentTerm(term);
 
       // Fetch student's education type
-      const { data: studentProfile } = await supabase
+      const { data: studentProfile, error: studentProfileError } = await supabase
         .from("profiles")
         .select("education_type, section")
         .eq("id", user.id)
         .maybeSingle();
+      if (studentProfileError) throw studentProfileError;
       const eduType = (studentProfile as any)?.education_type || null;
       const profileSection = (studentProfile as any)?.section || null;
       setStudentEducationType(eduType);
@@ -431,7 +433,7 @@ const StudentSubjectView = () => {
         normalizedSection: normalizeSectionForSubjects(profileSection),
       });
 
-      const { data: choiceData } = await supabase
+      const { data: choiceData, error: choiceError } = await supabase
         .from("student_teacher_choices")
         .select("teacher_id, category")
         .eq("student_id", user.id)
@@ -441,6 +443,7 @@ const StudentSubjectView = () => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (choiceError) throw choiceError;
 
       const { data: wallet } = await supabase
         .from("wallets")
@@ -459,11 +462,30 @@ const StudentSubjectView = () => {
 
       if (choiceData) {
         setExistingChoice(choiceData.teacher_id);
-        const [{ data: tProfile }, { data: fallbackProfile }, { data: tPhoto }] = await Promise.all([
+        const [publicProfileRes, fallbackProfileRes, teacherProfileRes] = await Promise.all([
           supabase.from("public_teacher_profiles" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
           supabase.from("teacher_directory" as any).select("full_name, avatar_url").eq("id", choiceData.teacher_id).maybeSingle(),
-          supabase.from("teacher_profiles").select("photo_url").eq("teacher_id", choiceData.teacher_id).maybeSingle(),
+          supabase.from("teacher_profiles").select("photo_url, video_url").eq("teacher_id", choiceData.teacher_id).maybeSingle(),
         ]);
+        const tProfile = publicProfileRes.data;
+        const fallbackProfile = fallbackProfileRes.data;
+        const tPhoto = teacherProfileRes.data;
+        const mediaError = publicProfileRes.error || fallbackProfileRes.error || teacherProfileRes.error;
+        if (mediaError || !teacherProfileRes.data) {
+          setSelectionError(buildTeacherDataDiagnostic({
+            title: mediaError ? "فشل تحميل صورة وفيديو المعلم" : "ملف المعلم غير ظاهر للطالب",
+            reason: mediaError ? "أحد استعلامات ملف المعلم فشل." : "اختيار المعلم موجود، لكن teacher_profiles أعاد صفراً؛ غالبًا تمنع سياسة القراءة وصول الطالب.",
+            operation: "load_selected_teacher_profile",
+            source: "src/pages/student/StudentSubjectView.tsx:479 :: selected teacher profile queries",
+            context: { teacherId: choiceData.teacher_id, stage, grade, category, choiceCategoryVariants },
+            error: mediaError,
+            checks: [
+              { name: "public_teacher_profiles", status: publicProfileRes.error ? "error" : tProfile ? "ok" : "empty", count: tProfile ? 1 : 0, error: publicProfileRes.error },
+              { name: "teacher_directory", status: fallbackProfileRes.error ? "error" : fallbackProfile ? "ok" : "empty", count: fallbackProfile ? 1 : 0, error: fallbackProfileRes.error },
+              { name: "teacher_profiles photo/video", status: teacherProfileRes.error ? "error" : tPhoto ? "ok" : "empty", count: tPhoto ? 1 : 0, error: teacherProfileRes.error },
+            ],
+          }));
+        }
         const teacherName = normalizeTeacherDisplayName((tProfile as any)?.full_name) || normalizeTeacherDisplayName((fallbackProfile as any)?.full_name);
         setChosenTeacherName(teacherName || "اسم المعلم غير متاح");
         setChosenTeacherPhoto((tPhoto as any)?.photo_url || (tProfile as any)?.avatar_url || (fallbackProfile as any)?.avatar_url || null);
@@ -490,7 +512,14 @@ const StudentSubjectView = () => {
       }
     } catch (e) {
       console.error(e);
-      toast.error("خطأ في تحميل البيانات");
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "خطأ في تحميل صفحة المادة",
+        reason: "توقفت تهيئة بيانات الطالب أو اختيار المعلم.",
+        operation: "fetchInit",
+        source: "src/pages/student/StudentSubjectView.tsx:519 :: fetchInit catch",
+        context: { stage, grade, category, choiceCategoryKey, choiceCategoryVariants },
+        error: e,
+      }));
     } finally {
       setLoading(false);
     }
@@ -510,7 +539,7 @@ const StudentSubjectView = () => {
     }
     const gradeVariants = GRADE_KEY_TO_ARABIC[grade] || [grade];
 
-    const [{ data: assignments }, { data: requestMatches }] = await Promise.all([
+    const [assignmentsRes, requestMatchesRes] = await Promise.all([
       supabase
         .from("teacher_assignments")
         .select("teacher_id, grade, section, education_type")
@@ -521,6 +550,25 @@ const StudentSubjectView = () => {
         .from("approved_teacher_assignments" as any).select("user_id, assigned_grades, assigned_stages, education_type")
         .in("assigned_category", categoryVariants),
     ]);
+    const assignments = assignmentsRes.data;
+    const requestMatches = requestMatchesRes.data;
+    const assignmentError = assignmentsRes.error || requestMatchesRes.error;
+    if (assignmentError) {
+      setTeachers([]);
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "فشل تحميل حسابات المعلمين",
+        reason: "تعذّر قراءة تعيينات المعلمين المعتمدة.",
+        operation: "load_teacher_assignments",
+        source: "src/pages/student/StudentSubjectView.tsx:562 :: teacher assignment queries",
+        context: { stage, grade, category, categoryVariants, gradeVariants },
+        error: assignmentError,
+        checks: [
+          { name: "teacher_assignments", status: assignmentsRes.error ? "error" : assignments?.length ? "ok" : "empty", count: assignments?.length || 0, error: assignmentsRes.error },
+          { name: "approved_teacher_assignments", status: requestMatchesRes.error ? "error" : requestMatches?.length ? "ok" : "empty", count: requestMatches?.length || 0, error: requestMatchesRes.error },
+        ],
+      }));
+      return;
+    }
 
     const requestAssignments = ((requestMatches as TeacherRequestMatch[] | null) || [])
       .filter((request) => (request.assigned_stages || []).includes(stage) && (request.assigned_grades || []).some((requestGrade) => gradeVariants.includes(requestGrade)))
@@ -546,15 +594,47 @@ const StudentSubjectView = () => {
       teacherEducationTypeMap,
     });
 
-    if (!filteredAssignments.length) { setTeachers([]); return; }
+    if (!filteredAssignments.length) {
+      setTeachers([]);
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "لم تظهر حسابات المعلمين",
+        reason: combinedAssignments.length ? "فلتر نوع التعليم أو القسم استبعد جميع المعلمين." : "استعلامات التعيينات نجحت لكنها أعادت صفراً.",
+        operation: "filter_teacher_assignments",
+        source: "src/pages/student/StudentSubjectView.tsx:603 :: filteredAssignments empty",
+        context: { stage, grade, category, categoryVariants, gradeVariants, normalizedSection, educationType: educationTypeOverride ?? studentEducationType, combinedAssignments: combinedAssignments.length },
+        checks: [{ name: "matching teacher assignments", status: "empty", count: 0 }],
+      }));
+      return;
+    }
     const teacherIds = [...new Set(filteredAssignments.map(a => a.teacher_id))];
 
-    const [{ data: profileRows }, { data: names }, { data: fallbackNames }, { data: schedules }] = await Promise.all([
+    const [profileRowsRes, namesRes, fallbackNamesRes, schedulesRes] = await Promise.all([
       supabase.from("teacher_profiles").select("teacher_id, bio, photo_url, video_url").in("teacher_id", teacherIds),
       supabase.from("public_teacher_profiles" as any).select("id, full_name").in("id", teacherIds),
       supabase.from("teacher_directory" as any).select("id, full_name").in("id", teacherIds),
       supabase.from("teacher_schedules").select("teacher_id, day_of_week, time_slot").in("teacher_id", teacherIds),
     ]);
+    const profileRows = profileRowsRes.data;
+    const names = namesRes.data;
+    const fallbackNames = fallbackNamesRes.data;
+    const schedules = schedulesRes.data;
+    const profileError = profileRowsRes.error || namesRes.error || fallbackNamesRes.error || schedulesRes.error;
+    if (profileError || !profileRows?.length) {
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: profileError ? "فشل تحميل ملفات المعلمين" : "صور وفيديوهات المعلمين غير ظاهرة",
+        reason: profileError ? "فشل استعلام من استعلامات الملف التعريفي." : "عُثر على المعلمين لكن teacher_profiles أعاد صفر صفوف؛ غالبًا توجد مشكلة RLS أو عزل منصة.",
+        operation: "load_teacher_profiles_media",
+        source: "src/pages/student/StudentSubjectView.tsx:627 :: teacher profile queries",
+        context: { stage, grade, category, teacherIds },
+        error: profileError,
+        checks: [
+          { name: "teacher_profiles", status: profileRowsRes.error ? "error" : profileRows?.length ? "ok" : "empty", count: profileRows?.length || 0, error: profileRowsRes.error },
+          { name: "public_teacher_profiles", status: namesRes.error ? "error" : names?.length ? "ok" : "empty", count: names?.length || 0, error: namesRes.error },
+          { name: "teacher_directory", status: fallbackNamesRes.error ? "error" : fallbackNames?.length ? "ok" : "empty", count: fallbackNames?.length || 0, error: fallbackNamesRes.error },
+          { name: "teacher_schedules", status: schedulesRes.error ? "error" : schedules?.length ? "ok" : "empty", count: schedules?.length || 0, error: schedulesRes.error },
+        ],
+      }));
+    }
     const nameMap = new Map(names?.map(n => [n.id, normalizeTeacherDisplayName(n.full_name)]) || []);
     const fallbackNameMap = new Map(fallbackNames?.map(n => [n.id, normalizeTeacherDisplayName(n.full_name)]) || []);
     const profileMap = new Map((profileRows || []).map((profile) => [profile.teacher_id, profile]));
@@ -616,16 +696,40 @@ const StudentSubjectView = () => {
       });
       setSubjects([]);
       setCourses([]);
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "فشل تحميل مجموعات المعلم",
+        reason: "قاعدة البيانات رفضت أو فشلت في استعلام مجموعات المعلم.",
+        operation: "load_content_groups",
+        source: "src/pages/student/StudentSubjectView.tsx:703 :: content_groups query",
+        context: { teacherId, activeTerm, stage, grade, category, categoryVariants, educationType: effectiveEducationType, section: effectiveStudentSection },
+        error: rawGroupsError,
+        checks: [{ name: "content_groups", status: "error", error: rawGroupsError }],
+      }));
       return [];
     }
 
     const subjectIds = [...new Set(((rawGroups as any[]) || []).map((group) => group.subject_id).filter(Boolean))];
-    const { data: subjectRows } = subjectIds.length
+    const { data: subjectRows, error: subjectRowsError } = subjectIds.length
       ? await supabase
           .from("subjects")
           .select("id, name, category, stage, grade, section")
           .in("id", subjectIds)
-      : { data: [] };
+      : { data: [], error: null };
+
+    if (subjectRowsError) {
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "فشل ربط المجموعات بالمواد",
+        reason: "ظهرت مجموعات للمعلم لكن تعذّر تحميل المواد المرتبطة بها.",
+        operation: "load_group_subjects",
+        source: "src/pages/student/StudentSubjectView.tsx:724 :: subjects query",
+        context: { teacherId, stage, grade, category, rawGroups: rawGroups?.length || 0, subjectIds },
+        error: subjectRowsError,
+        checks: [{ name: "content_groups", status: rawGroups?.length ? "ok" : "empty", count: rawGroups?.length || 0 }, { name: "subjects", status: "error", error: subjectRowsError }],
+      }));
+      setSubjects([]);
+      setCourses([]);
+      return [];
+    }
 
     const subjectMap = new Map((subjectRows || []).map((subject) => [subject.id, subject]));
 
@@ -680,6 +784,22 @@ const StudentSubjectView = () => {
       const normalizedStudentEducationType = normalizeEducationType(effectiveEducationType);
       return !groupEducationType || (!!normalizedStudentEducationType && groupEducationType === normalizedStudentEducationType);
     });
+
+    if (!groups.length) {
+      setSelectionError(buildTeacherDataDiagnostic({
+        title: "مجموعات المعلم غير ظاهرة",
+        reason: rawGroups?.length ? "قاعدة البيانات أعادت مجموعات، لكن مطابقة المادة/الصف/المرحلة أو نوع التعليم استبعدتها." : "استعلام content_groups نجح لكنه أعاد صفر صفوف؛ غالبًا توجد مشكلة RLS أو tenant_id/platform_id أو حالة النشر والفصل الدراسي.",
+        operation: "filter_teacher_content_groups",
+        source: "src/pages/student/StudentSubjectView.tsx:793 :: groups visibility pipeline",
+        context: { teacherId, activeTerm, stage, grade, category, categoryVariants, educationType: effectiveEducationType, section: effectiveStudentSection, rawGroups: rawGroups?.length || 0, subjects: subjectRows?.length || 0, eligibleGroups: eligibleGroups.length, visibleGroups: groups.length, subjectIds },
+        checks: [
+          { name: "content_groups query", status: rawGroups?.length ? "ok" : "empty", count: rawGroups?.length || 0 },
+          { name: "linked subjects", status: subjectRows?.length ? "ok" : "empty", count: subjectRows?.length || 0 },
+          { name: "stage/grade/category matched groups", status: eligibleGroups.length ? "ok" : "empty", count: eligibleGroups.length },
+          { name: "education-type visible groups", status: "empty", count: 0 },
+        ],
+      }));
+    }
 
     console.info("[student-catalog-debug] group visibility counts", {
       activeTerm,
@@ -1473,7 +1593,12 @@ const StudentSubjectView = () => {
               <CardContent className="p-8 text-center">
                 <BookText className="mx-auto mb-4 h-16 w-16 text-primary/55" />
                 <h3 className="mb-2 text-xl font-bold">لا توجد مجموعات</h3>
-                <p className="text-muted-foreground">لم يقم المعلم بنشر مجموعات بعد</p>
+                <p className="mb-4 text-muted-foreground">تعذّر العثور على مجموعات مطابقة. افتح التقرير لمعرفة السبب الحقيقي.</p>
+                {selectionError ? (
+                  <Button variant="outline" onClick={() => setSelectionError({ ...selectionError })}>
+                    عرض ونسخ تقرير التشخيص
+                  </Button>
+                ) : null}
               </CardContent>
             </Card>
           ) : (
@@ -1867,6 +1992,13 @@ const StudentSubjectView = () => {
       </main>
 
       {renderSubscribeDialog()}
+
+      <TeacherSelectionErrorDialog
+        diagnostic={selectionError}
+        onOpenChange={(open) => {
+          if (!open) setSelectionError(null);
+        }}
+      />
 
       {/* Protected Video Player */}
       <AnimatePresence>

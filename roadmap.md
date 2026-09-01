@@ -7,3 +7,4 @@
 - [x] Phase 11: Acceptance + security regression tests (19/19 PASS, incl. RAG isolation)
 - [x] Phase 12: Edge functions deployed (modrek-retrieve, ai-chat, modrek-ai-exams, modrek-ai-study)
 - [ ] إصلاح إنتاجي: استعادة ظهور بيانات المعلمين واختيارهم للطلاب الرسميين مع الحفاظ على Tenant V2
+- [x] إضافة تقرير تشخيص قابل للنسخ لتحميل حسابات وملفات وصور وفيديوهات ومجموعات المعلمين
