@@ -489,7 +489,13 @@ function CreatePlatformDialog({
                 {slugState === "checking" && " · جارٍ التحقق..."}
                 {slugState === "free" && " · متاح ✅"}
                 {slugState === "taken" && " · غير متاح ❌"}
+                {slugState === "invalid" && " · غير صالح ❌"}
               </p>
+              <p className="text-[11px] mt-1 text-muted-foreground">
+                حروف إنجليزية صغيرة وأرقام وشرطة (-) فقط، من 3 إلى 32 حرفًا، ولا يبدأ أو ينتهي بشرطة.
+                الأسماء العربية لا تصلح للرابط، اكتب مقابلها بالإنجليزية مثل <span dir="ltr">youssef</span>.
+              </p>
+
             </div>
             <div>
               <Label>شعار المنصة (اختياري)</Label>
