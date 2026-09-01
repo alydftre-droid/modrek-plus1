@@ -6,3 +6,4 @@
 - [x] Phase 4-10: Database, server, frontend, auth, subscriptions, UI, AI/storage/cache isolation
 - [x] Phase 11: Acceptance + security regression tests (19/19 PASS, incl. RAG isolation)
 - [x] Phase 12: Edge functions deployed (modrek-retrieve, ai-chat, modrek-ai-exams, modrek-ai-study)
+- [ ] إصلاح إنتاجي: استعادة ظهور بيانات المعلمين واختيارهم للطلاب الرسميين مع الحفاظ على Tenant V2
