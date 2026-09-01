@@ -1652,8 +1652,18 @@ async function stageSplitPdf(admin: SupabaseClient, job: any) {
       pending_parts: pending.length,
     });
   });
-  const slice = pending.slice(0, PARTS_PER_SPLIT_INVOCATION);
+  // The source download is by far the most expensive step here, so amortise it:
+  // keep carving parts out of the SAME buffer until the invocation time budget
+  // runs out, instead of re-downloading the whole book for every 10 pages.
+  const splitDeadline = Date.now() + SPLIT_INVOCATION_BUDGET_MS;
+  const slice: any[] = [];
+  for (const part of pending) {
+    if (slice.length >= PARTS_PER_SPLIT_INVOCATION && Date.now() > splitDeadline) break;
+    slice.push(part);
+    if (slice.length >= MAX_PARTS_PER_SPLIT_INVOCATION) break;
+  }
   let created = 0;
+
 
   for (const part of slice) {
     try {
