@@ -234,8 +234,9 @@ Deno.serve(async (req) => {
         source_type_code: tier,
         filters: derivedFilters,
         match_count: PER_TIER_LIMIT,
-        platform_id: user.platform_id ?? null,
-        tenant_id: user.tenant_id,
+        platform_id: userCtx.platform_id ?? null,
+        tenant_id: userCtx.tenant_id,
+
       });
       if (rows.length > 0) {
         const top = rows[0].composite_score ?? 0;

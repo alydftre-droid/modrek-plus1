@@ -5181,6 +5181,7 @@ export type Database = {
           is_banned: boolean | null
           is_demo: boolean
           is_test_account: boolean
+          origin_tenant_slug: string | null
           pending_commission_rate: number | null
           pending_effective_date: string | null
           phone: string | null
@@ -5206,6 +5207,7 @@ export type Database = {
           is_banned?: boolean | null
           is_demo?: boolean
           is_test_account?: boolean
+          origin_tenant_slug?: string | null
           pending_commission_rate?: number | null
           pending_effective_date?: string | null
           phone?: string | null
@@ -5231,6 +5233,7 @@ export type Database = {
           is_banned?: boolean | null
           is_demo?: boolean
           is_test_account?: boolean
+          origin_tenant_slug?: string | null
           pending_commission_rate?: number | null
           pending_effective_date?: string | null
           phone?: string | null
@@ -9268,6 +9271,7 @@ export type Database = {
         Returns: Json
       }
       tenant_row_visible: { Args: { _tenant_id: string }; Returns: boolean }
+      tenant_signup_origin_slug: { Args: { _uid: string }; Returns: string }
       tenant_teacher_config_for_slug: {
         Args: { _slug: string }
         Returns: {
