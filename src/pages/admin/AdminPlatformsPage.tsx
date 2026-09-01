@@ -412,6 +412,17 @@ function CreatePlatformDialog({
         _brand_color: brandColor || null,
       });
       if (error) {
+        const msg = error.message || "";
+        if (msg.includes("slug_invalid")) {
+          toast.error("اسم الرابط غير صالح: حروف إنجليزية صغيرة وأرقام وشرطة فقط، من 3 إلى 32 حرفًا");
+          setStep(1);
+          return;
+        }
+        if (msg.includes("slug_taken") || msg.includes("slug_reserved")) {
+          toast.error("اسم الرابط محجوز أو مستخدم بالفعل، اختر اسمًا آخر");
+          setStep(1);
+          return;
+        }
         reportRpcError({
           title: "تعذر إنشاء المنصة",
           error,
