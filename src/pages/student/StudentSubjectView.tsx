@@ -14,6 +14,10 @@ import ProtectedVideoPlayer from "@/components/student/ProtectedVideoPlayer";
 import BunnyStreamPlayer from "@/components/video/BunnyStreamPlayer";
 import { isBunnyVideo } from "@/lib/bunnyStream";
 import VideoThumb from "@/components/student/VideoThumb";
+import TeacherSelectionErrorDialog, {
+  buildTeacherSelectionDiagnostic,
+  type TeacherSelectionDiagnostic,
+} from "@/components/student/TeacherSelectionErrorDialog";
 import StudentTeacherChat from "@/components/student/StudentTeacherChat";
 import { useAuth } from "@/hooks/useAuth";
 import { isSharedSectionCategory, normalizeEducationType, normalizeSectionForSubjects } from "@/lib/educationSection";
@@ -343,6 +347,7 @@ const StudentSubjectView = () => {
   const [existingChoice, setExistingChoice] = useState<string | null>(null);
   const [chosenTeacherName, setChosenTeacherName] = useState("");
   const [chosenTeacherPhoto, setChosenTeacherPhoto] = useState<string | null>(null);
+  const [selectionError, setSelectionError] = useState<TeacherSelectionDiagnostic | null>(null);
 
   const [showChangeWarning, setShowChangeWarning] = useState(false);
   const [hasActivePurchases, setHasActivePurchases] = useState(false);
@@ -810,7 +815,13 @@ const StudentSubjectView = () => {
       setStep("groups_list");
     } catch (e) {
       console.error(e);
-      toast.error("خطأ في اختيار المعلم");
+      setSelectionError(buildTeacherSelectionDiagnostic({
+        error: e,
+        source: "src/pages/student/StudentSubjectView.tsx::handleSelectTeacher",
+        stage,
+        grade,
+        category: choiceCategoryKey,
+      }));
     }
   };
 
@@ -1399,6 +1410,12 @@ const StudentSubjectView = () => {
             )}
           </DialogContent>
         </Dialog>
+        <TeacherSelectionErrorDialog
+          diagnostic={selectionError}
+          onOpenChange={(open) => {
+            if (!open) setSelectionError(null);
+          }}
+        />
       </div>
     );
   }
