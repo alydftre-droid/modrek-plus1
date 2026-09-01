@@ -141,6 +141,20 @@
       "when": 1788235292668,
       "tag": "0019_restore_select_my_teacher_rpc_all_environments",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1788237030052,
+      "tag": "0020_restore_official_teacher_discovery_after_v1_tenant_regression",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1788237079152,
+      "tag": "0021_fix_official_teacher_visibility_for_tenant_members",
+      "breakpoints": true
     }
   ]
 }
