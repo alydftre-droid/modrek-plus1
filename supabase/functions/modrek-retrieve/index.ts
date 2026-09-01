@@ -397,7 +397,7 @@ async function resolveUserContext(admin: any, req: Request, bodyUserId: string |
   // FIX: profiles PK is `id` (not `user_id`) and the curriculum columns are
   // text labels (`stage`, `grade`, `section`, `education_type`), never *_id.
   // We resolve them into real library_* taxonomy ids through the shared scope.
-  const scope = await resolveStudentScope(admin, user_id, authHeader ?? null);
+  const scope = await resolveStudentScope(admin, user_id, auth || null);
   ctx.role = scope.role;
   ctx.platform_id = scope.platformId ?? null;
   const ids = await resolveLibraryTaxonomyIds(admin, scope);
