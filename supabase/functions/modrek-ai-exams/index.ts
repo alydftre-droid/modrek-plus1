@@ -1381,6 +1381,8 @@ Deno.serve(async (req) => {
         contextSubject: subjectHint || conversationContext?.subject_name || null,
         maxPassages: 10,
         surface: "modrek-ai-exams",
+        authHeader: req.headers.get("Authorization"),
+
 
       });
       logRagPipeline("modrek-ai-exams", rag, { traceId });
