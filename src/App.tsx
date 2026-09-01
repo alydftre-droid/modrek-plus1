@@ -11,6 +11,8 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import TeacherProtectedRoute from "@/routes/TeacherProtectedRoute";
 import PageTransition from "@/components/PageTransition";
 import { platformSlugFromHostname } from "@/lib/platformHost";
+import { tenantCacheKey } from "@/lib/tenant";
+import TenantSessionGate from "@/components/tenant/TenantSessionGate";
 
 import AppSplash from "@/components/AppSplash";
 import ScrollToTop from "@/components/ScrollToTop";
@@ -191,7 +193,9 @@ const queryPersister = (() => {
     if (typeof window === "undefined") return null;
     return createSyncStoragePersister({
       storage: window.localStorage,
-      key: "mp-rq-cache-v3",
+      // Cache isolation: one persisted cache per tenant host, so a teacher
+      // platform can never rehydrate Modrek Plus rows (or another tenant's).
+      key: tenantCacheKey("mp-rq-cache-v3"),
       throttleTime: 1500,
     });
   } catch {
