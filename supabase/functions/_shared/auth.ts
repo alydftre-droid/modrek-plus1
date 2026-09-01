@@ -74,9 +74,55 @@ export type LibraryBookAccessResult =
   | { ok: true; book: Record<string, unknown> }
   | { ok: false; status: number; error: string };
 
+export const OFFICIAL_TENANT_ID = "00000000-0000-4000-8000-000000000001";
+
+/** `session_id` claim of an already-verified access token. */
+export function sessionIdFromToken(token: string | null): string | null {
+  if (!token) return null;
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const json = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(payload.length / 4) * 4, "=")),
+    );
+    return typeof json?.session_id === "string" ? json.session_id : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Teacher-platform tenant of a user, resolved server-side.
- * `null` = the official Modrek Plus platform.
+ * Tenant this REQUEST is authorized for — read from the server-side
+ * `tenant_session_contexts` row of the caller's session. Never derived from
+ * "which platform does this user belong to", never from a client header.
+ * Falls back to the official tenant when no tenant session was activated.
+ */
+export async function resolveRequestTenantId(
+  admin: any,
+  authHeader: string | null,
+  userId: string,
+): Promise<string> {
+  const sessionId = sessionIdFromToken(getBearerTokenFromAuthHeader(authHeader)) ?? userId;
+  const { data } = await admin
+    .from("tenant_session_contexts")
+    .select("tenant_id, auth_user_id, expires_at")
+    .eq("session_id", sessionId)
+    .eq("auth_user_id", userId)
+    .maybeSingle();
+  if (!data?.tenant_id) return OFFICIAL_TENANT_ID;
+  if (data.expires_at && new Date(data.expires_at).getTime() < Date.now()) return OFFICIAL_TENANT_ID;
+  return data.tenant_id as string;
+}
+
+/** Apply the tenant boundary to any service-role PostgREST query. */
+export function scopeToTenant<T>(query: T, tenantId: string): T {
+  return (query as any).eq("tenant_id", tenantId) as T;
+}
+
+/**
+ * Legacy helper kept for compatibility: teacher-platform of a user.
+ * Prefer `resolveRequestTenantId` — a user's membership must never decide the
+ * tenant of the current request.
  */
 export async function resolveUserPlatformId(admin: any, userId: string): Promise<string | null> {
   const { data } = await admin
@@ -88,6 +134,7 @@ export async function resolveUserPlatformId(admin: any, userId: string): Promise
     .maybeSingle();
   return data?.platform_id ?? null;
 }
+
 
 export async function getAccessibleLibraryBook(
   admin: any,
