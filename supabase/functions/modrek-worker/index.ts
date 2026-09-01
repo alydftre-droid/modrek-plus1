@@ -1462,65 +1462,30 @@ async function queuePdfTextBatches(admin: SupabaseClient, job: any, asset: any) 
   const scanned = !!asset?.metadata?.is_scanned;
 
   await setVersionStage(admin, job.version_id, "text_extraction", 26);
-  await updateJobProgress(admin, job, 3, {
-    stage: "pdf_source_download",
-    filename: asset.original_filename,
-    bytes: byteSize,
-  });
-  let lastDownloadHeartbeat = 0;
-  const bytes = await fetchAssetBytes(admin, asset, async (info) => {
-    if (info.loaded - lastDownloadHeartbeat < 2 * 1024 * 1024 && info.loaded < info.total) return;
-    lastDownloadHeartbeat = info.loaded;
-    const pct = 3 + Math.floor(info.pct * 4);
-    await updateJobProgress(admin, job, pct, {
-      stage: "pdf_source_downloading",
-      filename: asset.original_filename,
-      loaded_bytes: info.loaded,
-      total_bytes: info.total,
-    });
-  });
-  await setVersionStage(admin, job.version_id, "text_extraction", 27);
-  await updateJobProgress(admin, job, 8, {
+  await updateJobProgress(admin, job, 5, {
     stage: "pdf_page_count_start",
     filename: asset.original_filename,
-    bytes: bytes.byteLength,
+    bytes: byteSize,
+    strategy: "ranged_read_no_full_download",
+    memory: memorySnapshot(),
   });
+
   const parserAttempts: any[] = [];
-  let pageCount = 0;
-  let parser = "";
-  if (byteSize > PDF_SPLIT_MIN_BYTES) {
-    await updateJobProgress(admin, job, 10, {
-      stage: "pdf_page_count_raw_scan",
-      filename: asset.original_filename,
-      bytes: bytes.byteLength,
+  const resolved = await resolvePdfPageCountRanged(admin, job, asset, async (info) => {
+    parserAttempts.push(info);
+    await updateJobProgress(admin, job, 11, {
+      stage: "pdf_page_count_parser_attempt",
+      parser: info.parser,
+      ok: info.ok,
+      pages: info.pages ?? null,
+      error: info.error ?? null,
+      memory: memorySnapshot(),
     });
-    pageCount = countPdfPagesFromRawBytes(bytes);
-    if (pageCount > 0) {
-      parser = "raw_byte_scan_fast";
-      parserAttempts.push({ parser, ok: true, pages: pageCount });
-    }
-  }
-  if (!pageCount) {
-    const resolved = await resolvePdfPageCount(
-      bytes,
-      [
-        { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
-        { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
-      ],
-      async (info) => {
-        parserAttempts.push(info);
-        await updateJobProgress(admin, job, 11, {
-          stage: "pdf_page_count_parser_attempt",
-          parser: info.parser,
-          ok: info.ok,
-          pages: info.pages ?? null,
-          error: info.error ?? null,
-        });
-      },
-    );
-    pageCount = resolved.pageCount;
-    parser = resolved.parser;
-  }
+  });
+  const pageCount = resolved.pageCount;
+  const parser = resolved.parser;
+  await setVersionStage(admin, job.version_id, "text_extraction", 28);
+
   await setVersionStage(admin, job.version_id, "text_extraction", 28);
 
   await log(admin, job.id, "info", "pdf_page_count_resolved", {
