@@ -616,6 +616,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return { error: error.message };
       }
+      // Tenant isolation: a signup performed on a teacher platform creates an
+      // account inside THAT tenant only (explicit, never an auto-join).
+      try {
+        const { currentTenantSlug, isOfficialTenantHost, registerTenantStudent } =
+          await import("@/lib/tenant");
+        if (!isOfficialTenantHost()) {
+          await registerTenantStudent({
+            slug: currentTenantSlug(),
+            fullName: data.fullName,
+            stage: data.stage ?? null,
+            grade: data.grade ?? null,
+            section: data.section ?? null,
+          });
+        }
+      } catch (tenantError) {
+        console.warn("[tenant] signup registration failed", tenantError);
+      }
       queueExternalSync(["auth", "tables"], true);
       return { error: null };
     } catch (e: any) {
@@ -1079,6 +1096,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { logStudentActivity } = await import("@/lib/activityLogger");
       await logStudentActivity({ action_type: "logout", action_label: "تسجيل خروج" });
+    } catch { /* ignore */ }
+    // Tenant isolation: drop the server-side tenant authorization for this
+    // session before the token disappears.
+    try {
+      const { endTenantSession } = await import("@/lib/tenant");
+      await endTenantSession();
     } catch { /* ignore */ }
     await supabase.auth.signOut();
     clearImpersonationState();

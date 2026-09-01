@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
 
       const earlyScope = resolveAnswerScopeFromMessages(messages);
       deepTeaching = isDeepTeaching(earlyScope);
-      const scope = await resolveStudentScope(adminEarly, userId);
+      const scope = await resolveStudentScope(adminEarly, userId, req.headers.get("Authorization"));
       scopeBlock = buildStudentScopeBlock(scope);
 
       if (trimmedQ.length >= 3) {

@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { isOfficialTenantHost } from "@/lib/tenant";
 
 type Role = "student" | "teacher" | "admin" | "support";
 
@@ -34,6 +35,12 @@ const ProtectedRoute = ({
     allowedRoles: allowedRoles ?? [],
     isBanned,
   });
+
+  // Routing isolation: the global Modrek Plus admin console never renders on a
+  // teacher-platform host.
+  if (allowedRoles?.includes("admin") && !isOfficialTenantHost()) {
+    return <Navigate to="/" replace />;
+  }
 
   const consumePostOAuthRedirect = () => {
     if (typeof window === "undefined") return null;

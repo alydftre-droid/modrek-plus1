@@ -71,6 +71,27 @@
       "when": 1788221559042,
       "tag": "0009_create_tenant_v2_core",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788222713221,
+      "tag": "0010_tenant_v2_auth_isolation_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788222748305,
+      "tag": "0011_tenant_v2_scope_owned_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788223095785,
+      "tag": "0012_tenant_v2_autoprovision_from_teacher_platform",
+      "breakpoints": true
     }
   ]
 }
