@@ -11,7 +11,6 @@
  */
 
 export const PLATFORM_ROOT_DOMAIN = "modrekplus.com";
-export const PLATFORM_SLUG_STORAGE_KEY = "mp_platform_slug";
 
 /** Hosts / labels that are never a tenant slug. */
 const NON_TENANT_LABELS = new Set([
@@ -66,34 +65,15 @@ export function platformSlugFromPathname(pathname: string): string | null {
   return isValidPlatformSlug(slug) ? slug : null;
 }
 
-export function rememberPlatformSlug(slug: string) {
-  try {
-    window.localStorage.setItem(PLATFORM_SLUG_STORAGE_KEY, slug);
-  } catch {
-    /* storage unavailable */
-  }
-}
-
 export function forgetPlatformSlug() {
-  try {
-    window.localStorage.removeItem(PLATFORM_SLUG_STORAGE_KEY);
-  } catch {
-    /* storage unavailable */
-  }
-}
-
-function storedPlatformSlug(): string | null {
-  try {
-    const slug = window.localStorage.getItem(PLATFORM_SLUG_STORAGE_KEY);
-    return slug && isValidPlatformSlug(slug) ? slug : null;
-  } catch {
-    return null;
-  }
+  // Kept as a no-op compatibility export. Tenant identity is never persisted:
+  // the current hostname/path is the sole source of truth.
 }
 
 /**
  * Resolve the current tenant slug for this browsing session.
- * Priority: hostname → `/p/<slug>` path → remembered path-mode slug.
+ * Priority: hostname → the literal current `/p/<slug>` path.
+ * A previous visit or localStorage value must never select a tenant.
  */
 export function detectPlatformSlug(): string | null {
   if (typeof window === "undefined") return null;
@@ -102,12 +82,7 @@ export function detectPlatformSlug(): string | null {
   if (fromHost) return fromHost;
 
   const fromPath = platformSlugFromPathname(window.location.pathname);
-  if (fromPath) {
-    rememberPlatformSlug(fromPath);
-    return fromPath;
-  }
-
-  return storedPlatformSlug();
+  return fromPath;
 }
 
 /** Public URL of a platform (subdomain form). */

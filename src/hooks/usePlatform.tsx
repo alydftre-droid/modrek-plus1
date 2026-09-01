@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { detectPlatformSlug, forgetPlatformSlug } from "@/lib/platformHost";
 
 export interface PlatformBranding {
@@ -36,8 +36,11 @@ const PlatformContext = createContext<PlatformContextValue>({
 export const usePlatform = () => useContext(PlatformContext);
 
 export function PlatformProvider({ children }: { children: ReactNode }) {
-  const { user, role } = useAuth();
-  const slug = useMemo(() => detectPlatformSlug(), []);
+  const location = useLocation();
+  const slug = useMemo(
+    () => detectPlatformSlug(),
+    [location.pathname],
+  );
   const [platform, setPlatform] = useState<PlatformBranding | null>(null);
   const [isLoading, setIsLoading] = useState(Boolean(slug));
   const [notFound, setNotFound] = useState(false);
@@ -65,15 +68,6 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [slug]);
-
-  // Bind the signed-in student to this platform (idempotent, server-validated).
-  useEffect(() => {
-    if (!platform || !user) return;
-    if (role && role !== "student") return;
-    supabase.rpc("platform_join_as_student", { _slug: platform.slug }).then(({ error }) => {
-      if (error) console.info("[platform] join_skipped", error.message);
-    });
-  }, [platform?.slug, user?.id, role]);
 
   // Tenant branding colour, scoped to this document only.
   useEffect(() => {
