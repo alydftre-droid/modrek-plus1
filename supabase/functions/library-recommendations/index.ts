@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       .select("last_book_id,last_page")
       .eq("student_id", studentId).maybeSingle();
     if (memory?.last_book_id) {
-      const access = await getAccessibleLibraryBook(admin, memory.last_book_id, studentId, "id,title,subject_name_ar,status,access_tier,page_count");
+      const access = await getAccessibleLibraryBook(admin, memory.last_book_id, studentId, "id,title,subject_name_ar,status,access_tier,page_count", authHeader);
       if (access.ok) {
         const b = access.book as any;
         items.push({
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
 
     // 2d) Same-subject other books
     if (targetBook) {
-      const access = await getAccessibleLibraryBook(admin, targetBook, studentId, "id,subject_id,subject_name_ar,stage_id,grade_id,status,access_tier");
+      const access = await getAccessibleLibraryBook(admin, targetBook, studentId, "id,subject_id,subject_name_ar,stage_id,grade_id,status,access_tier", authHeader);
       const b = access.ok ? access.book as any : null;
       if (b?.subject_id) {
         const { data: others } = await admin.from("library_books")

@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     const q = String(body.q || "").trim().slice(0, 200);
     if (!bookId || !q) return json({ pages: [], index: [] });
 
-    const access = await getAccessibleLibraryBook(admin, bookId, userData.user.id, "id,status,access_tier");
+    const access = await getAccessibleLibraryBook(admin, bookId, userData.user.id, "id,status,access_tier", authHeader);
     if (!access.ok) return json({ error: access.error }, access.status);
 
     const safeTokens = postgrestIlikeTokens(q, 2, 5);

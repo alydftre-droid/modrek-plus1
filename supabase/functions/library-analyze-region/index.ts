@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
 
     if (!bookId || !pageNumber || !bbox) return json({ error: "missing_params" }, 400);
 
-    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier,pdf_path");
+    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier,pdf_path", authHeader);
     if (!access.ok) return json({ error: access.error }, access.status);
     const book = access.book as any;
 

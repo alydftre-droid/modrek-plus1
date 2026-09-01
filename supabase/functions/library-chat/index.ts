@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
     if (!bookId || !message) return json({ error: "book_id_and_message_required" }, 400);
 
     // 1) Verify book access + get metadata
-    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier");
+    const access = await getAccessibleLibraryBook(admin, bookId, studentId, "id,title,subject_name_ar,status,access_tier", authHeader);
     if (!access.ok) return json({ error: access.error }, access.status);
     const book = access.book as any;
 
