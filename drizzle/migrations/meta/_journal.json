@@ -64,6 +64,13 @@
       "when": 1788204606341,
       "tag": "0008_grant_teacher_platform_data_api_access",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788221559042,
+      "tag": "0009_create_tenant_v2_core",
+      "breakpoints": true
     }
   ]
 }
