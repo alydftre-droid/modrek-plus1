@@ -164,6 +164,8 @@ Deno.serve(async (req) => {
           contextSubject: (filters as any)?.subject_name ?? null,
           maxPassages: Math.max(4, Math.min(10, Number(max_results) || 6)),
           surface: "modrek-retrieve",
+          authHeader,
+
 
         });
         logRagPipeline("modrek-retrieve", libraryRag);
