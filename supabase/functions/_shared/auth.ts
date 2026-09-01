@@ -141,8 +141,9 @@ export async function getAccessibleLibraryBook(
   bookId: string,
   userId: string,
   select = "id,title,subject_name_ar,status,access_tier,page_count",
+  authHeader: string | null = null,
 ): Promise<LibraryBookAccessResult> {
-  const selectWithPlatform = select.includes("platform_id") ? select : `${select},platform_id`;
+  const selectWithPlatform = select.includes("tenant_id") ? select : `${select},tenant_id`;
   const { data: book, error } = await admin
     .from("library_books")
     .select(selectWithPlatform)
@@ -152,19 +153,21 @@ export async function getAccessibleLibraryBook(
   if (error) return { ok: false, status: 500, error: error.message || "book_lookup_failed" };
   if (!book) return { ok: false, status: 404, error: "book_not_found" };
 
-  // Tenant isolation: these functions run with the service role, so the
-  // platform boundary has to be enforced here as well as in RLS.
+  // Tenant isolation: these functions run with the service role, so the tenant
+  // boundary has to be enforced here as well as in RLS. The tenant comes from
+  // the caller's authorized session context, not from user membership.
   const isAdmin = await admin
     .rpc("has_role", { _user_id: userId, _role: "admin" })
     .then((r: any) => r?.data === true)
     .catch(() => false);
   if (!isAdmin) {
-    const userPlatformId = await resolveUserPlatformId(admin, userId);
-    const bookPlatformId = (book as any).platform_id ?? null;
-    if ((bookPlatformId ?? null) !== (userPlatformId ?? null)) {
+    const requestTenantId = await resolveRequestTenantId(admin, authHeader, userId);
+    const bookTenantId = ((book as any).tenant_id ?? OFFICIAL_TENANT_ID) as string;
+    if (bookTenantId !== requestTenantId) {
       return { ok: false, status: 404, error: "book_not_found" };
     }
   }
+
 
   if (book.status !== "ready") return { ok: false, status: 403, error: "not_ready" };
   if (book.access_tier === "free") return { ok: true, book };
