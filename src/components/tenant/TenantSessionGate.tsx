@@ -43,17 +43,18 @@ export default function TenantSessionGate({ children }: { children: React.ReactN
     (async () => {
       const result = await activateTenantSession(slug);
       if (cancelled) return;
-      if (result.ok) {
+      if (result.ok === true) {
         setDenied(null);
         return;
       }
+      const reason = (result as { ok: false; reason: TenantDenyReason }).reason;
       // The official platform must never regress: an activation hiccup there
       // is logged, not enforced. Teacher tenants are strict.
       if (official) {
-        console.warn("[tenant] official activation failed:", result.reason);
+        console.warn("[tenant] official activation failed:", reason);
         return;
       }
-      setDenied(result.reason);
+      setDenied(reason);
       queryClient.clear();
       try {
         await signOut();
