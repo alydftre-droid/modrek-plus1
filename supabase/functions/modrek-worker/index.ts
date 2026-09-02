@@ -1383,16 +1383,25 @@ async function resolvePdfPageCountRanged(
   }
   if (bestPages > 0) return { pageCount: bestPages, parser: bestParser };
 
+  // Modern PDFs (xref-stream + object streams) keep the catalog and page tree
+  // INSIDE compressed object streams, so a raw scan of head/tail windows finds
+  // nothing. Sweep the whole file in ranged windows, inflating stream payloads,
+  // without ever holding the entire book in memory.
+  if (byteSize > 0) {
+    const deep = await deepScanPdfPageCountRanged(admin, job, asset, byteSize, onAttempt);
+    if (deep && deep.pageCount > 0) return deep;
+  }
 
   if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
     // Refuse to load a huge book into the isolate: that is exactly the crash
     // loop we are fixing. Surface a real, actionable error instead of hanging.
     throw new Error(
-      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف. `
-      + "الملف على الأرجح مضغوط بصيغة xref-stream غير مكتملة أو تالف. "
+      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف ولا من مسح المحتوى المضغوط بالكامل. `
+      + "الملف على الأرجح تالف أو محمي بكلمة مرور. "
       + "أعد رفع نسخة PDF سليمة (يمكن ضغطها أو تقسيمها إلى أجزاء أصغر) ثم أعد تشغيل المرحلة.",
     );
   }
+
 
   const bytes = await fetchAssetBytes(admin, asset, async (info) => {
     await updateJobProgress(admin, job, 9, {
