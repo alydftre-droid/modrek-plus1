@@ -1495,15 +1495,16 @@ async function resolvePdfPageCountRanged(
     if (deep && deep.pageCount > 0) return deep;
   }
 
-  if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
-    // Refuse to load a huge book into the isolate: that is exactly the crash
-    // loop we are fixing. Surface a real, actionable error instead of hanging.
+  if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_HARD_LIMIT_BYTES) {
+    // Beyond this size a full in-isolate load is a guaranteed OOM crash loop, so
+    // surface a real, actionable error instead of hanging forever.
     throw new Error(
-      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف ولا من مسح المحتوى المضغوط بالكامل. `
+      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) عبر فهرس المراجع (xref) ولا عبر مسح المحتوى المضغوط. `
       + "الملف على الأرجح تالف أو محمي بكلمة مرور. "
       + "أعد رفع نسخة PDF سليمة (يمكن ضغطها أو تقسيمها إلى أجزاء أصغر) ثم أعد تشغيل المرحلة.",
     );
   }
+
 
 
   const bytes = await fetchAssetBytes(admin, asset, async (info) => {
