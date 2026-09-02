@@ -280,9 +280,9 @@ export async function scanPdfPagesDeep(
     pageObjects += decoded.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
   }
 
-  pageObjects += countPdfPagesFromRawBytes(bytes, { requirePageTree: false }) && pageTreeCount === 0
-    ? 0
-    : 0;
+  // Uncompressed page objects present directly in this window.
+  pageObjects += text.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
+
 
   return { pageTreeCount, pageObjects, inflated };
 }
