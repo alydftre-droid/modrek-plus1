@@ -9,6 +9,8 @@ import {
   planPageBatches,
   planPdfParts,
   resolvePdfPageCount,
+  scanPdfPagesDeep,
+
   summarizePageStates,
   tokenBudgetForStage,
 } from "./pdfPipeline.ts";
