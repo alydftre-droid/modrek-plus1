@@ -4400,6 +4400,50 @@ export type Database = {
         }
         Relationships: []
       }
+      live_attendance: {
+        Row: {
+          created_at: string
+          duration_seconds: number
+          id: string
+          joined_at: string
+          left_at: string | null
+          live_session_id: string
+          student_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          joined_at?: string
+          left_at?: string | null
+          live_session_id: string
+          student_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number
+          id?: string
+          joined_at?: string
+          left_at?: string | null
+          live_session_id?: string
+          student_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_attendance_live_session_id_fkey"
+            columns: ["live_session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_session_actions: {
         Row: {
           action: string
@@ -4529,13 +4573,19 @@ export type Database = {
           ended_at: string | null
           group_id: string
           id: string
+          provider: string
           room_name: string
           started_at: string
           status: string
           teacher_id: string
           tenant_id: string
           title: string
+          updated_at: string
           viewer_count: number
+          zoom_host_email: string | null
+          zoom_join_url: string | null
+          zoom_meeting_id: string | null
+          zoom_meeting_uuid: string | null
         }
         Insert: {
           allow_student_camera?: boolean
@@ -4544,13 +4594,19 @@ export type Database = {
           ended_at?: string | null
           group_id: string
           id?: string
+          provider?: string
           room_name: string
           started_at?: string
           status?: string
           teacher_id: string
           tenant_id?: string
           title?: string
+          updated_at?: string
           viewer_count?: number
+          zoom_host_email?: string | null
+          zoom_join_url?: string | null
+          zoom_meeting_id?: string | null
+          zoom_meeting_uuid?: string | null
         }
         Update: {
           allow_student_camera?: boolean
@@ -4559,13 +4615,19 @@ export type Database = {
           ended_at?: string | null
           group_id?: string
           id?: string
+          provider?: string
           room_name?: string
           started_at?: string
           status?: string
           teacher_id?: string
           tenant_id?: string
           title?: string
+          updated_at?: string
           viewer_count?: number
+          zoom_host_email?: string | null
+          zoom_join_url?: string | null
+          zoom_meeting_id?: string | null
+          zoom_meeting_uuid?: string | null
         }
         Relationships: [
           {
