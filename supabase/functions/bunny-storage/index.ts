@@ -1037,8 +1037,17 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    uploadError("unhandled_exception", { message: error instanceof Error ? error.message : String(error) });
-    return new Response(JSON.stringify({ error: "Internal error" }), {
+    const message = error instanceof Error ? error.message : String(error);
+    const action = (() => { try { return new URL(req.url).searchParams.get("action"); } catch { return null; } })();
+    uploadError("unhandled_exception", { action, message, stack: error instanceof Error ? error.stack?.slice(0, 600) : null });
+    // Surface the real cause so upload diagnostics are actionable instead of
+    // the opaque "Internal error" that blocked debugging large PDF uploads.
+    return new Response(JSON.stringify({
+      error: `خطأ داخلي في خدمة التخزين: ${message}`,
+      action,
+      reason: "BUNNY_STORAGE_UNHANDLED_EXCEPTION",
+      detail: message,
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
