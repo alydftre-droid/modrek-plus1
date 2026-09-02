@@ -10,6 +10,8 @@ import { parseCurriculumTitle } from "../_shared/lessonTargeting.ts";
 import {
   classifyPipelineError,
   countPdfPagesFromRawBytes,
+  scanPdfPagesDeep,
+
   pageNeedsOcr,
   planPageBatches,
   planPdfParts,
@@ -1337,6 +1339,83 @@ async function fetchAssetRange(asset: any, start: number, endInclusive: number):
   return new Uint8Array(await r.arrayBuffer());
 }
 
+const PDF_DEEP_WINDOW_BYTES = 4 * 1024 * 1024;
+const PDF_DEEP_WINDOW_OVERLAP = 64 * 1024;
+const PDF_DEEP_BUDGET_MS = 45_000;
+
+/**
+ * Whole-file, memory-safe sweep for xref-stream PDFs: read the book in 4MB
+ * ranged windows, inflate the compressed object streams inside each window and
+ * look for the real page tree (`/Type /Pages /Count`). Falls back to counting
+ * individual page objects when (and only when) the entire file was swept.
+ */
+async function deepScanPdfPageCountRanged(
+  admin: SupabaseClient,
+  job: any,
+  asset: any,
+  byteSize: number,
+  onAttempt: (info: { parser: string; ok: boolean; pages?: number; error?: string }) => Promise<void>,
+): Promise<{ pageCount: number; parser: string } | null> {
+  const deadline = Date.now() + PDF_DEEP_BUDGET_MS;
+  const step = PDF_DEEP_WINDOW_BYTES - PDF_DEEP_WINDOW_OVERLAP;
+  let bestTree = 0;
+  let pageObjects = 0;
+  let sweptBytes = 0;
+  let windows = 0;
+  let rangeUnsupported = false;
+
+  for (let start = 0; start < byteSize; start += step) {
+    if (Date.now() > deadline) break;
+    const end = Math.min(byteSize - 1, start + PDF_DEEP_WINDOW_BYTES - 1);
+    let slice: Uint8Array | null = null;
+    try {
+      slice = await fetchAssetRange(asset, start, end);
+    } catch (err: any) {
+      await onAttempt({ parser: "deep_stream_scan", ok: false, error: String(err?.message ?? err).slice(0, 300) });
+      return null;
+    }
+    if (!slice?.byteLength) {
+      rangeUnsupported = true;
+      break;
+    }
+    windows++;
+    sweptBytes += slice.byteLength;
+    const deep = await scanPdfPagesDeep(slice, { deadlineMs: deadline });
+    bestTree = Math.max(bestTree, deep.pageTreeCount);
+    pageObjects += deep.pageObjects;
+    if (bestTree > 0) break; // page tree found — no need to keep sweeping
+    if (windows % 5 === 0) {
+      await updateJobProgress(admin, job, 8, {
+        stage: "pdf_deep_page_scan",
+        swept_bytes: sweptBytes,
+        total_bytes: byteSize,
+      });
+    }
+  }
+
+  if (rangeUnsupported && bestTree === 0) {
+    await onAttempt({ parser: "deep_stream_scan", ok: false, error: "range request not supported by storage" });
+    return null;
+  }
+  if (bestTree > 0) {
+    await onAttempt({ parser: "deep_stream_scan", ok: true, pages: bestTree });
+    return { pageCount: bestTree, parser: "deep_stream_scan" };
+  }
+  const fullySwept = sweptBytes >= byteSize - PDF_DEEP_WINDOW_OVERLAP;
+  if (fullySwept && pageObjects > 0) {
+    await onAttempt({ parser: "deep_page_object_scan", ok: true, pages: pageObjects });
+    return { pageCount: pageObjects, parser: "deep_page_object_scan" };
+  }
+  await onAttempt({
+    parser: "deep_stream_scan",
+    ok: false,
+    error: `no page tree found after sweeping ${Math.round(sweptBytes / 1024 / 1024)}MB of ${Math.round(byteSize / 1024 / 1024)}MB`,
+  });
+  return null;
+}
+
+
+
 /**
  * Resolve the page count of a PDF without materialising the whole file.
  * Order: tail window -> head window -> larger tail window -> (small files only)
@@ -1383,16 +1462,25 @@ async function resolvePdfPageCountRanged(
   }
   if (bestPages > 0) return { pageCount: bestPages, parser: bestParser };
 
+  // Modern PDFs (xref-stream + object streams) keep the catalog and page tree
+  // INSIDE compressed object streams, so a raw scan of head/tail windows finds
+  // nothing. Sweep the whole file in ranged windows, inflating stream payloads,
+  // without ever holding the entire book in memory.
+  if (byteSize > 0) {
+    const deep = await deepScanPdfPageCountRanged(admin, job, asset, byteSize, onAttempt);
+    if (deep && deep.pageCount > 0) return deep;
+  }
 
   if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
     // Refuse to load a huge book into the isolate: that is exactly the crash
     // loop we are fixing. Surface a real, actionable error instead of hanging.
     throw new Error(
-      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف. `
-      + "الملف على الأرجح مضغوط بصيغة xref-stream غير مكتملة أو تالف. "
+      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف ولا من مسح المحتوى المضغوط بالكامل. `
+      + "الملف على الأرجح تالف أو محمي بكلمة مرور. "
       + "أعد رفع نسخة PDF سليمة (يمكن ضغطها أو تقسيمها إلى أجزاء أصغر) ثم أعد تشغيل المرحلة.",
     );
   }
+
 
   const bytes = await fetchAssetBytes(admin, asset, async (info) => {
     await updateJobProgress(admin, job, 9, {

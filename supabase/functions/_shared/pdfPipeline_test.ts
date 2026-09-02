@@ -9,6 +9,8 @@ import {
   planPageBatches,
   planPdfParts,
   resolvePdfPageCount,
+  scanPdfPagesDeep,
+
   summarizePageStates,
   tokenBudgetForStage,
 } from "./pdfPipeline.ts";
@@ -173,4 +175,25 @@ Deno.test("157/300 example matches the developer progress UI contract", () => {
   assertEquals(s.pagesFailed, 2);
   assertEquals(s.percent, 53);
   assertEquals(s.health, "processing");
+});
+
+Deno.test("deep scan finds the page tree inside compressed object streams (xref-stream PDFs)", async () => {
+  const payload = new TextEncoder().encode(
+    "<< /Type /Pages /Kids [3 0 R] /Count 137 >>",
+  );
+  const compressed = new Uint8Array(
+    await new Response(
+      new Blob([payload]).stream().pipeThrough(new CompressionStream("deflate")),
+    ).arrayBuffer(),
+  );
+  const head = new TextEncoder().encode("%PDF-1.7\n5 0 obj\n<< /Type /ObjStm /Filter /FlateDecode >>\nstream\n");
+  const tail = new TextEncoder().encode("\nendstream\nendobj\nstartxref\n999\n%%EOF\n");
+  const file = new Uint8Array(head.length + compressed.length + tail.length);
+  file.set(head, 0);
+  file.set(compressed, head.length);
+  file.set(tail, head.length + compressed.length);
+
+  assertEquals(countPdfPagesFromRawBytes(file, { requirePageTree: true }), 0);
+  const deep = await scanPdfPagesDeep(file);
+  assertEquals(deep.pageTreeCount, 137);
 });
