@@ -1430,6 +1430,29 @@ async function resolvePdfPageCountRanged(
   onAttempt: (info: { parser: string; ok: boolean; pages?: number; error?: string }) => Promise<void>,
 ): Promise<{ pageCount: number; parser: string }> {
   const byteSize = Number(asset.byte_size ?? 0);
+
+  // STRATEGY 0 (primary, works for any size incl. 200MB+): walk the real
+  // cross-reference chain over small HTTP Range reads. This handles classic
+  // xref tables, xref streams and catalogs stored inside compressed object
+  // streams — i.e. the exact family of files that defeated the regex sweeps.
+  if (byteSize > 0) {
+    try {
+      const pages = await withTimeout(
+        resolvePdfPageCountViaXref(byteSize, async (start, end) => {
+          const slice = await fetchAssetRange(asset, start, end);
+          if (!slice) throw new Error("range request not supported by storage");
+          return slice;
+        }),
+        60_000,
+        "xref page-count timeout",
+      );
+      await onAttempt({ parser: "xref_chain", ok: pages > 0, pages, error: pages > 0 ? undefined : "xref chain resolved no page tree" });
+      if (pages > 0) return { pageCount: pages, parser: "xref_chain" };
+    } catch (err: any) {
+      await onAttempt({ parser: "xref_chain", ok: false, error: String(err?.message ?? err).slice(0, 300) });
+    }
+  }
+
   const windows: { name: string; start: number; end: number }[] = [];
   if (byteSize > 0) {
     windows.push({ name: `range_tail_${Math.round(PDF_RANGE_TAIL_BYTES / 1024 / 1024)}mb`, start: Math.max(0, byteSize - PDF_RANGE_TAIL_BYTES), end: byteSize - 1 });
