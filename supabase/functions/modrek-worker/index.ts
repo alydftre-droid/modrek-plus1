@@ -1318,6 +1318,9 @@ const PDF_RANGE_TAIL_BYTES = 3 * 1024 * 1024;
 const PDF_RANGE_HEAD_BYTES = 4 * 1024 * 1024;
 const PDF_RANGE_BIG_TAIL_BYTES = 12 * 1024 * 1024;
 const PDF_FULL_DOWNLOAD_SAFE_BYTES = 20 * 1024 * 1024;
+// Absolute ceiling for the last-resort full-download page count. Above this a
+// full in-isolate parse is a guaranteed OOM, so we fail loudly instead.
+const PDF_FULL_DOWNLOAD_HARD_LIMIT_BYTES = 60 * 1024 * 1024;
 
 async function fetchAssetRange(asset: any, start: number, endInclusive: number): Promise<Uint8Array | null> {
   const provider = (asset?.storage_provider ?? "").toLowerCase();
