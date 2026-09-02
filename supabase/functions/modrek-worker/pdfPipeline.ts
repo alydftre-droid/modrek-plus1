@@ -389,3 +389,352 @@ export function summarizePageStates(
   }
   return { pagesTotal: total, pagesProcessed: processed, pagesFailed: failed, pagesRetrying: retrying, percent, health };
 }
+
+// ---------------------------------------------------------------------------
+// Real, spec-based page counting over ranged reads.
+//
+// Regex sweeps cannot see the page tree of a modern PDF whose catalog lives in a
+// compressed object stream, and downloading a 72-200MB book into the isolate is
+// what killed extract_text in the first place. This parser walks the actual
+// cross-reference chain (classic tables AND xref streams), resolves the catalog
+// and the page tree, and reads `/Count` — using a handful of small ranged reads
+// no matter how big the book is.
+// ---------------------------------------------------------------------------
+
+export type PdfRangeReader = (start: number, endInclusive: number) => Promise<Uint8Array>;
+
+type XrefEntry = { type: 1; offset: number } | { type: 2; objstm: number; idx: number };
+
+const L1 = new TextDecoder("latin1");
+
+/** Exposed for reuse: inflate a (possibly padded) deflate payload. */
+export async function inflatePdfStream(buf: Uint8Array): Promise<Uint8Array | null> {
+  return await inflateStreamPayload(buf);
+}
+
+/** Undo a PNG predictor (used by xref streams with /Predictor >= 10). */
+function undoPngPredictor(data: Uint8Array, columns: number, colors = 1, bitsPerComponent = 8): Uint8Array {
+  const bpp = Math.max(1, Math.ceil((colors * bitsPerComponent) / 8));
+  const rowLen = columns;
+  const rows = Math.floor(data.length / (rowLen + 1));
+  const out = new Uint8Array(rows * rowLen);
+  let prev = new Uint8Array(rowLen);
+  for (let r = 0; r < rows; r++) {
+    const type = data[r * (rowLen + 1)];
+    const src = data.subarray(r * (rowLen + 1) + 1, r * (rowLen + 1) + 1 + rowLen);
+    const cur = new Uint8Array(rowLen);
+    for (let i = 0; i < rowLen; i++) {
+      const raw = src[i] ?? 0;
+      const left = i >= bpp ? cur[i - bpp] : 0;
+      const up = prev[i];
+      const upLeft = i >= bpp ? prev[i - bpp] : 0;
+      let value = raw;
+      switch (type) {
+        case 0: value = raw; break;
+        case 1: value = raw + left; break;
+        case 2: value = raw + up; break;
+        case 3: value = raw + ((left + up) >> 1); break;
+        case 4: {
+          const p = left + up - upLeft;
+          const pa = Math.abs(p - left);
+          const pb = Math.abs(p - up);
+          const pc = Math.abs(p - upLeft);
+          value = raw + (pa <= pb && pa <= pc ? left : pb <= pc ? up : upLeft);
+          break;
+        }
+        default: value = raw; break;
+      }
+      cur[i] = value & 0xff;
+    }
+    out.set(cur, r * rowLen);
+    prev = cur;
+  }
+  return out;
+}
+
+function dictNumber(dict: string, key: string): number | null {
+  const m = dict.match(new RegExp(`/${key}\\s+(\\d+)`));
+  return m ? Number(m[1]) : null;
+}
+
+function dictRef(dict: string, key: string): number | null {
+  const m = dict.match(new RegExp(`/${key}\\s+(\\d+)\\s+\\d+\\s+R`));
+  return m ? Number(m[1]) : null;
+}
+
+function dictIntArray(dict: string, key: string): number[] | null {
+  const m = dict.match(new RegExp(`/${key}\\s*\\[([^\\]]*)\\]`));
+  if (!m) return null;
+  const nums = m[1].trim().split(/\s+/).map((n) => Number(n)).filter((n) => Number.isFinite(n));
+  return nums.length ? nums : null;
+}
+
+async function readWindow(read: PdfRangeReader, fileSize: number, start: number, length: number): Promise<Uint8Array> {
+  const from = Math.max(0, Math.min(start, Math.max(0, fileSize - 1)));
+  const to = Math.min(fileSize - 1, from + Math.max(1, length) - 1);
+  return await read(from, to);
+}
+
+/** Parse a classic `xref` table + trailer starting at `text`. */
+function parseClassicXref(text: string): { entries: Map<number, XrefEntry>; root: number | null; prev: number | null; xrefStm: number | null } {
+  const entries = new Map<number, XrefEntry>();
+  const trailerIdx = text.indexOf("trailer");
+  const tableText = trailerIdx >= 0 ? text.slice(0, trailerIdx) : text;
+  const body = tableText.replace(/^\s*xref/, "");
+  const sectionRe = /(\d+)\s+(\d+)\s*([\s\S]*?)(?=(?:\d+\s+\d+\s*[\r\n])|$)/g;
+  // Simpler and safer: walk tokens.
+  const tokens = body.trim().split(/\s+/);
+  let i = 0;
+  while (i + 1 < tokens.length) {
+    const start = Number(tokens[i]);
+    const count = Number(tokens[i + 1]);
+    if (!Number.isFinite(start) || !Number.isFinite(count) || count < 0) break;
+    i += 2;
+    for (let k = 0; k < count && i + 2 < tokens.length + 1; k++) {
+      const offset = Number(tokens[i]);
+      const kind = tokens[i + 2];
+      i += 3;
+      if (kind === "n" && Number.isFinite(offset)) {
+        const num = start + k;
+        if (!entries.has(num)) entries.set(num, { type: 1, offset });
+      }
+    }
+  }
+  void sectionRe;
+  const trailer = trailerIdx >= 0 ? text.slice(trailerIdx, trailerIdx + 4096) : "";
+  return {
+    entries,
+    root: dictRef(trailer, "Root"),
+    prev: dictNumber(trailer, "Prev"),
+    xrefStm: dictNumber(trailer, "XRefStm"),
+  };
+}
+
+async function parseXrefStreamAt(
+  read: PdfRangeReader,
+  fileSize: number,
+  offset: number,
+): Promise<{ entries: Map<number, XrefEntry>; root: number | null; prev: number | null } | null> {
+  let win = await readWindow(read, fileSize, offset, 1024 * 1024);
+  let text = L1.decode(win);
+  const objIdx = text.indexOf("obj");
+  if (objIdx < 0) return null;
+  const dictEnd = text.indexOf(">>", objIdx);
+  const streamIdx = text.indexOf("stream", objIdx);
+  if (dictEnd < 0 || streamIdx < 0) return null;
+  const dict = text.slice(objIdx + 3, dictEnd + 2);
+  if (!/\/XRef/.test(dict)) return null;
+
+  let payloadStart = streamIdx + "stream".length;
+  if (text[payloadStart] === "\r") payloadStart++;
+  if (text[payloadStart] === "\n") payloadStart++;
+  let length = dictNumber(dict, "Length") ?? 0;
+  if (!length) {
+    const endIdx = text.indexOf("endstream", payloadStart);
+    if (endIdx > payloadStart) length = endIdx - payloadStart;
+  }
+  if (!length) return null;
+  if (payloadStart + length > win.length) {
+    win = await readWindow(read, fileSize, offset + payloadStart, length);
+    text = "";
+    var payload = win.subarray(0, Math.min(length, win.length));
+  } else {
+    var payload = win.subarray(payloadStart, payloadStart + length);
+  }
+
+  let data = await inflateStreamPayload(payload);
+  if (!data) return null;
+  const predictor = dictNumber(dict, "Predictor") ?? 1;
+  const columns = dictNumber(dict, "Columns") ?? 1;
+  const colors = dictNumber(dict, "Colors") ?? 1;
+  const bpc = dictNumber(dict, "BitsPerComponent") ?? 8;
+  if (predictor >= 10) data = undoPngPredictor(data, columns, colors, bpc);
+
+  const w = dictIntArray(dict, "W") ?? [1, 1, 1];
+  const rowLen = w.reduce((a, b) => a + b, 0);
+  if (rowLen <= 0) return null;
+  const size = dictNumber(dict, "Size") ?? 0;
+  const index = dictIntArray(dict, "Index") ?? [0, size];
+
+  const entries = new Map<number, XrefEntry>();
+  let pos = 0;
+  const readField = (width: number): number => {
+    let v = 0;
+    for (let i = 0; i < width; i++) v = v * 256 + (data![pos + i] ?? 0);
+    pos += width;
+    return v;
+  };
+  for (let s = 0; s + 1 < index.length; s += 2) {
+    const first = index[s];
+    const count = index[s + 1];
+    for (let k = 0; k < count; k++) {
+      if (pos + rowLen > data.length) break;
+      const type = w[0] === 0 ? 1 : readField(w[0]);
+      const f2 = readField(w[1] ?? 0);
+      const f3 = readField(w[2] ?? 0);
+      const num = first + k;
+      if (!entries.has(num)) {
+        if (type === 1) entries.set(num, { type: 1, offset: f2 });
+        else if (type === 2) entries.set(num, { type: 2, objstm: f2, idx: f3 });
+      }
+    }
+  }
+
+  return { entries, root: dictRef(dict, "Root"), prev: dictNumber(dict, "Prev") };
+}
+
+/**
+ * Walk the xref chain and return every entry plus the catalog object number.
+ */
+async function loadXrefChain(
+  fileSize: number,
+  read: PdfRangeReader,
+  maxSections = 64,
+): Promise<{ entries: Map<number, XrefEntry>; root: number | null }> {
+  const tail = await readWindow(read, fileSize, Math.max(0, fileSize - 128 * 1024), 128 * 1024);
+  const tailText = L1.decode(tail);
+  const starts = [...tailText.matchAll(/startxref\s+(\d+)/g)].map((m) => Number(m[1])).filter((n) => n > 0 && n < fileSize);
+  const entries = new Map<number, XrefEntry>();
+  let root: number | null = null;
+  const seen = new Set<number>();
+  const queue: number[] = starts.length ? [starts[starts.length - 1]] : [];
+
+  let sections = 0;
+  while (queue.length && sections < maxSections) {
+    const offset = queue.shift()!;
+    if (!Number.isFinite(offset) || offset < 0 || offset >= fileSize || seen.has(offset)) continue;
+    seen.add(offset);
+    sections++;
+
+    const head = L1.decode(await readWindow(read, fileSize, offset, 64));
+    if (/^\s*xref/.test(head)) {
+      const win = await readWindow(read, fileSize, offset, 8 * 1024 * 1024);
+      const parsed = parseClassicXref(L1.decode(win));
+      for (const [num, entry] of parsed.entries) if (!entries.has(num)) entries.set(num, entry);
+      root ??= parsed.root;
+      if (parsed.xrefStm != null) queue.push(parsed.xrefStm);
+      if (parsed.prev != null) queue.push(parsed.prev);
+    } else {
+      const parsed = await parseXrefStreamAt(read, fileSize, offset);
+      if (!parsed) continue;
+      for (const [num, entry] of parsed.entries) if (!entries.has(num)) entries.set(num, entry);
+      root ??= parsed.root;
+      if (parsed.prev != null) queue.push(parsed.prev);
+    }
+  }
+
+  return { entries, root };
+}
+
+type LoadedObject = { body: string; streamBytes: Uint8Array | null };
+
+async function readIndirectObject(
+  num: number,
+  entries: Map<number, XrefEntry>,
+  fileSize: number,
+  read: PdfRangeReader,
+  objStmCache: Map<number, { first: number; offsets: [number, number][]; data: Uint8Array }>,
+  depth = 0,
+): Promise<LoadedObject | null> {
+  if (depth > 4) return null;
+  const entry = entries.get(num);
+  if (!entry) return null;
+
+  if (entry.type === 1) {
+    const win = await readWindow(read, fileSize, entry.offset, 512 * 1024);
+    const text = L1.decode(win);
+    const objIdx = text.indexOf("obj");
+    if (objIdx < 0) return null;
+    const body = text.slice(objIdx + 3);
+    const streamIdx = body.indexOf("stream");
+    if (streamIdx < 0) return { body, streamBytes: null };
+    const dictPart = body.slice(0, streamIdx);
+    let payloadStart = objIdx + 3 + streamIdx + "stream".length;
+    if (text[payloadStart] === "\r") payloadStart++;
+    if (text[payloadStart] === "\n") payloadStart++;
+    let length = dictNumber(dictPart, "Length") ?? 0;
+    if (!length) {
+      const endIdx = text.indexOf("endstream", payloadStart);
+      if (endIdx > payloadStart) length = endIdx - payloadStart;
+    }
+    if (!length) return { body: dictPart, streamBytes: null };
+    let streamBytes: Uint8Array;
+    if (payloadStart + length > win.length) {
+      const exact = await readWindow(read, fileSize, entry.offset + payloadStart, length);
+      streamBytes = exact.subarray(0, Math.min(length, exact.length));
+    } else {
+      streamBytes = win.subarray(payloadStart, payloadStart + length);
+    }
+    return { body: dictPart, streamBytes };
+  }
+
+  // Compressed object inside an object stream.
+  let cached = objStmCache.get(entry.objstm);
+  if (!cached) {
+    const container = await readIndirectObject(entry.objstm, entries, fileSize, read, objStmCache, depth + 1);
+    if (!container?.streamBytes) return null;
+    const data = await inflateStreamPayload(container.streamBytes);
+    if (!data) return null;
+    const first = dictNumber(container.body, "First") ?? 0;
+    const count = dictNumber(container.body, "N") ?? 0;
+    const header = L1.decode(data.subarray(0, Math.max(0, first)));
+    const nums = header.trim().split(/\s+/).map((n) => Number(n));
+    const offsets: [number, number][] = [];
+    for (let i = 0; i + 1 < nums.length && offsets.length < count; i += 2) {
+      offsets.push([nums[i], nums[i + 1]]);
+    }
+    cached = { first, offsets, data };
+    objStmCache.set(entry.objstm, cached);
+  }
+
+  const slot = cached.offsets.findIndex(([objNum]) => objNum === num);
+  const pick = slot >= 0 ? slot : entry.idx;
+  const startRel = cached.offsets[pick]?.[1];
+  if (startRel == null) return null;
+  const endRel = cached.offsets[pick + 1]?.[1] ?? (cached.data.length - cached.first);
+  const body = L1.decode(cached.data.subarray(cached.first + startRel, cached.first + Math.max(startRel, endRel)));
+  return { body, streamBytes: null };
+}
+
+/**
+ * Resolve a PDF's page count by walking the real cross-reference chain.
+ * Returns 0 when the structure cannot be resolved (caller falls back).
+ */
+export async function resolvePdfPageCountViaXref(fileSize: number, read: PdfRangeReader): Promise<number> {
+  if (!Number.isFinite(fileSize) || fileSize <= 0) return 0;
+  const { entries, root } = await loadXrefChain(fileSize, read);
+  if (!entries.size) return 0;
+  const cache = new Map<number, { first: number; offsets: [number, number][]; data: Uint8Array }>();
+
+  const countFromPagesRef = async (pagesNum: number): Promise<number> => {
+    const pages = await readIndirectObject(pagesNum, entries, fileSize, read, cache);
+    if (!pages) return 0;
+    const count = dictNumber(pages.body, "Count");
+    return count && count > 0 ? count : 0;
+  };
+
+  if (root != null) {
+    const catalog = await readIndirectObject(root, entries, fileSize, read, cache);
+    const pagesNum = catalog ? dictRef(catalog.body, "Pages") : null;
+    if (pagesNum != null) {
+      const count = await countFromPagesRef(pagesNum);
+      if (count > 0) return count;
+    }
+  }
+
+  // No catalog (or a broken /Root): scan objects for the root page tree. Cheap
+  // because object streams are cached and we stop at the first plausible hit.
+  let best = 0;
+  let inspected = 0;
+  for (const num of entries.keys()) {
+    if (inspected >= 400) break;
+    inspected++;
+    const obj = await readIndirectObject(num, entries, fileSize, read, cache);
+    if (!obj) continue;
+    if (!/\/Type\s*\/Pages/.test(obj.body)) continue;
+    if (/\/Parent\s+\d+\s+\d+\s+R/.test(obj.body)) continue; // subtree, not the root
+    const count = dictNumber(obj.body, "Count") ?? 0;
+    if (count > best) best = count;
+  }
+  return best;
+}
