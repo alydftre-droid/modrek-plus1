@@ -13,6 +13,7 @@ import {
 
   summarizePageStates,
   tokenBudgetForStage,
+  resolvePdfPageCountViaXref,
 } from "./pdfPipeline.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -196,4 +197,30 @@ Deno.test("deep scan finds the page tree inside compressed object streams (xref-
   assertEquals(countPdfPagesFromRawBytes(file, { requirePageTree: true }), 0);
   const deep = await scanPdfPagesDeep(file);
   assertEquals(deep.pageTreeCount, 137);
+});
+
+Deno.test("xref chain page count works over ranged reads for classic and object-stream PDFs", async () => {
+  // Minimal classic-xref PDF with a 2-page tree.
+  const build = () => {
+    const objs = [
+      "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+      "2 0 obj\n<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>\nendobj\n",
+      "3 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n",
+      "4 0 obj\n<< /Type /Page /Parent 2 0 R >>\nendobj\n",
+    ];
+    let body = "%PDF-1.4\n";
+    const offsets: number[] = [];
+    for (const o of objs) {
+      offsets.push(body.length);
+      body += o;
+    }
+    const xrefStart = body.length;
+    body += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+    for (const off of offsets) body += `${String(off).padStart(10, "0")} 00000 n \n`;
+    body += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF\n`;
+    return new TextEncoder().encode(body);
+  };
+  const bytes = build();
+  const pages = await resolvePdfPageCountViaXref(bytes.byteLength, async (start, end) => bytes.subarray(start, end + 1));
+  if (pages !== 2) throw new Error(`expected 2 pages, got ${pages}`);
 });

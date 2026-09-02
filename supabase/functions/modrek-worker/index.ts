@@ -11,6 +11,7 @@ import {
   classifyPipelineError,
   countPdfPagesFromRawBytes,
   scanPdfPagesDeep,
+  resolvePdfPageCountViaXref,
 
   pageNeedsOcr,
   planPageBatches,
@@ -1317,6 +1318,9 @@ const PDF_RANGE_TAIL_BYTES = 3 * 1024 * 1024;
 const PDF_RANGE_HEAD_BYTES = 4 * 1024 * 1024;
 const PDF_RANGE_BIG_TAIL_BYTES = 12 * 1024 * 1024;
 const PDF_FULL_DOWNLOAD_SAFE_BYTES = 20 * 1024 * 1024;
+// Absolute ceiling for the last-resort full-download page count. Above this a
+// full in-isolate parse is a guaranteed OOM, so we fail loudly instead.
+const PDF_FULL_DOWNLOAD_HARD_LIMIT_BYTES = 60 * 1024 * 1024;
 
 async function fetchAssetRange(asset: any, start: number, endInclusive: number): Promise<Uint8Array | null> {
   const provider = (asset?.storage_provider ?? "").toLowerCase();
@@ -1429,6 +1433,29 @@ async function resolvePdfPageCountRanged(
   onAttempt: (info: { parser: string; ok: boolean; pages?: number; error?: string }) => Promise<void>,
 ): Promise<{ pageCount: number; parser: string }> {
   const byteSize = Number(asset.byte_size ?? 0);
+
+  // STRATEGY 0 (primary, works for any size incl. 200MB+): walk the real
+  // cross-reference chain over small HTTP Range reads. This handles classic
+  // xref tables, xref streams and catalogs stored inside compressed object
+  // streams — i.e. the exact family of files that defeated the regex sweeps.
+  if (byteSize > 0) {
+    try {
+      const pages = await withTimeout(
+        resolvePdfPageCountViaXref(byteSize, async (start, end) => {
+          const slice = await fetchAssetRange(asset, start, end);
+          if (!slice) throw new Error("range request not supported by storage");
+          return slice;
+        }),
+        60_000,
+        "xref page-count timeout",
+      );
+      await onAttempt({ parser: "xref_chain", ok: pages > 0, pages, error: pages > 0 ? undefined : "xref chain resolved no page tree" });
+      if (pages > 0) return { pageCount: pages, parser: "xref_chain" };
+    } catch (err: any) {
+      await onAttempt({ parser: "xref_chain", ok: false, error: String(err?.message ?? err).slice(0, 300) });
+    }
+  }
+
   const windows: { name: string; start: number; end: number }[] = [];
   if (byteSize > 0) {
     windows.push({ name: `range_tail_${Math.round(PDF_RANGE_TAIL_BYTES / 1024 / 1024)}mb`, start: Math.max(0, byteSize - PDF_RANGE_TAIL_BYTES), end: byteSize - 1 });
@@ -1471,15 +1498,16 @@ async function resolvePdfPageCountRanged(
     if (deep && deep.pageCount > 0) return deep;
   }
 
-  if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES) {
-    // Refuse to load a huge book into the isolate: that is exactly the crash
-    // loop we are fixing. Surface a real, actionable error instead of hanging.
+  if (byteSize > 0 && byteSize > PDF_FULL_DOWNLOAD_HARD_LIMIT_BYTES) {
+    // Beyond this size a full in-isolate load is a guaranteed OOM crash loop, so
+    // surface a real, actionable error instead of hanging forever.
     throw new Error(
-      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) من رأس أو نهاية الملف ولا من مسح المحتوى المضغوط بالكامل. `
+      `تعذر قراءة فهرس صفحات هذا الملف (${Math.round(byteSize / 1024 / 1024)} ميجابايت) عبر فهرس المراجع (xref) ولا عبر مسح المحتوى المضغوط. `
       + "الملف على الأرجح تالف أو محمي بكلمة مرور. "
       + "أعد رفع نسخة PDF سليمة (يمكن ضغطها أو تقسيمها إلى أجزاء أصغر) ثم أعد تشغيل المرحلة.",
     );
   }
+
 
 
   const bytes = await fetchAssetBytes(admin, asset, async (info) => {
@@ -1489,12 +1517,16 @@ async function resolvePdfPageCountRanged(
       total_bytes: info.total,
     });
   });
+  // pdf-lib first: it is far lighter on memory than unpdf/pdf.js, which matters
+  // for the 20-60MB band where a full load is still allowed.
   return await resolvePdfPageCount(
     bytes,
-    [
-      { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
-      { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
-    ],
+    byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES
+      ? [{ name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 40_000, "pdf-lib page-count timeout") }]
+      : [
+        { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
+        { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
+      ],
     onAttempt,
   );
 }
@@ -1886,7 +1918,11 @@ async function readResponseBytesWithProgress(
   }
 
   const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
+  // When the size is known, stream straight into ONE preallocated buffer. The
+  // old chunk-array + copy approach peaked at ~2x the file size, which is what
+  // pushed big books over the isolate memory limit.
+  let out = total > 0 ? new Uint8Array(total) : new Uint8Array(0);
+  const chunks: Uint8Array[] | null = total > 0 ? null : [];
   let loaded = 0;
   let lastBeat = 0;
   try {
@@ -1894,7 +1930,16 @@ async function readResponseBytesWithProgress(
       const { value, done } = await withTimeout(reader.read(), 30_000, "bunny download stream timeout");
       if (done) break;
       if (!value) continue;
-      chunks.push(value);
+      if (chunks) {
+        chunks.push(value);
+      } else {
+        if (loaded + value.byteLength > out.byteLength) {
+          const grown = new Uint8Array(loaded + value.byteLength);
+          grown.set(out.subarray(0, loaded), 0);
+          out = grown;
+        }
+        out.set(value, loaded);
+      }
       loaded += value.byteLength;
       const denominator = total || Math.max(loaded, 1);
       if (loaded - lastBeat >= 2 * 1024 * 1024 || loaded === total) {
@@ -1905,11 +1950,15 @@ async function readResponseBytesWithProgress(
   } finally {
     reader.releaseLock();
   }
-  const out = new Uint8Array(loaded);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
+  if (chunks) {
+    out = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+  } else if (loaded !== out.byteLength) {
+    out = out.subarray(0, loaded);
   }
   await onProgress?.({ loaded, total: total || loaded, pct: 1 });
   return out;
