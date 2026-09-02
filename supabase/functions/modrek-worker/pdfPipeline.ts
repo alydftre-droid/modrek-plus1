@@ -519,10 +519,11 @@ async function parseXrefStreamAt(
   let text = L1.decode(win);
   const objIdx = text.indexOf("obj");
   if (objIdx < 0) return null;
-  const dictEnd = text.indexOf(">>", objIdx);
   const streamIdx = text.indexOf("stream", objIdx);
-  if (dictEnd < 0 || streamIdx < 0) return null;
-  const dict = text.slice(objIdx + 3, dictEnd + 2);
+  if (streamIdx < 0) return null;
+  // Take the WHOLE dictionary text (object header up to `stream`): stopping at
+  // the first `>>` would cut off /W and /Root because /DecodeParms is nested.
+  const dict = text.slice(objIdx + 3, streamIdx);
   if (!/\/XRef/.test(dict)) return null;
 
   let payloadStart = streamIdx + "stream".length;
