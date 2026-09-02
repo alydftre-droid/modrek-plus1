@@ -13,6 +13,7 @@ import {
 
   summarizePageStates,
   tokenBudgetForStage,
+  resolvePdfPageCountViaXref,
 } from "./pdfPipeline.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
