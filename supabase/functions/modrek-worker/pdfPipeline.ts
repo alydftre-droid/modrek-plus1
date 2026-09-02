@@ -219,19 +219,45 @@ export function countPdfPagesFromRawBytes(
   return options.requirePageTree ? 0 : pageObjects;
 }
 
-/** Inflate one raw stream payload, tolerating zlib and raw-deflate framing. */
+/**
+ * Inflate one raw stream payload, tolerating zlib and raw-deflate framing plus
+ * the EOL padding PDF writers put before `endstream`. Partial output is kept:
+ * a truncated inflate still exposes the `/Type /Pages /Count` we need.
+ */
 async function inflateStreamPayload(buf: Uint8Array): Promise<Uint8Array | null> {
-  for (const format of ["deflate", "deflate-raw"] as const) {
-    try {
-      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream(format));
-      const out = new Uint8Array(await new Response(stream).arrayBuffer());
-      if (out.byteLength > 0) return out;
-    } catch {
-      /* try next framing */
+  // Drop trailing EOL/whitespace padding — DecompressionStream rejects any
+  // trailing byte after the deflate stream ends.
+  let end = buf.length;
+  while (end > 0 && (buf[end - 1] === 0x0a || buf[end - 1] === 0x0d || buf[end - 1] === 0x20 || buf[end - 1] === 0x00)) end--;
+  const candidates = end === buf.length ? [buf] : [buf.subarray(0, end), buf];
+  for (const candidate of candidates) {
+    for (const format of ["deflate", "deflate-raw"] as const) {
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      try {
+        const stream = new Blob([candidate]).stream().pipeThrough(new DecompressionStream(format));
+        for await (const chunk of stream as unknown as AsyncIterable<Uint8Array>) {
+          chunks.push(chunk);
+          size += chunk.byteLength;
+          if (size > 8 * 1024 * 1024) break;
+        }
+      } catch {
+        /* keep whatever inflated before the error */
+      }
+      if (size > 0) {
+        const out = new Uint8Array(size);
+        let offset = 0;
+        for (const chunk of chunks) {
+          out.set(chunk, offset);
+          offset += chunk.byteLength;
+        }
+        return out;
+      }
     }
   }
   return null;
 }
+
 
 /**
  * Deep page scan for modern (xref-stream / object-stream) PDFs.
