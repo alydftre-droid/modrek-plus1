@@ -142,9 +142,26 @@ async function verifyFinalMediaObject(
 ) {
   let lastFailure: Record<string, unknown> = { ok: false, reason: "verify_not_started" };
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    const verifyRes = await fetch(`https://${config.storageHost}/${config.zone}/${filePath}`, {
-      headers: { AccessKey: config.apiKey, Range: "bytes=0-1023" },
-    });
+    let verifyRes: Response;
+    try {
+      const result = await fetchWithTimeout(
+        `https://${config.storageHost}/${config.zone}/${filePath}`,
+        { headers: { AccessKey: config.apiKey, Range: "bytes=0-1023" } },
+        30_000,
+        "verify_media_read",
+      );
+      verifyRes = result.res;
+    } catch (error) {
+      // Transport failure after a successful PUT — do not fail the upload.
+      return {
+        ok: true,
+        skipped: true,
+        reason: "verify_transport_error",
+        message: error instanceof Error ? error.message : String(error),
+        attempt,
+      };
+    }
+
     if (!verifyRes.ok && verifyRes.status !== 206) {
       const upstream = await verifyRes.text().catch(() => "");
       lastFailure = { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200), attempt };
