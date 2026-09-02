@@ -534,12 +534,13 @@ async function parseXrefStreamAt(
     if (endIdx > payloadStart) length = endIdx - payloadStart;
   }
   if (!length) return null;
+  let payload: Uint8Array;
   if (payloadStart + length > win.length) {
     win = await readWindow(read, fileSize, offset + payloadStart, length);
     text = "";
-    var payload = win.subarray(0, Math.min(length, win.length));
+    payload = win.subarray(0, Math.min(length, win.length));
   } else {
-    var payload = win.subarray(payloadStart, payloadStart + length);
+    payload = win.subarray(payloadStart, payloadStart + length);
   }
 
   let data = await inflateStreamPayload(payload);
