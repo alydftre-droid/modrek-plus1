@@ -10,6 +10,8 @@ import { parseCurriculumTitle } from "../_shared/lessonTargeting.ts";
 import {
   classifyPipelineError,
   countPdfPagesFromRawBytes,
+  scanPdfPagesDeep,
+
   pageNeedsOcr,
   planPageBatches,
   planPdfParts,
