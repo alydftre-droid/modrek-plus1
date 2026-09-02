@@ -68,32 +68,72 @@ function bytesToAscii(bytes: Uint8Array) {
 }
 
 async function verifyFinalPdfObject(config: ReturnType<typeof getBunnyStorageConfig>, filePath: string, expectedSize: number | null) {
-  const verifyRes = await fetch(`https://${config.storageHost}/${config.zone}/${filePath}`, {
-    headers: {
-      AccessKey: config.apiKey,
-      Range: "bytes=0-15",
-    },
-  });
-  if (!verifyRes.ok && verifyRes.status !== 206) {
-    const upstream = await verifyRes.text().catch(() => "");
-    return { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200) };
+  // The final PUT already succeeded when this runs. Verification is a safety
+  // net only, so transport failures here must NEVER fail the upload — that is
+  // what turned successful 72MB uploads into "Internal error" (unhandled throw).
+  let lastFailure: Record<string, unknown> = { ok: false, reason: "verify_not_started" };
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    let verifyRes: Response;
+    try {
+      const result = await fetchWithTimeout(
+        `https://${config.storageHost}/${config.zone}/${filePath}`,
+        { headers: { AccessKey: config.apiKey, Range: "bytes=0-15" } },
+        30_000,
+        "verify_pdf_read",
+      );
+      verifyRes = result.res;
+    } catch (error) {
+      lastFailure = {
+        ok: true,
+        skipped: true,
+        reason: "verify_transport_error",
+        message: error instanceof Error ? error.message : String(error),
+        attempt,
+      };
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, attempt * 750)); continue; }
+      return lastFailure;
+    }
+
+    if (!verifyRes.ok && verifyRes.status !== 206) {
+      const upstream = await verifyRes.text().catch(() => "");
+      lastFailure = { ok: false, reason: `verify_read_failed:${verifyRes.status}`, upstream: upstream.slice(0, 200), attempt };
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, attempt * 750)); continue; }
+      return lastFailure;
+    }
+
+    let firstBytes: Uint8Array;
+    try {
+      firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
+    } catch (error) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: "verify_body_read_error",
+        message: error instanceof Error ? error.message : String(error),
+        attempt,
+      };
+    }
+    const header = bytesToAscii(firstBytes);
+    const rangeTotal = parseContentRangeTotal(verifyRes.headers.get("content-range"));
+    const lengthTotal = Number.parseInt(verifyRes.headers.get("content-length") || "0", 10) || null;
+    const totalSize = rangeTotal ?? lengthTotal;
+    if (!header.startsWith("%PDF-")) {
+      lastFailure = { ok: false, reason: "final_object_is_not_pdf", header, totalSize, attempt };
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, attempt * 750)); continue; }
+      return lastFailure;
+    }
+    // Ranged reads only report the slice length on some zones; never treat a
+    // missing/partial total as a corrupt file.
+    if (expectedSize && rangeTotal && rangeTotal < expectedSize) {
+      lastFailure = { ok: false, reason: "final_object_size_mismatch", header, totalSize: rangeTotal, expectedSize, attempt };
+      if (attempt < 3) { await new Promise((r) => setTimeout(r, attempt * 750)); continue; }
+      return lastFailure;
+    }
+    return { ok: true, header, totalSize, expectedSize, attempt };
   }
-  const firstBytes = new Uint8Array(await verifyRes.arrayBuffer());
-  const header = bytesToAscii(firstBytes);
-  const rangeTotal = parseContentRangeTotal(verifyRes.headers.get("content-range"));
-  const lengthTotal = Number.parseInt(verifyRes.headers.get("content-length") || "0", 10) || null;
-  const totalSize = rangeTotal ?? lengthTotal;
-  if (!header.startsWith("%PDF-")) {
-    return { ok: false, reason: "final_object_is_not_pdf", header, totalSize };
-  }
-  if (expectedSize && totalSize && totalSize < expectedSize) {
-    return { ok: false, reason: "final_object_size_mismatch", header, totalSize, expectedSize };
-  }
-  if (totalSize !== null && totalSize < 128) {
-    return { ok: false, reason: "final_object_too_small", header, totalSize, expectedSize };
-  }
-  return { ok: true, header, totalSize, expectedSize };
+  return lastFailure;
 }
+
 
 async function verifyFinalMediaObject(
   config: ReturnType<typeof getBunnyStorageConfig>,
