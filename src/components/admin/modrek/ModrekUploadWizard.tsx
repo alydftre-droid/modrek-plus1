@@ -1484,14 +1484,49 @@ function ProcessingView({ stage, pct, files, onOpen, canOpen, error, jobs = [], 
         <div className="text-[11px] font-extrabold text-[#94A3B8] uppercase tracking-wider mb-3">ملفات المصدر</div>
         <div className="space-y-1.5">
           {files.map((f: any) => (
-            <div key={f.id} className="flex items-center gap-2 text-[12px] p-2.5 rounded-[10px] hover:bg-[#F8FAFC] transition-colors">
-              <span className="h-8 w-8 rounded-[10px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center ring-1 ring-[#DBEAFE]">
-                <FileText className="h-3.5 w-3.5" />
-              </span>
-              <span className="flex-1 truncate font-bold text-[#0F172A]">{f.file.name}</span>
-              <StatusBadge s={f.status} />
+            <div key={f.id} className="p-2.5 rounded-[10px] hover:bg-[#F8FAFC] transition-colors">
+              <div className="flex items-center gap-2 text-[12px]">
+                <span className="h-8 w-8 rounded-[10px] bg-[#EFF6FF] text-[#2563EB] flex items-center justify-center ring-1 ring-[#DBEAFE]">
+                  <FileText className="h-3.5 w-3.5" />
+                </span>
+                <span className="flex-1 truncate font-bold text-[#0F172A]">{f.file.name}</span>
+                <StatusBadge s={f.status} />
+              </div>
+              {f.status === "failed" && (
+                <div className="mt-2 rounded-[10px] bg-[#FEF2F2] ring-1 ring-[#FECACA] p-2.5 space-y-2">
+                  <div className="text-[11px] font-extrabold text-[#B91C1C]">سبب فشل الرفع (رسالة الخطأ الحقيقية)</div>
+                  <div className="text-[11px] leading-5 text-[#7F1D1D] break-words whitespace-pre-wrap">
+                    {f.error || "لم يُرجع النظام رسالة خطأ"}
+                  </div>
+                  <div className="text-[10px] text-[#9CA3AF] break-all">
+                    {`الملف: ${f.file.name} | الحجم: ${fmtBytes(f.file.size)} | النوع: ${f.file.type || "غير معروف"} | الموضع: src/components/admin/modrek/ModrekUploadWizard.tsx:454 (uploadOne) ← src/lib/bunnyStorage.ts (uploadToBunnyStorage)`}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const report = [
+                        "تقرير فشل رفع ملف — مكتبة Modrek AI",
+                        `الملف: ${f.file.name}`,
+                        `الحجم: ${fmtBytes(f.file.size)} (${f.file.size} بايت)`,
+                        `النوع: ${f.file.type || "غير معروف"}`,
+                        `الحالة: ${f.status}`,
+                        `رسالة الخطأ: ${f.error || "غير متاحة"}`,
+                        "الموضع: src/components/admin/modrek/ModrekUploadWizard.tsx:454 (uploadOne)",
+                        "المسار الداخلي: src/lib/bunnyStorage.ts → supabase/functions/bunny-storage (create-upload-session / upload-chunk / finalize-upload)",
+                        `الوقت: ${new Date().toISOString()}`,
+                      ].join("\n");
+                      void navigator.clipboard?.writeText(report);
+                      toast.success("تم نسخ تقرير الخطأ");
+                    }}
+                    className="text-[11px] font-extrabold text-[#B91C1C] underline"
+                  >
+                    نسخ تقرير الخطأ الكامل
+                  </button>
+                </div>
+              )}
             </div>
           ))}
+
         </div>
       </ModrekCard>
 
