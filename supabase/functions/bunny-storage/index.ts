@@ -806,32 +806,43 @@ Deno.serve(async (req) => {
       }
       uploadLog("finalize_put_complete", { uploadId, filePath, total, status: uploadRes.status, elapsedMs: uploadElapsedMs });
 
-      if (filePath.toLowerCase().endsWith(".pdf") || contentType.toLowerCase().includes("pdf")) {
-        const verification = await verifyFinalPdfObject(bunnyConfig, filePath, expectedSize);
-        if (!verification.ok) {
-          uploadError("finalize_verify_failed", { uploadId, filePath, ...verification });
-          return jsonResponse({
-            error: "فشل التحقق من ملف PDF بعد الرفع. الملف النهائي غير مكتمل أو تالف، لذلك لم نبدأ المعالجة.",
-            diagnostic: {
-              file: "supabase/functions/bunny-storage/index.ts",
-              function: "verifyFinalPdfObject",
-              line: 64,
-              ...verification,
-            },
-          }, 422);
+      try {
+        if (filePath.toLowerCase().endsWith(".pdf") || contentType.toLowerCase().includes("pdf")) {
+          const verification = await verifyFinalPdfObject(bunnyConfig, filePath, expectedSize);
+          if (!verification.ok) {
+            uploadError("finalize_verify_failed", { uploadId, filePath, ...verification });
+            return jsonResponse({
+              error: "فشل التحقق من ملف PDF بعد الرفع. الملف النهائي غير مكتمل أو تالف، لذلك لم نبدأ المعالجة.",
+              diagnostic: {
+                file: "supabase/functions/bunny-storage/index.ts",
+                function: "verifyFinalPdfObject",
+                line: 70,
+                ...verification,
+              },
+            }, 422);
+          }
+          uploadLog("finalize_verify_complete", { uploadId, filePath, ...verification });
+        } else if (contentType.toLowerCase().startsWith("video/")) {
+          const verification = await verifyFinalMediaObject(bunnyConfig, filePath, expectedSize);
+          if (!verification.ok) {
+            uploadError("finalize_video_verify_failed", { uploadId, filePath, ...verification });
+            return jsonResponse({
+              error: "فشل التحقق من ملف الفيديو بعد الرفع. لم يتم حفظ رابط لملف مفقود أو غير مكتمل.",
+              reason: verification.reason,
+            }, 422);
+          }
+          uploadLog("finalize_video_verify_complete", { uploadId, filePath, ...verification });
         }
-        uploadLog("finalize_verify_complete", { uploadId, filePath, ...verification });
-      } else if (contentType.toLowerCase().startsWith("video/")) {
-        const verification = await verifyFinalMediaObject(bunnyConfig, filePath, expectedSize);
-        if (!verification.ok) {
-          uploadError("finalize_video_verify_failed", { uploadId, filePath, ...verification });
-          return jsonResponse({
-            error: "فشل التحقق من ملف الفيديو بعد الرفع. لم يتم حفظ رابط لملف مفقود أو غير مكتمل.",
-            reason: verification.reason,
-          }, 422);
-        }
-        uploadLog("finalize_video_verify_complete", { uploadId, filePath, ...verification });
+      } catch (verifyErr) {
+        // The bytes are already stored; a verification crash must not discard
+        // a successful upload.
+        uploadError("finalize_verify_exception_ignored", {
+          uploadId,
+          filePath,
+          message: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        });
       }
+
 
       // Best-effort chunk cleanup — do not fail the response if delete fails.
       const cleanup = Promise.allSettled(chunkPaths.map((cp) =>
