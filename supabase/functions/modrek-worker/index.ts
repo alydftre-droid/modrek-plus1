@@ -11,6 +11,7 @@ import {
   classifyPipelineError,
   countPdfPagesFromRawBytes,
   scanPdfPagesDeep,
+  resolvePdfPageCountViaXref,
 
   pageNeedsOcr,
   planPageBatches,
