@@ -219,6 +219,76 @@ export function countPdfPagesFromRawBytes(
   return options.requirePageTree ? 0 : pageObjects;
 }
 
+/** Inflate one raw stream payload, tolerating zlib and raw-deflate framing. */
+async function inflateStreamPayload(buf: Uint8Array): Promise<Uint8Array | null> {
+  for (const format of ["deflate", "deflate-raw"] as const) {
+    try {
+      const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream(format));
+      const out = new Uint8Array(await new Response(stream).arrayBuffer());
+      if (out.byteLength > 0) return out;
+    } catch {
+      /* try next framing */
+    }
+  }
+  return null;
+}
+
+/**
+ * Deep page scan for modern (xref-stream / object-stream) PDFs.
+ *
+ * In those files the catalog and the page tree live INSIDE compressed object
+ * streams, so a raw byte scan of head/tail windows finds no `/Type /Pages
+ * /Count`. Here we additionally inflate every self-contained `stream ...
+ * endstream` payload in the window and scan the decompressed bytes.
+ */
+export async function scanPdfPagesDeep(
+  bytes: Uint8Array,
+  opts: { maxSegmentBytes?: number; maxSegments?: number; deadlineMs?: number } = {},
+): Promise<{ pageTreeCount: number; pageObjects: number; inflated: number }> {
+  const maxSegmentBytes = opts.maxSegmentBytes ?? 4 * 1024 * 1024;
+  const maxSegments = opts.maxSegments ?? 400;
+  const deadline = opts.deadlineMs ?? Date.now() + 30_000;
+
+  let pageTreeCount = countPdfPagesFromRawBytes(bytes, { requirePageTree: true });
+  let pageObjects = 0;
+  let inflated = 0;
+
+  const text = new TextDecoder("latin1").decode(bytes);
+  let cursor = 0;
+  while (inflated < maxSegments && Date.now() < deadline) {
+    const open = text.indexOf("stream", cursor);
+    if (open < 0) break;
+    let payloadStart = open + "stream".length;
+    if (text[payloadStart] === "\r") payloadStart++;
+    if (text[payloadStart] === "\n") payloadStart++;
+    const close = text.indexOf("endstream", payloadStart);
+    cursor = close < 0 ? open + 6 : close + "endstream".length;
+    if (close < 0) break;
+    const length = close - payloadStart;
+    if (length <= 0 || length > maxSegmentBytes) continue;
+    const payload = bytes.subarray(payloadStart, close);
+    const out = await inflateStreamPayload(payload);
+    if (!out) continue;
+    inflated++;
+    const decoded = new TextDecoder("latin1").decode(out);
+    for (const m of decoded.matchAll(/\/Type\s*\/Pages[\s\S]{0,400}?\/Count\s+(\d+)/g)) {
+      pageTreeCount = Math.max(pageTreeCount, Number(m[1]) || 0);
+    }
+    for (const m of decoded.matchAll(/\/Count\s+(\d+)[\s\S]{0,400}?\/Type\s*\/Pages/g)) {
+      pageTreeCount = Math.max(pageTreeCount, Number(m[1]) || 0);
+    }
+    pageObjects += decoded.match(/\/Type\s*\/Page[^s]/g)?.length ?? 0;
+  }
+
+  pageObjects += countPdfPagesFromRawBytes(bytes, { requirePageTree: false }) && pageTreeCount === 0
+    ? 0
+    : 0;
+
+  return { pageTreeCount, pageObjects, inflated };
+}
+
+
+
 
 /**
  * Resolve a page count through every available parser before giving up.
