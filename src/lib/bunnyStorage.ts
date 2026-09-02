@@ -496,13 +496,32 @@ export async function uploadToBunnyStorage(
   }
 
   emitChunkProgress(uploaded, total, 100, "finalizing");
-  const finalizeRes = await fetch(
-    `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(contentType)}`,
-    { method: "POST", headers: authHeaders, signal: controller.signal },
-  );
-  if (!finalizeRes.ok) {
-    throw new Error(await parseErr(finalizeRes, `فشل إنهاء الرفع (${finalizeRes.status})`));
+  const finalizeUrl = `${supabaseUrl}/functions/v1/bunny-storage?action=finalize-upload&path=${encodeURIComponent(storagePath)}&uploadId=${uploadId}&total=${total}&size=${file.size}&contentType=${encodeURIComponent(contentType)}`;
+  // Finalize concatenates every chunk server-side. Transient 5xx/network blips
+  // on large files must not throw away a fully uploaded book, so retry it.
+  let finalizeRes: Response | null = null;
+  let finalizeError = "";
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    if (controller.signal.aborted) throw new Error("UPLOAD_ABORTED");
+    try {
+      finalizeRes = await fetch(finalizeUrl, { method: "POST", headers: authHeaders, signal: controller.signal });
+    } catch (err) {
+      if (controller.signal.aborted) throw new Error("UPLOAD_ABORTED");
+      finalizeError = err instanceof Error ? err.message : String(err);
+      finalizeRes = null;
+    }
+    if (finalizeRes?.ok) break;
+    if (finalizeRes) {
+      finalizeError = await parseErr(finalizeRes, `فشل إنهاء الرفع (${finalizeRes.status})`);
+      // 4xx are deterministic (bad params / corrupt file) — do not retry.
+      if (finalizeRes.status < 500) throw new Error(finalizeError);
+    }
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 1500 * attempt));
   }
+  if (!finalizeRes?.ok) {
+    throw new Error(finalizeError || "فشل إنهاء الرفع");
+  }
+
 
   emitChunkProgress(file.size, total, 100, "finalizing");
 
