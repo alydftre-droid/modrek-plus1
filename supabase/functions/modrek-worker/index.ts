@@ -1918,7 +1918,11 @@ async function readResponseBytesWithProgress(
   }
 
   const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
+  // When the size is known, stream straight into ONE preallocated buffer. The
+  // old chunk-array + copy approach peaked at ~2x the file size, which is what
+  // pushed big books over the isolate memory limit.
+  let out = total > 0 ? new Uint8Array(total) : new Uint8Array(0);
+  const chunks: Uint8Array[] | null = total > 0 ? null : [];
   let loaded = 0;
   let lastBeat = 0;
   try {
@@ -1926,7 +1930,16 @@ async function readResponseBytesWithProgress(
       const { value, done } = await withTimeout(reader.read(), 30_000, "bunny download stream timeout");
       if (done) break;
       if (!value) continue;
-      chunks.push(value);
+      if (chunks) {
+        chunks.push(value);
+      } else {
+        if (loaded + value.byteLength > out.byteLength) {
+          const grown = new Uint8Array(loaded + value.byteLength);
+          grown.set(out.subarray(0, loaded), 0);
+          out = grown;
+        }
+        out.set(value, loaded);
+      }
       loaded += value.byteLength;
       const denominator = total || Math.max(loaded, 1);
       if (loaded - lastBeat >= 2 * 1024 * 1024 || loaded === total) {
@@ -1937,11 +1950,15 @@ async function readResponseBytesWithProgress(
   } finally {
     reader.releaseLock();
   }
-  const out = new Uint8Array(loaded);
-  let offset = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, offset);
-    offset += chunk.byteLength;
+  if (chunks) {
+    out = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+  } else if (loaded !== out.byteLength) {
+    out = out.subarray(0, loaded);
   }
   await onProgress?.({ loaded, total: total || loaded, pct: 1 });
   return out;
