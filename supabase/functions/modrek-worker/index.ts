@@ -1517,12 +1517,16 @@ async function resolvePdfPageCountRanged(
       total_bytes: info.total,
     });
   });
+  // pdf-lib first: it is far lighter on memory than unpdf/pdf.js, which matters
+  // for the 20-60MB band where a full load is still allowed.
   return await resolvePdfPageCount(
     bytes,
-    [
-      { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
-      { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
-    ],
+    byteSize > PDF_FULL_DOWNLOAD_SAFE_BYTES
+      ? [{ name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 40_000, "pdf-lib page-count timeout") }]
+      : [
+        { name: "unpdf", run: (b) => withTimeout(getPdfPageCount(b), 25_000, "unpdf page-count timeout") },
+        { name: "pdf-lib", run: (b) => withTimeout(getPdfPageCountWithPdfLib(b), 25_000, "pdf-lib page-count timeout") },
+      ],
     onAttempt,
   );
 }
