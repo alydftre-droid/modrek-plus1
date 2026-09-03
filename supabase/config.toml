@@ -82,3 +82,11 @@ verify_jwt = true
 # Protected by per-IP rate limiting inside the function/database.
 [functions.resolve-login-email]
 verify_jwt = false
+
+[functions.zoom-live]
+verify_jwt = false
+
+# Public on purpose: Zoom posts server-to-server events here.
+# Authenticity is enforced via the x-zm-signature HMAC check inside the function.
+[functions.zoom-webhook]
+verify_jwt = false
