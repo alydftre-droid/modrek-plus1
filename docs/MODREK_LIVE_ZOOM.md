@@ -1,0 +1,30 @@
+# Modrek Live — Zoom Meeting SDK (المرحلة الأولى)
+
+## المكونات
+| العنصر | الدور |
+| --- | --- |
+| `supabase/functions/zoom-live` | التصريح + إنشاء الاجتماع + توقيع SDK + الحضور + الإنهاء |
+| `supabase/functions/zoom-webhook` | تحديث حالة الجلسة من أحداث Zoom (بما فيها انتهاء 40 دقيقة) |
+| `src/lib/zoomMeeting.ts` | تحميل Zoom SDK من CDN + استدعاء الخدمة |
+| `src/components/live/ZoomMeetingView.tsx` | واجهة الاجتماع (Client View) + تقرير خطأ قابل للنسخ |
+| `src/components/live/LiveProviderGate.tsx` | اختيار Zoom أو Jitsi تلقائيًا |
+| `live_sessions.provider` + `live_attendance` | تخزين المزوّد وسجل الحضور |
+
+## قواعد الأمان
+- كل مفاتيح Zoom على الخادم فقط. العميل يستلم توقيع SDK لاجتماع واحد فقط.
+- `zak` (توكن المضيف) يُعطى للمعلم صاحب المجموعة فقط ولا يُحفظ في قاعدة البيانات.
+- الطالب يحتاج: تسجيل دخول + شراء نفس المجموعة + جلسة نشطة. ولا يُسمح للمحظور (`live_session_actions.action = 'ban'`).
+- `zoom-webhook` يتحقق من `x-zm-signature` (HMAC SHA-256) ويرفض أي طلب غير موقّع.
+- فهرس فريد `live_sessions_one_active_per_group` يمنع تعدد الجلسات النشطة للمجموعة (Idempotency).
+- `live_attendance` محمي بـRLS: الطالب يرى سجله، المعلم يرى سجلات جلساته، الأدمن الكل، مع سياسة عزل المنصات RESTRICTIVE.
+
+## التوافق مع النظام الحالي
+Jitsi يبقى المسار الافتراضي: إذا لم تُضبط مفاتيح Zoom يعيد `capabilities` قيمة `zoomEnabled: false`
+وتعمل الحصص كما كانت. الجلسات القديمة تُفتح دائمًا بمزوّدها المسجَّل.
+
+## الأسرار المطلوبة
+`ZOOM_ACCOUNT_ID`, `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET` (Server-to-Server OAuth),
+`ZOOM_SDK_KEY`, `ZOOM_SDK_SECRET` (Meeting SDK App), `ZOOM_WEBHOOK_SECRET_TOKEN`.
+
+## Webhook URL
+`https://<project>.functions.supabase.co/zoom-webhook` — الأحداث: `meeting.started`, `meeting.ended`, `meeting.deleted`.
