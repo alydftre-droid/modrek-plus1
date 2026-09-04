@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Radio, Eye, Play, Video as VideoIcon, Upload } from "lucide-react";
-import LiveClassTeacher from "./LiveClassTeacher";
-import LiveClassStudent from "./LiveClassStudent";
+import LiveProviderGate from "./LiveProviderGate";
 import SessionRecordingUpload from "./SessionRecordingUpload";
 import SessionRecordingsList from "./SessionRecordingsList";
+
 
 interface LiveSession {
   id: string;
