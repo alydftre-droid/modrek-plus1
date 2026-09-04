@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Radio, Eye, Play, Video as VideoIcon, Upload } from "lucide-react";
-import LiveClassTeacher from "./LiveClassTeacher";
-import LiveClassStudent from "./LiveClassStudent";
+import LiveProviderGate from "./LiveProviderGate";
 import SessionRecordingUpload from "./SessionRecordingUpload";
 import SessionRecordingsList from "./SessionRecordingsList";
+
 
 interface LiveSession {
   id: string;
@@ -21,6 +21,7 @@ interface LiveSession {
   viewer_count: number;
   started_at: string;
   status: string;
+  provider?: string;
 }
 
 interface Props {
@@ -159,9 +160,11 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
         </div>
 
         {showTeacherLive && (
-          <LiveClassTeacher
+          <LiveProviderGate
+            mode="host"
             groupId={groupId}
             groupTitle={groupTitle}
+            session={liveSession && liveSession.teacher_id === user?.id ? liveSession : undefined}
             onClose={handleTeacherClose}
           />
         )}
@@ -225,7 +228,10 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
       </div>
 
       {showStudentLive && liveSession && (
-        <LiveClassStudent
+        <LiveProviderGate
+          mode="attendee"
+          groupId={groupId}
+          groupTitle={groupTitle}
           session={liveSession}
           onClose={() => { setShowStudentLive(false); fetchLiveSession(); }}
         />
