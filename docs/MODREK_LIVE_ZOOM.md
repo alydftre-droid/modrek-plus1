@@ -28,3 +28,12 @@ Jitsi يبقى المسار الافتراضي: إذا لم تُضبط مفات�
 
 ## Webhook URL
 `https://<project>.functions.supabase.co/zoom-webhook` — الأحداث: `meeting.started`, `meeting.ended`, `meeting.deleted`.
+
+## Zoom Webhook (تم اختباره)
+- Endpoint: `zoom-webhook` — يقبل POST فقط.
+- الأحداث المدعومة: `meeting.started`, `meeting.ended`, `meeting.participant_joined`, `meeting.participant_left`.
+- التحقق: `endpoint.url_validation` (HMAC للـplainToken) + توقيع `v0:{timestamp}:{body}` بمقارنة ثابتة الزمن + نافذة 5 دقائق ضد إعادة الإرسال.
+- الأحداث تُسجَّل في `zoom_webhook_events` بمفتاح `dedupe_key` فريد ⇒ تكرار نفس الحدث لا ينشئ صفًا ثانيًا.
+- لا يتم ربط أي مشارك Zoom بحساب طالب في هذه المرحلة؛ تُخزَّن معرفات Zoom فقط.
+- أي خطأ داخلي يُرجع 200 حتى لا يوقف Zoom الاشتراك ولا يتأثر التطبيق.
+- المتغير المطلوب حاليًا: `ZOOM_WEBHOOK_SECRET_TOKEN` فقط.
