@@ -7337,6 +7337,68 @@ export type Database = {
           },
         ]
       }
+      zoom_webhook_events: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          event_type: string
+          id: string
+          live_session_id: string | null
+          meeting_id: string | null
+          meeting_uuid: string | null
+          occurred_at: string | null
+          participant_display_name: string | null
+          participant_user_id: string | null
+          participant_uuid: string | null
+          payload: Json
+          process_error: string | null
+          processed: boolean
+          zoom_event_ts: number | null
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          event_type: string
+          id?: string
+          live_session_id?: string | null
+          meeting_id?: string | null
+          meeting_uuid?: string | null
+          occurred_at?: string | null
+          participant_display_name?: string | null
+          participant_user_id?: string | null
+          participant_uuid?: string | null
+          payload?: Json
+          process_error?: string | null
+          processed?: boolean
+          zoom_event_ts?: number | null
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          event_type?: string
+          id?: string
+          live_session_id?: string | null
+          meeting_id?: string | null
+          meeting_uuid?: string | null
+          occurred_at?: string | null
+          participant_display_name?: string | null
+          participant_user_id?: string | null
+          participant_uuid?: string | null
+          payload?: Json
+          process_error?: string | null
+          processed?: boolean
+          zoom_event_ts?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoom_webhook_events_live_session_id_fkey"
+            columns: ["live_session_id"]
+            isOneToOne: false
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       ad_targets_safe: {
