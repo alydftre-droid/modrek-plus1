@@ -9,4 +9,4 @@
 - [x] إصلاح إنتاجي: استعادة ظهور بيانات المعلمين واختيارهم للطلاب الرسميين مع الحفاظ على Tenant V2
 - [x] إضافة تقرير تشخيص قابل للنسخ لتحميل حسابات وملفات وصور وفيديوهات ومجموعات المعلمين
 - [x] Modrek Live المرحلة 1: بنية Zoom (provider + live_attendance + zoom-live + بوابة المزود)
-- [ ] Zoom Webhook Integration: endpoint آمن + URL validation + تحقق التوقيع + سجل أحداث Idempotent للأحداث الأربعة
+- [x] Zoom Webhook Integration: endpoint آمن + URL validation + تحقق التوقيع + سجل أحداث Idempotent للأحداث الأربعة
