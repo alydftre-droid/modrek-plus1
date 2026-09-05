@@ -34,7 +34,7 @@ function json(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
-async function hmacHex(secret: string, message: string): Promise<string> {
+export async function hmacHex(secret: string, message: string): Promise<string> {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -48,7 +48,7 @@ async function hmacHex(secret: string, message: string): Promise<string> {
 }
 
 /** Constant-time string comparison — avoids leaking the secret through timing. */
-function timingSafeEqual(a: string, b: string): boolean {
+export function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -87,7 +87,7 @@ function restHeaders() {
 }
 
 /** Deterministic key so a retried delivery never creates a second row. */
-function buildDedupeKey(event: ZoomEvent): string {
+export function buildDedupeKey(event: ZoomEvent): string {
   const object = event.payload?.object ?? {};
   const participant = object.participant ?? {};
   const parts = [
