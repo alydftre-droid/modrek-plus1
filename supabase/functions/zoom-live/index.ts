@@ -65,10 +65,27 @@ function zoomConfig() {
   const accountId = Deno.env.get("ZOOM_ACCOUNT_ID");
   const clientId = Deno.env.get("ZOOM_CLIENT_ID");
   const clientSecret = Deno.env.get("ZOOM_CLIENT_SECRET");
-  const sdkKey = Deno.env.get("ZOOM_SDK_KEY");
-  const sdkSecret = Deno.env.get("ZOOM_SDK_SECRET");
+  // Current Zoom naming is Meeting SDK "Client ID / Client Secret"; the older
+  // SDK Key / SDK Secret names are accepted as aliases for the same values.
+  const sdkKey = Deno.env.get("ZOOM_MEETING_SDK_CLIENT_ID") || Deno.env.get("ZOOM_SDK_KEY");
+  const sdkSecret = Deno.env.get("ZOOM_MEETING_SDK_CLIENT_SECRET") || Deno.env.get("ZOOM_SDK_SECRET");
   if (!accountId || !clientId || !clientSecret || !sdkKey || !sdkSecret) return null;
   return { accountId, clientId, clientSecret, sdkKey, sdkSecret };
+}
+
+/** Names of the secrets still missing — never their values. */
+function zoomMissingSecrets(): string[] {
+  const missing: string[] = [];
+  if (!Deno.env.get("ZOOM_ACCOUNT_ID")) missing.push("ZOOM_ACCOUNT_ID");
+  if (!Deno.env.get("ZOOM_CLIENT_ID")) missing.push("ZOOM_CLIENT_ID");
+  if (!Deno.env.get("ZOOM_CLIENT_SECRET")) missing.push("ZOOM_CLIENT_SECRET");
+  if (!Deno.env.get("ZOOM_MEETING_SDK_CLIENT_ID") && !Deno.env.get("ZOOM_SDK_KEY")) {
+    missing.push("ZOOM_MEETING_SDK_CLIENT_ID");
+  }
+  if (!Deno.env.get("ZOOM_MEETING_SDK_CLIENT_SECRET") && !Deno.env.get("ZOOM_SDK_SECRET")) {
+    missing.push("ZOOM_MEETING_SDK_CLIENT_SECRET");
+  }
+  return missing;
 }
 
 // ---------------------------------------------------------------- JWT signing
