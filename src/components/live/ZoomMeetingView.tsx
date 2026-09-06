@@ -61,8 +61,10 @@ export default function ZoomMeetingView({
         if (cancelled) return;
 
         if (payload.provider !== "zoom") {
-          onUnavailable?.("legacy_provider");
-          return;
+          throw new ZoomLiveError(
+            "هذه الجلسة أُنشئت بنظام البث القديم. اطلب من المعلم إنهاء الجلسة وبدء بث جديد.",
+            "legacy_session",
+          );
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
