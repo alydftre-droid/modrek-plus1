@@ -61,8 +61,10 @@ export default function ZoomMeetingView({
         if (cancelled) return;
 
         if (payload.provider !== "zoom") {
-          onUnavailable?.("legacy_provider");
-          return;
+          throw new ZoomLiveError(
+            "هذه الجلسة أُنشئت بنظام البث القديم. اطلب من المعلم إنهاء الجلسة وبدء بث جديد.",
+            "legacy_session",
+          );
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
@@ -105,11 +107,15 @@ export default function ZoomMeetingView({
         setZoomRootVisible(false);
         const code = error instanceof ZoomLiveError ? error.code : "unknown";
         setErrorCode(code);
-        setErrorText(error instanceof Error ? error.message : String(error));
+        setErrorText(
+          code === "zoom_credentials_missing"
+            ? "لم يتم ضبط بيانات ربط Zoom بعد على الخادم. تواصل مع الدعم لتفعيل البث المباشر."
+            : error instanceof Error
+              ? error.message
+              : String(error),
+        );
         setStatus("error");
-        if (code === "zoom_credentials_missing" || code === "sdk_load_failed") {
-          onUnavailable?.(code);
-        }
+        onUnavailable?.(code);
       }
     };
 
