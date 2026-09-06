@@ -210,7 +210,7 @@ Deno.serve(async (req) => {
 
     // Availability probe — lets the frontend fall back to the existing provider.
     if (action === "capabilities") {
-      return ok({ zoomEnabled: Boolean(zoomConfig()) });
+      return ok({ zoomEnabled: Boolean(zoomConfig()), missingSecrets: zoomMissingSecrets() });
     }
 
     const ctx = await getUserContext(supabase, user.id);
