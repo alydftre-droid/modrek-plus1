@@ -322,7 +322,9 @@ Deno.serve(async (req) => {
       event: event.event,
       meetingId: meetingId || null,
       result,
+      attendance,
     });
+
 
     return json({ ok: true, event: event.event, duplicate: result === "duplicate" });
   } catch (error) {
