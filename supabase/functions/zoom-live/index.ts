@@ -458,9 +458,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (banAction?.action === "ban") return fail("student_not_subscribed", 403);
 
-      if (session.provider !== "zoom") {
-        // Legacy provider — let the existing client path handle it.
-        return ok({ provider: session.provider || "jitsi", session });
+      if (session.provider !== "zoom" || !session.zoom_meeting_id) {
+        // No legacy provider exists any more: the teacher must start a Zoom session.
+        return fail("meeting_ended", 409, `non_zoom_session ${sessionId}`);
       }
 
       const cfg = zoomConfig();
@@ -488,6 +488,8 @@ Deno.serve(async (req) => {
         ? new URL(session.zoom_join_url).searchParams.get("pwd")
         : null;
 
+      let displayName = ctx.userName;
+
       if (!isOwner) {
         await supabase
           .from("live_sessions")
@@ -499,22 +501,32 @@ Deno.serve(async (req) => {
 
         const { data: attendance } = await supabase
           .from("live_attendance")
-          .select("id")
+          .select("id, participant_tag")
           .eq("live_session_id", sessionId)
           .eq("student_id", user.id)
           .maybeSingle();
 
+        const tag = attendance?.participant_tag || participantTag();
         if (!attendance) {
           await supabase.from("live_attendance").insert({
             live_session_id: sessionId,
             student_id: user.id,
+            participant_tag: tag,
+            status: "joined",
           });
         } else {
           await supabase
             .from("live_attendance")
-            .update({ left_at: null, updated_at: new Date().toISOString() })
+            .update({
+              left_at: null,
+              status: "joined",
+              participant_tag: tag,
+              updated_at: new Date().toISOString(),
+            })
             .eq("id", attendance.id);
         }
+        // The tag lets Zoom's own participant events prove attendance server-side.
+        displayName = `${ctx.userName} #${tag}`;
       }
 
       return ok({
@@ -526,8 +538,9 @@ Deno.serve(async (req) => {
         password,
         zak: zakToken,
         role: isOwner ? 1 : 0,
-        userName: ctx.userName,
+        userName: displayName,
         canPublishAudio: isOwner ? true : Boolean(session.allow_student_mic),
+
         canPublishVideo: isOwner ? true : Boolean(session.allow_student_camera),
       });
     }
