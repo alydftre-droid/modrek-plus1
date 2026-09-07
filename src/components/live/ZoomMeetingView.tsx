@@ -22,7 +22,7 @@ interface Props {
   sessionId?: string;
   title?: string;
   onClose: () => void;
-  /** Called when Zoom cannot be used, so the caller can fall back to Jitsi. */
+  /** Called when Zoom cannot be used (diagnostics only — there is no fallback). */
   onUnavailable?: (reason: string) => void;
 }
 

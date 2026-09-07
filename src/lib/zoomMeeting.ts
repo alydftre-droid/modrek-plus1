@@ -7,7 +7,7 @@ const ZOOM_SDK_VERSION = "3.13.2";
 const ZOOM_CDN = `https://source.zoom.us/${ZOOM_SDK_VERSION}`;
 
 export type ZoomJoinPayload = {
-  provider: "zoom" | "jitsi";
+  provider: "zoom";
   session: any;
   sdkKey?: string;
   signature?: string;

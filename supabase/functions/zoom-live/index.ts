@@ -73,6 +73,15 @@ function zoomConfig() {
   return { accountId, clientId, clientSecret, sdkKey, sdkSecret };
 }
 
+/** Short per-attendance tag appended to the Zoom display name so that Zoom's
+ *  own participant events can be mapped back to a Modrek student. */
+function participantTag() {
+  const bytes = new Uint8Array(3);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(36).padStart(2, "0")).join("").slice(0, 5).toUpperCase();
+}
+
+
 /** Names of the secrets still missing — never their values. */
 function zoomMissingSecrets(): string[] {
   const missing: string[] = [];
@@ -208,12 +217,37 @@ Deno.serve(async (req) => {
     const action = typeof body?.action === "string" ? body.action : "";
     if (!action) return fail("invalid_payload", 400);
 
-    // Availability probe — lets the frontend fall back to the existing provider.
+    // Availability probe — never returns any secret value, only names.
     if (action === "capabilities") {
       return ok({ zoomEnabled: Boolean(zoomConfig()), missingSecrets: zoomMissingSecrets() });
     }
 
     const ctx = await getUserContext(supabase, user.id);
+
+    // Real Zoom connectivity check (admins only): proves the Server-to-Server
+    // OAuth app works and reports which granted scopes are still missing.
+    if (action === "diagnostics") {
+      if (!ctx.isAdmin) return fail("teacher_not_authorized", 403);
+      const cfg = zoomConfig();
+      if (!cfg) return ok({ oauth: false, missingSecrets: zoomMissingSecrets() });
+      try {
+        const token = await zoomAccessToken(cfg);
+        const me = await zoomApi(token, "/users/me");
+        const zak = await zoomApi(token, "/users/me/token?type=zak");
+        return ok({
+          oauth: true,
+          hostAccountActive: me.ok && me.json?.status === "active",
+          zakAvailable: zak.ok && Boolean(zak.json?.token),
+          missingScopes: [
+            ...(zak.ok ? [] : ["user:read:token:admin"]),
+          ],
+        });
+      } catch (error) {
+        console.error("[zoom-live] diagnostics_failed", String(error));
+        return ok({ oauth: false, reason: "zoom_authorization_failed" });
+      }
+    }
+
 
     // ------------------------------------------------------------------ start
     if (action === "start") {
@@ -274,9 +308,14 @@ Deno.serve(async (req) => {
       }
 
       if (existing) {
-        // A legacy (jitsi) session is active — the caller must keep using it.
-        return ok({ provider: existing.provider || "jitsi", reused: true, session: existing });
+        // A pre-Zoom session row is still marked active: close it so the teacher
+        // can start a real Zoom meeting instead of reviving a dead provider.
+        await supabase
+          .from("live_sessions")
+          .update({ status: "ended", ended_at: new Date().toISOString(), viewer_count: 0, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
       }
+
 
       const title = String(body.title || "حصة مباشرة").slice(0, 160);
       const created = await zoomApi(token, "/users/me/meetings", {
@@ -419,9 +458,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (banAction?.action === "ban") return fail("student_not_subscribed", 403);
 
-      if (session.provider !== "zoom") {
-        // Legacy provider — let the existing client path handle it.
-        return ok({ provider: session.provider || "jitsi", session });
+      if (session.provider !== "zoom" || !session.zoom_meeting_id) {
+        // No legacy provider exists any more: the teacher must start a Zoom session.
+        return fail("meeting_ended", 409, `non_zoom_session ${sessionId}`);
       }
 
       const cfg = zoomConfig();
@@ -449,6 +488,8 @@ Deno.serve(async (req) => {
         ? new URL(session.zoom_join_url).searchParams.get("pwd")
         : null;
 
+      let displayName = ctx.userName;
+
       if (!isOwner) {
         await supabase
           .from("live_sessions")
@@ -460,22 +501,32 @@ Deno.serve(async (req) => {
 
         const { data: attendance } = await supabase
           .from("live_attendance")
-          .select("id")
+          .select("id, participant_tag")
           .eq("live_session_id", sessionId)
           .eq("student_id", user.id)
           .maybeSingle();
 
+        const tag = attendance?.participant_tag || participantTag();
         if (!attendance) {
           await supabase.from("live_attendance").insert({
             live_session_id: sessionId,
             student_id: user.id,
+            participant_tag: tag,
+            status: "joined",
           });
         } else {
           await supabase
             .from("live_attendance")
-            .update({ left_at: null, updated_at: new Date().toISOString() })
+            .update({
+              left_at: null,
+              status: "joined",
+              participant_tag: tag,
+              updated_at: new Date().toISOString(),
+            })
             .eq("id", attendance.id);
         }
+        // The tag lets Zoom's own participant events prove attendance server-side.
+        displayName = `${ctx.userName} #${tag}`;
       }
 
       return ok({
@@ -487,8 +538,9 @@ Deno.serve(async (req) => {
         password,
         zak: zakToken,
         role: isOwner ? 1 : 0,
-        userName: ctx.userName,
+        userName: displayName,
         canPublishAudio: isOwner ? true : Boolean(session.allow_student_mic),
+
         canPublishVideo: isOwner ? true : Boolean(session.allow_student_camera),
       });
     }

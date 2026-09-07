@@ -148,6 +148,95 @@ async function patchSessionStatus(meetingId: string, patch: Record<string, unkno
   }
 }
 
+async function restGet(path: string): Promise<any[]> {
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/${path}`, { headers: restHeaders() });
+  if (!res.ok) {
+    console.error("[zoom-webhook] rest_get_failed", res.status, (await res.text()).slice(0, 200));
+    return [];
+  }
+  return await res.json().catch(() => []);
+}
+
+async function restPatch(path: string, patch: Record<string, unknown>) {
+  const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/rest/v1/${path}`, {
+    method: "PATCH",
+    headers: { ...restHeaders(), Prefer: "return=minimal" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    console.error("[zoom-webhook] rest_patch_failed", res.status, (await res.text()).slice(0, 200));
+  }
+}
+
+/** Most recent Modrek session for a Zoom meeting id (any status). */
+async function findSession(meetingId: string) {
+  const rows = await restGet(
+    `live_sessions?zoom_meeting_id=eq.${encodeURIComponent(meetingId)}&select=id,started_at&order=started_at.desc&limit=1`,
+  );
+  return rows[0] ?? null;
+}
+
+/**
+ * Zoom-verified attendance. The display name carries the per-attendance tag
+ * minted by `zoom-live` (`الاسم #AB12C`), so a student cannot fake presence by
+ * merely opening the page — the record is only confirmed once Zoom itself
+ * reports the participant inside the meeting.
+ */
+async function applyParticipantEvent(event: ZoomEvent, meetingId: string) {
+  const participant = event.payload?.object?.participant ?? {};
+  const displayName = participant.user_name ?? "";
+  const tag = displayName.match(/#([A-Z0-9]{3,8})\s*$/i)?.[1]?.toUpperCase();
+  if (!tag) return "no_tag";
+
+  const session = await findSession(meetingId);
+  if (!session) return "no_session";
+
+  const rows = await restGet(
+    `live_attendance?live_session_id=eq.${session.id}&participant_tag=eq.${encodeURIComponent(tag)}&select=id,joined_at,duration_seconds&limit=1`,
+  );
+  const row = rows[0];
+  if (!row) return "no_attendance";
+
+  const now = new Date().toISOString();
+
+  if (event.event === "meeting.participant_joined") {
+    await restPatch(`live_attendance?id=eq.${row.id}`, {
+      joined_at: participant.join_time ?? row.joined_at ?? now,
+      left_at: null,
+      status: "in_meeting",
+      verified_by_zoom: true,
+      zoom_participant_uuid: participant.participant_uuid ?? null,
+      zoom_participant_user_id: participant.user_id ?? participant.id ?? null,
+      updated_at: now,
+    });
+    return "joined";
+  }
+
+  const leftAt = participant.leave_time ?? now;
+  const joinedMs = new Date(participant.join_time ?? row.joined_at ?? leftAt).getTime();
+  const seconds = Math.max(0, Math.round((new Date(leftAt).getTime() - joinedMs) / 1000));
+  await restPatch(`live_attendance?id=eq.${row.id}`, {
+    left_at: leftAt,
+    status: "left",
+    verified_by_zoom: true,
+    duration_seconds: Math.max(row.duration_seconds || 0, seconds),
+    updated_at: now,
+  });
+  return "left";
+}
+
+/** Close any attendance still open when the meeting itself ends. */
+async function finalizeAttendance(meetingId: string) {
+  const session = await findSession(meetingId);
+  if (!session) return;
+  await restPatch(`live_attendance?live_session_id=eq.${session.id}&left_at=is.null`, {
+    left_at: new Date().toISOString(),
+    status: "left",
+    updated_at: new Date().toISOString(),
+  });
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -211,6 +300,7 @@ Deno.serve(async (req) => {
     const meetingId = event.payload?.object?.id != null ? String(event.payload.object.id) : "";
     const now = new Date().toISOString();
 
+    let attendance: string | null = null;
     if (result === "inserted" && meetingId) {
       if (event.event === "meeting.started") {
         await patchSessionStatus(meetingId, { status: "live", updated_at: now });
@@ -221,14 +311,20 @@ Deno.serve(async (req) => {
           viewer_count: 0,
           updated_at: now,
         });
+        await finalizeAttendance(meetingId);
+      } else {
+        attendance = await applyParticipantEvent(event, meetingId);
       }
     }
+
 
     console.log("[zoom-webhook] handled", {
       event: event.event,
       meetingId: meetingId || null,
       result,
+      attendance,
     });
+
 
     return json({ ok: true, event: event.event, duplicate: result === "duplicate" });
   } catch (error) {

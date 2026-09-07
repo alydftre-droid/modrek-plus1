@@ -169,6 +169,13 @@
       "when": 1788567012799,
       "tag": "0023_zoom_webhook_events_log",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788740116424,
+      "tag": "0024_zoom_live_attendance_verification",
+      "breakpoints": true
     }
   ]
 }
