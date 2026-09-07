@@ -4408,9 +4408,14 @@ export type Database = {
           joined_at: string
           left_at: string | null
           live_session_id: string
+          participant_tag: string | null
+          status: string
           student_id: string
           tenant_id: string
           updated_at: string
+          verified_by_zoom: boolean
+          zoom_participant_user_id: string | null
+          zoom_participant_uuid: string | null
         }
         Insert: {
           created_at?: string
@@ -4419,9 +4424,14 @@ export type Database = {
           joined_at?: string
           left_at?: string | null
           live_session_id: string
+          participant_tag?: string | null
+          status?: string
           student_id: string
           tenant_id: string
           updated_at?: string
+          verified_by_zoom?: boolean
+          zoom_participant_user_id?: string | null
+          zoom_participant_uuid?: string | null
         }
         Update: {
           created_at?: string
@@ -4430,9 +4440,14 @@ export type Database = {
           joined_at?: string
           left_at?: string | null
           live_session_id?: string
+          participant_tag?: string | null
+          status?: string
           student_id?: string
           tenant_id?: string
           updated_at?: string
+          verified_by_zoom?: boolean
+          zoom_participant_user_id?: string | null
+          zoom_participant_uuid?: string | null
         }
         Relationships: [
           {
