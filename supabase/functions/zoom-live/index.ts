@@ -217,12 +217,37 @@ Deno.serve(async (req) => {
     const action = typeof body?.action === "string" ? body.action : "";
     if (!action) return fail("invalid_payload", 400);
 
-    // Availability probe — lets the frontend fall back to the existing provider.
+    // Availability probe — never returns any secret value, only names.
     if (action === "capabilities") {
       return ok({ zoomEnabled: Boolean(zoomConfig()), missingSecrets: zoomMissingSecrets() });
     }
 
     const ctx = await getUserContext(supabase, user.id);
+
+    // Real Zoom connectivity check (admins only): proves the Server-to-Server
+    // OAuth app works and reports which granted scopes are still missing.
+    if (action === "diagnostics") {
+      if (!ctx.isAdmin) return fail("teacher_not_authorized", 403);
+      const cfg = zoomConfig();
+      if (!cfg) return ok({ oauth: false, missingSecrets: zoomMissingSecrets() });
+      try {
+        const token = await zoomAccessToken(cfg);
+        const me = await zoomApi(token, "/users/me");
+        const zak = await zoomApi(token, "/users/me/token?type=zak");
+        return ok({
+          oauth: true,
+          hostAccountActive: me.ok && me.json?.status === "active",
+          zakAvailable: zak.ok && Boolean(zak.json?.token),
+          missingScopes: [
+            ...(zak.ok ? [] : ["user:read:token:admin"]),
+          ],
+        });
+      } catch (error) {
+        console.error("[zoom-live] diagnostics_failed", String(error));
+        return ok({ oauth: false, reason: "zoom_authorization_failed" });
+      }
+    }
+
 
     // ------------------------------------------------------------------ start
     if (action === "start") {
