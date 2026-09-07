@@ -308,9 +308,14 @@ Deno.serve(async (req) => {
       }
 
       if (existing) {
-        // A legacy (jitsi) session is active — the caller must keep using it.
-        return ok({ provider: existing.provider || "jitsi", reused: true, session: existing });
+        // A pre-Zoom session row is still marked active: close it so the teacher
+        // can start a real Zoom meeting instead of reviving a dead provider.
+        await supabase
+          .from("live_sessions")
+          .update({ status: "ended", ended_at: new Date().toISOString(), viewer_count: 0, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
       }
+
 
       const title = String(body.title || "حصة مباشرة").slice(0, 160);
       const created = await zoomApi(token, "/users/me/meetings", {
