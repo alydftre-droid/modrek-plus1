@@ -73,6 +73,15 @@ function zoomConfig() {
   return { accountId, clientId, clientSecret, sdkKey, sdkSecret };
 }
 
+/** Short per-attendance tag appended to the Zoom display name so that Zoom's
+ *  own participant events can be mapped back to a Modrek student. */
+function participantTag() {
+  const bytes = new Uint8Array(3);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(36).padStart(2, "0")).join("").slice(0, 5).toUpperCase();
+}
+
+
 /** Names of the secrets still missing — never their values. */
 function zoomMissingSecrets(): string[] {
   const missing: string[] = [];
