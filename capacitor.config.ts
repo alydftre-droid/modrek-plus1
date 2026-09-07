@@ -14,8 +14,8 @@ const config: CapacitorConfig = {
     cleartext: false,
     allowNavigation: [
       '*.b-cdn.net',
-      'meet.jit.si',
-      '*.jitsi.net',
+      '*.zoom.us',
+      'source.zoom.us',
     ],
   },
   plugins: {
