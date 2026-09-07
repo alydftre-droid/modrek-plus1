@@ -300,6 +300,7 @@ Deno.serve(async (req) => {
     const meetingId = event.payload?.object?.id != null ? String(event.payload.object.id) : "";
     const now = new Date().toISOString();
 
+    let attendance: string | null = null;
     if (result === "inserted" && meetingId) {
       if (event.event === "meeting.started") {
         await patchSessionStatus(meetingId, { status: "live", updated_at: now });
@@ -310,8 +311,12 @@ Deno.serve(async (req) => {
           viewer_count: 0,
           updated_at: now,
         });
+        await finalizeAttendance(meetingId);
+      } else {
+        attendance = await applyParticipantEvent(event, meetingId);
       }
     }
+
 
     console.log("[zoom-webhook] handled", {
       event: event.event,
