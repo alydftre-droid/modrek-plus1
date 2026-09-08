@@ -37,3 +37,15 @@ Jitsi يبقى المسار الافتراضي: إذا لم تُضبط مفات�
 - لا يتم ربط أي مشارك Zoom بحساب طالب في هذه المرحلة؛ تُخزَّن معرفات Zoom فقط.
 - أي خطأ داخلي يُرجع 200 حتى لا يوقف Zoom الاشتراك ولا يتأثر التطبيق.
 - المتغير المطلوب حاليًا: `ZOOM_WEBHOOK_SECRET_TOKEN` فقط.
+
+## المرحلة الثانية — Zoom فقط (2026-09-06)
+- Jitsi أُزيل تمامًا: حُذفت `livekit-token` و`src/lib/jitsi.ts`/`src/lib/livekit.ts`، وأُزيل `meet.jit.si` من allowNavigation في Capacitor
+  وأُضيف `*.zoom.us` بدلًا منه. أي جلسة قديمة غير Zoom تُغلق تلقائيًا عند بدء بث جديد.
+- الأسرار المستخدمة: `ZOOM_ACCOUNT_ID` / `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` (Server-to-Server OAuth)
+  و`ZOOM_MEETING_SDK_CLIENT_ID` / `ZOOM_MEETING_SDK_CLIENT_SECRET` (توقيع Meeting SDK) و`ZOOM_WEBHOOK_SECRET_TOKEN`.
+- `zoom-live` أُضيف له `action: "diagnostics"` (أدمن فقط) يتحقق فعليًا من OAuth وتوفر ZAK دون كشف أي قيمة.
+- الحضور مُوثَّق من Zoom: `zoom-live` يمنح كل طالب `participant_tag` قصيرًا يُضاف لاسم العرض،
+  و`zoom-webhook` يستخدمه في `participant_joined/left` لتعليم `verified_by_zoom` وحساب `duration_seconds`،
+  ويغلق أي حضور مفتوح عند `meeting.ended`. فتح الصفحة وحده لا يُثبت الحضور.
+- النطاقات المطلوبة في تطبيق Server-to-Server OAuth: `user:read:user:admin`, `meeting:write:meeting:admin`,
+  `user:read:token:admin` (لازم لـZAK حتى يدخل المعلم كـHost), `meeting:update:status:admin` (إنهاء الاجتماع فعليًا).
