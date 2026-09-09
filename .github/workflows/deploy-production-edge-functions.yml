@@ -38,6 +38,13 @@ jobs:
       BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
       BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
       BUNNY_STORAGE_CDN_HOSTNAME: ${{ secrets.BUNNY_STORAGE_CDN_HOSTNAME }}
+      # Modrek Live (Zoom). Backend-only: the browser never receives these.
+      ZOOM_ACCOUNT_ID: ${{ secrets.ZOOM_ACCOUNT_ID }}
+      ZOOM_CLIENT_ID: ${{ secrets.ZOOM_CLIENT_ID }}
+      ZOOM_CLIENT_SECRET: ${{ secrets.ZOOM_CLIENT_SECRET }}
+      ZOOM_MEETING_SDK_CLIENT_ID: ${{ secrets.ZOOM_MEETING_SDK_CLIENT_ID }}
+      ZOOM_MEETING_SDK_CLIENT_SECRET: ${{ secrets.ZOOM_MEETING_SDK_CLIENT_SECRET }}
+      ZOOM_WEBHOOK_SECRET_TOKEN: ${{ secrets.ZOOM_WEBHOOK_SECRET_TOKEN }}
 
     steps:
       - name: Checkout code
