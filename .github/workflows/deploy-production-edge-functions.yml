@@ -38,6 +38,13 @@ jobs:
       BUNNY_STORAGE_API_KEY: ${{ secrets.BUNNY_STORAGE_API_KEY }}
       BUNNY_STORAGE_ZONE: ${{ secrets.BUNNY_STORAGE_ZONE }}
       BUNNY_STORAGE_CDN_HOSTNAME: ${{ secrets.BUNNY_STORAGE_CDN_HOSTNAME }}
+      # Modrek Live (Zoom). Backend-only: the browser never receives these.
+      ZOOM_ACCOUNT_ID: ${{ secrets.ZOOM_ACCOUNT_ID }}
+      ZOOM_CLIENT_ID: ${{ secrets.ZOOM_CLIENT_ID }}
+      ZOOM_CLIENT_SECRET: ${{ secrets.ZOOM_CLIENT_SECRET }}
+      ZOOM_MEETING_SDK_CLIENT_ID: ${{ secrets.ZOOM_MEETING_SDK_CLIENT_ID }}
+      ZOOM_MEETING_SDK_CLIENT_SECRET: ${{ secrets.ZOOM_MEETING_SDK_CLIENT_SECRET }}
+      ZOOM_WEBHOOK_SECRET_TOKEN: ${{ secrets.ZOOM_WEBHOOK_SECRET_TOKEN }}
 
     steps:
       - name: Checkout code
@@ -269,6 +276,22 @@ jobs:
             PRODUCTION_APP_ORIGIN="https://modrekplus.com" \
             PRODUCTION_SUPABASE_PROJECT_REF="$SUPABASE_PROJECT_REF" \
             PRODUCTION_SUPABASE_URL="$PRODUCTION_SUPABASE_URL"
+          # Modrek Live (Zoom) — sync only the values that are actually present so
+          # a missing GitHub secret never wipes an already-working production key.
+          zoom_args=()
+          for zoom_name in ZOOM_ACCOUNT_ID ZOOM_CLIENT_ID ZOOM_CLIENT_SECRET \
+            ZOOM_MEETING_SDK_CLIENT_ID ZOOM_MEETING_SDK_CLIENT_SECRET ZOOM_WEBHOOK_SECRET_TOKEN; do
+            zoom_value="${!zoom_name:-}"
+            if [ -n "$zoom_value" ]; then
+              zoom_args+=("$zoom_name=$zoom_value")
+            else
+              echo "::warning::Missing $zoom_name GitHub secret — Modrek Live (Zoom) stays disabled in production."
+            fi
+          done
+          if [ "${#zoom_args[@]}" -gt 0 ]; then
+            supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" "${zoom_args[@]}"
+            echo "Synced ${#zoom_args[@]} Zoom secret(s) to production."
+          fi
           if [ -n "${AGENTROUTER_API_KEY:-}" ]; then
             supabase secrets set --project-ref "$SUPABASE_PROJECT_REF" \
               AGENTROUTER_API_KEY="$AGENTROUTER_API_KEY"
@@ -321,7 +344,7 @@ jobs:
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
-              teacher-intro-media|bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
+              teacher-intro-media|bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker|zoom-webhook)
                 deploy_fn_with_retry "$fn" true
                 ;;
               *)
