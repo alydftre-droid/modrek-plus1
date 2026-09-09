@@ -344,7 +344,7 @@ jobs:
             esac
             echo "Deploying $fn to $SUPABASE_PROJECT_REF"
             case "$fn" in
-              teacher-intro-media|bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker)
+              teacher-intro-media|bunny-storage|admin-remove-teacher-grade|library-worker|library-admin|library-v2-enqueue|library-v2-dispatcher|library-v2-worker|zoom-webhook)
                 deploy_fn_with_retry "$fn" true
                 ;;
               *)
