@@ -363,6 +363,51 @@ jobs:
           }
           echo "Edge Functions deployment target verified: PROJECT_REF=$SUPABASE_PROJECT_REF URL=$PRODUCTION_SUPABASE_URL"
 
+      - name: Require Modrek Live (Zoom) secrets in production
+        run: |
+          set -euo pipefail
+          supabase secrets list --project-ref "$SUPABASE_PROJECT_REF" > /tmp/production-secrets.txt
+          missing=""
+          for zoom_name in ZOOM_ACCOUNT_ID ZOOM_CLIENT_ID ZOOM_CLIENT_SECRET \
+            ZOOM_MEETING_SDK_CLIENT_ID ZOOM_MEETING_SDK_CLIENT_SECRET ZOOM_WEBHOOK_SECRET_TOKEN; do
+            grep -q "$zoom_name" /tmp/production-secrets.txt || missing="$missing $zoom_name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Modrek Live (Zoom) secrets missing in production project $SUPABASE_PROJECT_REF:$missing"
+            exit 1
+          fi
+          echo "All six Modrek Live (Zoom) secrets are present in production (names only, no values)."
+
+      - name: Require zoom-live and zoom-webhook in production
+        run: |
+          set -euo pipefail
+          supabase functions list --project-ref "$SUPABASE_PROJECT_REF" > /tmp/production-zoom-functions.txt
+          for fn in zoom-live zoom-webhook; do
+            if ! grep -Eq "(^|[[:space:]│|])${fn}([[:space:]│|]|$)" /tmp/production-zoom-functions.txt; then
+              echo "::error::Production Edge Function is missing: $fn"
+              exit 1
+            fi
+          done
+          echo "zoom-live and zoom-webhook are deployed to production."
+
+      - name: Smoke test production zoom-webhook challenge
+        run: |
+          set -euo pipefail
+          if [ -z "${ZOOM_WEBHOOK_SECRET_TOKEN:-}" ]; then
+            echo "::warning::ZOOM_WEBHOOK_SECRET_TOKEN missing — skipping webhook challenge smoke test."
+            exit 0
+          fi
+          plain="modrek-ci-$(date +%s)"
+          expected="$(printf '%s' "$plain" | openssl dgst -sha256 -hmac "$ZOOM_WEBHOOK_SECRET_TOKEN" -hex | awk '{print $2}')"
+          body="$(printf '{"event":"endpoint.url_validation","payload":{"plainToken":"%s"}}' "$plain")"
+          resp="$(curl -sS -X POST "https://${SUPABASE_PROJECT_REF}.functions.supabase.co/zoom-webhook" \
+            -H 'Content-Type: application/json' -d "$body")"
+          echo "$resp" | grep -q "$expected" || {
+            echo "::error::Production zoom-webhook challenge failed (encryptedToken mismatch)."
+            exit 1
+          }
+          echo "Production zoom-webhook challenge verified."
+
       - name: List production Edge Functions and require Library V2
         run: |
           set -euo pipefail
