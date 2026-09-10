@@ -10,3 +10,4 @@
 - [x] إضافة تقرير تشخيص قابل للنسخ لتحميل حسابات وملفات وصور وفيديوهات ومجموعات المعلمين
 - [x] Modrek Live المرحلة 1: بنية Zoom (provider + live_attendance + zoom-live + بوابة المزود)
 - [x] Zoom Webhook Integration: endpoint آمن + URL validation + تحقق التوقيع + سجل أحداث Idempotent للأحداث الأربعة
+- [ ] Production Zoom: تشخيص سبب فشل إنشاء الاجتماع وإثبات إنشاء اجتماع حقيقي (بانتظار اختبار هوية إنتاج موثقة)

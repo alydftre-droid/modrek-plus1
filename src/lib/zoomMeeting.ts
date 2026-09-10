@@ -23,9 +23,11 @@ export type ZoomJoinPayload = {
 
 export class ZoomLiveError extends Error {
   code: string;
-  constructor(message: string, code: string) {
+  diagnostic?: Record<string, unknown>;
+  constructor(message: string, code: string, diagnostic?: Record<string, unknown>) {
     super(message);
     this.code = code;
+    this.diagnostic = diagnostic;
   }
 }
 
@@ -43,9 +45,18 @@ async function callZoomLive(body: Record<string, unknown>) {
     } catch {
       /* keep defaults */
     }
-    throw new ZoomLiveError(message, code);
+    let diagnostic: Record<string, unknown> | undefined;
+    try {
+      const ctx: any = (error as any).context;
+      const cloned = ctx?.clone ? ctx.clone() : null;
+      const parsed = cloned ? await cloned.json() : null;
+      diagnostic = parsed?.diagnostic;
+    } catch {
+      /* diagnostic body may already have been consumed */
+    }
+    throw new ZoomLiveError(message, code, diagnostic);
   }
-  if (data?.error) throw new ZoomLiveError(data.error, data.errorCode || "unknown");
+  if (data?.error) throw new ZoomLiveError(data.error, data.errorCode || "unknown", data.diagnostic);
   return data;
 }
 
