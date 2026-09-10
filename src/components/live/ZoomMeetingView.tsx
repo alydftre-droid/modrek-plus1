@@ -38,6 +38,7 @@ export default function ZoomMeetingView({
   const [status, setStatus] = useState<"preparing" | "joining" | "in-meeting" | "error">("preparing");
   const [errorText, setErrorText] = useState("");
   const [errorCode, setErrorCode] = useState("");
+  const [diagnostic, setDiagnostic] = useState<Record<string, unknown> | null>(null);
   const activeSessionId = useRef<string | null>(null);
   const joinedRef = useRef(false);
 
@@ -107,6 +108,7 @@ export default function ZoomMeetingView({
         setZoomRootVisible(false);
         const code = error instanceof ZoomLiveError ? error.code : "unknown";
         setErrorCode(code);
+        setDiagnostic(error instanceof ZoomLiveError ? error.diagnostic || null : null);
         setErrorText(
           code === "zoom_credentials_missing"
             ? "لم يتم ضبط بيانات ربط Zoom بعد على الخادم. تواصل مع الدعم لتفعيل البث المباشر."
@@ -153,6 +155,12 @@ export default function ZoomMeetingView({
       `الوضع: ${mode}`,
       `رمز الخطأ: ${errorCode}`,
       `الرسالة: ${errorText}`,
+      `خطوة الفشل: ${String(diagnostic?.step ?? "غير محددة")}`,
+      `طلب Zoom: ${String(diagnostic?.source ?? "غير محدد")}`,
+      `HTTP Status: ${String(diagnostic?.httpStatus ?? "-")}`,
+      `Zoom Error Code: ${String(diagnostic?.zoomCode ?? "-")}`,
+      `Zoom Error Message: ${String(diagnostic?.zoomMessage ?? "-")}`,
+      `Zoom Request ID: ${String(diagnostic?.requestId ?? "-")}`,
       `المجموعة: ${groupId ?? "-"}`,
       `الجلسة: ${activeSessionId.current ?? sessionId ?? "-"}`,
       "الملف: src/components/live/ZoomMeetingView.tsx",
@@ -171,6 +179,14 @@ export default function ZoomMeetingView({
           <h3 className="font-bold text-lg">تعذر بدء البث المباشر</h3>
           <p className="text-sm text-muted-foreground break-words">{errorText}</p>
           <p className="text-xs text-muted-foreground" dir="ltr">{errorCode}</p>
+          {diagnostic && (
+            <div className="rounded-lg border bg-muted/40 p-3 text-start text-xs space-y-1" dir="ltr">
+              <p>Step: {String(diagnostic.step ?? "unknown")}</p>
+              <p>HTTP: {String(diagnostic.httpStatus ?? "-")}</p>
+              <p>Zoom code: {String(diagnostic.zoomCode ?? "-")}</p>
+              <p className="break-words">Zoom message: {String(diagnostic.zoomMessage ?? "-")}</p>
+            </div>
+          )}
           <div className="flex gap-2 justify-center">
             <Button variant="outline" className="gap-1" onClick={copyReport}>
               <Copy className="h-4 w-4" /> نسخ التقرير

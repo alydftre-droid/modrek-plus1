@@ -49,9 +49,23 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   internal_error: "حدث خطأ غير متوقع",
 };
 
-function fail(code: ErrorCode, status: number, detail?: string) {
-  if (detail) console.error(`[zoom-live] ${code}: ${detail}`);
-  return new Response(JSON.stringify({ error: ERROR_MESSAGES[code], errorCode: code }), {
+type SafeDiagnostic = {
+  step: "oauth_token" | "zoom_user" | "create_meeting" | "zak" | "database" | "unknown";
+  source: string;
+  httpStatus?: number;
+  zoomCode?: number | string;
+  zoomMessage?: string;
+  requestId?: string;
+  fileLine?: string;
+};
+
+function fail(code: ErrorCode, status: number, detail?: string, diagnostic?: SafeDiagnostic) {
+  if (detail || diagnostic) console.error(`[zoom-live] ${code}`, { detail, diagnostic });
+  return new Response(JSON.stringify({
+    error: diagnostic?.zoomMessage || ERROR_MESSAGES[code],
+    errorCode: code,
+    diagnostic: diagnostic || undefined,
+  }), {
     status,
     headers: jsonHeaders,
   });
@@ -71,6 +85,10 @@ function zoomConfig() {
   const sdkSecret = Deno.env.get("ZOOM_MEETING_SDK_CLIENT_SECRET") || Deno.env.get("ZOOM_SDK_SECRET");
   if (!accountId || !clientId || !clientSecret || !sdkKey || !sdkSecret) return null;
   return { accountId, clientId, clientSecret, sdkKey, sdkSecret };
+}
+
+function webhookConfigured() {
+  return Boolean(Deno.env.get("ZOOM_WEBHOOK_SECRET_TOKEN"));
 }
 
 /** Short per-attendance tag appended to the Zoom display name so that Zoom's
@@ -144,6 +162,32 @@ async function buildSdkSignature(
 }
 
 // ------------------------------------------------------------------ Zoom REST
+function sanitizeZoomDiagnostic(
+  step: SafeDiagnostic["step"],
+  source: string,
+  status: number,
+  json: any,
+  requestId?: string | null,
+): SafeDiagnostic {
+  return {
+    step,
+    source,
+    httpStatus: status,
+    zoomCode: json?.code ?? json?.error ?? undefined,
+    zoomMessage: String(json?.message ?? json?.reason ?? json?.error_description ?? "Zoom request failed").slice(0, 500),
+    requestId: requestId || undefined,
+    fileLine: "supabase/functions/zoom-live/index.ts",
+  };
+}
+
+class ZoomApiError extends Error {
+  diagnostic: SafeDiagnostic;
+  constructor(diagnostic: SafeDiagnostic) {
+    super(diagnostic.zoomMessage || "Zoom request failed");
+    this.diagnostic = diagnostic;
+  }
+}
+
 async function zoomAccessToken(cfg: NonNullable<ReturnType<typeof zoomConfig>>) {
   const res = await fetch(
     `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(cfg.accountId)}`,
@@ -155,14 +199,22 @@ async function zoomAccessToken(cfg: NonNullable<ReturnType<typeof zoomConfig>>) 
       },
     },
   );
-  if (!res.ok) {
-    throw new Error(`oauth_failed:${res.status}:${(await res.text()).slice(0, 200)}`);
+  const text = await res.text();
+  let json: any = {};
+  try { json = text ? JSON.parse(text) : {}; } catch { json = { message: text.slice(0, 300) }; }
+  if (!res.ok || !json?.access_token) {
+    throw new ZoomApiError(sanitizeZoomDiagnostic(
+      "oauth_token",
+      "POST https://zoom.us/oauth/token?grant_type=account_credentials&account_id=ZOOM_ACCOUNT_ID",
+      res.status,
+      json,
+      res.headers.get("x-zm-trackingid"),
+    ));
   }
-  const json = await res.json();
   return json.access_token as string;
 }
 
-async function zoomApi(token: string, path: string, init: RequestInit = {}) {
+async function zoomApi(token: string, path: string, init: RequestInit = {}, step: SafeDiagnostic["step"] = "unknown") {
   const res = await fetch(`https://api.zoom.us/v2${path}`, {
     ...init,
     headers: {
@@ -178,7 +230,38 @@ async function zoomApi(token: string, path: string, init: RequestInit = {}) {
   } catch {
     json = { raw: text.slice(0, 300) };
   }
-  return { ok: res.ok, status: res.status, json };
+  return {
+    ok: res.ok,
+    status: res.status,
+    json,
+    diagnostic: res.ok ? undefined : sanitizeZoomDiagnostic(
+      step,
+      `${init.method || "GET"} /v2${path.replace(/\/users\/[^/]+/, "/users/{userId}")}`,
+      res.status,
+      json,
+      res.headers.get("x-zm-trackingid"),
+    ),
+  };
+}
+
+async function resolveZoomHost(token: string, expectedAccountId: string) {
+  const configuredUserId = Deno.env.get("ZOOM_HOST_USER_ID")?.trim();
+  const path = `/users/${encodeURIComponent(configuredUserId || "me")}`;
+  const response = await zoomApi(token, path, {}, "zoom_user");
+  if (!response.ok || !response.json?.id) {
+    throw new ZoomApiError(response.diagnostic || sanitizeZoomDiagnostic("zoom_user", "GET /v2/users/{userId}", response.status, response.json));
+  }
+  if (response.json?.account_id && response.json.account_id !== expectedAccountId) {
+    throw new ZoomApiError({
+      step: "zoom_user",
+      source: "GET /v2/users/{userId}",
+      httpStatus: 409,
+      zoomCode: "zoom_account_mismatch",
+      zoomMessage: "مستخدم Zoom المحدد لا يتبع الحساب المرتبط بتطبيق Modrek Live Backend",
+      fileLine: "supabase/functions/zoom-live/index.ts",
+    });
+  }
+  return { id: String(response.json.id), status: String(response.json.status || "") };
 }
 
 // --------------------------------------------------------------- user context
@@ -219,7 +302,12 @@ Deno.serve(async (req) => {
 
     // Availability probe — never returns any secret value, only names.
     if (action === "capabilities") {
-      return ok({ zoomEnabled: Boolean(zoomConfig()), missingSecrets: zoomMissingSecrets() });
+      return ok({
+        zoomEnabled: Boolean(zoomConfig()),
+        missingSecrets: zoomMissingSecrets(),
+        webhookConfigured: webhookConfigured(),
+        environment: "server",
+      });
     }
 
     const ctx = await getUserContext(supabase, user.id);
@@ -232,19 +320,23 @@ Deno.serve(async (req) => {
       if (!cfg) return ok({ oauth: false, missingSecrets: zoomMissingSecrets() });
       try {
         const token = await zoomAccessToken(cfg);
-        const me = await zoomApi(token, "/users/me");
-        const zak = await zoomApi(token, "/users/me/token?type=zak");
+        const host = await resolveZoomHost(token, cfg.accountId);
+        const zak = await zoomApi(token, `/users/${encodeURIComponent(host.id)}/token?type=zak`, {}, "zak");
         return ok({
           oauth: true,
-          hostAccountActive: me.ok && me.json?.status === "active",
+          hostAccountActive: host.status === "active",
           zakAvailable: zak.ok && Boolean(zak.json?.token),
+          sdkSignatureAvailable: Boolean(await buildSdkSignature(cfg, "123456789", 0)),
+          webhookConfigured: webhookConfigured(),
           missingScopes: [
             ...(zak.ok ? [] : ["user:read:token:admin"]),
           ],
+          zakDiagnostic: zak.diagnostic,
         });
       } catch (error) {
-        console.error("[zoom-live] diagnostics_failed", String(error));
-        return ok({ oauth: false, reason: "zoom_authorization_failed" });
+        const diagnostic = error instanceof ZoomApiError ? error.diagnostic : undefined;
+        console.error("[zoom-live] diagnostics_failed", { diagnostic, message: error instanceof Error ? error.message : String(error) });
+        return ok({ oauth: false, reason: "zoom_authorization_failed", diagnostic });
       }
     }
 
@@ -282,12 +374,41 @@ Deno.serve(async (req) => {
       try {
         token = await zoomAccessToken(cfg);
       } catch (error) {
-        return fail("zoom_authorization_failed", 502, String(error));
+        const diagnostic = error instanceof ZoomApiError ? error.diagnostic : undefined;
+        return fail("zoom_authorization_failed", 502, error instanceof Error ? error.message : String(error), diagnostic);
+      }
+
+      let host: { id: string; status: string };
+      try {
+        host = await resolveZoomHost(token, cfg.accountId);
+      } catch (error) {
+        const diagnostic = error instanceof ZoomApiError ? error.diagnostic : undefined;
+        return fail("meeting_creation_failed", 502, error instanceof Error ? error.message : String(error), diagnostic);
+      }
+      if (host.status && host.status !== "active") {
+        return fail("meeting_creation_failed", 409, "zoom host is not active", {
+          step: "zoom_user",
+          source: "GET /v2/users/{userId}",
+          httpStatus: 409,
+          zoomCode: "zoom_host_inactive",
+          zoomMessage: "حساب مضيف Zoom غير نشط",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
       }
 
       let zakToken: string | null = null;
-      const zak = await zoomApi(token, "/users/me/token?type=zak");
+      const zak = await zoomApi(token, `/users/${encodeURIComponent(host.id)}/token?type=zak`, {}, "zak");
       if (zak.ok) zakToken = zak.json?.token || null;
+      if (!zakToken) {
+        return fail("meeting_creation_failed", 502, "host ZAK unavailable", zak.diagnostic || {
+          step: "zak",
+          source: "GET /v2/users/{userId}/token?type=zak",
+          httpStatus: zak.status,
+          zoomCode: "zak_missing",
+          zoomMessage: "تعذر إصدار رمز المضيف ZAK. أضف نطاق user:read:token:admin إلى تطبيق Modrek Live Backend ثم أعد تفعيله.",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
+      }
 
       if (existing && existing.provider === "zoom" && existing.zoom_meeting_id) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
@@ -318,7 +439,7 @@ Deno.serve(async (req) => {
 
 
       const title = String(body.title || "حصة مباشرة").slice(0, 160);
-      const created = await zoomApi(token, "/users/me/meetings", {
+      const created = await zoomApi(token, `/users/${encodeURIComponent(host.id)}/meetings`, {
         method: "POST",
         body: JSON.stringify({
           topic: `${group.title} — ${title}`.slice(0, 200),
@@ -334,10 +455,10 @@ Deno.serve(async (req) => {
             approval_type: 2, // no registration
           },
         }),
-      });
+      }, "create_meeting");
 
       if (!created.ok || !created.json?.id) {
-        return fail("meeting_creation_failed", 502, JSON.stringify(created.json).slice(0, 300));
+        return fail("meeting_creation_failed", 502, JSON.stringify(created.json).slice(0, 300), created.diagnostic);
       }
 
       const meetingNumber = String(created.json.id);
@@ -371,7 +492,14 @@ Deno.serve(async (req) => {
           .order("started_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (!raced) return fail("meeting_creation_failed", 500, insert.error?.message);
+        if (!raced) return fail("meeting_creation_failed", 500, insert.error?.message, {
+          step: "database",
+          source: "INSERT public.live_sessions",
+          httpStatus: 500,
+          zoomCode: insert.error?.code,
+          zoomMessage: insert.error?.message || "تعذر حفظ جلسة Zoom بعد إنشائها",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
         const signature = await buildSdkSignature(cfg, String(raced.zoom_meeting_id ?? meetingNumber), 1);
         return ok({
           provider: raced.provider,

@@ -23,9 +23,11 @@ export type ZoomJoinPayload = {
 
 export class ZoomLiveError extends Error {
   code: string;
-  constructor(message: string, code: string) {
+  diagnostic?: Record<string, unknown>;
+  constructor(message: string, code: string, diagnostic?: Record<string, unknown>) {
     super(message);
     this.code = code;
+    this.diagnostic = diagnostic;
   }
 }
 
@@ -35,17 +37,19 @@ async function callZoomLive(body: Record<string, unknown>) {
     // Edge errors still carry a JSON body with our Arabic message.
     let message = "تعذر الاتصال بخدمة البث";
     let code = "network_error";
+    let diagnostic: Record<string, unknown> | undefined;
     try {
       const ctx: any = (error as any).context;
       const parsed = ctx ? await ctx.json() : null;
       if (parsed?.error) message = parsed.error;
       if (parsed?.errorCode) code = parsed.errorCode;
+      diagnostic = parsed?.diagnostic;
     } catch {
       /* keep defaults */
     }
-    throw new ZoomLiveError(message, code);
+    throw new ZoomLiveError(message, code, diagnostic);
   }
-  if (data?.error) throw new ZoomLiveError(data.error, data.errorCode || "unknown");
+  if (data?.error) throw new ZoomLiveError(data.error, data.errorCode || "unknown", data.diagnostic);
   return data;
 }
 
