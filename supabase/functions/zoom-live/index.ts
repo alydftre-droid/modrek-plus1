@@ -399,6 +399,16 @@ Deno.serve(async (req) => {
       let zakToken: string | null = null;
       const zak = await zoomApi(token, `/users/${encodeURIComponent(host.id)}/token?type=zak`, {}, "zak");
       if (zak.ok) zakToken = zak.json?.token || null;
+      if (!zakToken) {
+        return fail("meeting_creation_failed", 502, "host ZAK unavailable", zak.diagnostic || {
+          step: "zak",
+          source: "GET /v2/users/{userId}/token?type=zak",
+          httpStatus: zak.status,
+          zoomCode: "zak_missing",
+          zoomMessage: "تعذر إصدار رمز المضيف ZAK. أضف نطاق user:read:token:admin إلى تطبيق Modrek Live Backend ثم أعد تفعيله.",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
+      }
 
       if (existing && existing.provider === "zoom" && existing.zoom_meeting_id) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);

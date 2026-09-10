@@ -37,22 +37,15 @@ async function callZoomLive(body: Record<string, unknown>) {
     // Edge errors still carry a JSON body with our Arabic message.
     let message = "تعذر الاتصال بخدمة البث";
     let code = "network_error";
+    let diagnostic: Record<string, unknown> | undefined;
     try {
       const ctx: any = (error as any).context;
       const parsed = ctx ? await ctx.json() : null;
       if (parsed?.error) message = parsed.error;
       if (parsed?.errorCode) code = parsed.errorCode;
-    } catch {
-      /* keep defaults */
-    }
-    let diagnostic: Record<string, unknown> | undefined;
-    try {
-      const ctx: any = (error as any).context;
-      const cloned = ctx?.clone ? ctx.clone() : null;
-      const parsed = cloned ? await cloned.json() : null;
       diagnostic = parsed?.diagnostic;
     } catch {
-      /* diagnostic body may already have been consumed */
+      /* keep defaults */
     }
     throw new ZoomLiveError(message, code, diagnostic);
   }
