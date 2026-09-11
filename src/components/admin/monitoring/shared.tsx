@@ -18,10 +18,13 @@ export interface PeriodValue {
 
 export function resolvePeriod(p: PeriodValue): { from: string | null; to: string | null } {
   const now = new Date();
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const cairoParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const cairoStart = new Date(`${cairoParts}T00:00:00+03:00`);
   switch (p.key) {
     case "today":
-      return { from: startOfDay(now).toISOString(), to: now.toISOString() };
+      return { from: cairoStart.toISOString(), to: now.toISOString() };
     case "7d":
       return { from: new Date(now.getTime() - 7 * 86400000).toISOString(), to: now.toISOString() };
     case "30d":
@@ -134,22 +137,24 @@ export function shortId(id: string | null | undefined) {
 }
 
 export function MetricCard({
-  label, value, hint, icon: Icon,
-}: { label: string; value: ReactNode; hint?: string; icon?: LucideIcon }) {
-  return (
-    <Card className="monitoring-metric relative p-3 sm:p-4">
+  label, value, hint, icon: Icon, tone = "default", onClick,
+}: { label: string; value: ReactNode; hint?: string; icon?: LucideIcon; tone?: "default" | "primary" | "success" | "warning" | "danger"; onClick?: () => void }) {
+  const content = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold leading-5 text-muted-foreground sm:text-xs">{label}</p>
           <p className="mt-1 text-xl font-extrabold leading-none text-foreground tabular-nums sm:text-2xl">{value}</p>
           {hint && <p className="mt-1.5 text-[10px] leading-4 text-muted-foreground">{hint}</p>}
         </div>
-        {Icon && (
-          <div className="monitoring-metric__icon flex h-8 w-8 shrink-0 items-center justify-center text-primary sm:h-9 sm:w-9">
-            <Icon className="h-4 w-4" strokeWidth={1.8} />
-          </div>
-        )}
+        {Icon && <div className="monitoring-metric__icon"><Icon className="h-4 w-4" strokeWidth={1.8} /></div>}
       </div>
+      {onClick && <span className="monitoring-metric__link">عرض التقرير</span>}
+    </>
+  );
+  return (
+    <Card className="monitoring-metric relative" data-tone={tone}>
+      {onClick ? <button type="button" className="monitoring-metric__button" onClick={onClick}>{content}</button> : <div className="monitoring-metric__content">{content}</div>}
     </Card>
   );
 }

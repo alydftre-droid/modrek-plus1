@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -278,9 +278,9 @@ export function AlertsTab({ refreshKey, onChanged }: { refreshKey: number; onCha
   );
 }
 
-export function StudentLookupTab() {
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
+export function StudentLookupTab({ initialQuery = "" }: { initialQuery?: string }) {
+  const [search, setSearch] = useState(initialQuery);
+  const [query, setQuery] = useState(initialQuery);
   const [selected, setSelected] = useState<string | null>(null);
   const { data: list } = useMonitoringRpc<any>("admin_monitoring_student_search", { _search: query || null, _limit: 10 });
   const { data: summary, loading, error, reload } = useMonitoringRpc<any>(
@@ -288,6 +288,12 @@ export function StudentLookupTab() {
     { _student_id: selected },
   );
   const rows: any[] = list?.rows ?? [];
+
+  useEffect(() => {
+    setSearch(initialQuery);
+    setQuery(initialQuery);
+    setSelected(null);
+  }, [initialQuery]);
 
   return (
     <div className="space-y-4">
