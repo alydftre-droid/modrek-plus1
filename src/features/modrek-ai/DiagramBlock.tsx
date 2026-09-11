@@ -93,7 +93,6 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
             wheel={{ step: 0.12 }}
             doubleClick={{ mode: "zoomIn", step: 1.2 }}
             panning={{ velocityDisabled: true }}
-            alignmentAnimation={{ disabled: false }}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
