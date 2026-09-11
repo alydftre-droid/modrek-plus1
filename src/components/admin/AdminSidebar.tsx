@@ -15,6 +15,7 @@ interface AdminSidebarProps {
 
 const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
+  { id: "monitoring", label: "مركز المتابعة", icon: Activity, route: "/admin/monitoring" },
   { id: "students", label: "الطلاب", icon: Users },
   { id: "teachers", label: "المعلمين", icon: GraduationCap },
   { id: "teacher-withdrawals", label: "سحب المعلمين", icon: Wallet },

@@ -158,6 +158,7 @@ const ModrekAnalyticsPage = lazy(() => import("@/pages/admin/ModrekAnalyticsPage
 const ModrekIndexingDiagnosticsPage = lazy(() => import("@/pages/admin/ModrekIndexingDiagnosticsPage"));
 const AdminLibraryPage = lazy(() => import("@/pages/admin/AdminLibraryPage"));
 const StudentWalletPage = lazy(() => import("@/pages/admin/StudentWalletPage"));
+const MonitoringCenterPage = lazy(() => import("@/pages/admin/MonitoringCenterPage"));
 const StudentDepositDetailPage = lazy(() => import("@/pages/admin/StudentDepositDetailPage"));
 const AdDetailPage = lazy(() => import("@/pages/student/AdDetailPage"));
 const ModrekAiHome = lazy(() => import("@/pages/student/ModrekAiHome"));
@@ -392,6 +393,8 @@ function AnimatedRoutes() {
 
               <Route path="/admin/platforms" element={<ProtectedRoute allowedRoles={["admin"]}><AdminPlatformsPage /></ProtectedRoute>} />
               <Route path="/admin/student-wallets" element={<ProtectedRoute allowedRoles={["admin"]}><StudentWalletPage /></ProtectedRoute>} />
+              <Route path="/admin/monitoring" element={<ProtectedRoute allowedRoles={["admin"]}><MonitoringCenterPage /></ProtectedRoute>} />
+
               <Route path="/admin/student-wallets/:id" element={<ProtectedRoute allowedRoles={["admin"]}><StudentDepositDetailPage /></ProtectedRoute>} />
 
               {/* 404 */}
