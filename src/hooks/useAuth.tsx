@@ -15,7 +15,7 @@ import { clearNativeGoogleCredentialState, signInNativeGoogleIdToken } from "@/l
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { clearImpersonationState, endImpersonation, isImpersonating } from "@/lib/devImpersonation";
 import { queueExternalSync } from "@/lib/externalSync";
-import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
+import { withAbortableSupabaseTimeout, withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -227,6 +227,20 @@ const tryNativeGoogleSignIn = async (retryAttempt = 0): Promise<Session | null> 
 
 
 let initialAuthBootstrapPromise: Promise<BootstrapAuthResult> | null = null;
+const authMutations = new Map<string, Promise<{ error: string | null }>>();
+
+const runSingleAuthMutation = (
+  key: string,
+  operation: () => Promise<{ error: string | null }>,
+) => {
+  const existing = authMutations.get(key);
+  if (existing) return existing;
+  const pending = operation().finally(() => {
+    if (authMutations.get(key) === pending) authMutations.delete(key);
+  });
+  authMutations.set(key, pending);
+  return pending;
+};
 
 const getInitialAuthBootstrap = () => {
   if (!initialAuthBootstrapPromise) {
@@ -303,12 +317,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchUserRole = async (userId: string): Promise<{ role: AppRole | null; failed: boolean }> => {
     try {
-      const { data, error } = await withSupabaseTimeout(
-        supabase
+      const { data, error } = await withAbortableSupabaseTimeout(
+        (signal) => supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
-          .order("role", { ascending: true }),
+          .order("role", { ascending: true })
+          .abortSignal(signal),
         "صلاحيات الحساب",
         AUTH_REQUEST_TIMEOUT_MS,
       );
@@ -331,12 +346,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const checkIfBanned = async (userId: string) => {
     try {
-      const { data, error } = await withSupabaseTimeout(
-        supabase
+      const { data, error } = await withAbortableSupabaseTimeout(
+        (signal) => supabase
           .from("profiles")
           .select("is_banned")
           .eq("id", userId)
-          .maybeSingle(),
+          .maybeSingle()
+          .abortSignal(signal),
         "حالة الحساب",
         AUTH_REQUEST_TIMEOUT_MS,
       );
@@ -533,6 +549,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           hasSession: Boolean(nextSession),
           userId: nextSession?.user?.id ?? null,
         });
+        return;
       }
 
       if (!authBootstrappedRef.current && event !== "INITIAL_SESSION") {
@@ -629,11 +646,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAuthReady = isHydrated && !isLoading && (!user || isRoleResolved);
 
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      return await withSupabaseTimeout(runSingleAuthMutation(`signin:${normalizedEmail}`, async () => {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
       if (error) {
         if (error.message.includes("Invalid login credentials")) {
           return { error: "البريد الإلكتروني أو كلمة المرور غير صحيحة" };
@@ -650,16 +669,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           return { error: "حسابك موقوف – تواصل مع الدعم" };
         }
       }
-      return { error: null };
+        return { error: null };
+      }), "تسجيل الدخول", 20000);
     } catch (e: any) {
       console.error("Sign in error:", e);
-      return { error: "حدث خطأ أثناء تسجيل الدخول" };
+      return { error: e instanceof Error && e.message.includes("انتهت مهلة")
+        ? "خدمة تسجيل الدخول تستغرق وقتًا أطول من المعتاد. انتظر قليلًا ثم أعد المحاولة؛ لن تُرسل محاولة مكررة."
+        : "حدث خطأ أثناء تسجيل الدخول" };
     }
   };
 
   // Student signup — creates user (unconfirmed) and immediately sends OTP code
   const signUp = async (data: SignUpData): Promise<{ error: string | null }> => {
     try {
+      return await withSupabaseTimeout(runSingleAuthMutation(`signup:student:${data.email.trim().toLowerCase()}`, async () => {
       // Tenant isolation: stamp the signup with the tenant it happened on so the
       // backend can never treat it as an official Modrek Plus account.
       const { currentTenantSlug: originSlug } = await import("@/lib/tenant");
@@ -707,15 +730,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.warn("[tenant] signup registration failed", tenantError);
       }
       queueExternalSync(["auth", "tables"], true);
-      return { error: null };
+        return { error: null };
+      }), "إنشاء الحساب", 25000);
     } catch (e: any) {
       console.error("Sign up error:", e);
-      return { error: "حدث خطأ أثناء إنشاء الحساب" };
+      return { error: e instanceof Error && e.message.includes("انتهت مهلة")
+        ? "خدمة إنشاء الحساب تستغرق وقتًا أطول من المعتاد. لم نكرر الطلب لحماية حسابك؛ انتظر قليلًا ثم حاول تسجيل الدخول."
+        : "حدث خطأ أثناء إنشاء الحساب" };
     }
   };
 
   const signUpTeacher = async (data: TeacherSignUpData): Promise<{ error: string | null }> => {
     try {
+      return await withSupabaseTimeout(runSingleAuthMutation(`signup:teacher:${data.email.trim().toLowerCase()}`, async () => {
       const allSubjects = (data.subjects && data.subjects.length > 0)
         ? data.subjects
         : (data.subject ? [data.subject] : []);
@@ -795,10 +822,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       queueExternalSync(["auth", "tables"], true);
-      return { error: null };
+        return { error: null };
+      }), "إنشاء حساب المعلم", 25000);
     } catch (e: any) {
       console.error("Teacher sign up error:", e);
-      return { error: "حدث خطأ أثناء إنشاء الحساب" };
+      return { error: e instanceof Error && e.message.includes("انتهت مهلة")
+        ? "خدمة إنشاء الحساب تستغرق وقتًا أطول من المعتاد. لم نكرر الطلب؛ انتظر قليلًا ثم حاول تسجيل الدخول."
+        : "حدث خطأ أثناء إنشاء الحساب" };
     }
   };
 
