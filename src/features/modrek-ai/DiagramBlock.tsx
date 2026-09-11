@@ -129,14 +129,14 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
                   </Button>
                 </div>
                 <TransformComponent
-                  wrapperClass="!h-full !w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/30 !touch-none"
+                  wrapperClass="!h-full !w-full flex-1 overflow-hidden rounded-xl border border-border bg-white !touch-none"
                   contentClass="!h-full !w-full flex items-center justify-center"
                   wrapperStyle={{ touchAction: "none", overscrollBehavior: "contain" }}
                 >
                   <div
                     dir="ltr"
-                    className="flex h-full w-full select-none items-center justify-center bg-white p-4 [&_svg]:block [&_svg]:max-h-full [&_svg]:max-w-full"
-                    dangerouslySetInnerHTML={{ __html: html }}
+                    className="flex h-full w-full select-none items-center justify-center bg-white p-3"
+                    dangerouslySetInnerHTML={{ __html: fluid }}
                   />
                 </TransformComponent>
               </>
