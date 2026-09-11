@@ -183,6 +183,13 @@
       "when": 1789148203441,
       "tag": "0025_student_ai_quota_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789155521800,
+      "tag": "0026_admin_monitoring_center",
+      "breakpoints": true
     }
   ]
 }
