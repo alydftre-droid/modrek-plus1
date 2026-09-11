@@ -15,15 +15,15 @@ export interface LessonDiagramData {
 export function LessonDiagramCard({ diagram }: { diagram: LessonDiagramData }) {
   if (!diagram?.code) return null;
   return (
-    <figure className="mt-4 overflow-hidden rounded-2xl border-2 border-primary/25 bg-primary/[0.03]">
-      <figcaption className="flex items-center gap-2 border-b border-primary/20 bg-primary/10 px-3 py-2 text-[13px] font-bold text-primary">
+    <section className="mt-4 overflow-hidden rounded-2xl border-2 border-primary/25 bg-primary/[0.03]" aria-label={diagram.title || "رسم توضيحي للدرس"}>
+      <div className="flex items-center gap-2 border-b border-primary/20 bg-primary/10 px-3 py-2 text-[13px] font-bold text-primary">
         <PenTool className="h-4 w-4 shrink-0" />
-        <span className="truncate">{diagram.title || "رسم توضيحي للدرس"}</span>
-      </figcaption>
-      <div className="p-2">
+        <h3 className="truncate text-[13px] font-bold">{diagram.title || "رسم توضيحي للدرس"}</h3>
+      </div>
+      <div className="px-2 pb-2">
         {diagram.format === "svg" ? <SvgBlock code={diagram.code} /> : <DiagramBlock code={diagram.code} />}
       </div>
-    </figure>
+    </section>
   );
 }
 
