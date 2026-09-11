@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] إغلاق تجاوز حد استخدام Modrek AI اليومي من المسارات البديلة وعند فشل فحص العداد
+- [x] تثبيت تكبير رسومات الشرح وإزالة مربع كود Mermaid الأسود
+- [x] إخفاء تحويل النص إلى صوت من مساعد الطالب مؤقتًا
+
 - [x] Phase 1: Audit current Teacher Platforms architecture and regressions
 - [x] Phase 2: Document root causes and auth limitations
 - [x] Phase 3: Design corrected tenant architecture (server-authoritative tenant sessions)

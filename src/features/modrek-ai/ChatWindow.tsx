@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowRight, Send, Loader2, Volume2, GraduationCap, Settings, X, Trash2, MessageSquare, Image as ImageIcon, Paperclip } from "lucide-react";
+import { ArrowRight, Send, Loader2, GraduationCap, Settings, X, Trash2, MessageSquare, Image as ImageIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import mascot from "@/assets/modrek-ai-mascot.png";
 import { RichMarkdown } from "./RichMarkdown";
@@ -17,7 +17,6 @@ import {
 } from "./store";
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
-import { synthesizeSpeech } from "@/lib/openrouterTts";
 import { useStudentAiQuota, formatCairo } from "@/hooks/useStudentAiQuota";
 import { AiQuotaBadge } from "./AiQuotaBadge";
 
@@ -63,7 +62,6 @@ export default function ModrekChatWindow({
   const [messages, setMessages] = useState<ModrekMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [ttsPlayingId, setTtsPlayingId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [history, setHistory] = useState<ModrekConversation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -305,22 +303,6 @@ export default function ModrekChatWindow({
     }
   };
 
-  const speak = async (id: string, text: string) => {
-    if (ttsPlayingId === id) return;
-    setTtsPlayingId(id);
-    try {
-      const clean = text.replace(/[#*_`~>]/g, "").replace(/\s+/g, " ").trim();
-      const result = await synthesizeSpeech({ text: clean.slice(0, 3000) });
-      const audio = new Audio(result.audioUrl);
-      await audio.play();
-      audio.onended = () => { setTtsPlayingId(null); result.revoke(); };
-      return;
-    } catch {
-      toast.error("تعذر تشغيل الصوت");
-    }
-    setTtsPlayingId(null);
-  };
-
   const showWelcome = useMemo(() => messages.length === 0 && !sending, [messages, sending]);
 
   return (
@@ -485,16 +467,6 @@ export default function ModrekChatWindow({
                       <GraduationCap className="h-4 w-4" /> بدء الامتحان
                     </Button>
                   )}
-                  <div className="flex gap-2 pt-2 mt-1 border-t border-border/50">
-                    <button
-                      onClick={() => speak(m.id, text)}
-                      disabled={ttsPlayingId === m.id}
-                      className="h-7 px-2 text-xs rounded-lg hover:bg-background/60 text-muted-foreground flex items-center gap-1 disabled:opacity-50"
-                    >
-                      <Volume2 className="h-3.5 w-3.5" />
-                      {ttsPlayingId === m.id ? "..." : "استمع"}
-                    </button>
-                  </div>
                 </div>
               </div>
             );

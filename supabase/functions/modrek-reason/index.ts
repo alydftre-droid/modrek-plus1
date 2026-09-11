@@ -11,6 +11,7 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
+import { enforceStudentAiQuota, studentAiQuotaResponse } from "../_shared/studentAiQuota.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -96,6 +97,11 @@ Deno.serve(async (req) => {
     const mode: Mode = body.mode ?? "auto";
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
+    // This unified endpoint can generate explanations and exams too. Enforce
+    // the same atomic student quota as the dedicated assistants. Privileged
+    // roles are identified and exempted by the server-side RPC.
+    const studentQuota = await enforceStudentAiQuota(verifiedUserId, 1);
+    if (!studentQuota.allowed) return studentAiQuotaResponse(studentQuota, corsHeaders);
 
     const userQuery = extractQuery(body);
     if (!userQuery && !body.image_base64 && !body.file_base64 && mode !== "generate_exam") {
