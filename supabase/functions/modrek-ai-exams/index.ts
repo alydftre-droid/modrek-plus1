@@ -1229,9 +1229,8 @@ Deno.serve(async (req) => {
     const userId = verifiedUser?.id || null;
     if (!userId) return failure(traceId, "AUTH_REQUIRED", new Error("invalid bearer token"), 401, diagnostics);
 
-    // Cost protection: exam generation is the heaviest AI call.
-    const examQuota = await enforceAiQuota(userId, "modrek-ai-exams");
-    if (!examQuota.allowed) return aiQuotaResponse(examQuota, corsHeaders);
+    // Burst protection runs later, right before the actual generation call, so
+    // non-AI actions (loading/starting a training attempt) are never charged.
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const userClient = createClient(supabaseUrl, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
