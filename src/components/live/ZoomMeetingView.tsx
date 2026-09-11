@@ -75,7 +75,56 @@ export default function ZoomMeetingView({
         setStatus("joining");
         setZoomRootVisible(true);
 
+        // Zoom raises its own in-meeting status events; rely on them so a
+        // pending permission dialog can never leave us in a forever-loading state.
+        try {
+          ZoomMtg.inMeetingServiceListener?.("onMeetingStatus", (data: any) => {
+            if (cancelled) return;
+            if (data?.meetingStatus === 2) {
+              joinedRef.current = true;
+              setStatus("in-meeting");
+            }
+          });
+        } catch {
+          /* listener is optional */
+        }
+
         await new Promise<void>((resolve, reject) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          const fail = (err: ZoomLiveError) => {
+            if (settled) return;
+            settled = true;
+            reject(err);
+          };
+          // Once Zoom's own UI is on screen the user drives the flow (device
+          // permissions, pre-join prompts). Release our overlay so it is visible.
+          const uiHandoff = window.setTimeout(() => {
+            if (!cancelled) setStatus("in-meeting");
+          }, 2500);
+          const hardTimeout = window.setTimeout(() => {
+            clearTimeout(uiHandoff);
+            fail(
+              new ZoomLiveError(
+                "تعذر إكمال الانضمام إلى الاجتماع. تأكد من السماح للمتصفح باستخدام الميكروفون والكاميرا ثم حاول مرة أخرى.",
+                "zoom_join_timeout",
+              ),
+            );
+          }, 60000);
+          const finish = () => {
+            clearTimeout(uiHandoff);
+            clearTimeout(hardTimeout);
+            done();
+          };
+          const abort = (err: ZoomLiveError) => {
+            clearTimeout(uiHandoff);
+            clearTimeout(hardTimeout);
+            fail(err);
+          };
           ZoomMtg.init({
             leaveUrl: window.location.href,
             patchJsMedia: true,
