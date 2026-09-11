@@ -174,8 +174,9 @@ export async function requestZoomMediaPermissions(): Promise<{
       ]);
       stream.getTracks().forEach((t) => t.stop());
       return { ok: true, errorName: "" };
-    } catch (err: any) {
-      return { ok: false, errorName: String(err?.name || "UnknownError") };
+    } catch (error: unknown) {
+      const errorName = error instanceof DOMException || error instanceof Error ? error.name : "UnknownError";
+      return { ok: false, errorName };
     } finally {
       if (timer !== undefined) window.clearTimeout(timer);
     }
