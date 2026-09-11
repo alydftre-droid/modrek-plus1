@@ -5,6 +5,7 @@ import {
   parseGoogleOAuthCallbackUrl,
   recordGoogleOAuthEvent,
 } from "@/lib/googleOAuthDiagnostics";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 
 const POST_OAUTH_REDIRECT_KEY = "post_oauth_redirect";
 const SUPABASE_STORAGE_KEY_PREFIX = "sb-";
@@ -120,12 +121,29 @@ export async function processSupabaseOAuthCallback(source: string, callbackUrl?:
       },
     });
 
-    const sessionResult = hasHashTokens
-      ? await supabase.auth.setSession({
-          access_token: snapshot.accessToken!,
-          refresh_token: snapshot.refreshToken!,
-        })
-      : await supabase.auth.exchangeCodeForSession(snapshot.code!);
+    let sessionResult;
+    try {
+      sessionResult = await withSupabaseTimeout(
+        hasHashTokens
+          ? supabase.auth.setSession({
+              access_token: snapshot.accessToken!,
+              refresh_token: snapshot.refreshToken!,
+            })
+          : supabase.auth.exchangeCodeForSession(snapshot.code!),
+        "تسجيل الدخول بواسطة Google",
+        20000,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "تعذر إكمال تسجيل الدخول بواسطة Google";
+      finalizeGoogleOAuthAttempt({
+        correlationId: snapshot.correlationId,
+        source,
+        type: "callback_timeout",
+        status: "failed",
+        error: message,
+      });
+      return { handled: true, session: null, error: message };
+    }
 
     const sessionError = sessionResult.error;
     if (sessionError) {
