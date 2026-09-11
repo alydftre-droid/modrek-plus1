@@ -8,8 +8,11 @@ import {
   joinZoomSession,
   leaveZoomSession,
   loadZoomSdk,
+  requestZoomMediaPermissions,
   setZoomRootVisible,
+  startZoomArabicLocalization,
   startZoomSession,
+  stopZoomArabicLocalization,
   type ZoomJoinPayload,
 } from "@/lib/zoomMeeting";
 
