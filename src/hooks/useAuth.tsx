@@ -319,7 +319,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // which is exactly what left users on an endless spinner until they reloaded.
   const AUTH_REQUEST_TIMEOUT_MS = 8000;
 
-  const fetchUserRole = async (userId: string): Promise<{ role: AppRole | null; failed: boolean }> => {
+  const fetchUserRole = useCallback(async (userId: string): Promise<{ role: AppRole | null; failed: boolean }> => {
     try {
       const { data, error } = await withAbortableSupabaseTimeout(
         (signal) => supabase
@@ -346,9 +346,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("fetchUserRole error", e);
       return { role: null, failed: true };
     }
-  };
+  }, []);
 
-  const checkIfBanned = async (userId: string) => {
+  const checkIfBanned = useCallback(async (userId: string) => {
     try {
       const { data, error } = await withAbortableSupabaseTimeout(
         (signal) => supabase
@@ -365,9 +365,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       return false;
     }
-  };
+  }, []);
 
-  const loadAccountState = (userId: string) => {
+  const loadAccountState = useCallback((userId: string) => {
     const current = accountLookupRef.current;
     if (current?.userId === userId) return current.promise;
 
@@ -381,7 +381,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     accountLookupRef.current = { userId, promise };
     return promise;
-  };
+  }, [checkIfBanned, fetchUserRole]);
 
 
   const resolveSessionState = useCallback(async (
@@ -534,7 +534,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
     initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
-  }, []);
+  }, [loadAccountState]);
 
   const retryAuth = useCallback(() => {
     initialAuthBootstrapPromise = null;
