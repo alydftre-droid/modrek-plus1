@@ -38,3 +38,15 @@
 ## توحيد البيئات مستقبلاً
 
 الخيار الموصى به لإزالة الازدواجية نهائيًا: نقل معاينة Lovable إلى الإنتاج نفسه عبر تعديل `.env` (`VITE_SUPABASE_URL` و`VITE_SUPABASE_PUBLISHABLE_KEY`) لتشير إلى `qteuqfntsocsdbjmdvmr`. يتطلب ذلك موافقة صريحة من مسؤول المشروع لأن Lovable Cloud مُدارة تلقائيًا وقد يُعاد ربطها.
+
+## قاعدة إلزامية: كل SQL جديد يجب أن يُنسخ إلى supabase/migrations
+
+الإنتاج (qteuqfntsocsdbjmdvmr) يطبّق الترحيلات من `supabase/migrations/**` فقط عبر
+workflow `deploy-production-edge-functions.yml`. أي ملف يُكتب في `drizzle/migrations/`
+يُطبَّق على بيئة المعاينة وحدها ولن يصل للإنتاج.
+
+لذلك: بعد أي migration جديد، انسخه إلى `supabase/migrations/<timestamp>_<name>.sql`
+بصيغة قابلة لإعادة التشغيل (IF NOT EXISTS / CREATE OR REPLACE / DROP POLICY IF EXISTS).
+
+تم نسخ نظام حد استخدام الذكاء الاصطناعي ومركز المتابعة بهذه الطريقة في
+`20260911210000_student_ai_quota_engine.sql` … `20260911210400_admin_monitoring_revoke_anon.sql`.
