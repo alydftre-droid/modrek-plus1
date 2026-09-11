@@ -115,9 +115,10 @@ export function studentAiQuotaResponse(
   corsHeaders: Record<string, string>,
 ) {
   const message = quota.message || studentQuotaMessage(quota);
+  const unavailable = quota.reason === "quota_service_unavailable";
   return new Response(
     JSON.stringify({
-      error: "student_ai_daily_limit",
+      error: unavailable ? "student_ai_quota_unavailable" : "student_ai_daily_limit",
       errorCode: quota.reason || "student_ai_daily_limit",
       publicMessage: message,
       reply: message,
@@ -129,6 +130,6 @@ export function studentAiQuotaResponse(
         reset_at: quota.resetAt,
       },
     }),
-    { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    { status: unavailable ? 503 : 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 }

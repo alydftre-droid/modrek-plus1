@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Expand, Minus, Plus, RotateCcw } from "lucide-react";
+import { Expand, ImageOff, Minus, Plus, RotateCcw } from "lucide-react";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -65,7 +65,7 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
           </Button>
         </div>
         <div
-          className="modrek-diagram overflow-x-auto overscroll-x-contain p-3 text-center [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:!w-[56rem] [&_svg]:!max-w-none"
+          className="modrek-diagram overflow-x-auto overscroll-x-contain p-3 text-center [&_svg]:mx-auto [&_svg]:block [&_svg]:h-auto [&_svg]:min-w-[46rem] [&_svg]:max-w-none"
           // Mermaid/SVG output is sanitized or generated locally before rendering.
           dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -85,12 +85,15 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
 
           <TransformWrapper
             initialScale={1}
-            minScale={0.55}
+            minScale={1}
             maxScale={6}
             centerOnInit
+            centerZoomedOut
+            limitToBounds
             wheel={{ step: 0.12 }}
             doubleClick={{ mode: "zoomIn", step: 1.2 }}
-            panning={{ velocityDisabled: false }}
+            panning={{ velocityDisabled: true }}
+            alignmentAnimation={{ disabled: false }}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
@@ -106,12 +109,13 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
                   </Button>
                 </div>
                 <TransformComponent
-                  wrapperClass="!h-full !w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/30"
-                  contentClass="flex h-full w-full items-center justify-center"
+                  wrapperClass="!h-full !w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/30 !touch-none"
+                  contentClass="!h-full !w-full flex items-center justify-center"
+                  wrapperStyle={{ touchAction: "none", overscrollBehavior: "contain" }}
                 >
                   <div
                     dir="ltr"
-                    className="select-none bg-white p-5 [&_svg]:block [&_svg]:h-auto [&_svg]:!w-[70rem] [&_svg]:!max-w-none"
+                    className="flex h-full w-full select-none items-center justify-center bg-white p-4 [&_svg]:block [&_svg]:max-h-full [&_svg]:max-w-full"
                     dangerouslySetInnerHTML={{ __html: html }}
                   />
                 </TransformComponent>
@@ -134,9 +138,14 @@ export function DiagramBlock({ code }: { code: string }) {
       try {
         const mermaid = await getMermaid();
         const id = `modrek-diagram-${++seq}`;
-        const { svg } = await mermaid.render(id, code.trim());
+        const normalizedCode = code
+          .replace(/^\s*```(?:mermaid)?\s*/i, "")
+          .replace(/\s*```\s*$/i, "")
+          .trim();
+        const { svg } = await mermaid.render(id, normalizedCode);
         if (alive) setSvg(svg);
-      } catch {
+      } catch (error) {
+        console.error("[DiagramBlock] Mermaid render failed", error);
         if (alive) setFailed(true);
       }
     })();
@@ -147,9 +156,15 @@ export function DiagramBlock({ code }: { code: string }) {
 
   if (failed) {
     return (
-      <pre dir="ltr" className="my-4 overflow-x-auto rounded-xl bg-slate-900 p-4 text-[13px] leading-7 text-slate-100">
-        <code>{code}</code>
-      </pre>
+      <div className="my-4 flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-4 text-right" dir="rtl">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background text-muted-foreground">
+          <ImageOff className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-foreground">تعذر تجهيز الرسم التوضيحي</p>
+          <p className="mt-1 text-xs leading-6 text-muted-foreground">يمكنك متابعة الشرح المكتوب بوضوح، ثم طلب إعادة إنشاء الرسم.</p>
+        </div>
+      </div>
     );
   }
 
@@ -177,9 +192,10 @@ export function SvgBlock({ code }: { code: string }) {
 
   if (!safe) {
     return (
-      <pre dir="ltr" className="my-4 overflow-x-auto rounded-xl bg-slate-900 p-4 text-[13px] text-slate-100">
-        <code>{code}</code>
-      </pre>
+      <div className="my-4 flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-4 text-right" dir="rtl">
+        <ImageOff className="h-5 w-5 shrink-0 text-muted-foreground" />
+        <p className="text-sm font-medium text-foreground">تعذر عرض الرسم بأمان. اطلب من المساعد إعادة إنشائه.</p>
+      </div>
     );
   }
 
