@@ -403,7 +403,19 @@ export default function ModrekChatWindow({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {meteredAssistant && <AiQuotaBadge quota={quota} />}
+            {meteredAssistant && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => quota?.plan === "free" && setLimitDialogOpen(true)}
+                  className="shrink-0"
+                  aria-label="تفاصيل الاستخدام اليومي"
+                >
+                  <AiQuotaBadge quota={quota} />
+                </button>
+                <AiQuotaLimitDialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen} quota={quota} />
+              </>
+            )}
             <button
               onClick={openSidebar}
               className="p-2 rounded-lg hover:bg-accent transition-colors"

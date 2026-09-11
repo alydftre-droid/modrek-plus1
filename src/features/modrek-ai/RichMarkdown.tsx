@@ -332,10 +332,39 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
             );
           }
           const isBlock = !!lang || raw.includes("\n");
+          const CODE_LANGS = /^(js|jsx|ts|tsx|json|html|css|scss|sql|py|python|bash|sh|shell|java|c|cpp|cs|php|go|rb|rust|yaml|yml|xml|diff)$/;
+          const isRealCode = !!lang && CODE_LANGS.test(lang);
+          if (isBlock && !isRealCode) {
+            // The assistant often puts lesson content (summaries, questions, notes)
+            // inside a plain fence — render it as a readable Arabic card, never a
+            // black terminal box.
+            const lines = raw.replace(/\s+$/, "").split("\n");
+            const firstLine = (lines[0] || "").trim();
+            const looksLikeTitle =
+              firstLine.length > 0 && firstLine.length <= 60 && !/[.:؟]$/.test(firstLine) === false;
+            const heading = looksLikeTitle ? firstLine.replace(/^#+\s*/, "") : "ملخص ونقاط مهمة";
+            const body = (looksLikeTitle ? lines.slice(1) : lines).join("\n").trim();
+            return (
+              <section
+                dir="rtl"
+                className="my-5 overflow-hidden rounded-2xl border border-primary/20 bg-white shadow-sm"
+              >
+                <header className="flex items-center gap-2 border-b border-primary/15 bg-gradient-to-l from-primary/10 via-primary/5 to-transparent px-4 py-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-[13px] font-extrabold text-primary">
+                    ✦
+                  </span>
+                  <h4 className="min-w-0 flex-1 truncate text-[14px] font-extrabold text-slate-900">{heading}</h4>
+                </header>
+                <div className="whitespace-pre-wrap break-words px-4 py-3 text-[15px] leading-[2] text-slate-800 [overflow-wrap:anywhere]">
+                  {body || raw.trim()}
+                </div>
+              </section>
+            );
+          }
           return isBlock ? (
             <pre
               dir="ltr"
-              className="my-4 rounded-xl bg-slate-900 text-slate-100 p-4 overflow-x-auto text-[13.5px] leading-7 font-mono"
+              className="my-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-50 p-4 font-mono text-[13.5px] leading-7 text-slate-800"
             >
               <code {...props}>{children}</code>
             </pre>
