@@ -95,19 +95,19 @@ const MonitoringCenterPage = () => {
   return (
     <div dir="rtl" className="monitoring-center">
       <header className="monitoring-center__header relative overflow-hidden">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-5 sm:px-6 sm:py-7">
-          <Button className="monitoring-header-action" variant="outline" size="icon" onClick={() => navigate("/admin")} aria-label="رجوع">
+        <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-5 sm:px-6 sm:py-7">
+          <Button className="monitoring-header-action absolute right-4 top-5 sm:static" variant="outline" size="icon" onClick={() => navigate("/admin")} aria-label="رجوع">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex-1 min-w-0">
+          <div className="w-full min-w-0 pr-14 sm:w-auto sm:flex-1 sm:pr-0">
             <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-primary-foreground/65">
               <span className="monitoring-center__status-dot h-2 w-2 rounded-full bg-emerald-500" />
               متابعة مباشرة للنظام
             </div>
-            <h1 className="truncate text-2xl font-extrabold tracking-normal sm:text-[30px]">مركز المتابعة</h1>
+            <h1 className="text-2xl font-extrabold tracking-normal sm:text-[30px]">مركز المتابعة</h1>
             <p className="mt-1 text-xs leading-5 text-primary-foreground/65 sm:text-sm">صورة تنفيذية موحّدة لأداء المنصة والطلاب والعمليات</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="mr-auto flex items-center gap-2 sm:mr-0">
             <Button variant="outline" size="icon" onClick={() => setTab("alerts")} className="monitoring-header-action relative" aria-label="التنبيهات">
               <Bell className="h-4 w-4" />
               {unread > 0 && (
