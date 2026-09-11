@@ -28,4 +28,7 @@ test("auth account lookups are shared while an identical lookup is in flight", a
   assert.match(source, /current\?\.userId === userId/);
   assert.match(source, /loadAccountState\(nextSession\.user\.id\)/);
   assert.match(source, /loadAccountState\(data\.user\.id\)/);
+  assert.match(source, /source === "onAuthStateChange:SIGNED_IN"/);
+  assert.match(source, /source === "onAuthStateChange:TOKEN_REFRESHED"/);
+  assert.match(source, /if \(isRedundantAuthEvent\)[\s\S]{0,400}return;/);
 });

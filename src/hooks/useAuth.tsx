@@ -434,6 +434,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         pathname: typeof window !== "undefined" ? window.location.pathname : null,
       });
 
+      const isRedundantAuthEvent =
+        source === "onAuthStateChange:SIGNED_IN" ||
+        source === "onAuthStateChange:TOKEN_REFRESHED";
+      if (isRedundantAuthEvent) {
+        // The user and resolved authorization are unchanged. Supabase can emit
+        // SIGNED_IN more than once while restoring focus and TOKEN_REFRESHED on
+        // every token rotation; neither event should repeat critical DB reads.
+        initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
+        return;
+      }
+
       loadAccountState(nextSession.user.id).then(([roleResult, freshBanned]) => {
         if (!isMountedRef.current || authResolutionIdRef.current !== resolutionId) return;
         // A failed background refresh must never downgrade a working session.
