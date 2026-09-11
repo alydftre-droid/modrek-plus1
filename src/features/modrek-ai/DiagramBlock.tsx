@@ -9,12 +9,17 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
  * flow, mind maps and comparison trees; we render them as real SVG diagrams.
  */
 
-let mermaidPromise: Promise<any> | null = null;
+type MermaidApi = {
+  initialize: (config: Record<string, unknown>) => void;
+  render: (id: string, code: string) => Promise<{ svg: string }>;
+};
+
+let mermaidPromise: Promise<MermaidApi> | null = null;
 
 async function getMermaid() {
   if (!mermaidPromise) {
     mermaidPromise = import("mermaid").then((mod) => {
-      const mermaid: any = (mod as any).default ?? mod;
+      const mermaid = (mod.default ?? mod) as MermaidApi;
       mermaid.initialize({
         startOnLoad: false,
         securityLevel: "strict",
