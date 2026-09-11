@@ -187,6 +187,7 @@ export default function ZoomMeetingView({
 
     return () => {
       cancelled = true;
+      stopZoomArabicLocalization();
       setZoomRootVisible(false);
       const id = activeSessionId.current;
       if (id && mode === "attendee") void leaveZoomSession(id);
