@@ -17,8 +17,9 @@ import {
 } from "./store";
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
-import { useStudentAiQuota, formatCairo } from "@/hooks/useStudentAiQuota";
+import { useStudentAiQuota } from "@/hooks/useStudentAiQuota";
 import { AiQuotaBadge } from "./AiQuotaBadge";
+import { AiQuotaLimitDialog } from "./AiQuotaLimitDialog";
 
 interface ChatWindowProps {
   assistantType: AssistantType;
@@ -77,17 +78,7 @@ export default function ModrekChatWindow({
   const meteredAssistant = assistantType === "study" || assistantType === "exams";
   const { quota, refresh: refreshQuota } = useStudentAiQuota(meteredAssistant);
   const quotaExhausted = Boolean(quota && quota.plan === "free" && quota.remaining <= 0);
-
-  const dailyLimitMessage = () => {
-    const limit = quota?.limit ?? 10;
-    const when = formatCairo(quota?.resetAt);
-    return (
-      `لقد وصلت إلى الحد اليومي المجاني لاستخدام المساعد الذكي (${limit} استخدامات).\n\n` +
-      "يمكنك العودة لاستخدام المساعد مجانًا عند تجديد الحد اليومي، أو الاشتراك في مجموعة مع أحد المعلمين " +
-      "للحصول على استخدام غير محدود للمساعد الذكي لمدة 30 يومًا." +
-      (when ? `\n\nموعد تجديد الاستخدام:\n${when.date}\n${when.time}` : "")
-    );
-  };
+  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
 
   const suggestions = assistantType === "exams" ? EXAMS_SUGGESTIONS : STUDY_SUGGESTIONS;
   const assistantLabel =
