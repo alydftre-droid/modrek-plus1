@@ -304,6 +304,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const authBootstrappedRef = useRef(false);
   const isMountedRef = useRef(false);
   const authResolutionIdRef = useRef(0);
+  const accountLookupRef = useRef<{
+    userId: string;
+    promise: Promise<[{ role: AppRole | null; failed: boolean }, boolean]>;
+  } | null>(null);
   const stableAuthStateRef = useRef<{ userId: string | null; role: AppRole | null; isRoleResolved: boolean }>({
     userId: null,
     role: null,
@@ -315,7 +319,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // which is exactly what left users on an endless spinner until they reloaded.
   const AUTH_REQUEST_TIMEOUT_MS = 8000;
 
-  const fetchUserRole = async (userId: string): Promise<{ role: AppRole | null; failed: boolean }> => {
+  const fetchUserRole = useCallback(async (userId: string): Promise<{ role: AppRole | null; failed: boolean }> => {
     try {
       const { data, error } = await withAbortableSupabaseTimeout(
         (signal) => supabase
@@ -342,9 +346,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("fetchUserRole error", e);
       return { role: null, failed: true };
     }
-  };
+  }, []);
 
-  const checkIfBanned = async (userId: string) => {
+  const checkIfBanned = useCallback(async (userId: string) => {
     try {
       const { data, error } = await withAbortableSupabaseTimeout(
         (signal) => supabase
@@ -361,7 +365,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch {
       return false;
     }
-  };
+  }, []);
+
+  const loadAccountState = useCallback((userId: string) => {
+    const current = accountLookupRef.current;
+    if (current?.userId === userId) return current.promise;
+
+    const promise = Promise.all([
+      fetchUserRole(userId),
+      checkIfBanned(userId),
+    ]).finally(() => {
+      if (accountLookupRef.current?.promise === promise) {
+        accountLookupRef.current = null;
+      }
+    });
+    accountLookupRef.current = { userId, promise };
+    return promise;
+  }, [checkIfBanned, fetchUserRole]);
 
 
   const resolveSessionState = useCallback(async (
@@ -414,10 +434,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         pathname: typeof window !== "undefined" ? window.location.pathname : null,
       });
 
-      Promise.all([
-        fetchUserRole(nextSession.user.id),
-        checkIfBanned(nextSession.user.id),
-      ]).then(([roleResult, freshBanned]) => {
+      const isRedundantAuthEvent =
+        source === "onAuthStateChange:SIGNED_IN" ||
+        source === "onAuthStateChange:TOKEN_REFRESHED";
+      if (isRedundantAuthEvent) {
+        // The user and resolved authorization are unchanged. Supabase can emit
+        // SIGNED_IN more than once while restoring focus and TOKEN_REFRESHED on
+        // every token rotation; neither event should repeat critical DB reads.
+        initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
+        return;
+      }
+
+      loadAccountState(nextSession.user.id).then(([roleResult, freshBanned]) => {
         if (!isMountedRef.current || authResolutionIdRef.current !== resolutionId) return;
         // A failed background refresh must never downgrade a working session.
         if (roleResult.failed) return;
@@ -462,10 +490,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
     }
 
-    const [roleResult, banned] = await Promise.all([
-      fetchUserRole(nextSession.user.id),
-      checkIfBanned(nextSession.user.id),
-    ]);
+    const [roleResult, banned] = await loadAccountState(nextSession.user.id);
 
     if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) {
       logAuthDebug("session_resolution_discarded", {
@@ -509,7 +534,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       pathname: typeof window !== "undefined" ? window.location.pathname : null,
     });
     initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
-  }, []);
+  }, [loadAccountState]);
 
   const retryAuth = useCallback(() => {
     initialAuthBootstrapPromise = null;
@@ -663,7 +688,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { error: error.message };
       }
       if (data.user) {
-        const banned = await checkIfBanned(data.user.id);
+        // The SIGNED_IN handler asks for the same account state concurrently.
+        // loadAccountState shares that in-flight request, preserving the banned
+        // account decision without issuing a second role/profile query pair.
+        const [, banned] = await loadAccountState(data.user.id);
         if (banned) {
           await supabase.auth.signOut();
           return { error: "حسابك موقوف – تواصل مع الدعم" };

@@ -219,9 +219,10 @@ Deno.serve(async (req) => {
         results.push({ job_id: job.id, kind: job.kind, ok: false, error: e?.message });
       }
     }
-    if (results.length > 0) {
-      scheduleNextWorkerRun();
-    }
+    // Do not self-invoke here. The database heartbeat is the single scheduler
+    // and wakes this worker only while work is queued. Self-chaining used to
+    // overlap with that heartbeat and could grow multiple independent worker
+    // chains, all competing for the same Postgres/PostgREST capacity.
     return json({ processed: results.length, results });
   } catch (e: any) {
     return json({ error: e?.message ?? String(e) }, 500);
@@ -2998,15 +2999,3 @@ function json(body: any, status = 200) {
   });
 }
 
-function scheduleNextWorkerRun() {
-  const run = fetch(`${SUPABASE_URL}/functions/v1/modrek-worker`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SERVICE_ROLE}`,
-    },
-    body: "{}",
-  }).catch((e) => console.warn("modrek worker chain failed", e?.message ?? e));
-  const edgeRuntime = (globalThis as any).EdgeRuntime;
-  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(run);
-}

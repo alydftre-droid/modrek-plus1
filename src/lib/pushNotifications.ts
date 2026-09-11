@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
 import { registerPlugin } from "@capacitor/core";
 
-let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let initialized = false;
 let currentUserId: string | null = null;
 let nativeAppListener: { remove: () => Promise<void> } | null = null;
@@ -31,14 +30,6 @@ type ModrekPushDiagnosticsPlugin = {
 };
 
 const ModrekPushDiagnostics = registerPlugin<ModrekPushDiagnosticsPlugin>("ModrekPushDiagnostics");
-
-type NotificationRow = {
-  id?: string | null;
-  user_id?: string | null;
-  title?: string | null;
-  message?: string | null;
-  link?: string | null;
-};
 
 function getNotificationKey(opts: { id?: unknown; title?: unknown; body?: unknown; link?: unknown }) {
   const explicitId = typeof opts.id === "string" ? opts.id.trim() : "";
@@ -335,25 +326,11 @@ export async function initPushNotifications(userId: string) {
     }
   }
 
-  // Realtime subscription — foreground in-app updates & web fallback.
-  // Uses a filterless subscription so broadcast rows (user_id NULL) are also received.
-  try {
-    realtimeChannel = supabase
-      .channel(`notifications-user-${userId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notifications" },
-        async (payload) => {
-          const row = payload.new as NotificationRow;
-          if (row.user_id && row.user_id !== userId) return;
-          // Do not create native tray notifications from realtime rows.
-          // The backend FCM path is the single source for Android OS pushes.
-        }
-      )
-      .subscribe();
-  } catch (e) {
-    console.warn("[push] realtime subscribe failed:", e);
-  }
+  // Foreground notification UI owns its user-filtered Realtime subscriptions.
+  // This module previously added a second, filterless notifications channel
+  // whose callback intentionally did nothing. Removing it avoids broadcasting
+  // every notification row to every signed-in client; native delivery remains
+  // handled exclusively by FCM above.
 }
 
 /** Show a local notification on the device (no-op on web). */
@@ -398,15 +375,6 @@ export async function showLocalNotification(opts: {
 export async function teardownPushNotifications() {
   initialized = false;
   currentUserId = null;
-  if (realtimeChannel) {
-    try {
-      await supabase.removeChannel(realtimeChannel);
-    } catch (error) {
-      console.warn("[push] remove realtime channel failed:", error);
-    }
-    realtimeChannel = null;
-  }
-
   if (nativeAppListener) {
     try {
       await nativeAppListener.remove();
