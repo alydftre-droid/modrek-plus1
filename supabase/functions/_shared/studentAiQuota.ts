@@ -50,11 +50,7 @@ export function studentQuotaMessage(quota: StudentAiQuota): string {
   return `${base}\n\nموعد تجديد الاستخدام:\n${when.date}\n${when.time}`;
 }
 
-/**
- * Consumes one unit of the student's shared AI quota.
- * Fails OPEN only when the backend service key is unavailable (configuration
- * issue), and CLOSED on an explicit limit breach.
- */
+/** Consumes one unit of the student's shared AI quota before any AI call. */
 export async function enforceStudentAiQuota(
   userId: string | null | undefined,
   cost = 1,
@@ -63,7 +59,16 @@ export async function enforceStudentAiQuota(
 
   const url = Deno.env.get("SUPABASE_URL") || "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-  if (!url || !serviceKey) return { allowed: true, reason: "no_service_key" };
+  // Cost controls must fail closed: a missing secret or unavailable RPC must
+  // never silently turn a free student account into unlimited access.
+  if (!url || !serviceKey) {
+    console.error("[studentAiQuota] CRITICAL quota service is not configured");
+    return {
+      allowed: false,
+      reason: "quota_service_unavailable",
+      message: "تعذر التحقق من حد الاستخدام الآن. حاول مرة أخرى بعد قليل.",
+    };
+  }
 
   try {
     const admin = createClient(url, serviceKey, {
@@ -75,7 +80,11 @@ export async function enforceStudentAiQuota(
     });
     if (error) {
       console.error("[studentAiQuota] consume failed", error.message);
-      return { allowed: true, reason: "quota_check_failed" };
+      return {
+        allowed: false,
+        reason: "quota_service_unavailable",
+        message: "تعذر التحقق من حد الاستخدام الآن. حاول مرة أخرى بعد قليل.",
+      };
     }
     const r = (data || {}) as Record<string, unknown>;
     const quota: StudentAiQuota = {
@@ -92,7 +101,11 @@ export async function enforceStudentAiQuota(
     return quota;
   } catch (err) {
     console.error("[studentAiQuota] unexpected error", err);
-    return { allowed: true, reason: "quota_check_exception" };
+    return {
+      allowed: false,
+      reason: "quota_service_unavailable",
+      message: "تعذر التحقق من حد الاستخدام الآن. حاول مرة أخرى بعد قليل.",
+    };
   }
 }
 
@@ -102,9 +115,10 @@ export function studentAiQuotaResponse(
   corsHeaders: Record<string, string>,
 ) {
   const message = quota.message || studentQuotaMessage(quota);
+  const unavailable = quota.reason === "quota_service_unavailable";
   return new Response(
     JSON.stringify({
-      error: "student_ai_daily_limit",
+      error: unavailable ? "student_ai_quota_unavailable" : "student_ai_daily_limit",
       errorCode: quota.reason || "student_ai_daily_limit",
       publicMessage: message,
       reply: message,
@@ -116,6 +130,6 @@ export function studentAiQuotaResponse(
         reset_at: quota.resetAt,
       },
     }),
-    { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    { status: unavailable ? 503 : 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
   );
 }

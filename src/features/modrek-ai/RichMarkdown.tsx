@@ -321,7 +321,8 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
         code: ({ className, children, ...props }: any) => {
           const raw = String(children ?? "");
           const lang = /language-([\w-]+)/.exec(className || "")?.[1]?.toLowerCase();
-          if (lang === "mermaid") return <DiagramBlock code={raw} />;
+          const looksLikeMermaid = /^\s*(?:graph\s+(?:TB|BT|RL|LR|TD)|flowchart\s+(?:TB|BT|RL|LR|TD)|sequenceDiagram\b|classDiagram\b|stateDiagram(?:-v2)?\b|mindmap\b|timeline\b|pie\b)/i.test(raw);
+          if (lang === "mermaid" || looksLikeMermaid) return <DiagramBlock code={raw} />;
           if (lang === "svg" || /^\s*<svg[\s>]/i.test(raw)) return <SvgBlock code={raw} />;
           if (lang === "math" || lang === "latex" || lang === "tex") {
             return (
