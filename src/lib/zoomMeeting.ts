@@ -146,25 +146,63 @@ export async function requestZoomMediaPermissions(): Promise<{
   audio: boolean;
   video: boolean;
   blocked: boolean;
+  reason?: string;
 }> {
-  const result = { audio: false, video: false, blocked: false };
+  const result: { audio: boolean; video: boolean; blocked: boolean; reason?: string } = {
+    audio: false,
+    video: false,
+    blocked: false,
+  };
   const md = navigator.mediaDevices;
   if (!md?.getUserMedia) {
     result.blocked = true;
+    result.reason = "media_devices_unavailable";
     return result;
   }
-  const tryGet = async (constraints: MediaStreamConstraints) => {
+
+  const requestWithTimeout = async (constraints: MediaStreamConstraints) => {
+    let timer: number | undefined;
     try {
-      const stream = await md.getUserMedia(constraints);
+      const stream = await Promise.race([
+        md.getUserMedia(constraints),
+        new Promise<never>((_, reject) => {
+          timer = window.setTimeout(
+            () => reject(new DOMException("انتهت مهلة طلب الإذن", "TimeoutError")),
+            30000,
+          );
+        }),
+      ]);
       stream.getTracks().forEach((t) => t.stop());
-      return true;
+      return { ok: true, errorName: "" };
     } catch (err: any) {
-      if (err?.name === "NotAllowedError" || err?.name === "SecurityError") result.blocked = true;
-      return false;
+      return { ok: false, errorName: String(err?.name || "UnknownError") };
+    } finally {
+      if (timer !== undefined) window.clearTimeout(timer);
     }
   };
-  result.audio = await tryGet({ audio: true });
-  result.video = await tryGet({ video: true });
+
+  // A single request is intentional: because this function is called directly
+  // by a visible button, Chrome/Android can show one native permission prompt.
+  const combined = await requestWithTimeout({ audio: true, video: true });
+  if (combined.ok) {
+    result.audio = true;
+    result.video = true;
+    return result;
+  }
+
+  result.reason = combined.errorName;
+  if (combined.errorName === "NotAllowedError" || combined.errorName === "SecurityError") {
+    result.blocked = true;
+    return result;
+  }
+
+  // A missing/busy camera must not prevent a teacher or student from joining
+  // with audio. This second request only runs after a non-permission camera error.
+  const audioOnly = await requestWithTimeout({ audio: true });
+  result.audio = audioOnly.ok;
+  result.video = false;
+  result.reason = audioOnly.ok ? combined.errorName : audioOnly.errorName;
+  result.blocked = audioOnly.errorName === "NotAllowedError" || audioOnly.errorName === "SecurityError";
   return result;
 }
 

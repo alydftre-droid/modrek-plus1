@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, X, Copy } from "lucide-react";
+import { Loader2, AlertTriangle, X, Copy, Camera, Mic, ShieldCheck, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -38,26 +38,66 @@ export default function ZoomMeetingView({
   onClose,
   onUnavailable,
 }: Props) {
-  const [status, setStatus] = useState<"preparing" | "joining" | "in-meeting" | "error">("preparing");
+  const [status, setStatus] = useState<
+    "permission" | "requesting-permission" | "permission-blocked" | "preparing" | "joining" | "in-meeting" | "error"
+  >("permission");
+  const [mediaPermission, setMediaPermission] = useState({ audio: false, video: false });
   const [errorText, setErrorText] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [diagnostic, setDiagnostic] = useState<Record<string, unknown> | null>(null);
   const activeSessionId = useRef<string | null>(null);
   const joinedRef = useRef(false);
+  const cancelledRef = useRef(false);
+  const startingRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        // Ask for mic/camera first: Chrome only shows the prompt for a request
-        // made from the page itself, otherwise Zoom reports it as "blocked".
-        const perms = await requestZoomMediaPermissions();
-        if (cancelled) return;
-        if (perms.blocked && !perms.audio) {
-          toast.error("المتصفح يمنع الوصول للميكروفون. اسمح به من إعدادات الموقع (أيقونة القفل) ثم أعد المحاولة.");
+    cancelledRef.current = false;
+    return () => {
+      cancelledRef.current = true;
+      startingRef.current = false;
+      stopZoomArabicLocalization();
+      setZoomRootVisible(false);
+      const id = activeSessionId.current;
+      if (id && mode === "attendee") void leaveZoomSession(id);
+      if (joinedRef.current) {
+        try {
+          (window as any).ZoomMtg?.leaveMeeting({});
+        } catch {
+          /* SDK already torn down */
         }
+      }
+    };
+  }, [mode]);
 
+  const beginMeeting = async () => {
+    if (startingRef.current) return;
+    startingRef.current = true;
+    setErrorText("");
+    setStatus("requesting-permission");
+
+    try {
+      // This call must remain directly inside the button handler. Moving it to
+      // useEffect loses the user gesture and Android/Chrome suppresses its prompt.
+      const perms = await requestZoomMediaPermissions();
+      if (cancelledRef.current) return;
+      setMediaPermission({ audio: perms.audio, video: perms.video });
+
+      if (!perms.audio) {
+        setErrorText(
+          perms.reason === "TimeoutError"
+            ? "لم يتم الرد على طلب الإذن. اضغط إعادة المحاولة ثم اختر «سماح» من رسالة الهاتف."
+            : "تم رفض إذن الميكروفون. فعّله من علامة القفل بجوار عنوان الموقع، ثم اضغط إعادة طلب الإذن.",
+        );
+        setStatus("permission-blocked");
+        return;
+      }
+
+      if (!perms.video) {
+        toast.info("تعذر تشغيل الكاميرا، وسيتم دخول الحصة بالصوت. يمكنك تشغيلها لاحقًا من أدوات الحصة.");
+      }
+
+      setStatus("preparing");
+      try {
         let payload: ZoomJoinPayload;
         if (mode === "host") {
           if (!groupId) throw new ZoomLiveError("لا توجد مجموعة محددة", "invalid_payload");
@@ -70,7 +110,7 @@ export default function ZoomMeetingView({
           payload = await joinZoomSession(sessionId);
         }
 
-        if (cancelled) return;
+        if (cancelledRef.current) return;
 
         if (payload.provider !== "zoom") {
           throw new ZoomLiveError(
@@ -82,7 +122,7 @@ export default function ZoomMeetingView({
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
 
         const ZoomMtg = await loadZoomSdk();
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         setStatus("joining");
         setZoomRootVisible(true);
         startZoomArabicLocalization();
@@ -91,7 +131,7 @@ export default function ZoomMeetingView({
         // pending permission dialog can never leave us in a forever-loading state.
         try {
           ZoomMtg.inMeetingServiceListener?.("onMeetingStatus", (data: any) => {
-            if (cancelled) return;
+            if (cancelledRef.current) return;
             if (data?.meetingStatus === 2) {
               joinedRef.current = true;
               setStatus("in-meeting");
@@ -116,7 +156,7 @@ export default function ZoomMeetingView({
           // Once Zoom's own UI is on screen the user drives the flow (device
           // permissions, pre-join prompts). Release our overlay so it is visible.
           const uiHandoff = window.setTimeout(() => {
-            if (!cancelled) setStatus("in-meeting");
+            if (!cancelledRef.current) setStatus("in-meeting");
           }, 2500);
           const hardTimeout = window.setTimeout(() => {
             clearTimeout(uiHandoff);
@@ -188,11 +228,11 @@ export default function ZoomMeetingView({
           });
         });
 
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         joinedRef.current = true;
         setStatus("in-meeting");
       } catch (error) {
-        if (cancelled) return;
+        if (cancelledRef.current) return;
         setZoomRootVisible(false);
         const code = error instanceof ZoomLiveError ? error.code : "unknown";
         setErrorCode(code);
@@ -207,25 +247,10 @@ export default function ZoomMeetingView({
         setStatus("error");
         onUnavailable?.(code);
       }
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-      stopZoomArabicLocalization();
-      setZoomRootVisible(false);
-      const id = activeSessionId.current;
-      if (id && mode === "attendee") void leaveZoomSession(id);
-      if (joinedRef.current) {
-        try {
-          (window as any).ZoomMtg?.leaveMeeting({});
-        } catch {
-          /* SDK already torn down */
-        }
-      }
-    };
-  }, [mode, groupId, sessionId]);
+    } finally {
+      startingRef.current = false;
+    }
+  };
 
   const handleEnd = async () => {
     const id = activeSessionId.current;
@@ -284,6 +309,56 @@ export default function ZoomMeetingView({
               <X className="h-4 w-4" /> إغلاق
             </Button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "permission" || status === "requesting-permission" || status === "permission-blocked") {
+    const requesting = status === "requesting-permission";
+    const blocked = status === "permission-blocked";
+    return (
+      <div className="fixed inset-0 z-[10001] bg-background flex items-center justify-center p-4" dir="rtl">
+        <div className="max-w-md w-full rounded-lg border bg-card p-6 space-y-5 text-center shadow-lg">
+          {blocked ? (
+            <AlertTriangle className="h-12 w-12 mx-auto text-destructive" />
+          ) : (
+            <ShieldCheck className="h-12 w-12 mx-auto text-primary" />
+          )}
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold">
+              {blocked ? "يلزم السماح بالميكروفون" : "السماح بالصوت والكاميرا"}
+            </h2>
+            <p className="text-sm text-muted-foreground leading-6">
+              {blocked
+                ? errorText
+                : "اضغط الزر التالي، ثم اختر «سماح» من رسالة الهاتف حتى تعمل الحصة بالصوت والصورة."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3" aria-label="حالة أذونات الحصة">
+            <div className="rounded-lg border bg-muted/40 p-3 flex items-center justify-center gap-2">
+              <Mic className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium">الميكروفون {mediaPermission.audio ? "مسموح" : "مطلوب"}</span>
+            </div>
+            <div className="rounded-lg border bg-muted/40 p-3 flex items-center justify-center gap-2">
+              <Camera className="h-5 w-5 text-primary" />
+              <span className="text-sm font-medium">الكاميرا {mediaPermission.video ? "مسموحة" : "مطلوبة"}</span>
+            </div>
+          </div>
+
+          <Button className="w-full min-h-12 gap-2 text-base" onClick={beginMeeting} disabled={requesting}>
+            {requesting ? (
+              <><Loader2 className="h-5 w-5 animate-spin" /> في انتظار موافقتك...</>
+            ) : blocked ? (
+              <><RotateCcw className="h-5 w-5" /> إعادة طلب الإذن</>
+            ) : (
+              <><Mic className="h-5 w-5" /><Camera className="h-5 w-5" /> السماح بالكاميرا والميكروفون</>
+            )}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={onClose} disabled={requesting}>
+            إلغاء والعودة
+          </Button>
         </div>
       </div>
     );
