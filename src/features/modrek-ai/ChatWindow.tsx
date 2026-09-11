@@ -18,6 +18,8 @@ import {
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
 import { synthesizeSpeech } from "@/lib/openrouterTts";
+import { useStudentAiQuota, formatCairo } from "@/hooks/useStudentAiQuota";
+import { AiQuotaBadge } from "./AiQuotaBadge";
 
 interface ChatWindowProps {
   assistantType: AssistantType;
@@ -72,6 +74,22 @@ export default function ModrekChatWindow({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Daily AI quota applies to the study + exams assistants only (never support).
+  const meteredAssistant = assistantType === "study" || assistantType === "exams";
+  const { quota, refresh: refreshQuota } = useStudentAiQuota(meteredAssistant);
+  const quotaExhausted = Boolean(quota && quota.plan === "free" && quota.remaining <= 0);
+
+  const dailyLimitMessage = () => {
+    const limit = quota?.limit ?? 10;
+    const when = formatCairo(quota?.resetAt);
+    return (
+      `لقد وصلت إلى الحد اليومي المجاني لاستخدام المساعد الذكي (${limit} استخدامات).\n\n` +
+      "يمكنك العودة لاستخدام المساعد مجانًا عند تجديد الحد اليومي، أو الاشتراك في مجموعة مع أحد المعلمين " +
+      "للحصول على استخدام غير محدود للمساعد الذكي لمدة 30 يومًا." +
+      (when ? `\n\nموعد تجديد الاستخدام:\n${when.date}\n${when.time}` : "")
+    );
+  };
 
   const suggestions = assistantType === "exams" ? EXAMS_SUGGESTIONS : STUDY_SUGGESTIONS;
   const assistantLabel =
