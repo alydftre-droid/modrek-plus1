@@ -21,27 +21,26 @@
   min-height: 100vh;
   overflow-x: clip;
   color: hsl(var(--foreground));
-  background:
-    linear-gradient(hsl(223 71% 49% / 0.035) 1px, transparent 1px),
-    hsl(var(--background));
-  background-size: 100% 112px;
+  background: hsl(var(--background));
   font-family: "Cairo", system-ui, sans-serif;
 }
 
 .monitoring-center__header {
-  background: hsl(var(--foreground));
-  color: hsl(var(--primary-foreground));
-  border-bottom: 3px solid hsl(223 71% 49%);
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border-bottom: 1px solid hsl(var(--border));
 }
 
 .monitoring-center__header .monitoring-header-action {
-  border-color: hsl(0 0% 100% / 0.18);
-  background: hsl(0 0% 100% / 0.07);
-  color: hsl(var(--primary-foreground));
+  border-color: hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
 }
 
 .monitoring-center__header .monitoring-header-action:hover {
-  background: hsl(0 0% 100% / 0.14);
+  border-color: hsl(var(--primary) / 0.28);
+  background: hsl(var(--accent));
+  color: hsl(var(--primary));
 }
 
 .monitoring-center__status-dot {
@@ -52,7 +51,7 @@
 .monitoring-center__section {
   border: 1px solid hsl(var(--border));
   background: hsl(var(--card));
-  box-shadow: 0 8px 24px hsl(222 29% 15% / 0.055);
+  box-shadow: 0 1px 2px hsl(222 29% 15% / 0.035);
 }
 
 .monitoring-center__nav {
@@ -95,7 +94,7 @@
 }
 
 .monitoring-center .monitoring-metric {
-  min-height: 132px;
+  min-height: 104px;
   overflow: hidden;
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
@@ -115,13 +114,12 @@
 
 .monitoring-center .monitoring-metric:hover {
   border-color: hsl(var(--primary) / 0.35);
-  box-shadow: 0 10px 24px hsl(222 29% 15% / 0.07);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px hsl(222 29% 15% / 0.06);
+  transform: translateY(-1px);
 }
 
-.monitoring-center .monitoring-kpi-grid > .monitoring-metric:first-child {
-  grid-column: span 2;
-  background: linear-gradient(110deg, hsl(var(--accent)), hsl(var(--card)) 72%);
+.monitoring-center .monitoring-kpi-grid > .monitoring-metric:nth-child(-n+4) {
+  background: hsl(var(--card));
   border-color: hsl(var(--primary) / 0.24);
 }
 
@@ -186,16 +184,8 @@
 }
 
 @media (max-width: 639px) {
-  .monitoring-center {
-    background-size: 100% 88px;
-  }
-
   .monitoring-center .monitoring-metric {
-    min-height: 118px;
-  }
-
-  .monitoring-center .monitoring-kpi-grid > .monitoring-metric:first-child {
-    min-height: 132px;
+    min-height: 98px;
   }
 
   .monitoring-center__section {

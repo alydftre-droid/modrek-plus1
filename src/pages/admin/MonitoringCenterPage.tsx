@@ -94,18 +94,18 @@ const MonitoringCenterPage = () => {
 
   return (
     <div dir="rtl" className="monitoring-center">
-      <header className="monitoring-center__header relative overflow-hidden">
-        <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-5 sm:px-6 sm:py-7">
+      <header className="monitoring-center__header relative">
+        <div className="relative mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-4 py-4 sm:px-6 sm:py-6">
           <Button className="monitoring-header-action absolute right-4 top-5 sm:static" variant="outline" size="icon" onClick={() => navigate("/admin")} aria-label="رجوع">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="w-full min-w-0 pr-14 sm:w-auto sm:flex-1 sm:pr-0">
-            <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-primary-foreground/65">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
               <span className="monitoring-center__status-dot h-2 w-2 rounded-full bg-emerald-500" />
               متابعة مباشرة للنظام
             </div>
-            <h1 className="text-2xl font-extrabold tracking-normal sm:text-[30px]">مركز المتابعة</h1>
-            <p className="mt-1 text-xs leading-5 text-primary-foreground/65 sm:text-sm">صورة تنفيذية موحّدة لأداء المنصة والطلاب والعمليات</p>
+            <h1 className="text-2xl font-extrabold tracking-normal text-foreground sm:text-[30px]">مركز المتابعة الإدارية</h1>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground sm:text-sm">متابعة الأداء الحي، نشاط الطلاب والعمليات</p>
           </div>
           <div className="mr-auto flex items-center gap-2 sm:mr-0">
             <Button variant="outline" size="icon" onClick={() => setTab("alerts")} className="monitoring-header-action relative" aria-label="التنبيهات">
@@ -124,7 +124,7 @@ const MonitoringCenterPage = () => {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 px-0 py-4 sm:px-6 sm:py-6">
-        <section className="monitoring-center__toolbar mx-4 flex flex-wrap items-center justify-between gap-3 rounded-md p-3 sm:mx-0 sm:p-4" aria-label="تصفية التقرير">
+        <section className="monitoring-center__toolbar mx-4 flex flex-wrap items-center justify-between gap-3 rounded-md p-3 sm:mx-0" aria-label="تصفية التقرير">
           <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto">
             <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary sm:flex">
               <FileSearch className="h-[18px] w-[18px]" />
@@ -155,7 +155,7 @@ const MonitoringCenterPage = () => {
           ))}
         </nav>
 
-        <section key={`${tab}-${refreshKey}`} className="monitoring-center__section monitoring-section-enter min-h-[420px] p-4 sm:rounded-md sm:p-6">
+        <section key={`${tab}-${refreshKey}`} className="monitoring-center__section monitoring-section-enter min-h-[420px] p-4 sm:rounded-md sm:p-5">
           {tab === "overview" && <OverviewTab from={range.from} to={range.to} />}
           {tab === "ai" && <AiUsageTab />}
           {tab === "active" && <ActiveStudentsTab from={range.from} to={range.to} />}
