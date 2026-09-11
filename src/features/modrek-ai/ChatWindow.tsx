@@ -214,6 +214,11 @@ export default function ModrekChatWindow({
     const text = (overrideText ?? input).trim();
     const attachments = overrideText ? [] : pendingAttachments;
     if ((!text && attachments.length === 0) || sending) return;
+    if (meteredAssistant && quotaExhausted) {
+      toast.error(dailyLimitMessage(), { duration: 10000 });
+      void refreshQuota();
+      return;
+    }
     let activeConvForError: ModrekConversation | null = conv;
     setSending(true);
     if (!overrideText) { setInput(""); setPendingAttachments([]); }
@@ -295,6 +300,7 @@ export default function ModrekChatWindow({
       } catch { /* ignore */ }
     } finally {
       setSending(false);
+      if (meteredAssistant) void refreshQuota();
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   };
