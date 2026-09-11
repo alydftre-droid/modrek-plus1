@@ -8,8 +8,11 @@ import {
   joinZoomSession,
   leaveZoomSession,
   loadZoomSdk,
+  requestZoomMediaPermissions,
   setZoomRootVisible,
+  startZoomArabicLocalization,
   startZoomSession,
+  stopZoomArabicLocalization,
   type ZoomJoinPayload,
 } from "@/lib/zoomMeeting";
 
@@ -47,6 +50,14 @@ export default function ZoomMeetingView({
 
     const run = async () => {
       try {
+        // Ask for mic/camera first: Chrome only shows the prompt for a request
+        // made from the page itself, otherwise Zoom reports it as "blocked".
+        const perms = await requestZoomMediaPermissions();
+        if (cancelled) return;
+        if (perms.blocked && !perms.audio) {
+          toast.error("المتصفح يمنع الوصول للميكروفون. اسمح به من إعدادات الموقع (أيقونة القفل) ثم أعد المحاولة.");
+        }
+
         let payload: ZoomJoinPayload;
         if (mode === "host") {
           if (!groupId) throw new ZoomLiveError("لا توجد مجموعة محددة", "invalid_payload");
@@ -74,6 +85,7 @@ export default function ZoomMeetingView({
         if (cancelled) return;
         setStatus("joining");
         setZoomRootVisible(true);
+        startZoomArabicLocalization();
 
         // Zoom raises its own in-meeting status events; rely on them so a
         // pending permission dialog can never leave us in a forever-loading state.
@@ -175,6 +187,7 @@ export default function ZoomMeetingView({
 
     return () => {
       cancelled = true;
+      stopZoomArabicLocalization();
       setZoomRootVisible(false);
       const id = activeSessionId.current;
       if (id && mode === "attendee") void leaveZoomSession(id);

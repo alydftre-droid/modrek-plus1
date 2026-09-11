@@ -136,6 +136,16 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!-- Live classes (Zoom): الميكروفون والكاميرا مطلوبان داخل الحصة المباشرة.
+         uses-feature غير مطلوبة حتى لا يُفلتر التطبيق على أجهزة بدون كاميرا. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+
 
     <!-- Google Play policy: التطبيق لا يشغّل أي Foreground Service،
          لذلك تم إزالة صلاحية FOREGROUND_SERVICE لتجنّب مطالبة الإفصاح
