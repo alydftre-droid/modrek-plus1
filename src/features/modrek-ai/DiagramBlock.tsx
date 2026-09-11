@@ -41,8 +41,26 @@ async function getMermaid() {
 
 let seq = 0;
 
+/**
+ * Makes the SVG fully fluid: fixed pixel width/height attributes are what made
+ * diagrams overflow the frame or vanish while pinch-zooming.
+ */
+function fluidSvg(html: string): string {
+  return html
+    .replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
+      let next = String(attrs)
+        .replace(/\s(?:width|height)\s*=\s*"[^"]*"/gi, "")
+        .replace(/\s(?:width|height)\s*=\s*'[^']*'/gi, "")
+        .replace(/\sstyle\s*=\s*"[^"]*"/gi, "")
+        .replace(/\sstyle\s*=\s*'[^']*'/gi, "");
+      next += ' preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;max-width:100%;max-height:100%;display:block"';
+      return `<svg${next}>`;
+    });
+}
+
 function InteractiveDiagram({ html, label }: { html: string; label: string }) {
   const [open, setOpen] = React.useState(false);
+  const fluid = React.useMemo(() => fluidSvg(html), [html]);
 
   return (
     <>
@@ -84,15 +102,18 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
           </div>
 
           <TransformWrapper
+            key={open ? "open" : "closed"}
             initialScale={1}
             minScale={1}
-            maxScale={6}
+            maxScale={8}
             centerOnInit
             centerZoomedOut
-            limitToBounds
+            limitToBounds={false}
             wheel={{ step: 0.12 }}
-            doubleClick={{ mode: "zoomIn", step: 1.2 }}
+            pinch={{ step: 6 }}
+            doubleClick={{ mode: "zoomIn", step: 1.4 }}
             panning={{ velocityDisabled: true }}
+            
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
@@ -108,14 +129,14 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
                   </Button>
                 </div>
                 <TransformComponent
-                  wrapperClass="!h-full !w-full flex-1 overflow-hidden rounded-xl border border-border bg-muted/30 !touch-none"
+                  wrapperClass="!h-full !w-full flex-1 overflow-hidden rounded-xl border border-border bg-white !touch-none"
                   contentClass="!h-full !w-full flex items-center justify-center"
                   wrapperStyle={{ touchAction: "none", overscrollBehavior: "contain" }}
                 >
                   <div
                     dir="ltr"
-                    className="flex h-full w-full select-none items-center justify-center bg-white p-4 [&_svg]:block [&_svg]:max-h-full [&_svg]:max-w-full"
-                    dangerouslySetInnerHTML={{ __html: html }}
+                    className="flex h-full w-full select-none items-center justify-center bg-white p-3"
+                    dangerouslySetInnerHTML={{ __html: fluid }}
                   />
                 </TransformComponent>
               </>

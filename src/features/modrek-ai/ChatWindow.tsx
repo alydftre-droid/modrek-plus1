@@ -17,8 +17,9 @@ import {
 } from "./store";
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
-import { useStudentAiQuota, formatCairo } from "@/hooks/useStudentAiQuota";
+import { useStudentAiQuota } from "@/hooks/useStudentAiQuota";
 import { AiQuotaBadge } from "./AiQuotaBadge";
+import { AiQuotaLimitDialog } from "./AiQuotaLimitDialog";
 
 interface ChatWindowProps {
   assistantType: AssistantType;
@@ -77,17 +78,7 @@ export default function ModrekChatWindow({
   const meteredAssistant = assistantType === "study" || assistantType === "exams";
   const { quota, refresh: refreshQuota } = useStudentAiQuota(meteredAssistant);
   const quotaExhausted = Boolean(quota && quota.plan === "free" && quota.remaining <= 0);
-
-  const dailyLimitMessage = () => {
-    const limit = quota?.limit ?? 10;
-    const when = formatCairo(quota?.resetAt);
-    return (
-      `لقد وصلت إلى الحد اليومي المجاني لاستخدام المساعد الذكي (${limit} استخدامات).\n\n` +
-      "يمكنك العودة لاستخدام المساعد مجانًا عند تجديد الحد اليومي، أو الاشتراك في مجموعة مع أحد المعلمين " +
-      "للحصول على استخدام غير محدود للمساعد الذكي لمدة 30 يومًا." +
-      (when ? `\n\nموعد تجديد الاستخدام:\n${when.date}\n${when.time}` : "")
-    );
-  };
+  const [limitDialogOpen, setLimitDialogOpen] = useState(false);
 
   const suggestions = assistantType === "exams" ? EXAMS_SUGGESTIONS : STUDY_SUGGESTIONS;
   const assistantLabel =
@@ -213,7 +204,7 @@ export default function ModrekChatWindow({
     const attachments = overrideText ? [] : pendingAttachments;
     if ((!text && attachments.length === 0) || sending) return;
     if (meteredAssistant && quotaExhausted) {
-      toast.error(dailyLimitMessage(), { duration: 10000 });
+      setLimitDialogOpen(true);
       void refreshQuota();
       return;
     }
@@ -281,6 +272,17 @@ export default function ModrekChatWindow({
         stack: e?.stack,
       });
       const raw = e?.publicMessage || e?.message || "حدث خطأ";
+      const code = String(e?.code || e?.errorCode || "");
+      const isQuota =
+        e?.status === 429 ||
+        /rate_limited|daily_limit|burst_limit|quota/i.test(code) ||
+        (typeof raw === "string" && raw.includes("الحد اليومي"));
+      if (meteredAssistant && isQuota) {
+        setLimitDialogOpen(true);
+        void refreshQuota();
+        setSending(false);
+        return;
+      }
       const hasTraceInMessage = typeof raw === "string" && raw.includes("كود التتبع");
       const message = assistantType === "exams"
         ? `تعذر إنشاء الامتحان: ${raw}${e?.traceId && !hasTraceInMessage ? `\nكود التتبع: ${e.traceId}` : ""}`
@@ -401,7 +403,19 @@ export default function ModrekChatWindow({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {meteredAssistant && <AiQuotaBadge quota={quota} />}
+            {meteredAssistant && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => quota?.plan === "free" && setLimitDialogOpen(true)}
+                  className="shrink-0"
+                  aria-label="تفاصيل الاستخدام اليومي"
+                >
+                  <AiQuotaBadge quota={quota} />
+                </button>
+                <AiQuotaLimitDialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen} quota={quota} />
+              </>
+            )}
             <button
               onClick={openSidebar}
               className="p-2 rounded-lg hover:bg-accent transition-colors"
