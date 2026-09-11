@@ -1,0 +1,18 @@
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_overview(timestamptz, timestamptz) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_ai_usage(text, integer, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_active_students(timestamptz, timestamptz, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_top_exam_students(timestamptz, timestamptz, integer, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_subscriptions(text, text, integer, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_wallets(text, text, integer, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_alerts_list(boolean, integer, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_mark_alerts_read(uuid[]) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_payments(timestamptz, timestamptz) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_teacher_activity(timestamptz, timestamptz, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_inactive_students(integer, integer, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_anomalies() TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_health() TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_errors(integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_student_search(text, integer) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_student_summary(uuid) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_set_thresholds(jsonb) TO service_role, postgres;
+GRANT EXECUTE ON FUNCTION public.admin_monitoring_thresholds() TO service_role, postgres;

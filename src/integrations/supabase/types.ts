@@ -130,6 +130,51 @@ export type Database = {
           },
         ]
       }
+      admin_monitoring_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          description: string | null
+          details: Json
+          id: string
+          is_read: boolean
+          read_at: string | null
+          read_by: string | null
+          severity: string
+          student_id: string | null
+          teacher_id: string | null
+          title: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          description?: string | null
+          details?: Json
+          id?: string
+          is_read?: boolean
+          read_at?: string | null
+          read_by?: string | null
+          severity?: string
+          student_id?: string | null
+          teacher_id?: string | null
+          title: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          description?: string | null
+          details?: Json
+          id?: string
+          is_read?: boolean
+          read_at?: string | null
+          read_by?: string | null
+          severity?: string
+          student_id?: string | null
+          teacher_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       admin_overview_snapshots: {
         Row: {
           created_at: string
@@ -736,6 +781,51 @@ export type Database = {
           feature?: string
           per_minute_limit?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_request_log: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          estimated_cost_usd: number | null
+          feature: string
+          id: string
+          input_tokens: number | null
+          model: string | null
+          output_tokens: number | null
+          provider: string | null
+          status: string | null
+          total_tokens: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          estimated_cost_usd?: number | null
+          feature: string
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string | null
+          status?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          estimated_cost_usd?: number | null
+          feature?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string | null
+          status?: string | null
+          total_tokens?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -7761,6 +7851,81 @@ export type Database = {
           _amount: number
           _reason?: string
           _teacher_id: string
+        }
+        Returns: Json
+      }
+      admin_monitoring_active_students: {
+        Args: { _from?: string; _limit?: number; _to?: string }
+        Returns: Json
+      }
+      admin_monitoring_ai_usage: {
+        Args: { _limit?: number; _offset?: number; _search?: string }
+        Returns: Json
+      }
+      admin_monitoring_alerts_list: {
+        Args: { _limit?: number; _offset?: number; _only_unread?: boolean }
+        Returns: Json
+      }
+      admin_monitoring_anomalies: { Args: never; Returns: Json }
+      admin_monitoring_errors: { Args: { _limit?: number }; Returns: Json }
+      admin_monitoring_health: { Args: never; Returns: Json }
+      admin_monitoring_inactive_students: {
+        Args: { _days?: number; _limit?: number; _offset?: number }
+        Returns: Json
+      }
+      admin_monitoring_mark_alerts_read: {
+        Args: { _ids?: string[] }
+        Returns: number
+      }
+      admin_monitoring_overview: {
+        Args: { _from?: string; _to?: string }
+        Returns: Json
+      }
+      admin_monitoring_payments: {
+        Args: { _from?: string; _to?: string }
+        Returns: Json
+      }
+      admin_monitoring_set_thresholds: {
+        Args: { _thresholds: Json }
+        Returns: Json
+      }
+      admin_monitoring_student_search: {
+        Args: { _limit?: number; _search: string }
+        Returns: Json
+      }
+      admin_monitoring_student_summary: {
+        Args: { _student_id: string }
+        Returns: Json
+      }
+      admin_monitoring_subscriptions: {
+        Args: {
+          _filter?: string
+          _limit?: number
+          _offset?: number
+          _search?: string
+        }
+        Returns: Json
+      }
+      admin_monitoring_teacher_activity: {
+        Args: { _from?: string; _limit?: number; _to?: string }
+        Returns: Json
+      }
+      admin_monitoring_thresholds: { Args: never; Returns: Json }
+      admin_monitoring_top_exam_students: {
+        Args: {
+          _from?: string
+          _limit?: number
+          _min_attempts?: number
+          _to?: string
+        }
+        Returns: Json
+      }
+      admin_monitoring_wallets: {
+        Args: {
+          _limit?: number
+          _offset?: number
+          _search?: string
+          _sort?: string
         }
         Returns: Json
       }
