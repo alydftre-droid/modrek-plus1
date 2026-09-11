@@ -93,6 +93,7 @@ import {
   Library,
   MonitorPlay,
   Smartphone,
+  Activity,
 } from "lucide-react";
 import AdminDepositManagement from "@/components/admin/AdminDepositManagement";
 import AdminTeacherAffairs from "@/components/admin/AdminTeacherAffairs";
@@ -225,6 +226,7 @@ const contentTypes = [
 // Sidebar Menu Items
 const menuItems = [
   { id: "overview", label: "نظرة عامة", icon: BarChart3 },
+  { id: "monitoring", label: "مركز المتابعة", icon: Activity, route: "/admin/monitoring" },
   { id: "students", label: "إدارة الطلاب", icon: Users },
   { id: "student-settings", label: "إعدادات الطالب", icon: MonitorPlay, route: "/admin/ads" },
   { id: "deposits", label: "طلبات الإيداع", icon: Wallet },
@@ -244,6 +246,7 @@ const menuItems = [
 // DS palette — one solid color per item (icon accent). Active row uses DS Primary.
 const menuAccent: Record<string, string> = {
   overview: "#2563EB",
+  monitoring: "#0891B2",
   students: "#059669",
   "student-settings": "#0EA5E9",
   deposits: "#EA580C",
