@@ -108,6 +108,7 @@ export default function ZoomMeetingView({
           }, 2500);
           const hardTimeout = window.setTimeout(() => {
             clearTimeout(uiHandoff);
+            if (joinedRef.current) return done();
             fail(
               new ZoomLiveError(
                 "تعذر إكمال الانضمام إلى الاجتماع. تأكد من السماح للمتصفح باستخدام الميكروفون والكاميرا ثم حاول مرة أخرى.",
