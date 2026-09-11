@@ -304,6 +304,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const authBootstrappedRef = useRef(false);
   const isMountedRef = useRef(false);
   const authResolutionIdRef = useRef(0);
+  const accountLookupRef = useRef<{
+    userId: string;
+    promise: Promise<[{ role: AppRole | null; failed: boolean }, boolean]>;
+  } | null>(null);
   const stableAuthStateRef = useRef<{ userId: string | null; role: AppRole | null; isRoleResolved: boolean }>({
     userId: null,
     role: null,
@@ -363,6 +367,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const loadAccountState = (userId: string) => {
+    const current = accountLookupRef.current;
+    if (current?.userId === userId) return current.promise;
+
+    const promise = Promise.all([
+      fetchUserRole(userId),
+      checkIfBanned(userId),
+    ]).finally(() => {
+      if (accountLookupRef.current?.promise === promise) {
+        accountLookupRef.current = null;
+      }
+    });
+    accountLookupRef.current = { userId, promise };
+    return promise;
+  };
+
 
   const resolveSessionState = useCallback(async (
     nextSession: Session | null,
@@ -414,10 +434,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         pathname: typeof window !== "undefined" ? window.location.pathname : null,
       });
 
-      Promise.all([
-        fetchUserRole(nextSession.user.id),
-        checkIfBanned(nextSession.user.id),
-      ]).then(([roleResult, freshBanned]) => {
+      loadAccountState(nextSession.user.id).then(([roleResult, freshBanned]) => {
         if (!isMountedRef.current || authResolutionIdRef.current !== resolutionId) return;
         // A failed background refresh must never downgrade a working session.
         if (roleResult.failed) return;
@@ -462,10 +479,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(true);
     }
 
-    const [roleResult, banned] = await Promise.all([
-      fetchUserRole(nextSession.user.id),
-      checkIfBanned(nextSession.user.id),
-    ]);
+    const [roleResult, banned] = await loadAccountState(nextSession.user.id);
 
     if (!isMountedRef.current || resolutionId !== authResolutionIdRef.current) {
       logAuthDebug("session_resolution_discarded", {
@@ -662,13 +676,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return { error: error.message };
       }
-      if (data.user) {
-        const banned = await checkIfBanned(data.user.id);
-        if (banned) {
-          await supabase.auth.signOut();
-          return { error: "حسابك موقوف – تواصل مع الدعم" };
-        }
-      }
+      // SIGNED_IN resolves role and ban status once through resolveSessionState.
+      // Running the same profile query here duplicated the critical post-login
+      // database path and amplified incidents when Postgres was under pressure.
         return { error: null };
       }), "تسجيل الدخول", 20000);
     } catch (e: any) {
