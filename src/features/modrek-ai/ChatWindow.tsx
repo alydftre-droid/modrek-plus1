@@ -204,7 +204,7 @@ export default function ModrekChatWindow({
     const attachments = overrideText ? [] : pendingAttachments;
     if ((!text && attachments.length === 0) || sending) return;
     if (meteredAssistant && quotaExhausted) {
-      toast.error(dailyLimitMessage(), { duration: 10000 });
+      setLimitDialogOpen(true);
       void refreshQuota();
       return;
     }
@@ -272,6 +272,17 @@ export default function ModrekChatWindow({
         stack: e?.stack,
       });
       const raw = e?.publicMessage || e?.message || "حدث خطأ";
+      const code = String(e?.code || e?.errorCode || "");
+      const isQuota =
+        e?.status === 429 ||
+        /rate_limited|daily_limit|burst_limit|quota/i.test(code) ||
+        (typeof raw === "string" && raw.includes("الحد اليومي"));
+      if (meteredAssistant && isQuota) {
+        setLimitDialogOpen(true);
+        void refreshQuota();
+        setSending(false);
+        return;
+      }
       const hasTraceInMessage = typeof raw === "string" && raw.includes("كود التتبع");
       const message = assistantType === "exams"
         ? `تعذر إنشاء الامتحان: ${raw}${e?.traceId && !hasTraceInMessage ? `\nكود التتبع: ${e.traceId}` : ""}`
