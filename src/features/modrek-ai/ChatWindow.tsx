@@ -419,6 +419,7 @@ export default function ModrekChatWindow({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {meteredAssistant && <AiQuotaBadge quota={quota} />}
             <button
               onClick={openSidebar}
               className="p-2 rounded-lg hover:bg-accent transition-colors"
