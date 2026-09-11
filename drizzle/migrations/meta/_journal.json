@@ -176,6 +176,13 @@
       "when": 1788740116424,
       "tag": "0024_zoom_live_attendance_verification",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789148203441,
+      "tag": "0025_student_ai_quota_engine",
+      "breakpoints": true
     }
   ]
 }

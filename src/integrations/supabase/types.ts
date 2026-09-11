@@ -8031,6 +8031,10 @@ export type Database = {
         Args: { _cost?: number; _feature: string; _user_id: string }
         Returns: Json
       }
+      consume_student_ai_quota: {
+        Args: { _cost?: number; _user_id: string }
+        Returns: Json
+      }
       content_effective_education_type: {
         Args: { _content_edu: string; _content_group_id?: string }
         Returns: string
@@ -8631,6 +8635,7 @@ export type Database = {
           teacher_name: string
         }[]
       }
+      get_student_ai_quota: { Args: { _user_id?: string }; Returns: Json }
       get_student_group_content_catalog: {
         Args: { _group_id: string; _sub_subject_id?: string }
         Returns: {
@@ -9374,6 +9379,7 @@ export type Database = {
         Args: { _name: string; _user_id: string }
         Returns: boolean
       }
+      student_ai_premium_until: { Args: { _user_id: string }; Returns: string }
       student_has_modrek_training_attempt: {
         Args: { _exam_id: string; _student_id: string }
         Returns: boolean
