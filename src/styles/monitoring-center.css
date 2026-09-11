@@ -119,6 +119,16 @@
   transform: translateY(-2px);
 }
 
+.monitoring-center .monitoring-kpi-grid > .monitoring-metric:first-child {
+  grid-column: span 2;
+  background: linear-gradient(110deg, hsl(var(--accent)), hsl(var(--card)) 72%);
+  border-color: hsl(var(--primary) / 0.24);
+}
+
+.monitoring-center .monitoring-kpi-grid > .monitoring-metric:first-child p:nth-child(2) {
+  color: hsl(var(--primary));
+}
+
 .monitoring-center .monitoring-metric__icon {
   border: 1px solid hsl(var(--primary) / 0.16);
   border-radius: 4px;
@@ -126,6 +136,12 @@
 }
 
 .monitoring-center .monitoring-table-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.monitoring-center [class~="overflow-x-auto"]:has(> table) {
   border: 1px solid hsl(var(--border));
   border-radius: 6px;
   box-shadow: none;
@@ -176,6 +192,10 @@
 
   .monitoring-center .monitoring-metric {
     min-height: 118px;
+  }
+
+  .monitoring-center .monitoring-kpi-grid > .monitoring-metric:first-child {
+    min-height: 132px;
   }
 
   .monitoring-center__section {

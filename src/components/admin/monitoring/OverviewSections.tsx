@@ -15,7 +15,7 @@ export function OverviewTab({ from, to }: { from: string | null; to: string | nu
   const d = data ?? {};
   return (
     <SectionState loading={loading} error={error} onRetry={reload}>
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="monitoring-kpi-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="إجمالي الطلاب" value={fmtNumber(d.total_students)} icon={Users} />
         <MetricCard label="طلاب نشطون اليوم" value={fmtNumber(d.active_today)} icon={UserCheck} />
         <MetricCard label="نشطون خلال 7 أيام" value={fmtNumber(d.active_7d)} icon={Activity} />
@@ -29,7 +29,7 @@ export function OverviewTab({ from, to }: { from: string | null; to: string | nu
         <MetricCard label="تنبيهات غير مقروءة" value={fmtNumber(d.unread_alerts)} icon={Bell} />
         <MetricCard label="عدد المعلمين" value={fmtNumber(d.total_teachers)} icon={GraduationCap} />
       </div>
-      <p className="text-[11px] text-muted-foreground mt-3">
+      <p className="mt-4 border-t border-border pt-3 text-[11px] leading-5 text-muted-foreground">
         وقت الخادم: {fmtDateTime(d.server_now)} — الفترة: {fmtDateTime(d.range_from)} إلى {fmtDateTime(d.range_to)}
       </p>
     </SectionState>
@@ -43,7 +43,7 @@ export function PaymentsTab({ from, to }: { from: string | null; to: string | nu
   const d = data ?? {};
   return (
     <SectionState loading={loading} error={error} onRetry={reload}>
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="monitoring-kpi-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <MetricCard label="إيداعات معتمدة اليوم" value={fmtMoney(d.deposits_today)} icon={Banknote} />
         <MetricCard label="إيداعات 7 أيام" value={fmtMoney(d.deposits_7d)} />
         <MetricCard label="إيداعات 30 يومًا" value={fmtMoney(d.deposits_30d)} />
@@ -101,7 +101,7 @@ export function ErrorsTab() {
   const rows: any[] = data?.rows ?? [];
   return (
     <SectionState loading={loading} error={error} empty={rows.length === 0} onRetry={reload}>
-      <Card className="overflow-x-auto">
+      <Card className="monitoring-table-card overflow-x-auto">
         <table className="w-full text-sm text-right">
           <thead className="bg-muted/50 text-xs text-muted-foreground">
             <tr>
