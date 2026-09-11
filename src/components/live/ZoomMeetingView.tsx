@@ -146,7 +146,7 @@ export default function ZoomMeetingView({
             disableRecord: mode !== "host",
             isSupportAV: true,
             success: () => {
-              ZoomMtg.join({
+              const joinPayload = {
                 sdkKey: payload.sdkKey,
                 signature: payload.signature,
                 meetingNumber: payload.meetingNumber,
@@ -154,8 +154,34 @@ export default function ZoomMeetingView({
                 userName: payload.userName || "مستخدم",
                 zak: payload.role === 1 ? payload.zak || undefined : undefined,
                 success: () => finish(),
-                error: (err: any) => abort(new ZoomLiveError(err?.errorMessage || "فشل الانضمام للاجتماع", `zoom_join_${err?.errorCode ?? "unknown"}`)),
-              });
+                error: (err: any) => abort(new ZoomLiveError(
+                  err?.errorMessage || err?.reason || "فشل الانضمام للاجتماع",
+                  `zoom_join_${err?.errorCode ?? err?.errorCodeName ?? "unknown"}`,
+                  {
+                    step: "sdk_join",
+                    source: "ZoomMtg.join",
+                    zoomCode: err?.errorCode ?? err?.errorCodeName ?? "unknown",
+                    zoomMessage: err?.errorMessage || err?.reason || "Zoom join failed",
+                  },
+                )),
+              };
+              if (!joinPayload.sdkKey || !joinPayload.signature || !joinPayload.meetingNumber) {
+                abort(new ZoomLiveError(
+                  "بيانات دخول اجتماع Zoom غير مكتملة. أغلق الحصة وابدأ حصة جديدة.",
+                  "zoom_join_payload_missing",
+                  { step: "sdk_join", source: "ZoomMtg.join" },
+                ));
+                return;
+              }
+              if (payload.role === 1 && !joinPayload.zak) {
+                abort(new ZoomLiveError(
+                  "تعذر إصدار رمز المضيف. أغلق الحصة وابدأ حصة جديدة.",
+                  "zoom_host_zak_missing",
+                  { step: "sdk_join", source: "ZoomMtg.join" },
+                ));
+                return;
+              }
+              ZoomMtg.join(joinPayload);
             },
             error: (err: any) =>
               abort(new ZoomLiveError(err?.errorMessage || "فشل تهيئة Zoom", `zoom_init_${err?.errorCode ?? "unknown"}`)),
