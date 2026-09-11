@@ -3,6 +3,7 @@
 // submission and grading stay on the existing exam engine.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { enforceStudentAiQuota, studentAiQuotaResponse } from "../_shared/studentAiQuota.ts";
 import { getVerifiedUserFromAuthHeader } from "../_shared/auth.ts";
 import { callGeminiWithFallback, loadAiSettings, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { resolveAnswerScopeFromMessages, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
@@ -1291,6 +1292,14 @@ Deno.serve(async (req) => {
     const lastUserMsg = [...messages].reverse().find((msg: any) => msg.role === "user");
     const userText = textFromMessage(lastUserMsg);
     if (!userText) return json({ reply: "اكتب طلب الامتحان أولاً." });
+
+    // Student AI quota (shared with the study assistant). One exam generation
+    // request = one unit, charged once, BEFORE any AI provider call.
+    const studentQuota = await enforceStudentAiQuota(userId, 1);
+    if (!studentQuota.allowed) {
+      logStep(traceId, "STUDENT_AI_QUOTA_BLOCKED", { userId, reason: studentQuota.reason });
+      return studentAiQuotaResponse(studentQuota, corsHeaders);
+    }
 
     logStep(traceId, "CONTEXT_READY", {
       userId,

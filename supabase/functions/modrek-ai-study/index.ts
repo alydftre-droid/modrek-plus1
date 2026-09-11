@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey, detectAiFailureKind } from "../_shared/aiSettings.ts";
 import { buildTeacherEnginePrompt } from "../_shared/teacherEngine.ts";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { enforceStudentAiQuota, studentAiQuotaResponse } from "../_shared/studentAiQuota.ts";
 import {
   resolveStudentScope,
   retrieveFromLibrary,
@@ -72,6 +73,11 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => null);
     if (!body?.messages || !Array.isArray(body.messages)) return json({ error: "messages required" }, 400);
+
+    // Student AI quota (shared with the exams assistant), enforced before any
+    // AI provider call. Teachers/admins/support are exempt inside the RPC.
+    const studentQuota = await enforceStudentAiQuota(userId, 1);
+    if (!studentQuota.allowed) return studentAiQuotaResponse(studentQuota, corsHeaders);
 
     const { messages, conversationContext = {} } = body;
 
