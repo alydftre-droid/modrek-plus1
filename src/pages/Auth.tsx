@@ -199,8 +199,8 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
         .from("profiles")
         .select("full_name, education_type, stage, grade, section")
         .eq("id", userId)
-        .maybeSingle()
-        .abortSignal(signal),
+        .abortSignal(signal)
+        .maybeSingle(),
       "بيانات الطالب",
       8000,
     );
@@ -221,8 +221,8 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle()
-        .abortSignal(signal),
+        .abortSignal(signal)
+        .maybeSingle(),
       "حالة حساب المعلم",
       8000,
     );

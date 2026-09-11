@@ -351,8 +351,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           .from("profiles")
           .select("is_banned")
           .eq("id", userId)
-          .maybeSingle()
-          .abortSignal(signal),
+          .abortSignal(signal)
+          .maybeSingle(),
         "حالة الحساب",
         AUTH_REQUEST_TIMEOUT_MS,
       );
