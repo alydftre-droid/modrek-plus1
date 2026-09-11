@@ -341,7 +341,7 @@ function MarkdownBody({ children, compact = false }: { children: string; compact
             const lines = raw.replace(/\s+$/, "").split("\n");
             const firstLine = (lines[0] || "").trim();
             const looksLikeTitle =
-              firstLine.length > 0 && firstLine.length <= 60 && !/[.:؟]$/.test(firstLine) === false;
+              lines.length > 1 && firstLine.length > 0 && firstLine.length <= 60 && !/[.؟!]$/.test(firstLine);
             const heading = looksLikeTitle ? firstLine.replace(/^#+\s*/, "") : "ملخص ونقاط مهمة";
             const body = (looksLikeTitle ? lines.slice(1) : lines).join("\n").trim();
             return (

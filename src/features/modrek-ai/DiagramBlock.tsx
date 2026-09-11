@@ -41,8 +41,26 @@ async function getMermaid() {
 
 let seq = 0;
 
+/**
+ * Makes the SVG fully fluid: fixed pixel width/height attributes are what made
+ * diagrams overflow the frame or vanish while pinch-zooming.
+ */
+function fluidSvg(html: string): string {
+  return html
+    .replace(/<svg\b([^>]*)>/i, (_m, attrs: string) => {
+      let next = String(attrs)
+        .replace(/\s(?:width|height)\s*=\s*"[^"]*"/gi, "")
+        .replace(/\s(?:width|height)\s*=\s*'[^']*'/gi, "")
+        .replace(/\sstyle\s*=\s*"[^"]*"/gi, "")
+        .replace(/\sstyle\s*=\s*'[^']*'/gi, "");
+      next += ' preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;max-width:100%;max-height:100%;display:block"';
+      return `<svg${next}>`;
+    });
+}
+
 function InteractiveDiagram({ html, label }: { html: string; label: string }) {
   const [open, setOpen] = React.useState(false);
+  const fluid = React.useMemo(() => fluidSvg(html), [html]);
 
   return (
     <>
