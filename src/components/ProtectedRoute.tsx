@@ -1,7 +1,8 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { isOfficialTenantHost } from "@/lib/tenant";
 
 type Role = "student" | "teacher" | "admin" | "support";
@@ -18,7 +19,7 @@ const ProtectedRoute = ({
   allowedRoles,
   requireAuth = true,
 }: ProtectedRouteProps) => {
-  const { user, role, isLoading, isHydrated, isRoleResolved, isAuthReady, isBanned, session } = useAuth();
+  const { user, role, isLoading, isHydrated, isRoleResolved, isAuthReady, isBanned, session, authError, retryAuth } = useAuth();
   const location = useLocation();
   const effectiveRole = role;
 
@@ -34,7 +35,9 @@ const ProtectedRoute = ({
     requireAuth,
     allowedRoles: allowedRoles ?? [],
     isBanned,
+    authError,
   });
+
 
   // Routing isolation: the global Modrek Plus admin console never renders on a
   // teacher-platform host.
@@ -49,6 +52,29 @@ const ProtectedRoute = ({
     window.sessionStorage.removeItem("post_oauth_redirect");
     return next;
   };
+
+  /* ===================== */
+  /* ⚠️ Auth resolution failed (never an endless spinner) */
+  /* ===================== */
+  if (authError) {
+    return (
+      <div dir="rtl" className="min-h-screen flex items-center justify-center bg-muted/30 p-6">
+        <div className="max-w-md w-full rounded-2xl border bg-card p-6 text-center space-y-4 shadow-sm">
+          <h1 className="text-lg font-bold text-foreground">تعذر تحميل حسابك</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">{authError}</p>
+          <div className="flex gap-2">
+            <Button className="flex-1" onClick={retryAuth}>
+              <RefreshCw className="h-4 w-4 ml-2" />
+              إعادة المحاولة
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => window.location.reload()}>
+              تحديث الصفحة
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ===================== */
   /* ⏳ Loading */
@@ -73,6 +99,7 @@ const ProtectedRoute = ({
       </div>
     );
   }
+
 
   /* ===================== */
   /* 🔐 Not authenticated */
