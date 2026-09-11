@@ -46,9 +46,9 @@ export const PERIOD_LABELS: Record<PeriodKey, string> = {
 
 export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange: (v: PeriodValue) => void }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
       <Select value={value.key} onValueChange={(k) => onChange({ ...value, key: k as PeriodKey })}>
-        <SelectTrigger className="w-[160px] h-9">
+        <SelectTrigger className="h-10 min-w-0 flex-1 sm:w-[180px] sm:flex-none">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -61,13 +61,13 @@ export function PeriodPicker({ value, onChange }: { value: PeriodValue; onChange
         <>
           <Input
             type="date"
-            className="h-9 w-[150px]"
+            className="h-10 min-w-[140px] flex-1 sm:w-[150px]"
             value={value.from ?? ""}
             onChange={(e) => onChange({ ...value, from: e.target.value })}
           />
           <Input
             type="date"
-            className="h-9 w-[150px]"
+            className="h-10 min-w-[140px] flex-1 sm:w-[150px]"
             value={value.to ?? ""}
             onChange={(e) => onChange({ ...value, to: e.target.value })}
           />
@@ -137,16 +137,16 @@ export function MetricCard({
   label, value, hint, icon: Icon,
 }: { label: string; value: ReactNode; hint?: string; icon?: LucideIcon }) {
   return (
-    <Card className="p-4">
+    <Card className="monitoring-metric relative p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs text-muted-foreground truncate">{label}</p>
-          <p className="text-2xl font-bold text-foreground mt-1 tabular-nums">{value}</p>
-          {hint && <p className="text-[11px] text-muted-foreground mt-1">{hint}</p>}
+          <p className="text-xs font-semibold leading-5 text-muted-foreground">{label}</p>
+          <p className="mt-2 text-2xl font-extrabold leading-none text-foreground tabular-nums sm:text-[28px]">{value}</p>
+          {hint && <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{hint}</p>}
         </div>
         {Icon && (
-          <div className="shrink-0 h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-            <Icon className="h-5 w-5" />
+          <div className="monitoring-metric__icon flex h-10 w-10 shrink-0 items-center justify-center text-primary">
+            <Icon className="h-[18px] w-[18px]" strokeWidth={1.8} />
           </div>
         )}
       </div>
@@ -161,22 +161,27 @@ export function SectionState({
 }) {
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> جاري التحميل...
+      <div className="flex min-h-64 flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
+        <span className="text-sm font-medium">جاري تحميل البيانات...</span>
       </div>
     );
   }
   if (error) {
     return (
-      <Card className="p-6 text-center space-y-3">
-        <AlertTriangle className="h-6 w-6 text-destructive mx-auto" />
-        <p className="text-sm text-muted-foreground">{error}</p>
+      <Card className="mx-auto max-w-xl border-destructive/20 p-8 text-center shadow-none space-y-4">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <AlertTriangle className="h-5 w-5 text-destructive" />
+        </div>
+        <div><p className="font-bold text-foreground">تعذر عرض البيانات</p><p className="mt-1 text-sm text-muted-foreground">{error}</p></div>
         {onRetry && <Button size="sm" variant="outline" onClick={onRetry}>إعادة المحاولة</Button>}
       </Card>
     );
   }
   if (empty) {
-    return <Card className="p-8 text-center text-sm text-muted-foreground">لا توجد بيانات لهذه الفترة</Card>;
+    return <Card className="border-dashed p-12 text-center text-sm text-muted-foreground shadow-none">لا توجد بيانات لهذه الفترة</Card>;
   }
   return <>{children}</>;
 }
@@ -186,7 +191,7 @@ export function Pager({
 }: { page: number; pageSize: number; total: number; onPage: (p: number) => void }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="flex items-center justify-between gap-2 pt-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
       <p className="text-xs text-muted-foreground">
         صفحة {fmtNumber(page + 1)} من {fmtNumber(pages)} — إجمالي {fmtNumber(total)}
       </p>

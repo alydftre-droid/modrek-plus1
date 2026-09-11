@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Bot, Users, Flame } from "lucide-react";
+import { Search, Bot, Users, Flame, Coins } from "lucide-react";
 import {
   MetricCard, PAGE_SIZE, Pager, SectionState, fmtDateTime, fmtNumber, shortId, useMonitoringRpc,
 } from "./shared";
@@ -35,8 +35,11 @@ export function AiUsageTab() {
         <MetricCard label="استخدام الطلاب المجانيين" value={fmtNumber(s.free_usage_30d)} hint="30 يومًا" />
       </div>
 
-      <Card className="p-4">
-        <p className="text-sm font-semibold mb-2">💸 تكلفة AI</p>
+      <Card className="p-5 shadow-none">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10 text-primary"><Coins className="h-4 w-4" /></div>
+          <div><p className="text-sm font-bold">تكلفة الذكاء الاصطناعي</p><p className="text-[11px] text-muted-foreground">قراءة دقيقة من بيانات المزود المسجلة</p></div>
+        </div>
         {hasTokens ? (
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <MetricCard label="عدد الطلبات" value={fmtNumber(tokens.requests)} />
