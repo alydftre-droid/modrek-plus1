@@ -137,5 +137,13 @@ export function loadZoomSdk(): Promise<any> {
 /** Shows/hides the Zoom Client View root without breaking the SPA layout. */
 export function setZoomRootVisible(visible: boolean) {
   const root = document.getElementById("zmmtg-root");
-  if (root) root.style.display = visible ? "block" : "none";
+  if (!root) return;
+  root.style.display = visible ? "block" : "none";
+  if (visible) {
+    // The Zoom Client View must sit above every Modrek overlay, otherwise its
+    // pre-join / permission dialogs are unreachable and the user waits forever.
+    root.style.position = "fixed";
+    root.style.inset = "0";
+    root.style.zIndex = "9999";
+  }
 }
