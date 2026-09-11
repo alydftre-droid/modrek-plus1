@@ -140,12 +140,12 @@ export default function ZoomMeetingView({
                 passWord: payload.password || "",
                 userName: payload.userName || "مستخدم",
                 zak: payload.role === 1 ? payload.zak || undefined : undefined,
-                success: () => resolve(),
-                error: (err: any) => reject(new ZoomLiveError(err?.errorMessage || "فشل الانضمام للاجتماع", `zoom_join_${err?.errorCode ?? "unknown"}`)),
+                success: () => finish(),
+                error: (err: any) => abort(new ZoomLiveError(err?.errorMessage || "فشل الانضمام للاجتماع", `zoom_join_${err?.errorCode ?? "unknown"}`)),
               });
             },
             error: (err: any) =>
-              reject(new ZoomLiveError(err?.errorMessage || "فشل تهيئة Zoom", `zoom_init_${err?.errorCode ?? "unknown"}`)),
+              abort(new ZoomLiveError(err?.errorMessage || "فشل تهيئة Zoom", `zoom_init_${err?.errorCode ?? "unknown"}`)),
           });
         });
 
