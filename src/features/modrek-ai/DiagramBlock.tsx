@@ -102,15 +102,18 @@ function InteractiveDiagram({ html, label }: { html: string; label: string }) {
           </div>
 
           <TransformWrapper
+            key={open ? "open" : "closed"}
             initialScale={1}
             minScale={1}
-            maxScale={6}
+            maxScale={8}
             centerOnInit
             centerZoomedOut
-            limitToBounds
+            limitToBounds={false}
             wheel={{ step: 0.12 }}
-            doubleClick={{ mode: "zoomIn", step: 1.2 }}
+            pinch={{ step: 6 }}
+            doubleClick={{ mode: "zoomIn", step: 1.4 }}
             panning={{ velocityDisabled: true }}
+            alignmentAnimation={{ disabled: true }}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
