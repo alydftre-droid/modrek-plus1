@@ -85,6 +85,7 @@ export default function ZoomMeetingView({
         if (cancelled) return;
         setStatus("joining");
         setZoomRootVisible(true);
+        startZoomArabicLocalization();
 
         // Zoom raises its own in-meeting status events; rely on them so a
         // pending permission dialog can never leave us in a forever-loading state.
