@@ -14,6 +14,7 @@ import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 import { useAuth } from "@/hooks/useAuth";
 import LibraryUploadPage from "@/components/admin/LibraryUploadPage";
 import LibraryProcessingMonitor from "@/components/admin/LibraryProcessingMonitor";
+import { startAdaptivePoll } from "@/lib/adaptivePolling";
 
 interface AdminBook {
   id: string;
@@ -341,8 +342,8 @@ function BookDetailsModal({ bookId, onClose, onChanged }: { bookId: string; onCl
   useEffect(() => {
     const isTerminal = data?.book?.status === "ready" || data?.book?.status === "failed" || data?.book?.status === "hidden";
     if (isTerminal) return;
-    const t = setInterval(load, 3000);
-    return () => clearInterval(t);
+    // Adaptive + visibility-aware: 5s while active, up to 25s when idle.
+    return startAdaptivePoll(load, { baseMs: 5000, maxMs: 25_000, immediate: false });
   }, [data?.book?.status]);
 
   const doRetryBook = async () => {

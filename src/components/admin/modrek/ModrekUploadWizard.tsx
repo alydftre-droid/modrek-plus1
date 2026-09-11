@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { computeModrekFileFingerprint, registerModrekUpload } from "@/lib/modrekUpload";
 import { dedupeModrekSubjects, isNoTrackCode, subjectScopeMatches } from "@/lib/modrekLibrarySubjects";
+import { startAdaptivePoll } from "@/lib/adaptivePolling";
 import {
   ModrekButton, ModrekPill, ModrekCard,
 } from "@/features/modrek/premium";
@@ -373,11 +374,19 @@ export default function ModrekUploadWizard({
           lastWorkerKickRef.current = Date.now();
           void supabase.functions.invoke("modrek-worker", { body: {} }).catch(() => null);
         }
+        return `${data.pipeline_stage}~${data.progress_pct ?? ""}~${jobs.map((job) => `${job.id}:${job.status}:${job.progress_pct ?? ""}`).join("|")}`;
       }
+      return "";
     };
-    loadOnce();
-    const iv = setInterval(loadOnce, 3000);
-    return () => clearInterval(iv);
+    // Adaptive: 4s while things move, slowing to 20s when idle, paused when the
+    // tab is hidden. Same data, far fewer database round-trips.
+    let lastSignature = "";
+    return startAdaptivePoll(async () => {
+      const signature = await loadOnce();
+      const changed = signature !== lastSignature;
+      lastSignature = signature;
+      return changed;
+    }, { baseMs: 4000, maxMs: 20_000 });
   }, [step, createdSourceId, allFilesUploaded]);
 
   const runWorkerNow = async () => {

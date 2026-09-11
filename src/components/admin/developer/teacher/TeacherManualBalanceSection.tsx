@@ -29,7 +29,7 @@ export function TeacherManualBalanceSection({ teacherId }: { teacherId: string }
       const { data } = await supabase.from("teacher_wallets").select("balance").eq("teacher_id", teacherId).maybeSingle();
       return Number((data as any)?.balance ?? 0);
     },
-    refetchInterval: 15000,
+    refetchInterval: 60_000,
   });
 
   const handleSubmit = async () => {

@@ -178,7 +178,7 @@ export default function WithdrawalSettings() {
     })();
     const clockTimer = setInterval(() => setNow(new Date()), 1000);
     // Auto-refresh financial data every 20s so the page always mirrors reality
-    const refreshTimer = setInterval(() => { loadOverview().catch(() => {}); }, 20_000);
+    const refreshTimer = setInterval(() => { loadOverview().catch(() => {}); }, 60_000);
     // Refresh when tab becomes visible again
     const onVisible = () => { if (document.visibilityState === "visible") loadOverview().catch(() => {}); };
     document.addEventListener("visibilitychange", onVisible);
@@ -1355,7 +1355,7 @@ function WithdrawalsTab({ overview, onReload }: any) {
       .channel("admin-withdrawals-tab")
       .on("postgres_changes", { event: "*", schema: "public", table: "teacher_withdrawal_requests" }, () => load())
       .subscribe();
-    const iv = setInterval(load, 30_000);
+    const iv = setInterval(load, 60_000);
     return () => { supabase.removeChannel(ch); clearInterval(iv); };
   }, []);
 
@@ -1615,7 +1615,7 @@ function TeachersTab() {
 
   // Auto refresh every 20s + on visibility + realtime updates for accurate live balances
   useEffect(() => {
-    const timer = setInterval(() => { load(); }, 20_000);
+    const timer = setInterval(() => { load(); }, 60_000);
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
     document.addEventListener("visibilitychange", onVisible);
     const channel = supabase

@@ -93,8 +93,8 @@ export default function ExamReviewPage() {
     const timer = window.setInterval(() => {
       ticks += 1;
       void refetch();
-      if (ticks >= 30) window.clearInterval(timer);
-    }, 2500);
+      if (ticks >= 15) window.clearInterval(timer);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [isLoading, smartReady, refetch]);
 

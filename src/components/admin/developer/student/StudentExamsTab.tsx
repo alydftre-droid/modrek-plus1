@@ -150,7 +150,7 @@ export function StudentExamsTab({ studentId }: { studentId: string }) {
       }
       return normalizeExamRows(data) as ExamRow[];
     },
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
