@@ -50,6 +50,14 @@ export default function ZoomMeetingView({
 
     const run = async () => {
       try {
+        // Ask for mic/camera first: Chrome only shows the prompt for a request
+        // made from the page itself, otherwise Zoom reports it as "blocked".
+        const perms = await requestZoomMediaPermissions();
+        if (cancelled) return;
+        if (perms.blocked && !perms.audio) {
+          toast.error("المتصفح يمنع الوصول للميكروفون. اسمح به من إعدادات الموقع (أيقونة القفل) ثم أعد المحاولة.");
+        }
+
         let payload: ZoomJoinPayload;
         if (mode === "host") {
           if (!groupId) throw new ZoomLiveError("لا توجد مجموعة محددة", "invalid_payload");
