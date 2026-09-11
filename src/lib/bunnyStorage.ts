@@ -264,26 +264,48 @@ export async function resolveBunnyStorageBlobUrl(fileUrl: string, accessTokenOve
   return objectUrl;
 }
 
+function isFreshEnoughToken(token?: string | null): token is string {
+  // Accept a token that is still valid *right now*, without the safety buffer.
+  // The buffered check is only used to decide whether a refresh is worth trying;
+  // rejecting a token that still has 30s of life left is what blocked teachers
+  // from uploading at all.
+  if (!looksLikeJwt(token)) return false;
+  const payload = decodeJwtPayload(token.trim());
+  if (!payload) return false;
+  const exp = typeof payload?.exp === "number" ? payload.exp * 1000 : 0;
+  return !exp || exp > Date.now();
+}
+
 export async function getCurrentAccessToken(fallbackToken?: string | null): Promise<string | null> {
   if (isUsableAccessToken(fallbackToken)) return fallbackToken;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  let lastUsableNow: string | null = isFreshEnoughToken(fallbackToken) ? fallbackToken : null;
+
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } } as any));
     if (isUsableAccessToken(session?.access_token)) return session.access_token;
+    if (!lastUsableNow && isFreshEnoughToken(session?.access_token)) lastUsableNow = session!.access_token;
 
     const storedToken = getStoredAccessToken();
     if (storedToken) return storedToken;
 
-    if (attempt >= 1) {
-      const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } } as any));
-      if (isUsableAccessToken(refreshData.session?.access_token)) return refreshData.session.access_token;
+    // Ask for a refresh from the very first attempt. Refresh can legitimately
+    // fail here (another tab/instance holds the auth lock), so we keep looping
+    // and re-read the session afterwards instead of giving up.
+    const { data: refreshData } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } } as any));
+    if (isUsableAccessToken(refreshData?.session?.access_token)) return refreshData.session.access_token;
+    if (!lastUsableNow && isFreshEnoughToken(refreshData?.session?.access_token)) {
+      lastUsableNow = refreshData.session.access_token;
     }
 
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
+    await new Promise((resolve) => window.setTimeout(resolve, 250 + attempt * 250));
   }
 
-  return null;
+  // Last resort: a token that is still technically valid is far better than
+  // refusing the upload outright.
+  return lastUsableNow;
 }
+
 
 /**
  * Upload a file to Bunny Storage via edge function (server-side proxy)
