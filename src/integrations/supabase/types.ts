@@ -8175,13 +8175,18 @@ export type Database = {
       }
       cleanup_ai_daily_usage: { Args: never; Returns: number }
       cleanup_ai_rate_limit_events: { Args: never; Returns: undefined }
+      cleanup_cron_job_run_details: { Args: never; Returns: number }
+      cleanup_exam_attempt_debug_logs: { Args: never; Returns: number }
+      cleanup_library_processing_events: { Args: never; Returns: number }
       cleanup_modrek_search_cache: { Args: never; Returns: number }
       cleanup_modrek_search_logs: { Args: never; Returns: number }
       cleanup_notification_delivery_logs: { Args: never; Returns: number }
       cleanup_old_notifications: { Args: never; Returns: undefined }
       cleanup_pg_net_http_logs: { Args: never; Returns: undefined }
+      cleanup_processing_events: { Args: never; Returns: number }
       cleanup_processing_jobs: { Args: never; Returns: number }
       cleanup_student_activity_logs: { Args: never; Returns: number }
+      cleanup_teacher_activity_logs: { Args: never; Returns: number }
       cleanup_voice_answers: { Args: never; Returns: number }
       complete_user_profile: {
         Args: {
@@ -9284,6 +9289,7 @@ export type Database = {
         Returns: Json
       }
       modrek_worker_heartbeat: { Args: never; Returns: undefined }
+      monitor_database_size: { Args: never; Returns: Json }
       move_to_dlq: {
         Args: {
           dlq_name: string
