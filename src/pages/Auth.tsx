@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveLoginEmailByPhone } from "@/lib/resolveLoginEmail";
+import { withAbortableSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 import OtpVerificationDialog from "@/components/auth/OtpVerificationDialog";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { CURRENT_TEACHER_TERMS_VERSION } from "@/lib/teacherTerms";
@@ -190,18 +191,19 @@ const isStudentProfileComplete = (profile?: StudentProfileRouteState | null) => 
 
 
 const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof useAuth>["role"]) => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
   if (role === "admin") return "/admin";
 
   if (role === "student") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, education_type, stage, grade, section")
-      .eq("id", userId)
-      .maybeSingle();
+    const { data: profile } = await withAbortableSupabaseTimeout(
+      (signal) => supabase
+        .from("profiles")
+        .select("full_name, education_type, stage, grade, section")
+        .eq("id", userId)
+        .abortSignal(signal)
+        .maybeSingle(),
+      "بيانات الطالب",
+      8000,
+    );
 
     // No name or no education type yet → go pick education/stage
     if (!profile?.full_name) return "/select-education-type";
@@ -212,13 +214,18 @@ const resolveAuthenticatedRoute = async (userId: string, role: ReturnType<typeof
   }
 
   if (role === "teacher") {
-    const { data } = await supabase
-      .from("teacher_requests")
-      .select("status")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data } = await withAbortableSupabaseTimeout(
+      (signal) => supabase
+        .from("teacher_requests")
+        .select("status")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .abortSignal(signal)
+        .maybeSingle(),
+      "حالة حساب المعلم",
+      8000,
+    );
 
     return data?.status === "approved" ? "/teacher" : "/pending-approval";
   }
@@ -237,6 +244,8 @@ const Auth = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [redirectError, setRedirectError] = useState(false);
+  const [redirectRetryToken, setRedirectRetryToken] = useState(0);
   const nativeApp = isNativeAppContext();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [otpOpen, setOtpOpen] = useState(false);
@@ -300,19 +309,20 @@ const Auth = () => {
         return;
       }
 
-      const nextRoute = await resolveAuthenticatedRoute(user.id, role);
-      console.info("[auth-page] authenticated_redirect", {
-        userId: user.id,
-        role,
-        nextRoute,
-      });
-      if (!cancelled) navigate(nextRoute, { replace: true });
+      try {
+        const nextRoute = await resolveAuthenticatedRoute(user.id, role);
+        console.info("[auth-page] authenticated_redirect", { userId: user.id, role, nextRoute });
+        if (!cancelled) navigate(nextRoute, { replace: true });
+      } catch (error) {
+        console.error("[auth-page] authenticated_redirect_failed", error);
+        if (!cancelled) setRedirectError(true);
+      }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user, role, authLoading, isAuthReady, navigate]);
+  }, [user, role, authLoading, isAuthReady, navigate, redirectRetryToken]);
 
   useEffect(() => {
     const snapshot = recordGoogleOAuthCallbackSnapshot("auth_page");
@@ -663,7 +673,13 @@ const Auth = () => {
   if (user) {
     return (
       <div className="auth2026-loading safe-area-top safe-area-x min-h-screen flex items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        {redirectError ? (
+          <div dir="rtl" className="mx-4 w-full max-w-sm space-y-4 rounded-xl border bg-card p-6 text-center shadow-sm">
+            <h1 className="text-lg font-bold">تم تسجيل الدخول</h1>
+            <p className="text-sm text-muted-foreground">تعذر تحميل وجهة حسابك بسبب بطء الخدمة. لن تحتاج إلى تسجيل الدخول مرة أخرى.</p>
+            <Button className="w-full" onClick={() => { setRedirectError(false); setRedirectRetryToken((value) => value + 1); }}>إعادة تحميل الحساب</Button>
+          </div>
+        ) : <Loader2 className="h-12 w-12 animate-spin text-primary" />}
       </div>
     );
   }
