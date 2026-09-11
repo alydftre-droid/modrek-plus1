@@ -165,8 +165,8 @@ export function SmartOverview({ from, to, refreshKey, onOpenReport }: SmartOverv
                 </ResponsiveContainer>
               </div>
               <div className="monitoring-legend">
-                {subscriptionChart.map((entry) => (
-                  <div key={entry.name}><span style={{ backgroundColor: entry.fill }} /><p>{entry.name}<strong>{fmtNumber(entry.value)}</strong></p></div>
+                {subscriptionChart.map((entry, index) => (
+                  <div key={entry.name}><span data-series={index === 0 ? "active" : "inactive"} /><p>{entry.name}<strong>{fmtNumber(entry.value)}</strong></p></div>
                 ))}
               </div>
             </div>
