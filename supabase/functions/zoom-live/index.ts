@@ -50,7 +50,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
 };
 
 type SafeDiagnostic = {
-  step: "oauth_token" | "zoom_user" | "create_meeting" | "zak" | "database" | "unknown";
+  step: "oauth_token" | "zoom_user" | "meeting_lookup" | "create_meeting" | "zak" | "database" | "unknown";
   source: string;
   httpStatus?: number;
   zoomCode?: number | string;
@@ -264,6 +264,20 @@ async function resolveZoomHost(token: string, expectedAccountId: string) {
   return { id: String(response.json.id), status: String(response.json.status || "") };
 }
 
+async function existingMeetingBelongsToHost(
+  token: string,
+  meetingNumber: string,
+  hostId: string,
+) {
+  const response = await zoomApi(
+    token,
+    `/meetings/${encodeURIComponent(meetingNumber)}`,
+    {},
+    "meeting_lookup",
+  );
+  return response.ok && String(response.json?.host_id || "") === hostId;
+}
+
 // --------------------------------------------------------------- user context
 async function getUserContext(supabase: any, userId: string) {
   const [{ data: profile }, { data: roleRows }] = await Promise.all([
@@ -410,7 +424,16 @@ Deno.serve(async (req) => {
         });
       }
 
-      if (existing && existing.provider === "zoom" && existing.zoom_meeting_id) {
+      const canReuseExisting = existing &&
+        existing.provider === "zoom" &&
+        existing.zoom_meeting_id &&
+        await existingMeetingBelongsToHost(
+          token,
+          String(existing.zoom_meeting_id),
+          host.id,
+        );
+
+      if (canReuseExisting) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
         return ok({
           provider: "zoom",
@@ -429,8 +452,8 @@ Deno.serve(async (req) => {
       }
 
       if (existing) {
-        // A pre-Zoom session row is still marked active: close it so the teacher
-        // can start a real Zoom meeting instead of reviving a dead provider.
+        // Never reuse a stale meeting created for another Zoom host. A ZAK is
+        // user-bound; combining it with that meeting produces Zoom's "Token error".
         await supabase
           .from("live_sessions")
           .update({ status: "ended", ended_at: new Date().toISOString(), viewer_count: 0, updated_at: new Date().toISOString() })
@@ -605,10 +628,41 @@ Deno.serve(async (req) => {
       if (isOwner) {
         try {
           const token = await zoomAccessToken(cfg);
-          const zak = await zoomApi(token, "/users/me/token?type=zak");
+          const host = await resolveZoomHost(token, cfg.accountId);
+          const belongsToHost = await existingMeetingBelongsToHost(
+            token,
+            String(session.zoom_meeting_id),
+            host.id,
+          );
+          if (!belongsToHost) {
+            return fail("meeting_ended", 409, "meeting host mismatch", {
+              step: "meeting_lookup",
+              source: "GET /v2/meetings/{meetingId}",
+              httpStatus: 409,
+              zoomCode: "zoom_host_mismatch",
+              zoomMessage: "هذه الجلسة مرتبطة بمضيف Zoom قديم. أنهِها وابدأ حصة جديدة.",
+              fileLine: "supabase/functions/zoom-live/index.ts",
+            });
+          }
+          const zak = await zoomApi(
+            token,
+            `/users/${encodeURIComponent(host.id)}/token?type=zak`,
+            {},
+            "zak",
+          );
           if (zak.ok) zakToken = zak.json?.token || null;
         } catch (error) {
           console.error("[zoom-live] zak_refresh_failed", String(error));
+        }
+        if (!zakToken) {
+          return fail("meeting_creation_failed", 502, "host ZAK unavailable", {
+            step: "zak",
+            source: "GET /v2/users/{userId}/token?type=zak",
+            httpStatus: 502,
+            zoomCode: "zak_missing",
+            zoomMessage: "تعذر إصدار رمز المضيف من Zoom. أغلق الحصة وابدأ حصة جديدة.",
+            fileLine: "supabase/functions/zoom-live/index.ts",
+          });
         }
       }
 

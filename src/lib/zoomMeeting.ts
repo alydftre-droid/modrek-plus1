@@ -3,7 +3,10 @@
 // `zoom-live` edge function after it validates ownership/subscription.
 import { supabase } from "@/integrations/supabase/client";
 
-const ZOOM_SDK_VERSION = "3.13.2";
+// Keep the browser SDK current. Zoom 3.x predates the 2026 meeting
+// authorization requirements and can surface valid host credentials as a
+// generic "Token error" on current Zoom infrastructure.
+const ZOOM_SDK_VERSION = "6.2.0";
 const ZOOM_CDN = `https://source.zoom.us/${ZOOM_SDK_VERSION}`;
 
 export type ZoomJoinPayload = {
@@ -206,6 +209,10 @@ const ZOOM_AR_LABELS: Record<string, string> = {
   "Waiting for the host to start this meeting": "في انتظار بدء المعلم للحصة",
   "Connecting...": "جاري الاتصال...",
   "Joining Meeting...": "جاري الانضمام...",
+  "Joining Meeting Timeout or Browser restriction": "تعذر الانضمام للاجتماع",
+  "Token error": "رمز دخول الاجتماع غير صالح",
+  Retry: "إعادة المحاولة",
+  OK: "حسنًا",
   "Send Report": "إرسال تقرير",
   "Privacy & Legal Policies": "سياسة الخصوصية والشروط",
 };
