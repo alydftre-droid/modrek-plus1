@@ -1292,6 +1292,10 @@ Deno.serve(async (req) => {
     const userText = textFromMessage(lastUserMsg);
     if (!userText) return json({ reply: "اكتب طلب الامتحان أولاً." });
 
+    // Cost protection: exam generation is the heaviest AI call.
+    const examQuota = await enforceAiQuota(userId, "modrek-ai-exams");
+    if (!examQuota.allowed) return aiQuotaResponse(examQuota, corsHeaders);
+
     // Student AI quota (shared with the study assistant). One exam generation
     // request = one unit, charged once, BEFORE any AI provider call.
     const studentQuota = await enforceStudentAiQuota(userId, 1);
