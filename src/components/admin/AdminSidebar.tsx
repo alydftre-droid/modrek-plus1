@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import {
   BarChart3, Users, GraduationCap, Upload, BookOpen, Bell, Settings, LogOut,
-  MessageSquare, Info, User, Wallet, Megaphone, Library, Sparkles, Building2,
+  MessageSquare, Info, User, Wallet, Megaphone, Library, Sparkles, Building2, Activity,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
