@@ -74,7 +74,7 @@ export function TeacherLogsTab({ teacherId }: { teacherId: string }) {
       if (error) throw error;
       return (data as unknown as Row[]) || [];
     },
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     retry: false,
   });
 

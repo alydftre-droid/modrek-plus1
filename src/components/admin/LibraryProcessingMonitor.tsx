@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { startAdaptivePoll } from "@/lib/adaptivePolling";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, CheckCircle2, Clock3, FileSearch, Loader2, RefreshCw, Radio, XCircle } from "lucide-react";
@@ -112,8 +113,9 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [workerTicking, setWorkerTicking] = useState(false);
   const [monitorError, setMonitorError] = useState<string | null>(null);
+  const lastWorkerTickRef = useRef(0);
 
-  const load = async () => {
+  const load = async (): Promise<string> => {
     const url = new URL(`${ENV_URL}/functions/v1/library-admin`);
     url.searchParams.set("action", "book_progress");
     url.searchParams.set("id", bookId);
@@ -140,6 +142,15 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     setLastRefresh(new Date());
     setMonitorError(null);
     setLoading(false);
+    // Cheap change signature used by the adaptive poll (no extra queries).
+    return [
+      payload?.book?.status ?? "",
+      payload?.book?.processing_stage ?? "",
+      String(payload?.book?.processing_progress ?? ""),
+      String(payload?.jobs?.length ?? 0),
+      payload?.jobs?.map((job) => `${job.id}:${job.state}:${job.progress ?? ""}`).join("|") ?? "",
+      String(payload?.events?.length ?? 0),
+    ].join("~");
   };
 
   const tickWorker = async () => {
@@ -171,12 +182,23 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
 
   useEffect(() => {
     let mounted = true;
-    const safeLoad = async () => {
-      try { await load(); }
-      catch (error) { console.error("[library-monitor] load failed", error); if (mounted) { setMonitorError(error instanceof Error ? error.message : String(error)); setLoading(false); } }
+    // Signature of the last payload, so the adaptive poll can slow down while
+    // nothing actually changes instead of hammering the database every 3s.
+    let lastSignature = "";
+    const safeLoad = async (): Promise<boolean | "stop"> => {
+      try {
+        const snapshot = await load();
+        const signature = snapshot;
+        const changed = signature !== lastSignature;
+        lastSignature = signature;
+        return changed;
+      } catch (error) {
+        console.error("[library-monitor] load failed", error);
+        if (mounted) { setMonitorError(error instanceof Error ? error.message : String(error)); setLoading(false); }
+        return false;
+      }
     };
-    void safeLoad();
-    const poll = window.setInterval(safeLoad, 3000);
+    const stopPoll = startAdaptivePoll(safeLoad, { baseMs: 4000, maxMs: 20_000 });
 
     const channel = (supabase.channel(`library-processing-monitor-${bookId}`) as any)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "library_books", filter: `id=eq.${bookId}` }, (payload: any) => {
@@ -191,7 +213,7 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
 
     return () => {
       mounted = false;
-      window.clearInterval(poll);
+      stopPoll();
       supabase.removeChannel(channel);
     };
   }, [bookId]);
@@ -200,7 +222,11 @@ export default function LibraryProcessingMonitor({ bookId, onClose }: { bookId: 
     const hasQueuedJob = jobs.some((job) => job.state === "queued" || job.state === "running");
     const isFinished = book?.status === "ready" || book?.status === "failed" || book?.status === "hidden" || book?.status === "paused";
     if (!hasQueuedJob || isFinished || workerTicking) return;
-    const timer = window.setTimeout(() => void tickWorker(), 900);
+    if (Date.now() - lastWorkerTickRef.current < 10_000) return;
+    const timer = window.setTimeout(() => {
+      lastWorkerTickRef.current = Date.now();
+      void tickWorker();
+    }, 1500);
     return () => window.clearTimeout(timer);
   }, [book?.status, bookId, jobs, workerTicking]);
 

@@ -33,7 +33,7 @@ export function TeacherOverviewTab({ teacherId, onOpenStudents, onOpenSubs, onOp
       if (error) throw error;
       return data as unknown as Overview;
     },
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
     retry: false,
   });
 

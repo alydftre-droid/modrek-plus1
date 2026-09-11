@@ -340,7 +340,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       const v = videoRef.current;
       if (!v || v.currentTime <= 0) return;
       const c = v.currentTime;
-      if (Math.abs(c - savedProgressRef.current) < 5) return;
+      if (Math.abs(c - savedProgressRef.current) < 10) return;
       savedProgressRef.current = c;
       supabase.from("video_progress").upsert(
         {
@@ -352,7 +352,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
         },
         { onConflict: "user_id,content_id" },
       ).then(() => {}, () => {});
-    }, 4000);
+    }, 15000);
     return () => window.clearInterval(id);
   }, [contentId, user?.id]);
 

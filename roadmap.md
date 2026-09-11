@@ -11,3 +11,4 @@
 - [x] Modrek Live المرحلة 1: بنية Zoom (provider + live_attendance + zoom-live + بوابة المزود)
 - [x] Zoom Webhook Integration: endpoint آمن + URL validation + تحقق التوقيع + سجل أحداث Idempotent للأحداث الأربعة
 - [ ] Production Zoom: تشخيص سبب فشل إنشاء الاجتماع وإثبات إنشاء اجتماع حقيقي (بانتظار اختبار هوية إنتاج موثقة)
+- [ ] قاعدة الإنتاج الخارجية: مطلوب Restart/ترقية Compute (PGRST002 + مهلات 20-25 ثانية) — التحسينات البرمجية طُبقت

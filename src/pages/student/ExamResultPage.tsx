@@ -52,11 +52,11 @@ export default function ExamResultPage() {
     const timer = window.setInterval(() => {
       ticks += 1;
       loadResult();
-      if (ticks >= 60) {
+      if (ticks >= 36) {
         window.clearInterval(timer);
         setGradingTimedOut(true);
       }
-    }, 3000);
+    }, 5000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt?.id, attempt?.is_graded, pollNonce]);

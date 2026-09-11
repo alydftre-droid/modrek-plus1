@@ -133,8 +133,7 @@ export default function TeacherWalletPage() {
     enabled: !!user,
     staleTime: 0,
     refetchOnMount: "always",
-    refetchInterval: 10_000,
-    refetchIntervalInBackground: true,
+    refetchInterval: 30_000,
   });
 
   useEffect(() => {

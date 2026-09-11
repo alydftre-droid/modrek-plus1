@@ -119,6 +119,6 @@ export function useUnreadNotifications() {
     },
     enabled: !!user,
     staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 120 * 1000,
   });
 }

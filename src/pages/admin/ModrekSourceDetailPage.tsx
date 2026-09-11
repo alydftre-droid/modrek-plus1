@@ -91,7 +91,7 @@ export default function ModrekSourceDetailPage() {
         { event: "UPDATE", schema: "public", table: "knowledge_source_versions", filter: `id=eq.${currentVersion.id}` },
         (payload) => setCurrentVersion((v: any) => ({ ...v, ...payload.new })))
       .subscribe();
-    const timer = setInterval(() => loadVersionData(currentVersion.id), 8000);
+    const timer = setInterval(() => loadVersionData(currentVersion.id), 20000);
     return () => { supabase.removeChannel(ch); clearInterval(timer); };
   }, [currentVersion?.id]);
 

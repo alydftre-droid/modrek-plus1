@@ -117,7 +117,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         },
       } as Overview;
     },
-    refetchInterval: 10_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
@@ -149,7 +149,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         teacher_name: pMap.get(g.teacher_id ?? g.created_by) || "معلم",
       }));
     },
-    refetchInterval: 10_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
@@ -210,7 +210,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         status: r.status,
       }));
     },
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
@@ -298,7 +298,7 @@ export function StudentOverviewTab({ studentId }: { studentId: string }) {
         status: "chosen",
       }));
     },
-    refetchInterval: 15_000,
+    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchOnMount: "always",
     staleTime: 0,
