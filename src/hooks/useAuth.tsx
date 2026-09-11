@@ -15,6 +15,7 @@ import { clearNativeGoogleCredentialState, signInNativeGoogleIdToken } from "@/l
 import { processSupabaseOAuthCallback } from "@/lib/processSupabaseOAuthCallback";
 import { clearImpersonationState, endImpersonation, isImpersonating } from "@/lib/devImpersonation";
 import { queueExternalSync } from "@/lib/externalSync";
+import { withSupabaseTimeout } from "@/lib/supabaseQueryTimeout";
 
 const mapGoogleAuthError = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || "");
@@ -59,6 +60,8 @@ interface AuthContextType {
   isHydrated: boolean;
   isRoleResolved: boolean;
   isAuthReady: boolean;
+  authError: string | null;
+  retryAuth: () => void;
   isBanned: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (data: SignUpData) => Promise<{ error: string | null }>;
@@ -282,6 +285,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isHydrated, setIsHydrated] = useState(false);
   const [isRoleResolved, setIsRoleResolved] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authRetryToken, setAuthRetryToken] = useState(0);
   const authBootstrappedRef = useRef(false);
   const isMountedRef = useRef(false);
   const authResolutionIdRef = useRef(0);
@@ -291,45 +296,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isRoleResolved: false,
   });
 
-  const fetchUserRole = async (userId: string) => {
+  // Every request the app needs before it can render ANYTHING is time-boxed.
+  // A stalled Postgres/PostgREST request used to keep `isLoading` true forever,
+  // which is exactly what left users on an endless spinner until they reloaded.
+  const AUTH_REQUEST_TIMEOUT_MS = 8000;
+
+  const fetchUserRole = async (userId: string): Promise<{ role: AppRole | null; failed: boolean }> => {
     try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .order("role", { ascending: true });
+      const { data, error } = await withSupabaseTimeout(
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .order("role", { ascending: true }),
+        "صلاحيات الحساب",
+        AUTH_REQUEST_TIMEOUT_MS,
+      );
       if (error) {
         console.error("Error fetching role:", error);
-        return null;
+        return { role: null, failed: true };
       }
       const roles = (data ?? []).map((row: { role: string }) => row.role as AppRole);
-      if (roles.includes("admin")) return "admin";
-      if (roles.includes("teacher")) return "teacher";
-      if (roles.includes("support")) return "support";
-      if (roles.includes("student")) {
-        return "student" as AppRole;
-      }
+      if (roles.includes("admin")) return { role: "admin", failed: false };
+      if (roles.includes("teacher")) return { role: "teacher", failed: false };
+      if (roles.includes("support")) return { role: "support", failed: false };
+      if (roles.includes("student")) return { role: "student", failed: false };
 
-      return null;
+      return { role: null, failed: false };
     } catch (e) {
       console.error("fetchUserRole error", e);
-      return null;
+      return { role: null, failed: true };
     }
   };
 
   const checkIfBanned = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("is_banned")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data, error } = await withSupabaseTimeout(
+        supabase
+          .from("profiles")
+          .select("is_banned")
+          .eq("id", userId)
+          .maybeSingle(),
+        "حالة الحساب",
+        AUTH_REQUEST_TIMEOUT_MS,
+      );
       if (error) return false;
       return data?.is_banned || false;
     } catch {
       return false;
     }
   };
+
 
   const resolveSessionState = useCallback(async (
     nextSession: Session | null,
@@ -384,12 +401,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       Promise.all([
         fetchUserRole(nextSession.user.id),
         checkIfBanned(nextSession.user.id),
-      ]).then(([freshRole, freshBanned]) => {
+      ]).then(([roleResult, freshBanned]) => {
         if (!isMountedRef.current || authResolutionIdRef.current !== resolutionId) return;
-        setRole(freshRole);
+        // A failed background refresh must never downgrade a working session.
+        if (roleResult.failed) return;
+        setRole(roleResult.role);
         setIsRoleResolved(true);
         setIsBanned(freshBanned);
-        stableAuthStateRef.current = { userId: nextSession.user.id, role: freshRole, isRoleResolved: true };
+        stableAuthStateRef.current = { userId: nextSession.user.id, role: roleResult.role, isRoleResolved: true };
       }).catch(() => {});
       initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
       return;
@@ -401,6 +420,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setRole(null);
       setIsRoleResolved(true);
       setIsBanned(false);
+      setAuthError(null);
       stableAuthStateRef.current = { userId: null, role: null, isRoleResolved: true };
       if (!options?.keepLoadingUntilBootstrap) {
         setIsLoading(false);
@@ -421,11 +441,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(null);
     setIsRoleResolved(false);
     setIsBanned(false);
+    setAuthError(null);
     if (!options?.keepLoadingUntilBootstrap) {
       setIsLoading(true);
     }
 
-    const [userRole, banned] = await Promise.all([
+    const [roleResult, banned] = await Promise.all([
       fetchUserRole(nextSession.user.id),
       checkIfBanned(nextSession.user.id),
     ]);
@@ -438,9 +459,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
+    // The account exists but the backend did not answer. Stop loading and say
+    // so, with an explicit retry — never sit on a spinner and never downgrade
+    // the user to "no role" (which would bounce them to the wrong page).
+    if (roleResult.failed) {
+      setAuthError("تعذر الوصول إلى بيانات حسابك الآن. تحقق من الاتصال ثم أعد المحاولة.");
+      setIsRoleResolved(false);
+      setIsLoading(false);
+      setIsHydrated(true);
+      logAuthDebug("session_resolution_failed", { source, userId: nextUserId });
+      return;
+    }
+
+    const userRole = roleResult.role;
     setRole(userRole);
     setIsRoleResolved(true);
     setIsBanned(banned);
+    setAuthError(null);
     stableAuthStateRef.current = { userId: nextSession.user.id, role: userRole, isRoleResolved: true };
     if (!options?.keepLoadingUntilBootstrap) {
       setIsLoading(false);
@@ -459,6 +494,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     initPushNotifications(nextSession.user.id).catch((e) => console.warn("push init", e));
   }, []);
+
+  const retryAuth = useCallback(() => {
+    initialAuthBootstrapPromise = null;
+    authBootstrappedRef.current = false;
+    stableAuthStateRef.current = { userId: null, role: null, isRoleResolved: false };
+    setAuthError(null);
+    setIsLoading(true);
+    setIsHydrated(false);
+    setIsRoleResolved(false);
+    setAuthRetryToken((token) => token + 1);
+  }, []);
+
+
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -512,30 +560,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasHash: typeof window !== "undefined" ? Boolean(window.location.hash) : false,
       });
 
-      const bootstrapResult = await getInitialAuthBootstrap();
+      try {
+        // The bootstrap itself (OAuth callback exchange + getSession) is
+        // time-boxed: a stalled network call must not hold the first paint.
+        const bootstrapResult = await withSupabaseTimeout(
+          getInitialAuthBootstrap(),
+          "الجلسة",
+          AUTH_REQUEST_TIMEOUT_MS,
+        );
 
-      if (!isMountedRef.current) return;
+        if (!isMountedRef.current) return;
 
-      authBootstrappedRef.current = true;
-      logAuthDebug("bootstrap_session_resolved", {
-        source: bootstrapResult.source,
-        hasSession: Boolean(bootstrapResult.session),
-        userId: bootstrapResult.session?.user?.id ?? null,
-        callbackHandled: bootstrapResult.callbackHandled,
-        callbackError: bootstrapResult.callbackError,
-      });
+        authBootstrappedRef.current = true;
+        logAuthDebug("bootstrap_session_resolved", {
+          source: bootstrapResult.source,
+          hasSession: Boolean(bootstrapResult.session),
+          userId: bootstrapResult.session?.user?.id ?? null,
+          callbackHandled: bootstrapResult.callbackHandled,
+          callbackError: bootstrapResult.callbackError,
+        });
 
-      await resolveSessionState(bootstrapResult.session, bootstrapResult.source);
+        await resolveSessionState(bootstrapResult.session, bootstrapResult.source);
 
-      if (!isMountedRef.current) return;
-
-      setIsHydrated(true);
-      setIsLoading(false);
-      logAuthDebug("bootstrap_completed", {
-        hasSession: Boolean(bootstrapResult.session),
-        userId: bootstrapResult.session?.user?.id ?? null,
-        pathname: typeof window !== "undefined" ? window.location.pathname : null,
-      });
+        logAuthDebug("bootstrap_completed", {
+          hasSession: Boolean(bootstrapResult.session),
+          userId: bootstrapResult.session?.user?.id ?? null,
+          pathname: typeof window !== "undefined" ? window.location.pathname : null,
+        });
+      } catch (bootstrapError) {
+        // Reset the shared promise so a retry (or a later auth event) can run
+        // the bootstrap again instead of reusing a rejected one.
+        initialAuthBootstrapPromise = null;
+        authBootstrappedRef.current = true;
+        console.error("[auth] bootstrap failed", bootstrapError);
+        if (isMountedRef.current) {
+          setAuthError("تعذر تجهيز الجلسة الآن. تحقق من الاتصال ثم أعد المحاولة.");
+        }
+      } finally {
+        // Whatever happened above, the app stops loading. This is the guarantee
+        // that no user can be left on an endless spinner.
+        if (isMountedRef.current) {
+          setIsHydrated(true);
+          setIsLoading(false);
+        }
+      }
     };
 
     void initializeAuth();
@@ -544,7 +612,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isMountedRef.current = false;
       subscription.unsubscribe();
     };
-  }, [resolveSessionState]);
+  }, [resolveSessionState, authRetryToken]);
 
   useEffect(() => {
     logAuthDebug("loading_state_changed", {
@@ -1126,6 +1194,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isHydrated,
         isRoleResolved,
         isAuthReady,
+        authError,
+        retryAuth,
         isBanned,
         signIn,
         signUp,
