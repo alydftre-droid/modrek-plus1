@@ -134,6 +134,121 @@ export function loadZoomSdk(): Promise<any> {
   return sdkPromise;
 }
 
+/**
+ * Ask the browser for mic/camera BEFORE Zoom initialises. Zoom's own request is
+ * fired from inside its worker context and Chrome on Android often blocks it
+ * silently ("Your browser is preventing access to your microphone").
+ */
+export async function requestZoomMediaPermissions(): Promise<{
+  audio: boolean;
+  video: boolean;
+  blocked: boolean;
+}> {
+  const result = { audio: false, video: false, blocked: false };
+  const md = navigator.mediaDevices;
+  if (!md?.getUserMedia) {
+    result.blocked = true;
+    return result;
+  }
+  const tryGet = async (constraints: MediaStreamConstraints) => {
+    try {
+      const stream = await md.getUserMedia(constraints);
+      stream.getTracks().forEach((t) => t.stop());
+      return true;
+    } catch (err: any) {
+      if (err?.name === "NotAllowedError" || err?.name === "SecurityError") result.blocked = true;
+      return false;
+    }
+  };
+  result.audio = await tryGet({ audio: true });
+  result.video = await tryGet({ video: true });
+  return result;
+}
+
+// ------------------------------------------------------- Arabic UI localisation
+// The Zoom Web SDK ships no Arabic language pack, so its buttons stay in English.
+// We translate the visible labels/tooltips inside #zmmtg-root only.
+const ZOOM_AR_LABELS: Record<string, string> = {
+  Join: "انضمام",
+  "Join Meeting": "انضمام للاجتماع",
+  "Join Audio": "تشغيل الصوت",
+  "Join Audio by Computer": "تشغيل صوت الجهاز",
+  "Audio Settings": "إعدادات الصوت",
+  Audio: "الصوت",
+  Mute: "كتم",
+  Unmute: "إلغاء الكتم",
+  Video: "الفيديو",
+  "Start Video": "تشغيل الكاميرا",
+  "Stop Video": "إيقاف الكاميرا",
+  Participants: "المشاركون",
+  Chat: "المحادثة",
+  Share: "مشاركة",
+  "Share Screen": "مشاركة الشاشة",
+  "Stop Share": "إيقاف المشاركة",
+  Record: "تسجيل",
+  More: "المزيد",
+  Leave: "خروج",
+  "Leave Meeting": "الخروج من الاجتماع",
+  End: "إنهاء",
+  "End Meeting": "إنهاء الاجتماع",
+  "End Meeting for All": "إنهاء الاجتماع للجميع",
+  Cancel: "إلغاء",
+  Continue: "متابعة",
+  "Continue without audio or video": "متابعة بدون صوت أو كاميرا",
+  "Are you sure you don't want audio or video?": "هل تريد المتابعة بدون صوت أو كاميرا؟",
+  "You can still turn on your microphone and camera anytime in the meeting":
+    "يمكنك تشغيل الميكروفون والكاميرا في أي وقت داخل الحصة",
+  "Learn more": "معرفة المزيد",
+  "Your browser is preventing access to your microphone.":
+    "المتصفح يمنع الوصول إلى الميكروفون. اسمح بالوصول من إعدادات الموقع ثم أعد المحاولة.",
+  "Your browser is preventing access to your camera.":
+    "المتصفح يمنع الوصول إلى الكاميرا. اسمح بالوصول من إعدادات الموقع ثم أعد المحاولة.",
+  "Waiting for the host to start this meeting": "في انتظار بدء المعلم للحصة",
+  "Connecting...": "جاري الاتصال...",
+  "Joining Meeting...": "جاري الانضمام...",
+  "Send Report": "إرسال تقرير",
+  "Privacy & Legal Policies": "سياسة الخصوصية والشروط",
+};
+
+let arObserver: MutationObserver | null = null;
+
+function translateNode(node: Node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const raw = node.nodeValue || "";
+    const key = raw.trim();
+    if (key && ZOOM_AR_LABELS[key]) node.nodeValue = raw.replace(key, ZOOM_AR_LABELS[key]);
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const el = node as HTMLElement;
+  const aria = el.getAttribute?.("aria-label");
+  if (aria && ZOOM_AR_LABELS[aria.trim()]) el.setAttribute("aria-label", ZOOM_AR_LABELS[aria.trim()]);
+  const title = el.getAttribute?.("title");
+  if (title && ZOOM_AR_LABELS[title.trim()]) el.setAttribute("title", ZOOM_AR_LABELS[title.trim()]);
+  node.childNodes.forEach(translateNode);
+}
+
+/** Starts translating the Zoom Client View into Arabic (RTL). */
+export function startZoomArabicLocalization() {
+  const root = document.getElementById("zmmtg-root");
+  if (!root || arObserver) return;
+  root.setAttribute("dir", "rtl");
+  root.style.fontFamily = "Cairo, system-ui, sans-serif";
+  translateNode(root);
+  arObserver = new MutationObserver((records) => {
+    for (const record of records) {
+      record.addedNodes.forEach(translateNode);
+      if (record.type === "characterData" && record.target) translateNode(record.target);
+    }
+  });
+  arObserver.observe(root, { childList: true, subtree: true, characterData: true });
+}
+
+export function stopZoomArabicLocalization() {
+  arObserver?.disconnect();
+  arObserver = null;
+}
+
 /** Shows/hides the Zoom Client View root without breaking the SPA layout. */
 export function setZoomRootVisible(visible: boolean) {
   const root = document.getElementById("zmmtg-root");
