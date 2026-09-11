@@ -676,9 +676,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         return { error: error.message };
       }
-      // SIGNED_IN resolves role and ban status once through resolveSessionState.
-      // Running the same profile query here duplicated the critical post-login
-      // database path and amplified incidents when Postgres was under pressure.
+      if (data.user) {
+        // The SIGNED_IN handler asks for the same account state concurrently.
+        // loadAccountState shares that in-flight request, preserving the banned
+        // account decision without issuing a second role/profile query pair.
+        const [, banned] = await loadAccountState(data.user.id);
+        if (banned) {
+          await supabase.auth.signOut();
+          return { error: "حسابك موقوف – تواصل مع الدعم" };
+        }
+      }
         return { error: null };
       }), "تسجيل الدخول", 20000);
     } catch (e: any) {
