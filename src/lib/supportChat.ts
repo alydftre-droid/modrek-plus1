@@ -28,8 +28,26 @@ export function supportFilePath(userId: string, fileName: string, actor = "user"
   return `${userId}/${actor}_${Date.now()}_${sanitizeFileName(fileName)}`;
 }
 
+/**
+ * Uploads a support attachment to Bunny (owner-scoped path) and returns the
+ * reference to store in `support_messages.file_url`.
+ */
+export async function uploadSupportAttachment(userId: string, file: File, actor = "user") {
+  const { uploadFile } = await import("@/lib/storage");
+  const stored = await uploadFile({
+    scope: { kind: "user", id: userId },
+    category: "support",
+    file,
+    fileName: `${actor}_${Date.now()}_${sanitizeFileName(file.name)}`,
+  });
+  return stored.url;
+}
+
 export async function signedSupportUrl(filePath: string | null | undefined) {
   if (!filePath) return null;
+  const { isBunnyStorageFile, getFileUrl } = await import("@/lib/storage");
+  if (isBunnyStorageFile(filePath)) return await getFileUrl(filePath);
+  // Legacy Supabase-stored attachment (kept readable during/after migration).
   const { data, error } = await supabase.storage.from(SUPPORT_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
   if (error || !data?.signedUrl) return null;
   return data.signedUrl;

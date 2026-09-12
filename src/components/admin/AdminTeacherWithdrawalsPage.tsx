@@ -110,11 +110,16 @@ export default function AdminTeacherWithdrawalsPage() {
     try {
       let receiptUrl: string | null = null;
       if (receiptFile) {
-        const path = `withdrawal-receipts/${selectedReq.id}/${Date.now()}-${receiptFile.name}`;
-        const { error: uploadErr } = await supabase.storage.from("payment-receipts").upload(path, receiptFile);
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(path);
-          receiptUrl = urlData.publicUrl;
+        try {
+          const { uploadFile } = await import("@/lib/storage");
+          const stored = await uploadFile({
+            scope: { kind: "main" },
+            category: `withdrawal-receipts/${selectedReq.id}`,
+            file: receiptFile,
+          });
+          receiptUrl = stored.url;
+        } catch (uploadErr) {
+          console.error("withdrawal receipt upload failed", uploadErr);
         }
       }
 

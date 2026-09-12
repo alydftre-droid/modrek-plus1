@@ -13,7 +13,8 @@ import {
   ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff,
 } from "lucide-react";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
-import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
+import { uploadSupportAttachment,
+  SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 import { insertSupportMessage, subscribeSupportThread, summarizeSupportRow, supportTrace } from "@/lib/supportRealtime";
 
@@ -284,19 +285,15 @@ export default function StudentSupportAssistantPage() {
   const uploadOne = useCallback(
     async (file: File): Promise<{ path: string; signedUrl: string | null }> => {
       if (!user) throw new Error("لم يتم التعرف على الحساب");
-      const path = supportFilePath(user.id, file.name, "student");
-      const { error: uploadError } = await supabase.storage
-        .from(SUPPORT_BUCKET)
-        .upload(path, file, { upsert: false, contentType: file.type || undefined });
-      if (uploadError) {
-        const msg = String(uploadError.message || "").toLowerCase();
-        if (msg.includes("bucket") && msg.includes("not found")) {
-          throw new Error("خدمة رفع الصور غير مهيأة الآن. حاول مرة أخرى بعد قليل أو تواصل مع الدعم.");
-        }
-        if (msg.includes("size") || msg.includes("large")) {
+      let path: string;
+      try {
+        path = await uploadSupportAttachment(user.id, file, "student");
+      } catch (uploadError: any) {
+        const msg = String(uploadError?.message || "").toLowerCase();
+        if (msg.includes("size") || msg.includes("large") || msg.includes("كبير")) {
           throw new Error("حجم الصورة كبير جداً. جرّب صورة أصغر من 10 ميجابايت.");
         }
-        throw new Error(uploadError.message || "فشل رفع الصورة");
+        throw new Error(uploadError?.message || "فشل رفع الصورة");
       }
       const signedUrl = await signedSupportUrl(path);
       return { path, signedUrl };

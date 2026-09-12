@@ -142,6 +142,8 @@ export default function AssistantLessonStudio({
   const selectedPageIndex = useMemo(() => pages.findIndex((p) => p.id === selectedPageId), [pages, selectedPageId]);
 
   const createSignedLessonChatUrl = useCallback(async (filePath: string) => {
+    const { isBunnyStorageFile, getFileUrl } = await import("@/lib/storage");
+    if (isBunnyStorageFile(filePath)) return await getFileUrl(filePath);
     const { data, error } = await supabase.storage.from(LESSON_CHAT_UPLOAD_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
     if (error || !data?.signedUrl) throw error || new Error("تعذر إنشاء رابط الصورة");
     return data.signedUrl;
@@ -606,12 +608,13 @@ export default function AssistantLessonStudio({
     setShowAttachmentMenu(false);
 
     try {
-      const filePath = lessonChatFilePath(user.id, file.name);
-      const { error } = await supabase.storage.from(LESSON_CHAT_UPLOAD_BUCKET).upload(filePath, file, {
-        upsert: false,
-        contentType: file.type || undefined,
+      const { uploadImage } = await import("@/lib/storage");
+      const stored = await uploadImage({
+        scope: { kind: "user", id: user.id },
+        category: "lesson-chat",
+        file,
       });
-      if (error) throw error;
+      const filePath = stored.url;
 
       const signedUrl = await createSignedLessonChatUrl(filePath);
       await sendMessageDirect("حلل هذه الصورة واشرح لي المشكلة أو الفكرة الموجودة فيها.", {

@@ -210,18 +210,32 @@ export async function getFileBlob(urlOrPath: string): Promise<Blob> {
   return fetchBunnyStorageBlob(urlOrPath);
 }
 
-export type FileMigrationAction = "scan" | "run" | "status" | "purge";
-
 /**
- * Trigger the server-side migration worker (admin only). Kept here so the
- * whole app has a single storage entry point.
+ * Move a single legacy file (Supabase Storage value or public URL) to Bunny.
+ * Downloads the current bytes and re-uploads them under the given scope,
+ * returning the new reference to persist. The original object is left intact.
  */
-export async function migrateFile(action: FileMigrationAction, payload: Record<string, unknown> = {}) {
-  const { data, error } = await supabase.functions.invoke("storage-migrate", {
-    body: { action, ...payload },
-  });
-  if (error) throw error;
-  return data;
+export async function migrateFile(
+  legacyValue: string,
+  options: Omit<UploadOptions, "file" | "fileName"> & { fileName?: string; legacyBucket?: string },
+): Promise<StoredFile> {
+  if (!legacyValue) throw new Error("لا يوجد ملف للنقل");
+  if (isBunnyStorageFile(legacyValue)) {
+    const path = extractBunnyStoragePath(legacyValue) || "";
+    return {
+      url: legacyValue,
+      storage_path: path,
+      file_name: path.split("/").pop() || "file",
+      mime_type: "application/octet-stream",
+      file_size: 0,
+    };
+  }
+  const sourceUrl = await getFileUrl(legacyValue, { legacyBucket: options.legacyBucket });
+  const res = await fetch(sourceUrl);
+  if (!res.ok) throw new Error("تعذر تحميل الملف الأصلي");
+  const blob = await res.blob();
+  const fileName = options.fileName || legacyValue.split("?")[0].split("/").pop() || "file";
+  return await uploadFile({ ...options, file: blob, fileName });
 }
 
 export { isBunnyStorageFile, extractBunnyStoragePath };

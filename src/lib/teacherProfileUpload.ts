@@ -246,44 +246,15 @@ export const uploadTeacherProfileFile = async (
   }
 
 
-
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
-
-  if (token && supabaseUrl && supabaseKey) {
-    const form = new FormData();
-    form.append("file", preparedFile);
-    form.append("kind", "photo");
-    form.append("path", path);
-    form.append("contentType", contentType);
-
-    try {
-      const response = await fetch(`${supabaseUrl}/functions/v1/teacher-profile-upload`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          apikey: supabaseKey,
-        },
-        body: form,
-      });
-
-      if (response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        if (payload?.publicUrl) return String(payload.publicUrl);
-      }
-
-      console.warn("teacher profile secure upload failed", await parseUploadError(response));
-    } catch (error) {
-      console.warn("teacher profile secure upload request failed", error);
-    }
-  }
-
-  try {
-    return await directStorageUpload(preparedFile, path, contentType);
-  } catch (error) {
-    console.error("teacher profile direct storage upload failed", error);
-    throw error;
-  }
+  // Profile photos live on Bunny Storage (owner-scoped path); PostgreSQL only
+  // keeps the reference.
+  const { uploadImage } = await import("@/lib/storage");
+  const stored = await uploadImage({
+    scope: { kind: "user", id: userId },
+    category: "profile",
+    file: preparedFile,
+    fileName: path.split("/").pop() || preparedFile.name,
+    onProgress: onProgress ? (loaded, total) => onProgress(loaded, total) : undefined,
+  });
+  return stored.url;
 };

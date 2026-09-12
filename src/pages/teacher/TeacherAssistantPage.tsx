@@ -13,7 +13,8 @@ import {
   ArrowRight, Send, Settings, X, Image as ImageIcon, Mic, MicOff, Loader2, Headphones, PhoneOff, RefreshCw,
 } from "lucide-react";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
-import { SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
+import { uploadSupportAttachment,
+  SUPPORT_BUCKET, closeUserSupportConversation, createSupportClientId, fetchSupportMessagesForUser, hasActiveSupportSession, mapSupportRowsToUiMessages, markAdminSupportMessagesRead, mergeSupportMessages, signedSupportUrl, supportFilePath } from "@/lib/supportChat";
 import { clearDraftValue, loadDraftValue, saveDraftValue } from "@/lib/mobileRuntime";
 import { insertSupportMessage, subscribeSupportThread, summarizeSupportRow, supportTrace } from "@/lib/supportRealtime";
 
@@ -292,9 +293,7 @@ export default function TeacherAssistantPage() {
         if (attachments.length > 0) {
           setUploading(true);
           for (const att of attachments) {
-            const path = supportFilePath(user.id, att.file.name, "teacher");
-            const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, att.file, { upsert: false, contentType: att.file.type || undefined });
-            if (uploadError) throw uploadError;
+            const path = await uploadSupportAttachment(user.id, att.file, "teacher");
             const signedUrl = await signedSupportUrl(path);
             const clientId = createSupportClientId("teacher-image-page");
             appendMessage({ id: `local-support-${clientId}`, role: "user", content: text || "أرفقت صورة للمشكلة", imageUrl: signedUrl, createdAt: new Date().toISOString() });
@@ -330,9 +329,7 @@ export default function TeacherAssistantPage() {
       if (!user) return;
       setUploading(true);
       try {
-        const path = supportFilePath(user.id, file.name, "teacher");
-        const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
-        if (uploadError) throw uploadError;
+        const path = await uploadSupportAttachment(user.id, file, "teacher");
         const signedUrl = await signedSupportUrl(path);
         const text = type === "image" ? "أرفقت صورة للمشكلة" : "أرفقت تسجيلًا صوتيًا";
 
