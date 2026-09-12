@@ -78,14 +78,62 @@ export async function appendMessage(conversationId: string, msg: Pick<ModrekMess
   return data as unknown as ModrekMessage;
 }
 
-/** Convert stored messages to Lovable AI Gateway chat format */
-export function toGatewayMessages(messages: ModrekMessage[]) {
-  return messages
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .map((m) => {
-      if (m.parts.length === 1 && m.parts[0].type === "text") {
-        return { role: m.role, content: (m.parts[0] as any).text };
-      }
-      return { role: m.role, content: m.parts };
-    });
+/**
+ * Convert stored messages to Lovable AI Gateway chat format.
+ *
+ * Attachments are persisted as Bunny references (`bstorage://...`) so no file
+ * bytes live in PostgreSQL. The model still needs inline bytes, so references
+ * are rehydrated into data URLs here — only for the most recent messages, to
+ * keep the request small.
+ */
+const REHYDRATE_LAST_MESSAGES = 4;
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function rehydratePart(part: any): Promise<any> {
+  try {
+    const { isBunnyStorageFile, getFileBlob } = await import("@/lib/storage");
+    if (part?.type === "image_url" && isBunnyStorageFile(part.image_url?.url || "")) {
+      const dataUrl = await blobToDataUrl(await getFileBlob(part.image_url.url));
+      return { type: "image_url", image_url: { url: dataUrl } };
+    }
+    if (part?.type === "file" && isBunnyStorageFile(part.file?.file_data || "")) {
+      const dataUrl = await blobToDataUrl(await getFileBlob(part.file.file_data));
+      return { type: "file", file: { filename: part.file.filename, file_data: dataUrl } };
+    }
+  } catch {
+    return { type: "text", text: "[تعذر تحميل المرفق]" };
+  }
+  return part;
+}
+
+function stripAttachment(part: any) {
+  if (part?.type === "image_url") return { type: "text", text: "[صورة مرفقة سابقًا]" };
+  if (part?.type === "file") return { type: "text", text: `[ملف مرفق سابقًا: ${part.file?.filename || "ملف"}]` };
+  return part;
+}
+
+export async function toGatewayMessages(messages: ModrekMessage[]) {
+  const chat = messages.filter((m) => m.role === "user" || m.role === "assistant");
+  const rehydrateFrom = Math.max(0, chat.length - REHYDRATE_LAST_MESSAGES);
+  const out: Array<{ role: string; content: any }> = [];
+  for (let i = 0; i < chat.length; i += 1) {
+    const m = chat[i];
+    if (m.parts.length === 1 && m.parts[0].type === "text") {
+      out.push({ role: m.role, content: (m.parts[0] as any).text });
+      continue;
+    }
+    const parts = i >= rehydrateFrom
+      ? await Promise.all(m.parts.map((p) => rehydratePart(p)))
+      : m.parts.map((p) => stripAttachment(p));
+    out.push({ role: m.role, content: parts });
+  }
+  return out;
 }

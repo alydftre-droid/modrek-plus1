@@ -2393,6 +2393,84 @@ export type Database = {
           },
         ]
       }
+      file_migrations: {
+        Row: {
+          attempts: number
+          bunny_path: string | null
+          bunny_url: string | null
+          byte_size: number | null
+          created_at: string
+          file_name: string | null
+          id: string
+          last_error: string | null
+          migrated_at: string | null
+          mime_type: string | null
+          original_value: string | null
+          owner_id: string | null
+          platform_id: string | null
+          sha256: string | null
+          source_bucket: string | null
+          source_column: string | null
+          source_kind: string
+          source_path: string | null
+          source_row_id: string | null
+          source_row_table: string | null
+          status: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          bunny_path?: string | null
+          bunny_url?: string | null
+          byte_size?: number | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          last_error?: string | null
+          migrated_at?: string | null
+          mime_type?: string | null
+          original_value?: string | null
+          owner_id?: string | null
+          platform_id?: string | null
+          sha256?: string | null
+          source_bucket?: string | null
+          source_column?: string | null
+          source_kind: string
+          source_path?: string | null
+          source_row_id?: string | null
+          source_row_table?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          bunny_path?: string | null
+          bunny_url?: string | null
+          byte_size?: number | null
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          last_error?: string | null
+          migrated_at?: string | null
+          mime_type?: string | null
+          original_value?: string | null
+          owner_id?: string | null
+          platform_id?: string | null
+          sha256?: string | null
+          source_bucket?: string | null
+          source_column?: string | null
+          source_kind?: string
+          source_path?: string | null
+          source_row_id?: string | null
+          source_row_table?: string | null
+          status?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       financial_audit_logs: {
         Row: {
           action: string

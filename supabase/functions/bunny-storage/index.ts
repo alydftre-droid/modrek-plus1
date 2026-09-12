@@ -403,6 +403,48 @@ function isLibraryPathForUser(filePath: string, userId: string): boolean {
   return parts.length >= 3 && parts[1] === userId;
 }
 
+/* ------------------------------------------------------------------ */
+/*  Unified storage namespace (Bunny is the only file store)           */
+/*    modrek/main/...                  admin-managed platform assets   */
+/*    modrek/platforms/{platform_id}/  teacher-platform assets         */
+/*    modrek/courses/{course_id}/      course & content assets         */
+/*    modrek/users/{user_id}/...       owner-scoped files, incl. chat  */
+/* ------------------------------------------------------------------ */
+function isOwnerScopedPath(filePath: string, userId: string): boolean {
+  return filePath.startsWith(`modrek/users/${userId}/`);
+}
+
+function isSharedNamespacePath(filePath: string): boolean {
+  return /^modrek\/(main|platforms|courses)\//.test(filePath);
+}
+
+function isUnifiedNamespacePath(filePath: string): boolean {
+  return isSharedNamespacePath(filePath)
+    || filePath.startsWith("modrek/users/")
+    || filePath.startsWith("modrek/private/");
+}
+
+async function hasStaffRole(sb: ReturnType<typeof createClient>, userId: string) {
+  const { data } = await sb.from("user_roles").select("role").eq("user_id", userId);
+  return Array.isArray(data) && data.some((row: any) => ["admin", "teacher", "support"].includes(row?.role));
+}
+
+async function canWriteStoredFile(
+  sb: ReturnType<typeof createClient>,
+  filePath: string,
+  userId: string,
+  email?: string | null,
+) {
+  if (isOwnerScopedPath(filePath, userId)) return true;
+  if (filePath.startsWith("modrek/users/")) return await hasRole(sb, userId, "admin");
+  if (filePath.startsWith("modrek/private/")) return await canManageModrek(sb, userId, email);
+  if (filePath.startsWith("modrek/main/")) return await canManageModrek(sb, userId, email);
+  if (isSharedNamespacePath(filePath)) return await canManageTeacherContent(sb, userId, email);
+  if (filePath.startsWith("modrek/")) return await canManageModrek(sb, userId, email);
+  if (filePath.startsWith("library/")) return isLibraryPathForUser(filePath, userId);
+  return await canManageTeacherContent(sb, userId, email);
+}
+
 async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: string, userId: string) {
   // Personal library — owner-only, verified via content row link.
   if (filePath.startsWith("library/")) {
@@ -429,6 +471,16 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
       .eq("type", "student_library")
       .limit(1);
     return Array.isArray(data) && data.length > 0;
+  }
+
+  // Unified namespace: shared assets are readable by any authenticated user
+  // (same visibility as before for content/), owner folders stay owner-scoped
+  // with staff (admin/teacher/support) review access for receipts & chats.
+  if (isUnifiedNamespacePath(filePath)) {
+    if (isSharedNamespacePath(filePath)) return true;
+    if (isOwnerScopedPath(filePath, userId)) return true;
+    // Owner folders of other users and modrek/private/** stay staff-only.
+    return await hasStaffRole(sb, userId);
   }
 
   // Modrek library assets — registered in storage_assets with provider='bunny'
@@ -574,14 +626,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Invalid upload session parameters" }, 400);
       }
 
-      let permitted = false;
-      if (filePath.startsWith("modrek/")) {
-        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
-      } else if (filePath.startsWith("library/")) {
-        permitted = isLibraryPathForUser(filePath, userId);
-      } else {
-        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
-      }
+      const permitted = await canWriteStoredFile(userClient, filePath, userId, claims.email as string | undefined);
       if (!permitted) {
         uploadError("session_forbidden", { filePath, userId });
         return jsonResponse({ error: "Upload permission required" }, 403);
@@ -599,15 +644,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
 
-      let permitted = false;
-      if (filePath.startsWith("modrek/")) {
-        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
-      } else if (filePath.startsWith("library/")) {
-        // Student personal library — must upload only under their own uid.
-        permitted = isLibraryPathForUser(filePath, userId);
-      } else {
-        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
-      }
+      const permitted = await canWriteStoredFile(userClient, filePath, userId, claims.email as string | undefined);
       if (!permitted) {
         return jsonResponse({ error: "Upload permission required" }, 403);
       }
@@ -685,14 +722,7 @@ Deno.serve(async (req) => {
       const chunkPath = `${basePath}.parts/${uploadId}/${index.toString().padStart(5, "0")}`;
       const chunkStartedAt = Date.now();
 
-      let permitted = false;
-      if (basePath.startsWith("modrek/")) {
-        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
-      } else if (basePath.startsWith("library/")) {
-        permitted = isLibraryPathForUser(basePath, userId);
-      } else {
-        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
-      }
+      const permitted = await canWriteStoredFile(userClient, basePath, userId, claims.email as string | undefined);
       if (!permitted) return jsonResponse({ error: "Upload permission required" }, 403);
 
       uploadLog("chunk_receive_start", { uploadId, basePath, index, userId });
@@ -736,14 +766,7 @@ Deno.serve(async (req) => {
       const total = parseInt(totalStr, 10);
       if (total < 1 || total > 20000) return jsonResponse({ error: "Invalid chunk count" }, 400);
 
-      let permitted = false;
-      if (filePath.startsWith("modrek/")) {
-        permitted = await canManageModrek(userClient, userId, claims.email as string | undefined);
-      } else if (filePath.startsWith("library/")) {
-        permitted = isLibraryPathForUser(filePath, userId);
-      } else {
-        permitted = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
-      }
+      const permitted = await canWriteStoredFile(userClient, filePath, userId, claims.email as string | undefined);
       if (!permitted) return jsonResponse({ error: "Upload permission required" }, 403);
       uploadLog("finalize_start", { uploadId, filePath, total, expectedSize, userId });
 
@@ -997,14 +1020,7 @@ Deno.serve(async (req) => {
       if (!filePath) {
         return jsonResponse({ error: "Invalid or missing path" }, 400);
       }
-      let canDelete = false;
-      if (filePath.startsWith("modrek/")) {
-        canDelete = await canManageModrek(userClient, userId, claims.email as string | undefined);
-      } else if (filePath.startsWith("library/")) {
-        canDelete = isLibraryPathForUser(filePath, userId);
-      } else {
-        canDelete = await canManageTeacherContent(userClient, userId, claims.email as string | undefined);
-      }
+      const canDelete = await canWriteStoredFile(userClient, filePath, userId, claims.email as string | undefined);
       if (!canDelete) {
         return jsonResponse({ error: "Delete permission required" }, 403);
       }

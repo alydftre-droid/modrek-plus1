@@ -20,6 +20,8 @@ import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
 import { useStudentAiQuota } from "@/hooks/useStudentAiQuota";
 import { AiQuotaBadge } from "./AiQuotaBadge";
 import { AiQuotaLimitDialog } from "./AiQuotaLimitDialog";
+import { supabase } from "@/integrations/supabase/client";
+import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
 
 interface ChatWindowProps {
   assistantType: AssistantType;
@@ -227,18 +229,29 @@ export default function ModrekChatWindow({
       }
       activeConvForError = activeConv;
 
+      // Attachments are stored on Bunny (never as Base64 inside PostgreSQL).
       const parts: any[] = [];
       if (text) parts.push({ type: "text", text });
-      for (const a of attachments) {
-        if (a.kind === "image") parts.push({ type: "image_url", image_url: { url: a.dataUrl } });
-        else parts.push({ type: "file", file: { filename: a.name, file_data: a.dataUrl } });
+      if (attachments.length > 0) {
+        const { uploadDataUrl } = await import("@/lib/storage");
+        const { data: sess } = await supabase.auth.getUser();
+        const ownerId = sess?.user?.id || "unknown";
+        for (const a of attachments) {
+          const stored = await uploadDataUrl(a.dataUrl, {
+            scope: { kind: "chat", id: activeConv.id, userId: ownerId },
+            category: a.kind === "image" ? "images" : "files",
+            fileName: a.name,
+          });
+          if (a.kind === "image") parts.push({ type: "image_url", image_url: { url: stored.url } });
+          else parts.push({ type: "file", file: { filename: a.name, file_data: stored.url } });
+        }
       }
 
       const userMsg = await appendMessage(activeConv.id, { role: "user", parts });
       setMessages((prev) => [...prev, userMsg]);
 
       const history = await listMessages(activeConv.id);
-      const gwMessages = toGatewayMessages(history);
+      const gwMessages = await toGatewayMessages(history);
 
       if (assistantType === "exams") {
         const result = await callExamsAssistant({ messages: gwMessages, conversationContext: activeConv.context_json });
@@ -453,10 +466,20 @@ export default function ModrekChatWindow({
             const text = m.parts.map((p: any) => (p.type === "text" ? p.text : "")).join("");
             const isUser = m.role === "user";
             if (isUser) {
+              const images = m.parts
+                .filter((p: any) => p.type === "image_url" && p.image_url?.url)
+                .map((p: any) => resolveBunnyStorageUrl(p.image_url.url));
               return (
                 <div key={m.id} className="flex justify-start gap-2 animate-fade-in">
                   <div className="max-w-[80%] min-w-0 rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed bg-primary text-primary-foreground">
-                    <p className="whitespace-pre-wrap break-words">{text}</p>
+                    {images.length > 0 && (
+                      <div className="mb-2 grid gap-2">
+                        {images.map((src, i) => (
+                          <img key={i} src={src} alt="مرفق" className="rounded-lg max-h-48 w-auto object-contain bg-white/10" />
+                        ))}
+                      </div>
+                    )}
+                    {text && <p className="whitespace-pre-wrap break-words">{text}</p>}
                   </div>
                 </div>
               );
