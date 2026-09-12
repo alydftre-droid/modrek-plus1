@@ -200,22 +200,21 @@ const AdminSubjectContent = () => {
       }, 200);
 
       // Upload file to storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, selectedFile);
+      const { uploadFile } = await import("@/lib/storage");
+      const stored = await uploadFile({
+        scope: { kind: "main" },
+        category: `content/${bucket}`,
+        file: selectedFile,
+        fileName,
+      });
 
       clearInterval(progressInterval);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
       // Save content metadata
       const { error: insertError } = await supabase.from("content").insert({
         title: uploadForm.title,
         type: uploadType,
-        file_url: urlData.publicUrl,
+        file_url: stored.url,
         subject_id: subjectId,
         description: uploadForm.description || null,
       });

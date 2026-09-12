@@ -1051,23 +1051,17 @@ const ContentTab = () => {
 
       // Upload file to Supabase Storage
       setUploadProgress(20);
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(filePath, selectedFile, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+      const { uploadFile } = await import("@/lib/storage");
+      const stored = await uploadFile({
+        scope: { kind: "main" },
+        category: `content/${bucketName}/${uploadForm.subject_id}`,
+        file: selectedFile,
+        fileName,
+        onProgress: (loaded, total) => setUploadProgress(20 + Math.round((loaded / Math.max(total, 1)) * 60)),
+      });
 
-      if (uploadError) throw uploadError;
-
-      setUploadProgress(70);
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(filePath);
-
-      const fileUrl = urlData.publicUrl;
+      setUploadProgress(80);
+      const fileUrl = stored.url;
 
       // Save content to database
       const { error: dbError } = await supabase.from("content").insert({

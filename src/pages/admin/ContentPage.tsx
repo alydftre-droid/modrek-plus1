@@ -103,21 +103,20 @@ const ContentPage = () => {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       // Upload file
-      const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(fileName, selectedFile);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+      const { uploadFile } = await import("@/lib/storage");
+      const stored = await uploadFile({
+        scope: { kind: "main" },
+        category: `content/${bucket}`,
+        file: selectedFile,
+        fileName,
+      });
 
       // Save to database
       const { error: dbError } = await supabase.from("content").insert({
         title: formData.title,
         description: formData.description || null,
         type: contentType,
-        file_url: urlData.publicUrl,
+        file_url: stored.url,
         subject_id: formData.subjectId,
         duration: contentType === "video" ? formData.duration : null,
         page_count: contentType !== "video" ? parseInt(formData.pageCount) || null : null,
