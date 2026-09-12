@@ -2,6 +2,7 @@
 // using the SAME business logic used at teacher registration/approval time.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +104,10 @@ Deno.serve(async (req) => {
     }
 
     const action = body?.action === "save" ? "save" : "load";
+
+    if (action === "save" && (await isDemoUserId(callerId))) {
+      return json({ error: DEMO_READ_ONLY_CODE, code: DEMO_READ_ONLY_CODE, message: DEMO_READ_ONLY_MESSAGE }, 403);
+    }
 
     if (action === "load") {
       stage = "تحميل الاختيارات الحالية";
