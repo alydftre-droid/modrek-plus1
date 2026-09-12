@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FolderOpen, BookOpen, ChevronLeft, User as UserIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
+import StoredImage from "@/components/common/StoredImage";
 
 interface SubscribedGroup {
   id: string;
@@ -179,8 +180,8 @@ export default function MyCoursesPage() {
                           </div>
                           <div className="flex items-center gap-2 mt-1.5">
                             {group.teacher_avatar ? (
-                              <img
-                                src={group.teacher_avatar}
+                              <StoredImage
+                                source={group.teacher_avatar}
                                 alt={group.teacher_name}
                                 className="h-5 w-5 rounded-full object-cover border border-primary/20 flex-shrink-0"
                                 loading="lazy"
