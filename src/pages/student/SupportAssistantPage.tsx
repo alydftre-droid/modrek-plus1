@@ -40,10 +40,12 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-const quickSuggestions: { label: string; to?: string }[] = [
+const HUMAN_SUPPORT_INTENT = /الدعم\s*البشري|موظف\s*دعم|ممثل\s*(?:خدمة|دعم)|خدمة\s*العملاء|تحدث\s*مع\s*(?:ممثل|موظف|الدعم)|تواصل\s*مع\s*الدعم/i;
+
+const quickSuggestions: { label: string }[] = [
   { label: "كيف أشترك في مادة؟" },
   { label: "أين آخر إيداع لي؟" },
-  { label: "التواصل مع الدعم البشري", to: "/support" },
+  { label: "التواصل مع الدعم البشري" },
   { label: "ما آخر نشاط قمت به؟" },
 ];
 
