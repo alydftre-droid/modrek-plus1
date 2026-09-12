@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { savePdfDocument } from "@/lib/fileDownload";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -317,7 +318,7 @@ export default function AdminTeacherProfileDialog({ teacherId, open, onClose, on
         pdf.addImage(img, "PNG", 0, position, pageW, imgH);
         heightLeft -= pageH;
       }
-      pdf.save(`teacher-${teacher.full_name}-${new Date().toISOString().slice(0,10)}.pdf`);
+      await savePdfDocument(`teacher-${teacher.full_name}-${new Date().toISOString().slice(0,10)}.pdf`, pdf);
       toast.success("تم تصدير الملف");
     } catch (e) {
       toast.error("تعذر تصدير PDF");

@@ -626,7 +626,8 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
   const exportPdf = async () => {
     setExportLoading(true);
     const el = document.createElement("div");
-    el.style.cssText = "position:fixed;top:0;left:-20000px;width:794px;opacity:1;z-index:-1;background:#fff";
+    el.style.cssText = "position:fixed;top:0;left:-20000px;width:794px;opacity:1;z-index:-1;background:#fff;color:#0f172a;color-scheme:light;contain:layout paint style";
+    el.classList.add("light");
     el.dir = "rtl";
     try {
       el.innerHTML = buildStudentReportHtml({ student, walletBalance: wallet, totalDeposited, totalSpent, totalWatchMinutes: watchMin, averageScore: avgScore, deposits, purchases, subscriptions: subs, exams, videos, activities, teacherChoices: teachers });

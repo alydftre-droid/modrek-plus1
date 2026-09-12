@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import ZoomMeetingView from "./ZoomMeetingView";
+import LiveClassroomShell from "./LiveClassroomShell";
 
 /**
  * Modrek Live runs exclusively on the Zoom Meeting SDK.
@@ -13,14 +16,22 @@ interface Props {
 }
 
 export default function LiveProviderGate({ mode, groupId, groupTitle, session, onClose }: Props) {
+  const { user } = useAuth();
+  const [activeSession, setActiveSession] = useState<any>(session ?? null);
   return (
-    <ZoomMeetingView
-      mode={mode}
-      groupId={groupId}
-      groupTitle={groupTitle}
-      sessionId={session?.id}
-      title={session?.title}
-      onClose={onClose}
-    />
+    <>
+      <ZoomMeetingView mode={mode} groupId={groupId} groupTitle={groupTitle} sessionId={session?.id} title={session?.title} onSessionReady={setActiveSession} onClose={onClose} />
+      {activeSession?.id && (
+        <LiveClassroomShell
+          sessionId={activeSession.id}
+          groupId={groupId}
+          title={activeSession.title || session?.title || groupTitle}
+          viewerCount={Number(activeSession.viewer_count || session?.viewer_count || 0)}
+          startedAt={activeSession.started_at || session?.started_at}
+          isTeacher={mode === "host"}
+          userName={String(user?.user_metadata?.full_name || user?.email?.split("@")[0] || "مستخدم")}
+        />
+      )}
+    </>
   );
 }

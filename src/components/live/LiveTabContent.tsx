@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Radio, Eye, Play, Video as VideoIcon, Upload, PenLine } from "lucide-react";
+import { reconcileZoomSession } from "@/lib/zoomMeeting";
 import LiveProviderGate from "./LiveProviderGate";
 import ModrekLiveBoard from "./ModrekLiveBoard";
 import SessionRecordingUpload from "./SessionRecordingUpload";
@@ -73,6 +74,31 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
   useEffect(() => {
     fetchLiveSession();
   }, [groupId]);
+
+  useEffect(() => {
+    if (!liveSession?.id) return;
+    let active = true;
+    const reconcile = async () => {
+      try {
+        const result = await reconcileZoomSession(liveSession.id);
+        if (active && !result.active) {
+          setLiveSession(null);
+          setShowTeacherLive(false);
+          setShowStudentLive(false);
+          setShowBoard(false);
+          setBoardAvailable(false);
+        }
+      } catch {
+        // Realtime remains primary; this only repairs missed Zoom webhooks.
+      }
+    };
+    void reconcile();
+    const timer = window.setInterval(reconcile, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [liveSession?.id]);
 
   useEffect(() => {
     const channel = supabase
