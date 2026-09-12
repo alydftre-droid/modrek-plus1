@@ -428,11 +428,34 @@ jobs:
                   continue  # glEsVersion 2.0 is supported by every Play device
               errors.append(f"Required uses-feature blocks devices: {feature}")
 
-          # 2) No permission may carry maxSdkVersion-based device exclusion surprises
+          # 2) Permissions that imply hardware must be neutralised by an
+          #    explicit uses-feature ... required="false" entry, otherwise Play
+          #    filters devices lacking that hardware.
+          def feature_optional(name):
+              return re.search(
+                  r'<uses-feature[^>]*android:name="%s"[^>]*android:required="false"' % re.escape(name),
+                  xml,
+              ) or re.search(
+                  r'<uses-feature[^>]*android:required="false"[^>]*android:name="%s"' % re.escape(name),
+                  xml,
+              )
+
+          implied = {
+              'CAMERA': 'android.hardware.camera',
+              'RECORD_AUDIO': 'android.hardware.microphone',
+              'ACCESS_FINE_LOCATION': 'android.hardware.location',
+              'READ_PHONE_STATE': 'android.hardware.telephony',
+          }
           for perm in re.findall(r'<uses-permission[^>]*>', xml):
-              for blocked in ('CAMERA', 'RECORD_AUDIO', 'ACCESS_FINE_LOCATION', 'READ_PHONE_STATE'):
-                  if blocked in perm:
-                      errors.append(f"Permission implies an implicit hardware requirement: {perm}")
+              if 'tools:node="remove"' in perm:
+                  continue
+              for blocked, feature in implied.items():
+                  if blocked in perm and not feature_optional(feature):
+                      errors.append(
+                          f"Permission implies an implicit hardware requirement without "
+                          f'<uses-feature android:name="{feature}" android:required="false"/>: {perm}'
+                      )
+
 
           # 3) minSdk / targetSdk sanity
           m = re.search(r'android:minSdkVersion="(\d+)"', xml)
