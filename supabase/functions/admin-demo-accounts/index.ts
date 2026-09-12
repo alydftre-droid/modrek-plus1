@@ -190,21 +190,48 @@ Deno.serve(async (req) => {
       return { account: row, password };
     };
 
+    // Auto-generated demo email: the developer only picks the role.
+    const buildAutoEmail = (role: DemoRole) => {
+      const bytes = new Uint8Array(4);
+      crypto.getRandomValues(bytes);
+      const suffix = Array.from(bytes).map((b) => b.toString(36)).join("").slice(0, 6);
+      return `demo.${role}.${Date.now().toString(36)}${suffix}@modrekplus.demo`;
+    };
+
+    const freeAutoEmail = async (role: DemoRole) => {
+      for (let i = 0; i < 8; i++) {
+        const candidate = buildAutoEmail(role);
+        const { data: taken } = await admin
+          .from("demo_accounts")
+          .select("id")
+          .eq("email", candidate)
+          .maybeSingle();
+        if (!taken) return candidate;
+      }
+      throw new Error("تعذر توليد بريد ديمو فريد، أعد المحاولة");
+    };
+
     switch (action) {
       case "create": {
         const role = String(body.role || "") as DemoRole;
         if (!["admin", "teacher", "student"].includes(role)) {
           return json({ error: "نوع الحساب غير صالح" }, 400);
         }
-        if (!isEmail(body.email)) return json({ error: "البريد الإلكتروني غير صالح" }, 400);
-        const email = String(body.email).trim().toLowerCase();
 
-        const { data: existing } = await admin
-          .from("demo_accounts")
-          .select("id")
-          .eq("email", email)
-          .maybeSingle();
-        if (existing) return json({ error: "يوجد حساب ديمو بنفس البريد" }, 400);
+        // Email is optional: when omitted we generate it automatically.
+        let email: string;
+        if (body.email === undefined || body.email === null || String(body.email).trim() === "") {
+          email = await freeAutoEmail(role);
+        } else {
+          if (!isEmail(body.email)) return json({ error: "البريد الإلكتروني غير صالح" }, 400);
+          email = String(body.email).trim().toLowerCase();
+          const { data: existing } = await admin
+            .from("demo_accounts")
+            .select("id")
+            .eq("email", email)
+            .maybeSingle();
+          if (existing) return json({ error: "يوجد حساب ديمو بنفس البريد" }, 400);
+        }
 
         const result = await createDemoAccount({
           role,
@@ -213,6 +240,7 @@ Deno.serve(async (req) => {
         });
         return json({ ok: true, ...result });
       }
+
 
       case "seed_defaults": {
         const created: any[] = [];
