@@ -50,10 +50,16 @@ const EducationTypeSelection = () => {
   }, [navigate, user]);
 
   const isSecondary = profile?.stage === "secondary" || profile?.grade?.includes("ثانوي");
-  // Both عام and أزهر secondary students need section step
-  const needsSectionStep = (selected === "عام" || selected === "أزهر") && isSecondary;
+  // Second secondary (عام) = نظام البكالوريا: no section choice at all.
+  const isBaccalaureate = isBaccalaureateScope({
+    stage: profile?.stage,
+    grade: profile?.grade,
+    educationType: selected || profile?.education_type,
+  });
+  // Both عام and أزهر secondary students need section step (except البكالوريا)
+  const needsSectionStep = (selected === "عام" || selected === "أزهر") && isSecondary && !isBaccalaureate;
   // Only عام + علمي needs specialty sub-step
-  const needsSpecialtyStep = selected === "عام" && isSecondary;
+  const needsSpecialtyStep = selected === "عام" && isSecondary && !isBaccalaureate;
 
   const handleContinue = async () => {
     if (!selected || !user) return;
@@ -71,7 +77,9 @@ const EducationTypeSelection = () => {
     setSaving(true);
     try {
       const updateData: Partial<EducationProfile> & { education_type: string } = { education_type: selected };
-      if (needsSectionStep) {
+      if (isBaccalaureate && selected === "عام") {
+        updateData.section = BACCALAUREATE_SECTION;
+      } else if (needsSectionStep) {
         if (sectionType === "أدبي") updateData.section = "أدبي";
         else if (sectionType === "علمي" && needsSpecialtyStep && specialty) updateData.section = specialty;
         else if (sectionType === "علمي") updateData.section = "علمي";
