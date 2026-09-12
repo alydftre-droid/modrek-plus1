@@ -16,6 +16,7 @@ import {
   ArrowRight, Plus, Edit, Trash2, Upload, X, Loader2, BarChart3,
   Eye, MousePointerClick, Megaphone, Image as ImageIcon, Settings as SettingsIcon
 } from "lucide-react";
+import StoredImage from "@/components/common/StoredImage";
 
 type LinkType = "none" | "external" | "internal";
 type AdType = "teachers" | "subjects" | "discounts" | "info" | "updates" | "general";
@@ -417,7 +418,7 @@ export default function AdsManagement() {
                   <div className="flex items-center gap-3">
                     <div className="h-14 w-14 rounded-xl overflow-hidden bg-muted shrink-0">
                       {ad.cover_image_url ? (
-                        <img src={ad.cover_image_url} className="h-full w-full object-cover" />
+                        <StoredImage source={ad.cover_image_url} alt={ad.title} className="h-full w-full object-cover" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
                       )}
@@ -532,7 +533,7 @@ export default function AdsManagement() {
                 <Label>صورة الغلاف</Label>
                 <div className="flex items-center gap-2 mt-1">
                   {editorAd.cover_image_url && (
-                    <img src={editorAd.cover_image_url} className="h-20 w-32 object-cover rounded-lg border" />
+                    <StoredImage source={editorAd.cover_image_url} alt="معاينة غلاف الإعلان" className="h-20 w-32 object-cover rounded-lg border" />
                   )}
                   <label className="cursor-pointer">
                     <input type="file" accept="image/*" className="hidden" onChange={onCoverUpload} />
@@ -547,7 +548,7 @@ export default function AdsManagement() {
                 <div className="flex flex-wrap gap-2 mt-1">
                   {editorAd.additional_images.map((src, i) => (
                     <div key={i} className="relative">
-                      <img src={src} className="h-16 w-16 object-cover rounded border" />
+                      <StoredImage source={src} alt="صورة إضافية" className="h-16 w-16 object-cover rounded border" />
                       <button onClick={() => setEditorAd({ ...editorAd, additional_images: editorAd.additional_images.filter((_, idx) => idx !== i) })}
                         className="absolute -top-1 -left-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center">
                         <X className="h-3 w-3" />

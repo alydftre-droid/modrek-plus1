@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, CheckCircle, GraduationCap, Play, Sparkles, Star, Trophy } from "lucide-react";
 import { useState } from "react";
+import StoredImage from "@/components/common/StoredImage";
 import {
   Dialog,
   DialogContent,
@@ -62,7 +63,7 @@ const TeacherProfileCard = ({
         <CardContent className="p-0">
           <div className="relative overflow-hidden">
             <div className="h-32 w-full bg-[linear-gradient(135deg,hsl(var(--teacher-home-hero-from)),hsl(var(--teacher-home-hero-to)))]">
-              {coverImageUrl ? <img src={coverImageUrl} alt={teacherName} className="h-full w-full object-cover" /> : null}
+              {coverImageUrl ? <StoredImage source={coverImageUrl} alt={teacherName} className="h-full w-full object-cover" /> : null}
             </div>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-5">

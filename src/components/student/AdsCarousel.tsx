@@ -7,6 +7,7 @@ import { Sparkles, Tag, Megaphone, GraduationCap, BookOpen, Info, Bell, ArrowLef
 import { useAuth } from "@/hooks/useAuth";
 import { recordAdView, type AdRecord } from "@/hooks/useStudentAds";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
+import StoredImage from "@/components/common/StoredImage";
 
 const TYPE_META: Record<string, { label: string; icon: any; from: string; to: string }> = {
   teachers: { label: "معلم مميز", icon: GraduationCap, from: "from-indigo-600", to: "to-violet-600" },
@@ -95,8 +96,8 @@ export default function AdsCarousel({ ads, showBundlesSlide, onBundlesClick }: P
                 >
                   {/* Background */}
                   {ad.cover_image_url ? (
-                    <img
-                      src={ad.cover_image_url}
+                    <StoredImage
+                      source={ad.cover_image_url}
                       alt={ad.title}
                       loading="lazy"
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
