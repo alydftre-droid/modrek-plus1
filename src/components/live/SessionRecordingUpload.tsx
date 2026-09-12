@@ -33,19 +33,17 @@ export default function SessionRecordingUpload({ sessionId, groupId, sessionTitl
 
     try {
       const ext = file.name.split(".").pop() || "mp4";
-      const path = `${user.id}/${sessionId}_${Date.now()}.${ext}`;
 
       setProgress(30);
-      const { error: uploadError } = await supabase.storage
-        .from("live-recordings")
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
+      const { uploadVideo } = await import("@/lib/storage");
+      const stored = await uploadVideo({
+        scope: { kind: "user", id: user.id },
+        category: "live-recordings",
+        file,
+        fileName: `${sessionId}_${Date.now()}.${ext}`,
+        onProgress: (loaded, total) => setProgress(30 + Math.round((loaded / Math.max(total, 1)) * 40)),
+      });
       setProgress(70);
-
-      const { data: urlData } = supabase.storage
-        .from("live-recordings")
-        .getPublicUrl(path);
 
       const { error: dbError } = await supabase
         .from("live_session_recordings" as any)
@@ -54,7 +52,7 @@ export default function SessionRecordingUpload({ sessionId, groupId, sessionTitl
           group_id: groupId,
           teacher_id: user.id,
           title: title.trim() || `تسجيل حصة`,
-          video_url: urlData.publicUrl,
+          video_url: stored.url,
         });
 
       if (dbError) throw dbError;

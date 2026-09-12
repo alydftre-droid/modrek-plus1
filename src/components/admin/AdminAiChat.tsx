@@ -305,16 +305,17 @@ const AdminAiChat = ({ subjectId, subjectName, stage, grade, section }: AdminAiC
 
     setUploadingSource(true);
     try {
-      const fileName = `${subjectId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("ai-sources").upload(fileName, file);
-      if (uploadError) throw uploadError;
-
-      const { data: publicUrlData } = supabase.storage.from("ai-sources").getPublicUrl(fileName);
+      const { uploadDocument } = await import("@/lib/storage");
+      const stored = await uploadDocument({
+        scope: { kind: "main" },
+        category: `ai-sources/${subjectId}`,
+        file,
+      });
 
       const { error: insertError } = await supabase.from("ai_sources").insert({
         subject_id: subjectId,
         file_name: file.name,
-        file_url: publicUrlData.publicUrl,
+        file_url: stored.url,
         uploaded_by: user?.id,
       });
       if (insertError) throw insertError;
@@ -334,11 +335,8 @@ const AdminAiChat = ({ subjectId, subjectName, stage, grade, section }: AdminAiC
     if (!confirm("هل أنت متأكد من حذف هذا الكتاب؟")) return;
 
     try {
-      const url = new URL(source.file_url);
-      const pathParts = url.pathname.split("/storage/v1/object/public/ai-sources/");
-      if (pathParts[1]) {
-        await supabase.storage.from("ai-sources").remove([decodeURIComponent(pathParts[1])]);
-      }
+      const { deleteFile } = await import("@/lib/storage");
+      await deleteFile(source.file_url).catch(() => false);
 
       const { error } = await supabase.from("ai_sources").delete().eq("id", source.id);
       if (error) throw error;

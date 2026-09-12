@@ -58,6 +58,13 @@ export async function getPrivateFileSignedUrl(
   expiresInSec = 3600,
 ): Promise<string> {
   if (!urlOrPath) return urlOrPath;
+  // New files live on Bunny (`bstorage://...`). Route them through the storage
+  // proxy so every existing viewer keeps working without changes.
+  if (urlOrPath.startsWith("bstorage://") || urlOrPath.includes("b-cdn.net")) {
+    const { resolveBunnyStorageUrl } = await import("@/lib/bunnyStorage");
+    return resolveBunnyStorageUrl(urlOrPath);
+  }
+  if (urlOrPath.startsWith("data:")) return urlOrPath;
   const path = extractStoragePath(bucket, urlOrPath);
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSec);
   if (error || !data?.signedUrl) return urlOrPath;

@@ -88,11 +88,19 @@ export default function StudentTeacherChat({ teacherId, teacherName, teacherPhot
   };
 
   const uploadFile = async (file: Blob, ext: string): Promise<string | null> => {
-    const fileName = `chat/${user!.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("payment-receipts").upload(fileName, file);
-    if (error) { toast.error("خطأ في رفع الملف"); return null; }
-    const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(fileName);
-    return urlData.publicUrl;
+    try {
+      const { uploadFile: uploadToBunny } = await import("@/lib/storage");
+      const stored = await uploadToBunny({
+        scope: { kind: "user", id: user!.id },
+        category: "chat",
+        file,
+        fileName: `${Date.now()}.${ext}`,
+      });
+      return stored.url;
+    } catch {
+      toast.error("خطأ في رفع الملف");
+      return null;
+    }
   };
 
   const sendMessage = async (text: string, fileUrl?: string, fileType?: string) => {

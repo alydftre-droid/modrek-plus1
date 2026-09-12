@@ -103,22 +103,19 @@ const DepositPage = () => {
     try {
       const fileExt = (selectedFile.name.split(".").pop() || "jpg").toLowerCase();
       const safeExt = ["jpg", "jpeg", "png", "webp", "pdf"].includes(fileExt) ? fileExt : "jpg";
-      const fileName = `${user.id}/${Date.now()}.${safeExt}`;
-      const contentType = selectedFile.type || (safeExt === "pdf" ? "application/pdf" : `image/${safeExt}`);
-      const { error: uploadError } = await supabase.storage
-        .from("payment-receipts")
-        .upload(fileName, selectedFile, { upsert: true, contentType, cacheControl: "3600" });
-      if (uploadError) {
-        console.error("[deposit] upload error:", uploadError);
-        throw new Error(uploadError.message || "تعذر رفع صورة التحويل");
-      }
-      const { data: urlData } = supabase.storage.from("payment-receipts").getPublicUrl(fileName);
+      const { uploadFile: uploadToBunny } = await import("@/lib/storage");
+      const stored = await uploadToBunny({
+        scope: { kind: "user", id: user.id },
+        category: "receipts",
+        file: selectedFile,
+        fileName: `${Date.now()}.${safeExt}`,
+      });
 
       const { error: dbError } = await supabase.from("deposit_requests").insert({
         student_id: user.id,
         amount: amountNum,
         phone_number: phoneNumber,
-        receipt_url: urlData.publicUrl,
+        receipt_url: stored.url,
         payment_method: selectedKey,
         status: "pending",
       });

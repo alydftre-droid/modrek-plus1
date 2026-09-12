@@ -46,15 +46,17 @@ const EMPTY_SCOPE: TeacherFormData = {
   teachesIntegratedScience: false,
 };
 
-/** platforms/{platform_id}/branding/<file> — matches the storage RLS path contract. */
+/** modrek/platforms/{platform_id}/branding/<file> on Bunny (tenant-isolated path). */
 async function uploadPlatformLogo(platformId: string, file: File) {
+  const { uploadImage } = await import("@/lib/storage");
   const ext = (file.name.split(".").pop() || "png").toLowerCase();
-  const path = `platforms/${platformId}/branding/logo-${Date.now()}.${ext}`;
-  const { error } = await supabase.storage.from("teacher-profiles").upload(path, file, {
-    upsert: true, contentType: file.type,
+  const stored = await uploadImage({
+    scope: { kind: "platform", id: platformId },
+    category: "branding",
+    file,
+    fileName: `logo-${Date.now()}.${ext}`,
   });
-  if (error) throw error;
-  return supabase.storage.from("teacher-profiles").getPublicUrl(path).data.publicUrl;
+  return stored.url;
 }
 
 

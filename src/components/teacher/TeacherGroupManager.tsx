@@ -199,13 +199,13 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
     try {
       let imageUrl: string | undefined;
       if (editImageFile) {
-        const ext = editImageFile.name.split(".").pop();
-        const path = `${effectiveUserId}/group-images/${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("books").upload(path, editImageFile);
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
-          imageUrl = urlData.publicUrl;
-        }
+        const { uploadImage } = await import("@/lib/storage");
+        const stored = await uploadImage({
+          scope: { kind: "user", id: effectiveUserId },
+          category: "group-images",
+          file: editImageFile,
+        }).catch(() => null);
+        if (stored) imageUrl = stored.url;
       }
 
       const updatePayload: Record<string, unknown> = {
@@ -397,13 +397,13 @@ const TeacherGroupManager = ({ subjectId, sectionName, teacherIdOverride, render
     try {
       let imageUrl: string | null = null;
       if (newImageFile) {
-        const ext = newImageFile.name.split(".").pop();
-        const path = `${effectiveUserId}/group-images/${Date.now()}.${ext}`;
-        const { error: uploadErr } = await supabase.storage.from("books").upload(path, newImageFile);
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage.from("books").getPublicUrl(path);
-          imageUrl = urlData.publicUrl;
-        }
+        const { uploadImage } = await import("@/lib/storage");
+        const stored = await uploadImage({
+          scope: { kind: "user", id: effectiveUserId },
+          category: "group-images",
+          file: newImageFile,
+        }).catch(() => null);
+        if (stored) imageUrl = stored.url;
       }
 
       // Get current term for this subject
