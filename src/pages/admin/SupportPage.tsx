@@ -446,12 +446,7 @@ export default function SupportPage() {
     if (!selectedUserId) return;
     setUploading(true);
     try {
-      const path = supportFilePath(selectedUserId, file.name);
-      const { error: uploadError } = await supabase.storage.from(SUPPORT_BUCKET).upload(path, file, {
-        upsert: false,
-        contentType: file.type || undefined,
-      });
-      if (uploadError) throw uploadError;
+      const path = await uploadSupportFile(selectedUserId, file);
       const text = newMessage.trim() || "📷 صورة من الدعم";
       supportTrace("admin:send:image", { selectedUserId, isTeacher: !!selectedConversation?.is_teacher, path });
       const savedRow = await insertSupportMessage({
@@ -479,11 +474,7 @@ export default function SupportPage() {
     if (!selectedUserId) return;
     setUploading(true);
     try {
-      const path = supportFilePath(selectedUserId, file.name);
-      const { error: upErr } = await supabase.storage
-        .from(SUPPORT_BUCKET)
-        .upload(path, file, { upsert: false, contentType: file.type || "audio/webm" });
-      if (upErr) throw upErr;
+      const path = await uploadSupportFile(selectedUserId, file);
       supportTrace("admin:send:audio", { selectedUserId, isTeacher: !!selectedConversation?.is_teacher, path });
       const savedRow = await insertSupportMessage({
         user_id: selectedUserId,
