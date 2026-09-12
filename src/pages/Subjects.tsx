@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import NotificationsDropdown from "@/components/student/NotificationsDropdown";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { formatSectionLabel, normalizeSectionForSubjects } from "@/lib/educationSection";
+import { formatSectionLabelForScope, normalizeSectionForSubjects } from "@/lib/educationSection";
 import { getPostSignOutPath } from "@/lib/devImpersonation";
 import {
   BookOpen,
@@ -141,7 +141,7 @@ const Subjects = () => {
     );
   }
 
-  const subtitle = `${stageLabel(stage)} - ${gradeLabel(grade)}${section ? ` - ${sectionLabel(section)}` : ""}`;
+  const subtitle = `${stageLabel(stage)} - ${gradeLabel(grade)}${section ? ` - ${sectionLabel(section, stage, grade)}` : ""}`;
 
   return (
     <div className="mobile-app-page bg-gradient-to-br from-background via-background to-accent/20">
