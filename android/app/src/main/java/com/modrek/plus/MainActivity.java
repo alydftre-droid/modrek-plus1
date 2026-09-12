@@ -23,6 +23,8 @@ public class MainActivity extends BridgeActivity {
         // تسجيل الإضافات الأصلية يدوياً قبل super لضمان ثبات نسخة Android حتى لو لم يتولد ملف capacitor.plugins.json.
         registerPlugin(AppPlugin.class);
         registerPlugin(BrowserPlugin.class);
+        registerPlugin(FilesystemPlugin.class);
+        registerPlugin(SharePlugin.class);
         registerPlugin(HapticsPlugin.class);
         registerPlugin(KeyboardPlugin.class);
         registerPlugin(LocalNotificationsPlugin.class);
