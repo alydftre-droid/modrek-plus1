@@ -340,22 +340,18 @@ const SubjectAiChat = () => {
 
       setUploadingSource(true);
       try {
-        const fileName = `${Date.now()}_${file.name}`;
-        const filePath = `${subjectId}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage.from("ai-sources").upload(filePath, file);
-
-        if (uploadError) throw uploadError;
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("ai-sources").getPublicUrl(filePath);
+        const { uploadDocument } = await import("@/lib/storage");
+        const stored = await uploadDocument({
+          scope: { kind: "main" },
+          category: `ai-sources/${subjectId}`,
+          file,
+        });
 
         const { error: dbError } = await supabase.from("ai_sources").insert({
           subject_id: subjectId,
           uploaded_by: user?.id,
           file_name: file.name,
-          file_url: publicUrl,
+          file_url: stored.url,
         });
 
         if (dbError) throw dbError;
