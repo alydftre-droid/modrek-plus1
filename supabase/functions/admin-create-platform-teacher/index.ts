@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,6 +23,10 @@ interface Body {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   const traceId = req.headers.get("x-trace-id") || crypto.randomUUID();
   const fail = (error: string, status: number, stage: string, details?: string) => {
     console.error(JSON.stringify({ function: "admin-create-platform-teacher", trace_id: traceId, stage, status, error, details }));

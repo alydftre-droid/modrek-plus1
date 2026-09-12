@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const FUNCTION_VERSION = "teacher-intro-media-v2-2026-07-31";
 const INTRO_PATH = /^content\/teacher-intros?\/[0-9a-f-]{36}\/intro-[a-zA-Z0-9._-]+$/i;
@@ -56,6 +57,10 @@ function contentType(path: string) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: responseHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   const traceId = crypto.randomUUID();
   if (req.method !== "GET") return diagnostic("Method not allowed", "METHOD_NOT_ALLOWED", 405, traceId);

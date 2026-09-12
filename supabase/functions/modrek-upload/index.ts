@@ -4,6 +4,7 @@
 // dedup, links the asset to the version, and enqueues the detect stage.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,6 +21,10 @@ const BUCKET_LABEL = `bunny:${BUNNY_ZONE || "modrek"}`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   try {
     const claims = await getJwtClaimsFromAuthHeader(req.headers.get("Authorization"));

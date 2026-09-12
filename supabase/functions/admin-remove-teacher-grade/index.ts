@@ -1,6 +1,7 @@
 // Developer-only: atomically remove a grade workspace and all related teacher data.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 // Keep these explicit: the package's `/cors` subpath is not exported in every
 // Edge runtime and caused this function to fail during boot before OPTIONS ran.
@@ -111,6 +112,10 @@ async function deleteGradeWorkspaceDirect(admin: ReturnType<typeof createClient>
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   const traceId = req.headers.get("x-trace-id") || crypto.randomUUID();
   let stage = "بدء خدمة حذف الصف";

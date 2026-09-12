@@ -12,6 +12,7 @@ import { sanitizeAiRequestBody } from '../_shared/promptGuard.ts';
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { callGeminiWithFallback, resolveGeminiApiKey } from "../_shared/aiSettings.ts";
 import { enforceStudentAiQuota, studentAiQuotaResponse } from "../_shared/studentAiQuota.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,6 +69,10 @@ interface ReasonRequest {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   const started = Date.now();
   try {
     // SECURITY: require a verified Supabase user. Prevents unauthenticated

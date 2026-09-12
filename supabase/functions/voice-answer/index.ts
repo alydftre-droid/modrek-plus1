@@ -31,6 +31,7 @@ import {
   preprocessSpeechForTeacher,
 } from "../_shared/openrouter.ts";
 import { getActiveAiApiKey } from "../_shared/aiProvider.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -103,6 +104,10 @@ async function uploadToBunny(pathInZone: string, bytes: Uint8Array, contentType:
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method !== "POST") return jsonError(405, "Method not allowed");
 
   const authHeader = req.headers.get("Authorization");

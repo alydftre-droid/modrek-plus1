@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { loadAiSettings, callGeminiWithFallback, detectAiFailureKind, fallbackAssistantResponse, buildAiSuccessPayload, resolveGeminiApiKey, sanitizeForbiddenPlatformNames } from "../_shared/aiSettings.ts";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,6 +41,10 @@ async function getNonTestStudentIdSet(sb: any, ids: string[]) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   try {
     const authHeader = req.headers.get("Authorization");

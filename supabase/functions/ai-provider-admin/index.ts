@@ -9,6 +9,7 @@
 // public.ai_gateway_providers + its API key secret. No code change here.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -105,6 +106,10 @@ async function testProvider(baseUrl: string, apiKey: string, model?: string, pro
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   try {
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
     if (!token) return json({ error: "unauthorized" }, 401);

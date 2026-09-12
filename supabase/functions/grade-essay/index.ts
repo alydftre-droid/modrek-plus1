@@ -24,6 +24,7 @@ import {
   classifyCase,
   type FeedbackItem,
 } from "../_shared/feedbackEngine.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -170,6 +171,10 @@ function pickOption(options: any[], id: string | null | undefined) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   try {
     const { attemptId } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

@@ -15,6 +15,7 @@ import {
   MODREK_ASSISTANT_SCOPE_RULES,
 } from "../_shared/modrekLibraryRag.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1206,6 +1207,10 @@ async function retrieveStudyContext(admin: any, subjectId: string, query: string
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   const traceId = crypto.randomUUID();
   const diagnostics: ExamDiagnostics = {
     currentStep: "START",
