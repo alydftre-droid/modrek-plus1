@@ -289,24 +289,36 @@ function injectZoomUiFix() {
   style.id = ZOOM_UI_FIX_STYLE_ID;
   style.textContent = `
     #zmmtg-root { direction: ltr !important; }
-    #zmmtg-root .zm-dropdown-menu,
-    #zmmtg-root .dropdown-menu,
-    #zmmtg-root [class*="pop-menu"],
-    #zmmtg-root [class*="popover"],
-    #zmmtg-root [class*="tooltip"] {
-      z-index: 100000 !important;
-      display: block;
+    /* Zoom renders the "More" menu and its tool pop-ups into document.body,
+       OUTSIDE #zmmtg-root. Scoping the fix to the root left them stacked
+       behind the SDK root (z-index 9999), so the button looked dead.
+       These rules are intentionally global. */
+    .zm-dropdown-menu,
+    .dropdown-menu,
+    [class*="pop-menu"],
+    [class*="popover"],
+    [class*="zm-tooltip"],
+    [class*="more-button__pop-menu"],
+    [class*="footer-button__pop-menu"],
+    [id*="pop-menu"] {
+      z-index: 2147483000 !important;
       pointer-events: auto !important;
       max-height: 70vh;
       overflow-y: auto;
+      direction: ltr;
     }
-    #zmmtg-root .zm-dropdown-menu[aria-hidden="true"],
-    #zmmtg-root .dropdown-menu:not(.show):not([style*="display: block"]) { display: none; }
     .zm-modal, .zmu-modal, .ReactModalPortal, .zm-new-modal, [class*="zm-modal"] {
-      z-index: 100001 !important;
+      z-index: 2147483001 !important;
     }
-    #zmmtg-root .footer-button__button, #zmmtg-root .footer-button-base__button {
+    /* Keep pop-ups from being clipped by Zoom's own footer containers. */
+    #zmmtg-root .footer, #zmmtg-root [class*="footer__"], #zmmtg-root [class*="footer-button"] {
+      overflow: visible !important;
+    }
+    #zmmtg-root .footer-button__button,
+    #zmmtg-root .footer-button-base__button,
+    #zmmtg-root [class*="more-button"] {
       pointer-events: auto !important;
+      touch-action: manipulation;
     }
   `;
   document.head.appendChild(style);
