@@ -179,8 +179,8 @@ export default function MyCoursesPage() {
                           </div>
                           <div className="flex items-center gap-2 mt-1.5">
                             {group.teacher_avatar ? (
-                              <img
-                                src={group.teacher_avatar}
+                              <StoredImage
+                                source={group.teacher_avatar}
                                 alt={group.teacher_name}
                                 className="h-5 w-5 rounded-full object-cover border border-primary/20 flex-shrink-0"
                                 loading="lazy"
