@@ -58,8 +58,8 @@ function gradeLabel(grade: string) {
   return "";
 }
 
-function sectionLabel(section: string) {
-  return formatSectionLabel(section);
+function sectionLabel(section: string, stage: string, grade: string) {
+  return formatSectionLabelForScope(section, { stage, grade });
 }
 
 const Subjects = () => {
