@@ -176,12 +176,13 @@ export default function AdsManagement() {
   const uploadFile = async (file: File, prefix: string): Promise<string | null> => {
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${prefix}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("ads-media").upload(path, file, { upsert: false });
-      if (error) throw error;
-      const { data } = supabase.storage.from("ads-media").getPublicUrl(path);
-      return data.publicUrl;
+      const { uploadFile: uploadToBunny } = await import("@/lib/storage");
+      const stored = await uploadToBunny({
+        scope: { kind: "main" },
+        category: `ads/${prefix}`,
+        file,
+      });
+      return stored.url;
     } catch (e: any) {
       toast({ title: "خطأ في الرفع", description: e.message, variant: "destructive" });
       return null;

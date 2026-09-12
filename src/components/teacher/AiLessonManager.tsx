@@ -154,14 +154,15 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     if (file.type !== "application/pdf") return toast.error("ارفع ملف PDF فقط");
 
     try {
-      const path = `${userId}/ai-lessons/${subjectId}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("books").upload(path, file, { upsert: false });
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from("books").getPublicUrl(path);
+      const { uploadDocument } = await import("@/lib/storage");
+      const stored = await uploadDocument({
+        scope: { kind: "user", id: userId },
+        category: `ai-lessons/${subjectId}`,
+        file,
+      });
       const { error: dbError } = await supabase
         .from("ai_lessons")
-        .update({ source_pdf_url: data.publicUrl })
+        .update({ source_pdf_url: stored.url })
         .eq("id", selectedLessonId)
         .eq("created_by", userId);
 
@@ -178,11 +179,12 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
     if (!selectedLessonId) return toast.error("اختر درساً أولاً");
     if (!file.type.startsWith("image/")) return toast.error("ارفع صورة فقط");
 
-    const path = `${subjectId}/${selectedLessonId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("ai-lesson-pages").upload(path, file, { upsert: false });
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage.from("ai-lesson-pages").getPublicUrl(path);
+    const { uploadImage } = await import("@/lib/storage");
+    const stored = await uploadImage({
+      scope: { kind: "user", id: userId },
+      category: `lesson-pages/${subjectId}/${selectedLessonId}`,
+      file,
+    });
     const pageNumber = overridePageNumber ?? (Number(newPageNumber) > 0 ? Number(newPageNumber) : pages.length + 1);
 
     const { error: insertError } = await supabase.from("ai_lesson_pages").insert({
@@ -190,7 +192,7 @@ export default function AiLessonManager({ subjectId, groupId, subSubjectId, subS
       page_number: pageNumber,
       title: newPageTitle.trim() || null,
       notes: newPageNotes.trim() || null,
-      image_url: data.publicUrl,
+      image_url: stored.url,
       created_by: userId,
     });
 
