@@ -109,6 +109,11 @@ export default function StudentProfilePage() {
   }
 
   const initials = profile?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
+  const sectionLabel = formatSectionLabelForScope(profile?.section, {
+    stage: profile?.stage,
+    grade: profile?.grade,
+    educationType: profile?.education_type,
+  });
   const nameParts = (profile?.full_name || "").split(" ");
   const firstName = nameParts[0] || "";
   const lastName = nameParts.slice(1).join(" ") || "";
