@@ -49,6 +49,8 @@ export default function ZoomMeetingView({
   const joinedRef = useRef(false);
   const cancelledRef = useRef(false);
   const startingRef = useRef(false);
+  const retriedRef = useRef(false);
+
 
   useEffect(() => {
     cancelledRef.current = false;
