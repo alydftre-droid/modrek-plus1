@@ -95,7 +95,7 @@ async function main() {
     ["ROLE escalation update", `update public.user_roles set role = 'admin' where user_id = '${demoId}'`],
     ["is_demo tampering", `update public.profiles set is_demo = false where id = '${demoId}'`],
     ["UPSERT subscription", "insert into public.subscriptions(id) values (gen_random_uuid())"],
-    ["UPDATE subscription", "update public.subscriptions set status = 'active'"],
+    ["UPDATE subscription", "update public.subscriptions set is_active = true"],
     ["DELETE subscription", "delete from public.subscriptions"],
     ["INSERT payment/deposit", "insert into public.deposit_requests(id) values (gen_random_uuid())"],
     ["UPDATE wallet balance", "update public.wallets set balance = balance + 1000"],
@@ -114,7 +114,7 @@ async function main() {
     ["UPDATE prices", "update public.subject_default_prices set price = 0"],
     ["INSERT storage asset", "insert into public.storage_assets(id) values (gen_random_uuid())"],
     ["INSERT ai conversation", "insert into public.modrek_ai_conversations(id) values (gen_random_uuid())"],
-    ["UPDATE ai quota", "update public.ai_daily_usage set used = 0"],
+    ["UPDATE ai quota", "update public.ai_daily_usage set question_count = 0"],
     ["TRUNCATE profiles", "truncate public.profiles"],
   ];
   for (const [name, sql] of writes) {
