@@ -7,6 +7,8 @@ import StudentLayout from "@/components/student/StudentLayout";
 import AdsCarousel from "@/components/student/AdsCarousel";
 import { useStudentAds } from "@/hooks/useStudentAds";
 import {
+  BACCALAUREATE_SECTION,
+  isBaccalaureateScope,
   isLiteraryTrack,
   isMathSpecialty,
   isScienceSpecialty,
