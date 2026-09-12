@@ -136,7 +136,7 @@ async function insertEventRow(event: ZoomEvent, dedupeKey: string): Promise<"ins
   return "error";
 }
 
-async function patchSessionStatus(meetingId: string, patch: Record<string, unknown>) {
+async function patchSessionStatus(meetingId: string, patch: Record<string, unknown>): Promise<boolean> {
   const url = `${Deno.env.get("SUPABASE_URL")}/rest/v1/live_sessions?zoom_meeting_id=eq.${encodeURIComponent(meetingId)}&status=in.(starting,live,ending)`;
   const res = await fetch(url, {
     method: "PATCH",
@@ -145,7 +145,9 @@ async function patchSessionStatus(meetingId: string, patch: Record<string, unkno
   });
   if (!res.ok) {
     console.error("[zoom-webhook] session_patch_failed", res.status, (await res.text()).slice(0, 200));
+    return false;
   }
+  return true;
 }
 
 async function restGet(path: string): Promise<any[]> {
@@ -171,7 +173,7 @@ async function restPatch(path: string, patch: Record<string, unknown>) {
 /** Most recent Modrek session for a Zoom meeting id (any status). */
 async function findSession(meetingId: string) {
   const rows = await restGet(
-    `live_sessions?zoom_meeting_id=eq.${encodeURIComponent(meetingId)}&select=id,started_at&order=started_at.desc&limit=1`,
+    `live_sessions?zoom_meeting_id=eq.${encodeURIComponent(meetingId)}&select=id,group_id,started_at&order=started_at.desc&limit=1`,
   );
   return rows[0] ?? null;
 }
@@ -232,6 +234,17 @@ async function finalizeAttendance(meetingId: string) {
   await restPatch(`live_attendance?live_session_id=eq.${session.id}&left_at=is.null`, {
     left_at: new Date().toISOString(),
     status: "left",
+    updated_at: new Date().toISOString(),
+  });
+}
+
+/** The explanation board belongs to the live class and must never stay open
+ * after Zoom has ended, otherwise students keep seeing a stale board card. */
+async function closeLiveBoard(meetingId: string) {
+  const session = await findSession(meetingId);
+  if (!session?.group_id) return;
+  await restPatch(`live_boards?group_id=eq.${session.group_id}`, {
+    is_open: false,
     updated_at: new Date().toISOString(),
   });
 }
@@ -301,20 +314,23 @@ Deno.serve(async (req) => {
     const now = new Date().toISOString();
 
     let attendance: string | null = null;
-    if (result === "inserted" && meetingId) {
-      if (event.event === "meeting.started") {
-        await patchSessionStatus(meetingId, { status: "live", updated_at: now });
-      } else if (event.event === "meeting.ended") {
-        await patchSessionStatus(meetingId, {
+    if (meetingId && event.event === "meeting.started") {
+      // Status patches are intentionally repeated for duplicate deliveries.
+      // The event insert is only an audit dedupe marker, not proof that the
+      // business update succeeded on the previous attempt.
+      const patched = await patchSessionStatus(meetingId, { status: "live", updated_at: now });
+      if (!patched) return json({ ok: false, error: "session_patch_failed" }, 500);
+    } else if (meetingId && event.event === "meeting.ended") {
+      const patched = await patchSessionStatus(meetingId, {
           status: "ended",
           ended_at: now,
           viewer_count: 0,
           updated_at: now,
-        });
-        await finalizeAttendance(meetingId);
-      } else {
-        attendance = await applyParticipantEvent(event, meetingId);
-      }
+      });
+      if (!patched) return json({ ok: false, error: "session_patch_failed" }, 500);
+      await Promise.all([finalizeAttendance(meetingId), closeLiveBoard(meetingId)]);
+    } else if (result === "inserted" && meetingId) {
+      attendance = await applyParticipantEvent(event, meetingId);
     }
 
 
@@ -332,7 +348,7 @@ Deno.serve(async (req) => {
       event: event.event ?? null,
       message: error instanceof Error ? error.message : String(error),
     });
-    // Acknowledge so Zoom does not disable the subscription for our internal issue.
-    return json({ ok: true, deferred: true });
+    // A non-2xx response asks Zoom to retry transient processing failures.
+    return json({ ok: false, deferred: true }, 500);
   }
 });

@@ -313,6 +313,44 @@ async function endHostLiveMeetings(token: string, hostId: string, keepMeetingId?
   }
 }
 
+async function closeModrekSession(supabase: any, session: { id: string; group_id?: string | null }) {
+  const now = new Date().toISOString();
+  const tasks: PromiseLike<unknown>[] = [
+    supabase
+      .from("live_sessions")
+      .update({ status: "ended", ended_at: now, viewer_count: 0, updated_at: now })
+      .eq("id", session.id),
+    supabase
+      .from("live_attendance")
+      .update({ left_at: now, status: "left", updated_at: now })
+      .eq("live_session_id", session.id)
+      .is("left_at", null),
+  ];
+  if (session.group_id) {
+    tasks.push(
+      supabase
+        .from("live_boards")
+        .update({ is_open: false, updated_at: now })
+        .eq("group_id", session.group_id),
+    );
+  }
+  await Promise.all(tasks);
+}
+
+/** Returns null when Zoom could not be checked, otherwise whether this exact
+ * meeting is currently listed as live for the configured host. */
+async function isMeetingCurrentlyLive(token: string, hostId: string, meetingId: string): Promise<boolean | null> {
+  const response = await zoomApi(
+    token,
+    `/users/${encodeURIComponent(hostId)}/meetings?type=live&page_size=30`,
+    {},
+    "meeting_lookup",
+  );
+  if (!response.ok) return null;
+  const meetings: any[] = Array.isArray(response.json?.meetings) ? response.json.meetings : [];
+  return meetings.some((meeting) => String(meeting?.id ?? "") === meetingId);
+}
+
 
 // --------------------------------------------------------------- user context
 async function getUserContext(supabase: any, userId: string) {
@@ -352,8 +390,9 @@ Deno.serve(async (req) => {
 
     // Demo accounts may inspect capabilities/diagnostics but never create,
     // join, leave or end a live session (all of those write attendance rows).
+    const isDemo = await isDemoUserId(user.id);
     const LIVE_WRITE_ACTIONS = new Set(["start", "join", "leave", "end"]);
-    if (LIVE_WRITE_ACTIONS.has(action) && (await isDemoUserId(user.id))) {
+    if (LIVE_WRITE_ACTIONS.has(action) && isDemo) {
       return fail(DEMO_READ_ONLY_CODE, 403, DEMO_READ_ONLY_MESSAGE);
     }
 
@@ -368,6 +407,55 @@ Deno.serve(async (req) => {
     }
 
     const ctx = await getUserContext(supabase, user.id);
+
+    // --------------------------------------------------------------- status
+    // Lightweight reconciliation used while a live card is visible. It repairs
+    // a missed Zoom webhook without polling the database aggressively.
+    if (action === "status") {
+      const sessionId = String(body.sessionId || "");
+      if (!sessionId) return fail("invalid_payload", 400);
+      const { data: session } = await supabase
+        .from("live_sessions")
+        .select("id,group_id,teacher_id,status,provider,zoom_meeting_id,started_at")
+        .eq("id", sessionId)
+        .maybeSingle();
+      if (!session) return fail("session_not_found", 404);
+
+      const isOwner = session.teacher_id === user.id;
+      if (!isOwner && !ctx.isAdmin) {
+        const { data: purchase } = await supabase
+          .from("student_group_purchases")
+          .select("id")
+          .eq("group_id", session.group_id)
+          .eq("student_id", user.id)
+          .maybeSingle();
+        if (!purchase) return fail("student_not_subscribed", 403);
+      }
+
+      if (session.status !== "live" || session.provider !== "zoom" || !session.zoom_meeting_id) {
+        return ok({ status: session.status, active: session.status === "live" });
+      }
+
+      // Give the host enough time to approve permissions and complete SDK join.
+      const ageMs = Date.now() - new Date(session.started_at).getTime();
+      if (!isDemo && ageMs >= 5 * 60 * 1000) {
+        const cfg = zoomConfig();
+        if (cfg) {
+          try {
+            const token = await zoomAccessToken(cfg);
+            const host = await resolveZoomHost(token, cfg.accountId);
+            const active = await isMeetingCurrentlyLive(token, host.id, String(session.zoom_meeting_id));
+            if (active === false) {
+              await closeModrekSession(supabase, session);
+              return ok({ status: "ended", active: false, reconciled: true });
+            }
+          } catch (error) {
+            console.error("[zoom-live] status_reconcile_failed", String(error));
+          }
+        }
+      }
+      return ok({ status: "live", active: true });
+    }
 
     // Real Zoom connectivity check (admins only): proves the Server-to-Server
     // OAuth app works and reports which granted scopes are still missing.
@@ -501,10 +589,7 @@ Deno.serve(async (req) => {
       if (existing) {
         // Never reuse a stale meeting created for another Zoom host. A ZAK is
         // user-bound; combining it with that meeting produces Zoom's "Token error".
-        await supabase
-          .from("live_sessions")
-          .update({ status: "ended", ended_at: new Date().toISOString(), viewer_count: 0, updated_at: new Date().toISOString() })
-          .eq("id", existing.id);
+        await closeModrekSession(supabase, existing);
       }
 
       // Clear anything still running on the Zoom host so the new meeting can
@@ -831,7 +916,7 @@ Deno.serve(async (req) => {
 
       const { data: session } = await supabase
         .from("live_sessions")
-        .select("id, teacher_id, provider, zoom_meeting_id, status")
+        .select("id, group_id, teacher_id, provider, zoom_meeting_id, status")
         .eq("id", sessionId)
         .maybeSingle();
 
@@ -853,15 +938,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      await supabase
-        .from("live_sessions")
-        .update({
-          status: "ended",
-          ended_at: new Date().toISOString(),
-          viewer_count: 0,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", sessionId);
+      await closeModrekSession(supabase, session);
 
       return ok({ success: true });
     }

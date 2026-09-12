@@ -86,6 +86,10 @@ export function endZoomSession(sessionId: string) {
   return callZoomLive({ action: "end", sessionId });
 }
 
+export function reconcileZoomSession(sessionId: string): Promise<{ status: string; active: boolean }> {
+  return callZoomLive({ action: "status", sessionId });
+}
+
 // ------------------------------------------------------------------ SDK loader
 let sdkPromise: Promise<any> | null = null;
 
@@ -253,6 +257,21 @@ const ZOOM_AR_LABELS: Record<string, string> = {
   Retry: "إعادة المحاولة",
   OK: "حسنًا",
   "Send Report": "إرسال تقرير",
+  "Raise Hand": "رفع اليد",
+  Reactions: "التفاعلات",
+  Apps: "التطبيقات",
+  "Meeting Info": "معلومات الحصة",
+  "Meeting settings": "إعدادات الحصة",
+  "Security": "الأمان",
+  "Invite": "دعوة",
+  "Close": "إغلاق",
+  "Send": "إرسال",
+  "Everyone": "الجميع",
+  "Host": "المعلم",
+  "Lower Hand": "خفض اليد",
+  "Ask to Unmute": "طلب فتح الميكروفون",
+  "Mute All": "كتم الجميع",
+  "Unmute All": "فتح صوت الجميع",
   "Privacy & Legal Policies": "سياسة الخصوصية والشروط",
 };
 
@@ -300,12 +319,15 @@ function injectZoomUiFix() {
     [class*="zm-tooltip"],
     [class*="more-button__pop-menu"],
     [class*="footer-button__pop-menu"],
-    [id*="pop-menu"] {
+    [id*="pop-menu"],
+    [role="menu"],
+    [role="listbox"] {
       z-index: 2147483000 !important;
       pointer-events: auto !important;
       max-height: 70vh;
       overflow-y: auto;
       direction: ltr;
+      visibility: visible !important;
     }
     .zm-modal, .zmu-modal, .ReactModalPortal, .zm-new-modal, [class*="zm-modal"] {
       z-index: 2147483001 !important;
@@ -319,6 +341,14 @@ function injectZoomUiFix() {
     #zmmtg-root [class*="more-button"] {
       pointer-events: auto !important;
       touch-action: manipulation;
+    }
+    #zmmtg-root .footer {
+      z-index: 10002 !important;
+    }
+    @media (max-width: 767px) {
+      .zm-dropdown-menu, .dropdown-menu, [role="menu"], [class*="pop-menu"] {
+        max-width: calc(100vw - 16px) !important;
+      }
     }
   `;
   document.head.appendChild(style);
@@ -339,7 +369,8 @@ export function startZoomArabicLocalization() {
       if (record.type === "characterData" && record.target) translateNode(record.target);
     }
   });
-  arObserver.observe(root, { childList: true, subtree: true, characterData: true });
+  // Zoom portals its More menu and dialogs directly under body, outside root.
+  arObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
 export function stopZoomArabicLocalization() {
