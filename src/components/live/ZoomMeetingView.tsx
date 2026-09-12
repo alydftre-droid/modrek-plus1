@@ -235,8 +235,20 @@ export default function ZoomMeetingView({
         if (cancelledRef.current) return;
         setZoomRootVisible(false);
         const code = error instanceof ZoomLiveError ? error.code : "unknown";
+        // Zoom 3000 = "already has other meetings in progress": a previous
+        // browser session of this same meeting has not been released yet.
+        // The server reuses/clears it, so one silent retry restores the class.
+        if (/_3000$/.test(code) && !retriedRef.current) {
+          retriedRef.current = true;
+          startingRef.current = false;
+          setStatus("preparing");
+          await new Promise((resolve) => setTimeout(resolve, 2500));
+          if (cancelledRef.current) return;
+          return await beginMeeting();
+        }
         setErrorCode(code);
         setDiagnostic(error instanceof ZoomLiveError ? error.diagnostic || null : null);
+
         setErrorText(
           code === "zoom_credentials_missing"
             ? "لم يتم ضبط بيانات ربط Zoom بعد على الخادم. تواصل مع الدعم لتفعيل البث المباشر."
