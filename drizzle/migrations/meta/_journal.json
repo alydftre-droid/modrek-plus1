@@ -225,6 +225,13 @@
       "when": 1789172850559,
       "tag": "0031_file_migrations_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789186633986,
+      "tag": "0032_demo_read_only_boundary",
+      "breakpoints": true
     }
   ]
 }

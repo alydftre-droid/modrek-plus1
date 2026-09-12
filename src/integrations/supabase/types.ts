@@ -8172,6 +8172,7 @@ export type Database = {
       archive_all_teachers_period: { Args: never; Returns: Json }
       archive_teacher_period: { Args: { _teacher_id: string }; Returns: Json }
       assert_admin_caller: { Args: never; Returns: undefined }
+      assert_not_demo: { Args: never; Returns: undefined }
       audit_test_student_visibility: {
         Args: never
         Returns: {
@@ -8337,6 +8338,7 @@ export type Database = {
       }
       current_auth_session_id: { Args: never; Returns: string }
       current_request_tenant_id: { Args: never; Returns: string }
+      current_user_is_demo: { Args: never; Returns: boolean }
       debug_student_group_exam_visibility: {
         Args: { _group_id: string; _sub_subject_id?: string }
         Returns: {
