@@ -337,7 +337,14 @@ const Dashboard = () => {
   const isSecondaryOnboarding = selectedStage === "secondary";
   const isGeneralSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "عام";
   const isAzharSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "أزهر";
-  const showSectionStep = isSecondaryOnboarding && !(isGeneralSecondaryOnboarding && selectedGrade === "first");
+  const isBaccalaureateOnboarding = isBaccalaureateScope({
+    stage: selectedStage,
+    grade: selectedGrade,
+    educationType: profileData?.education_type,
+  });
+  const showSectionStep = isSecondaryOnboarding
+    && !isBaccalaureateOnboarding
+    && !(isGeneralSecondaryOnboarding && selectedGrade === "first");
   // Specialty step: ONLY general 3rd secondary scientific.
   const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedGrade === "third" && selectedSection === "scientific";
 
