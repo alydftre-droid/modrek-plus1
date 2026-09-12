@@ -40,6 +40,7 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
   const [showUpload, setShowUpload] = useState(false);
   const [lastEndedSession, setLastEndedSession] = useState<{ id: string; title: string } | null>(null);
   const [recordingsKey, setRecordingsKey] = useState(0);
+  const [showBoard, setShowBoard] = useState(false);
 
   useEffect(() => {
     fetchLiveSession();
