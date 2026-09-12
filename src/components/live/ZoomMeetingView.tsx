@@ -25,6 +25,7 @@ interface Props {
   sessionId?: string;
   title?: string;
   onClose: () => void;
+  onSessionReady?: (session: any) => void;
   /** Called when Zoom cannot be used (diagnostics only — there is no fallback). */
   onUnavailable?: (reason: string) => void;
 }
@@ -36,6 +37,7 @@ export default function ZoomMeetingView({
   sessionId,
   title,
   onClose,
+  onSessionReady,
   onUnavailable,
 }: Props) {
   const [status, setStatus] = useState<
@@ -50,6 +52,7 @@ export default function ZoomMeetingView({
   const cancelledRef = useRef(false);
   const startingRef = useRef(false);
   const retriedRef = useRef(false);
+  const endedRef = useRef(false);
 
 
   useEffect(() => {
@@ -122,6 +125,7 @@ export default function ZoomMeetingView({
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
+        onSessionReady?.(payload.session);
 
         const ZoomMtg = await loadZoomSdk();
         if (cancelledRef.current) return;
@@ -137,6 +141,14 @@ export default function ZoomMeetingView({
             if (data?.meetingStatus === 2) {
               joinedRef.current = true;
               setStatus("in-meeting");
+            } else if (data?.meetingStatus === 3 && joinedRef.current && !endedRef.current) {
+              endedRef.current = true;
+              const id = activeSessionId.current;
+              if (mode === "host" && id) void endZoomSession(id).finally(onClose);
+              else {
+                if (id) void leaveZoomSession(id);
+                onClose();
+              }
             }
           });
         } catch {
@@ -268,13 +280,18 @@ export default function ZoomMeetingView({
 
   const handleEnd = async () => {
     const id = activeSessionId.current;
+    if (endedRef.current) return;
+    endedRef.current = true;
     try {
       if (mode === "host" && id) await endZoomSession(id);
+      if (mode === "attendee" && id) await leaveZoomSession(id);
     } catch (error) {
+      endedRef.current = false;
       toast.error(error instanceof Error ? error.message : "تعذر إنهاء البث");
-    } finally {
-      onClose();
+      return;
     }
+    setZoomRootVisible(false);
+    onClose();
   };
 
   const copyReport = async () => {

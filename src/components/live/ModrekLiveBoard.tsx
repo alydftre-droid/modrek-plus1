@@ -233,20 +233,26 @@ export default function ModrekLiveBoard({ groupId, isTeacher, sessionId, onClose
   }, [redraw, renderPdfPage, fileKind]);
 
   const pointFrom = (e: React.PointerEvent) => {
-    const rect = surfaceRef.current!.getBoundingClientRect();
+    const surface = surfaceRef.current;
+    if (!surface) return null;
+    const rect = surface.getBoundingClientRect();
     return [(e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height] as [number, number];
   };
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!isTeacher) return;
+    const point = pointFrom(e);
+    if (!point) return;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drawingRef.current = { page, color, width, points: [pointFrom(e)] };
+    drawingRef.current = { page, color, width, points: [point] };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const stroke = drawingRef.current;
     if (!isTeacher || !stroke) return;
-    stroke.points.push(pointFrom(e));
+    const point = pointFrom(e);
+    if (!point) return;
+    stroke.points.push(point);
     setStrokes((prev) => [...prev.filter((s) => s !== stroke), stroke]);
   };
 
@@ -414,8 +420,8 @@ export default function ModrekLiveBoard({ groupId, isTeacher, sessionId, onClose
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          className="relative mx-auto w-full max-w-4xl bg-white rounded-xl shadow-2xl overflow-hidden"
-          style={{ minHeight: "60vh", touchAction: isTeacher ? "none" : "auto" }}
+          className={`relative mx-auto w-full max-w-4xl overflow-hidden rounded-lg bg-card shadow-2xl ${fileKind === "blank" ? "min-h-[60vh]" : ""}`}
+          style={{ touchAction: isTeacher ? "none" : "auto" }}
         >
           {loading && (
             <div className="absolute inset-0 flex items-center justify-center">
