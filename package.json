@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "node scripts/seo-build.mjs sitemap",
     "dev": "vite",
-    "prebuild": "node scripts/seo-build.mjs sitemap",
+    "prebuild": "node scripts/check-storage-bunny-only.mjs && node scripts/seo-build.mjs sitemap",
     "postbuild": "node scripts/seo-build.mjs prerender",
     "build": "vite build",
     "build:dev": "vite build --mode development",
@@ -14,7 +14,8 @@
     "test:regression:test-students": "node scripts/test-teacher-test-student-isolation.mjs",
     "preview": "vite preview",
     "test:ai:lesson-retrieval": "deno test --allow-env --allow-net supabase/functions/_shared/lessonTargeting_test.ts",
-    "seo:audit": "node scripts/seo-audit.mjs"
+    "seo:audit": "node scripts/seo-audit.mjs",
+    "check:storage": "node scripts/check-storage-bunny-only.mjs"
   },
   "dependencies": {
     "@capacitor/android": "6.2.1",

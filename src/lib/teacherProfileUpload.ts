@@ -12,7 +12,6 @@ export interface TeacherVideoUploadProgress {
   phase: "preparing" | "uploading" | "finalizing";
 }
 
-const BUCKET = "teacher-profiles";
 
 const getSafeExtension = (fileName: string, fallback: string) => {
   const ext = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -142,16 +141,6 @@ const uploadTeacherIntroToStream = async (
   return `bunny://${created.videoId}`;
 };
 
-const parseUploadError = async (response: Response) => {
-  const text = await response.text().catch(() => "");
-  if (!text) return `HTTP ${response.status}`;
-  try {
-    const payload = JSON.parse(text);
-    return payload?.error || payload?.message || text;
-  } catch {
-    return text;
-  }
-};
 
 export const getTeacherProfileUploadErrorMessage = (error: unknown, fallback: string) => {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -163,67 +152,9 @@ export const getTeacherProfileUploadErrorMessage = (error: unknown, fallback: st
   return fallback;
 };
 
-const directStorageUpload = async (file: File, path: string, contentType: string) => {
-  const { error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, { upsert: true, contentType, cacheControl: "3600" });
-  if (error) throw error;
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-};
+// Legacy Supabase Storage upload helpers were removed: every profile photo and
+// intro video now goes to Bunny (Storage / Stream) through @/lib/storage.
 
-/**
- * Resumable (TUS) upload. Required for intro videos: single-request uploads are
- * capped by the storage API body limit, which is what kept rejecting files
- * larger than 50MB. TUS streams the file in 6MB chunks instead.
- */
-const resumableStorageUpload = async (
-  file: File,
-  path: string,
-  contentType: string,
-  onProgress?: (loaded: number, total: number) => void,
-) => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  if (!token || !supabaseUrl) throw new Error("no-session");
-
-  const { Upload } = await import("tus-js-client");
-
-  await new Promise<void>((resolve, reject) => {
-    const upload = new Upload(file, {
-      endpoint: `${supabaseUrl}/storage/v1/upload/resumable`,
-      retryDelays: [0, 1000, 3000, 6000],
-      headers: {
-        authorization: `Bearer ${token}`,
-        "x-upsert": "true",
-      },
-      // Unique per target object so a previous stalled upload can never be resumed
-      // onto a different file (the bug that produced 0-byte media).
-      fingerprint: async () => `teacher-profile-${path}-${file.size}`,
-      uploadDataDuringCreation: true,
-      removeFingerprintOnSuccess: true,
-      metadata: {
-        bucketName: BUCKET,
-        objectName: path,
-        contentType,
-        cacheControl: "3600",
-      },
-      chunkSize: 6 * 1024 * 1024,
-      onError: (error) => reject(error),
-      onProgress: (bytesUploaded, bytesTotal) => onProgress?.(bytesUploaded, bytesTotal),
-      onSuccess: () => resolve(),
-    });
-
-    upload.findPreviousUploads().then((previous) => {
-      if (previous.length) upload.resumeFromPreviousUpload(previous[0]);
-      upload.start();
-    }).catch(() => upload.start());
-  });
-
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  return data.publicUrl;
-};
 
 export const uploadTeacherProfileFile = async (
   file: File,
