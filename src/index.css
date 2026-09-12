@@ -4897,3 +4897,69 @@ img[alt*="Lovable" i][alt*="badge" i] {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+/* ============================================================
+   Desktop / tablet parity
+   The app is designed mobile-first. On desktop browsers the page
+   was rendered with the browser's own colour scheme (no
+   `color-scheme` was declared), so dark-mode desktop browsers
+   dimmed backgrounds, form controls and scrollbars and the brand
+   colours looked washed out compared to the phone app. We pin the
+   light scheme, normalise text scaling/antialiasing and keep icon
+   strokes crisp so the desktop, laptop and tablet experience
+   matches the phone exactly.
+   ============================================================ */
+:root {
+  color-scheme: light;
+}
+
+html {
+  color-scheme: light;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* A desktop browser in dark mode must not repaint the platform. */
+@media (prefers-color-scheme: dark) {
+  html:not(.dark),
+  html:not(.dark) body {
+    color-scheme: light;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
+}
+
+/* Icons rendered at fractional desktop DPRs looked blurry/pale. */
+svg {
+  shape-rendering: geometricPrecision;
+}
+
+/* Native controls keep the platform palette instead of the OS one. */
+input,
+textarea,
+select,
+button {
+  color-scheme: light;
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.45);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.65);
+}
