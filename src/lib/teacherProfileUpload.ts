@@ -254,7 +254,6 @@ export const uploadTeacherProfileFile = async (
     category: "profile",
     file: preparedFile,
     fileName: path.split("/").pop() || preparedFile.name,
-    contentType,
     onProgress: onProgress ? (loaded, total) => onProgress(loaded, total) : undefined,
   });
   return stored.url;
