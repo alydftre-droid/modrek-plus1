@@ -4,8 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Eye, Play, Video as VideoIcon, Upload } from "lucide-react";
+import { Radio, Eye, Play, Video as VideoIcon, Upload, PenLine } from "lucide-react";
 import LiveProviderGate from "./LiveProviderGate";
+import ModrekLiveBoard from "./ModrekLiveBoard";
 import SessionRecordingUpload from "./SessionRecordingUpload";
 import SessionRecordingsList from "./SessionRecordingsList";
 
@@ -39,6 +40,35 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
   const [showUpload, setShowUpload] = useState(false);
   const [lastEndedSession, setLastEndedSession] = useState<{ id: string; title: string } | null>(null);
   const [recordingsKey, setRecordingsKey] = useState(0);
+  const [showBoard, setShowBoard] = useState(false);
+  const [boardAvailable, setBoardAvailable] = useState(false);
+
+  // Students only see the board while the teacher keeps it open.
+  useEffect(() => {
+    if (isTeacher) return;
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("live_boards")
+        .select("is_open")
+        .eq("group_id", groupId)
+        .maybeSingle();
+      if (active) setBoardAvailable(Boolean(data?.is_open));
+    };
+    void load();
+    const channel = supabase
+      .channel(`live-board-flag-${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_boards", filter: `group_id=eq.${groupId}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, isTeacher]);
 
   useEffect(() => {
     fetchLiveSession();
@@ -137,6 +167,22 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
             </Card>
           )}
 
+          {/* Modrek explanation board */}
+          <Card className="border-primary/30">
+            <CardContent className="p-5 text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <PenLine className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-base font-bold">سبورة مدرك للشرح</h3>
+              <p className="text-muted-foreground text-xs">
+                ارفع صورة أو ملف PDF أو استخدم سبورة فارغة، واشرح بالقلم — الطلاب يشاهدون الشرح لحظيًا
+              </p>
+              <Button onClick={() => setShowBoard(true)} className="gap-2">
+                <PenLine className="h-4 w-4" /> افتح السبورة
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Upload prompt after ending session */}
           {lastEndedSession && (
             <Card className="border-primary/30 bg-primary/5">
@@ -166,6 +212,15 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
             groupTitle={groupTitle}
             session={liveSession && liveSession.teacher_id === user?.id ? liveSession : undefined}
             onClose={handleTeacherClose}
+          />
+        )}
+
+        {showBoard && (
+          <ModrekLiveBoard
+            groupId={groupId}
+            isTeacher={true}
+            sessionId={liveSession?.teacher_id === user?.id ? liveSession?.id : undefined}
+            onClose={() => setShowBoard(false)}
           />
         )}
 
@@ -223,6 +278,21 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
           </Card>
         )}
 
+        {boardAvailable && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="p-5 text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <PenLine className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-base font-bold">سبورة الشرح مفتوحة</h3>
+              <p className="text-muted-foreground text-xs">تابع شرح المعلم على السبورة والملفات لحظيًا</p>
+              <Button onClick={() => setShowBoard(true)} className="gap-2">
+                <PenLine className="h-4 w-4" /> افتح السبورة
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Past recordings for students */}
         <SessionRecordingsList groupId={groupId} isTeacher={false} />
       </div>
@@ -235,6 +305,10 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
           session={liveSession}
           onClose={() => { setShowStudentLive(false); fetchLiveSession(); }}
         />
+      )}
+
+      {showBoard && (
+        <ModrekLiveBoard groupId={groupId} isTeacher={false} onClose={() => setShowBoard(false)} />
       )}
     </>
   );

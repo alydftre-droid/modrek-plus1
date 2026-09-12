@@ -4627,6 +4627,56 @@ export type Database = {
           },
         ]
       }
+      live_boards: {
+        Row: {
+          file_kind: string
+          file_name: string | null
+          file_ref: string | null
+          group_id: string
+          is_open: boolean
+          page: number
+          page_count: number
+          session_id: string | null
+          strokes: Json
+          teacher_id: string
+          updated_at: string
+        }
+        Insert: {
+          file_kind?: string
+          file_name?: string | null
+          file_ref?: string | null
+          group_id: string
+          is_open?: boolean
+          page?: number
+          page_count?: number
+          session_id?: string | null
+          strokes?: Json
+          teacher_id: string
+          updated_at?: string
+        }
+        Update: {
+          file_kind?: string
+          file_name?: string | null
+          file_ref?: string | null
+          group_id?: string
+          is_open?: boolean
+          page?: number
+          page_count?: number
+          session_id?: string | null
+          strokes?: Json
+          teacher_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_boards_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: true
+            referencedRelation: "content_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_session_actions: {
         Row: {
           action: string
