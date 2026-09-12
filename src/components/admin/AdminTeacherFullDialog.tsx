@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import StoredImage from "@/components/common/StoredImage";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -506,7 +507,7 @@ export default function AdminTeacherFullDialog({ teacherId, onBack, onChanged }:
               <div className="tm-profile-body">
                 <div className="tm-profile-avatar">
                   {teacherProfile?.photo_url ? (
-                    <img src={teacherProfile.photo_url} alt="" className="h-full w-full rounded-full object-cover" />
+                    <StoredImage source={teacherProfile.photo_url} alt="" className="h-full w-full rounded-full object-cover" />
                   ) : (
                     <GraduationCap className="h-10 w-10" />
                   )}

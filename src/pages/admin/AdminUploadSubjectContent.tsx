@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import TeacherGroupManager from "@/components/teacher/TeacherGroupManager";
 import { SignedImage } from "@/components/common/SignedImage";
 import { categorySupportsSubSubjects } from "@/lib/subSubjectDefaults";
+import StoredImage from "@/components/common/StoredImage";
 import {
   BookOpen, ChevronLeft, Upload, Loader2, GraduationCap, Package, Calendar, AlertTriangle, Plus,
   BookText, BookMarked, Beaker, Globe, Languages, Atom, Palette, Pencil, Trash2,
@@ -376,7 +377,7 @@ const AdminUploadSubjectContent = () => {
                   <CardContent className="p-6 text-center">
                     <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center overflow-hidden">
                       {t.photo_url ? (
-                        <img src={t.photo_url} alt={t.name} className="w-full h-full object-cover" />
+                        <StoredImage source={t.photo_url} alt={t.name} className="w-full h-full object-cover" />
                       ) : (
                         <GraduationCap className="h-10 w-10 text-primary/50" />
                       )}

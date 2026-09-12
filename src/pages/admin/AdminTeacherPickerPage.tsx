@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { startTeacherImpersonation } from "@/lib/devImpersonation";
+import StoredImage from "@/components/common/StoredImage";
 
 type TeacherRow = {
   teacher_id: string;
@@ -249,7 +250,7 @@ export default function AdminTeacherPickerPage() {
                 >
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
                   {t.avatar_url ? (
-                    <img src={t.avatar_url} alt={t.full_name} className="w-full h-full object-cover" />
+                    <StoredImage source={t.avatar_url} alt={t.full_name} className="w-full h-full object-cover" />
                   ) : (
                     <User className="h-6 w-6 text-primary" />
                   )}

@@ -29,6 +29,7 @@ import {
   Headphones,
   RefreshCw,
 } from "lucide-react";
+import StoredImage from "@/components/common/StoredImage";
 import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { useSupportTyping } from "@/hooks/useSupportTyping";
 import {
@@ -948,7 +949,7 @@ function Avatar({ c }: { c: Conversation }) {
       }}
     >
       {c.avatar_url ? (
-        <img src={c.avatar_url} alt="" className="h-full w-full object-cover" />
+        <StoredImage source={c.avatar_url} alt="" className="h-full w-full object-cover" />
       ) : c.is_teacher ? (
         <GraduationCap className="h-5 w-5" />
       ) : (
@@ -1005,7 +1006,7 @@ function ConversationRow({ c, onClick }: { c: Conversation; onClick: () => void 
         style={{ background: accent }}
       >
         {c.avatar_url ? (
-          <img src={c.avatar_url} alt="" className="h-full w-full object-cover" />
+          <StoredImage source={c.avatar_url} alt="" className="h-full w-full object-cover" />
         ) : c.is_teacher ? (
           <GraduationCap className="h-6 w-6" />
         ) : (
@@ -1054,7 +1055,7 @@ function ChatBubble({ m }: { m: SupportMessage }) {
         style={fromAdmin ? { background: "linear-gradient(135deg, #4F46E5, #7C3AED)" } : undefined}
       >
         {m.attachment_url && m.file_type === "image" && (
-          <img src={m.attachment_url} alt="مرفق" className="mb-2 max-h-72 w-full rounded-[12px] object-contain" />
+          <StoredImage source={m.attachment_url} alt="مرفق" className="mb-2 max-h-72 w-full rounded-[12px] object-contain" />
         )}
         {m.attachment_url && m.file_type === "audio" && <audio controls src={m.attachment_url} className="mb-2 w-full" />}
         {m.message && <p className="whitespace-pre-wrap break-words">{m.message}</p>}

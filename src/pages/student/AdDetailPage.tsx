@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, ExternalLink, Loader2, PlayCircle } from "lucide-react";
 import type { AdRecord } from "@/hooks/useStudentAds";
 import { openUrlWithinAppContainer } from "@/lib/nativeNavigation";
+import StoredImage from "@/components/common/StoredImage";
 
 export default function AdDetailPage() {
   const { id } = useParams();
@@ -54,7 +55,7 @@ export default function AdDetailPage() {
         {/* Hero */}
         <div className="relative h-[260px] overflow-hidden">
           {ad.cover_image_url ? (
-            <img src={ad.cover_image_url} alt={ad.title} className="absolute inset-0 h-full w-full object-cover" />
+            <StoredImage source={ad.cover_image_url} alt={ad.title} className="absolute inset-0 h-full w-full object-cover" />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 via-purple-700 to-fuchsia-700" />
           )}
@@ -101,7 +102,7 @@ export default function AdDetailPage() {
                     onClick={() => setLightbox(src)}
                     className="aspect-square overflow-hidden rounded-xl border border-border/60"
                   >
-                    <img src={src} alt="" loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
+                    <StoredImage source={src} alt="" loading="lazy" className="h-full w-full object-cover hover:scale-105 transition-transform" />
                   </button>
                 ))}
               </div>
@@ -121,7 +122,7 @@ export default function AdDetailPage() {
             onClick={() => setLightbox(null)}
             className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           >
-            <img src={lightbox} alt="" className="max-h-full max-w-full object-contain rounded-lg" />
+            <StoredImage source={lightbox} alt="" className="max-h-full max-w-full object-contain rounded-lg" />
           </div>
         )}
       </div>

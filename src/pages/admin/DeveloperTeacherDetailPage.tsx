@@ -12,6 +12,7 @@ import { TeacherSecurityTab } from "@/components/admin/developer/teacher/Teacher
 import { TeacherEditProfileDialog } from "@/components/admin/developer/teacher/TeacherEditProfileDialog";
 import { TeacherBanDialog } from "@/components/admin/developer/teacher/TeacherBanDialog";
 import { TeacherScopeDialog } from "@/components/admin/developer/teacher/TeacherScopeDialog";
+import StoredImage from "@/components/common/StoredImage";
 
 const TABS = [
   { key: "overview",    label: "نظرة عامة" },
@@ -98,7 +99,7 @@ export default function DeveloperTeacherDetailPage() {
           <div className="tm-profile-body">
             <div className="tm-profile-avatar">
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+                <StoredImage source={profile.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
               ) : (
                 <GraduationCap className="h-10 w-10" />
               )}

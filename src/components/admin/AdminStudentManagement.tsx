@@ -20,6 +20,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { buildStudentReportHtml } from "./student-management/report";
 import { teacherSelectionLabel } from "@/lib/teacherSubjectUtils";
+import StoredImage from "@/components/common/StoredImage";
 
 /** Show the real (main) subject name instead of the sub-subject name (e.g. "المواد العربية" instead of "الأدب"). */
 const mainSubjectLabel = (subj: { name?: string | null; category?: string | null } | null | undefined) => {
@@ -664,7 +665,7 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
         <div className="sm-cv-banner" />
         <div className="sm-cv-body">
           <div className="sm-cv-avatar">
-            {student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-10 w-10 text-white" />}
+            {student.avatar_url ? <StoredImage source={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-10 w-10 text-white" />}
           </div>
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <h2 className="sm-cv-name">{student.full_name}</h2>
@@ -977,7 +978,7 @@ const StudentCard = ({ student, onOpen }: { student: StudentProfile; onOpen: () 
   return (
     <button onClick={onOpen} className="sm-student-card">
       <div className="sm-student-card-top">
-        <div className="sm-student-avatar">{student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-6 w-6 text-white" />}</div>
+        <div className="sm-student-avatar">{student.avatar_url ? <StoredImage source={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-6 w-6 text-white" />}</div>
         <div className="flex-1 text-right">
           <h3 className="text-lg font-bold">{student.full_name}</h3>
           <div className="flex flex-wrap gap-1.5 mt-1">
@@ -1003,7 +1004,7 @@ const StudentRow = ({ student, isPaid, onOpen }: { student: StudentProfile; isPa
   return (
     <button onClick={onOpen} className="sm-row">
       <div className="flex items-center gap-3">
-        <div className="sm-row-avatar">{student.avatar_url ? <img src={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-5 w-5 sm-text-primary" />}</div>
+        <div className="sm-row-avatar">{student.avatar_url ? <StoredImage source={student.avatar_url} alt="" className="h-full w-full rounded-full object-cover" /> : <User className="h-5 w-5 sm-text-primary" />}</div>
         <div className="min-w-0 flex-1 text-right">
           <p className="font-bold truncate">{student.full_name}</p>
           <p className="text-xs text-muted-foreground">{stageLabel} · الصف {gradeLabel} · {sectionDisplayLabel(student.section)} · {formatArabicDate(student.created_at)}</p>

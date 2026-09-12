@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import WeeklyScheduleDisplay from "@/components/common/WeeklyScheduleDisplay";
 import { parseWeeklySchedule } from "@/lib/weeklySchedule";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import StoredImage from "@/components/common/StoredImage";
 import AuthenticatedVideo from "@/components/media/AuthenticatedVideo";
 import DocumentViewerDialog from "@/components/media/DocumentViewerDialog";
 import { reportRpcError } from "@/lib/rpcErrorReporter";
@@ -1465,7 +1466,7 @@ const StudentSubjectView = () => {
                     <div className="flex flex-col sm:flex-row">
                       <div className="sm:w-40 h-40 sm:h-auto bg-accent flex items-center justify-center shrink-0">
                         {teacher.photo_url ? (
-                          <img src={teacher.photo_url} alt={teacher.teacher_name} className="w-full h-full object-cover" />
+                          <StoredImage source={teacher.photo_url} alt={teacher.teacher_name} className="w-full h-full object-cover" />
                         ) : (
                           <GraduationCap className="h-16 w-16 text-primary/50" />
                         )}
