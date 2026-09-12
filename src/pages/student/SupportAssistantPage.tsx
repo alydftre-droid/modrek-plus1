@@ -40,11 +40,11 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-const quickSuggestions = [
-  "كيف أشترك في مادة؟",
-  "أين آخر إيداع لي؟",
-  "كيف أغير كلمة السر؟",
-  "ما آخر نشاط قمت به؟",
+const quickSuggestions: { label: string; to?: string }[] = [
+  { label: "كيف أشترك في مادة؟" },
+  { label: "أين آخر إيداع لي؟" },
+  { label: "التواصل مع الدعم البشري", to: "/support" },
+  { label: "ما آخر نشاط قمت به؟" },
 ];
 
 export default function StudentSupportAssistantPage() {
