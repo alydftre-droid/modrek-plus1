@@ -30,6 +30,9 @@ export function supportFilePath(userId: string, fileName: string, actor = "user"
 
 export async function signedSupportUrl(filePath: string | null | undefined) {
   if (!filePath) return null;
+  const { isBunnyStorageFile, getFileUrl } = await import("@/lib/storage");
+  if (isBunnyStorageFile(filePath)) return await getFileUrl(filePath);
+  // Legacy Supabase-stored attachment (kept readable during/after migration).
   const { data, error } = await supabase.storage.from(SUPPORT_BUCKET).createSignedUrl(filePath, 60 * 60 * 24);
   if (error || !data?.signedUrl) return null;
   return data.signedUrl;
