@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Send, MessageCircle, X, ChevronDown } from "lucide-react";
+import { Send, MessageCircle, X } from "lucide-react";
 
 interface Message {
   id: string;
