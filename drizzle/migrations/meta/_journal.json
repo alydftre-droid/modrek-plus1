@@ -239,6 +239,13 @@
       "when": 1789186816273,
       "tag": "0033_demo_safe_read_rpcs",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789233148819,
+      "tag": "0034_live_boards_modrek_whiteboard",
+      "breakpoints": true
     }
   ]
 }
