@@ -187,6 +187,15 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
           />
         )}
 
+        {showBoard && (
+          <ModrekLiveBoard
+            groupId={groupId}
+            isTeacher={true}
+            sessionId={liveSession?.teacher_id === user?.id ? liveSession?.id : undefined}
+            onClose={() => setShowBoard(false)}
+          />
+        )}
+
         {lastEndedSession && (
           <SessionRecordingUpload
             sessionId={lastEndedSession.id}
