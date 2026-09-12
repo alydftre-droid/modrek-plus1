@@ -505,7 +505,7 @@ jobs:
             echo "## ✅ Device compatibility audit"
             echo ""
             echo "- No required \`uses-feature\` entries in the merged manifest"
-            echo "- No camera/mic/location/telephony permissions (no implicit hardware filters)"
+            echo "- Camera/mic permissions declared with optional \`uses-feature\` (no device filters)"
             echo "- minSdk 23 (Android 6.0) → targetSdk 36"
             echo "- Verified installable APK generation for arm64-v8a, armeabi-v7a, x86, x86_64"
             echo "- Resizeable activity: tablets, foldables, Chromebook, Android XR supported"
