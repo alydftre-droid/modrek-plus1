@@ -265,19 +265,54 @@ async function resolveZoomHost(token: string, expectedAccountId: string) {
   return { id: String(response.json.id), status: String(response.json.status || "") };
 }
 
-async function existingMeetingBelongsToHost(
+type MeetingState = "match" | "other_host" | "missing" | "unknown";
+
+/** Classify an existing Zoom meeting so a rejoin never churns a live meeting.
+ *  "unknown" (transient Zoom/API failure) is treated as reusable by callers:
+ *  creating a second meeting while the first is still running is exactly what
+ *  produces Zoom error 3000 ("Already has other meetings in progress"). */
+async function inspectExistingMeeting(
   token: string,
   meetingNumber: string,
   hostId: string,
-) {
+): Promise<MeetingState> {
   const response = await zoomApi(
     token,
     `/meetings/${encodeURIComponent(meetingNumber)}`,
     {},
     "meeting_lookup",
   );
-  return response.ok && String(response.json?.host_id || "") === hostId;
+  if (response.ok) {
+    return String(response.json?.host_id || "") === hostId ? "match" : "other_host";
+  }
+  if (response.status === 404 || response.status === 400) return "missing";
+  return "unknown";
 }
+
+/** End every meeting still in progress for this Zoom host (except one we intend
+ *  to keep). Required before creating a fresh meeting: a single-host Zoom
+ *  account rejects a second concurrent meeting with SDK error 3000. */
+async function endHostLiveMeetings(token: string, hostId: string, keepMeetingId?: string) {
+  const live = await zoomApi(
+    token,
+    `/users/${encodeURIComponent(hostId)}/meetings?type=live&page_size=30`,
+    {},
+    "meeting_lookup",
+  );
+  if (!live.ok) return;
+  const meetings: any[] = Array.isArray(live.json?.meetings) ? live.json.meetings : [];
+  for (const meeting of meetings) {
+    const id = String(meeting?.id ?? "");
+    if (!id || (keepMeetingId && id === keepMeetingId)) continue;
+    await zoomApi(
+      token,
+      `/meetings/${encodeURIComponent(id)}/status`,
+      { method: "PUT", body: JSON.stringify({ action: "end" }) },
+      "meeting_lookup",
+    );
+  }
+}
+
 
 // --------------------------------------------------------------- user context
 async function getUserContext(supabase: any, userId: string) {
@@ -432,21 +467,25 @@ Deno.serve(async (req) => {
         });
       }
 
-      const canReuseExisting = existing &&
-        existing.provider === "zoom" &&
-        existing.zoom_meeting_id &&
-        await existingMeetingBelongsToHost(
-          token,
-          String(existing.zoom_meeting_id),
-          host.id,
-        );
+      const existingState: MeetingState = existing && existing.provider === "zoom" && existing.zoom_meeting_id
+        ? await inspectExistingMeeting(token, String(existing.zoom_meeting_id), host.id)
+        : "missing";
+      // A rejoin after a reload/exit must land back on the SAME meeting the
+      // teacher started. Only a meeting owned by a different host is unusable.
+      const canReuseExisting = existingState === "match" || existingState === "unknown";
 
-      if (canReuseExisting) {
+      if (existing && canReuseExisting) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
+        if (existing.status !== "live") {
+          await supabase
+            .from("live_sessions")
+            .update({ status: "live", ended_at: null, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        }
         return ok({
           provider: "zoom",
           reused: true,
-          session: existing,
+          session: { ...existing, status: "live" },
           sdkKey: cfg.sdkKey,
           signature,
           meetingNumber: String(existing.zoom_meeting_id),
@@ -467,6 +506,11 @@ Deno.serve(async (req) => {
           .update({ status: "ended", ended_at: new Date().toISOString(), viewer_count: 0, updated_at: new Date().toISOString() })
           .eq("id", existing.id);
       }
+
+      // Clear anything still running on the Zoom host so the new meeting can
+      // actually start (otherwise Zoom answers with SDK error 3000).
+      await endHostLiveMeetings(token, host.id);
+
 
 
       const title = String(body.title || "حصة مباشرة").slice(0, 160);
@@ -637,12 +681,12 @@ Deno.serve(async (req) => {
         try {
           const token = await zoomAccessToken(cfg);
           const host = await resolveZoomHost(token, cfg.accountId);
-          const belongsToHost = await existingMeetingBelongsToHost(
+          const state = await inspectExistingMeeting(
             token,
             String(session.zoom_meeting_id),
             host.id,
           );
-          if (!belongsToHost) {
+          if (state === "other_host") {
             return fail("meeting_ended", 409, "meeting host mismatch", {
               step: "meeting_lookup",
               source: "GET /v2/meetings/{meetingId}",
@@ -652,6 +696,7 @@ Deno.serve(async (req) => {
               fileLine: "supabase/functions/zoom-live/index.ts",
             });
           }
+
           const zak = await zoomApi(
             token,
             `/users/${encodeURIComponent(host.id)}/token?type=zak`,
