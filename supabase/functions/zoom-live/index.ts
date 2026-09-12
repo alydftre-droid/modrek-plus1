@@ -8,6 +8,7 @@
 // - Student access requires: authenticated + purchase of the exact group + an
 //   active live session. Meeting IDs alone grant nothing through Modrek.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -313,6 +314,13 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = typeof body?.action === "string" ? body.action : "";
     if (!action) return fail("invalid_payload", 400);
+
+    // Demo accounts may inspect capabilities/diagnostics but never create,
+    // join, leave or end a live session (all of those write attendance rows).
+    const LIVE_WRITE_ACTIONS = new Set(["start", "join", "leave", "end"]);
+    if (LIVE_WRITE_ACTIONS.has(action) && (await isDemoUserId(user.id))) {
+      return fail(DEMO_READ_ONLY_CODE, 403, DEMO_READ_ONLY_MESSAGE);
+    }
 
     // Availability probe — never returns any secret value, only names.
     if (action === "capabilities") {

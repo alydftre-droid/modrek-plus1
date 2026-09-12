@@ -12,6 +12,7 @@
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { Client } from "https://deno.land/x/postgres@v0.19.3/mod.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 // Some DB URLs contain unencoded special chars (e.g. '#' in password).
 // Percent-encode the password section so the URI parser succeeds.
@@ -1779,6 +1780,10 @@ async function ensureExternalBuckets() {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   // SECURITY: require service-role bearer to prevent unauthenticated dumping
   // of auth.users (including password hashes) to the external mirror project.

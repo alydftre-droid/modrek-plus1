@@ -30,6 +30,7 @@ import { getAccessibleLibraryBook, postgrestIlikeTokens } from "../_shared/auth.
 import { enforceAiQuota, aiQuotaResponse } from "../_shared/aiQuota.ts";
 import { resolveAnswerScope, buildAnswerScopeBlock } from "../_shared/answerScope.ts";
 import { hybridResearch } from "../_shared/modrekWebResearch.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +68,10 @@ function b64(buf: Uint8Array): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";

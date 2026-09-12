@@ -1,6 +1,7 @@
 // Library Admin — CRUD, dashboard stats, upload session helpers.
 // Developer-only. Verifies caller has admin role.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -734,6 +735,13 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const action = url.searchParams.get("action") ?? "stats";
   const api = `library-admin?action=${action}`;
+
+  // Demo accounts: every library read action stays available, all mutations
+  // (create/update/publish/retry/hide/pause/resume/delete/worker_tick) refused.
+  const LIBRARY_READ_ACTIONS = new Set(["stats", "list", "get", "book_progress", "taxonomy"]);
+  if (!LIBRARY_READ_ACTIONS.has(action) && (await isDemoUserId(user.id))) {
+    return json({ error: DEMO_READ_ONLY_CODE, code: DEMO_READ_ONLY_CODE, message: DEMO_READ_ONLY_MESSAGE }, 403);
+  }
 
   try {
     logLibraryStep(rid, action, "request-start", { method: req.method, action });

@@ -14,6 +14,7 @@
  * Also writes a `deletion_audit_logs` row with action_type = "orphan_cleanup".
  */
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +26,10 @@ type BunnyResult = { kind: "stream" | "storage"; ref: string; ok: boolean; statu
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   const startedAt = Date.now();
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -613,6 +614,19 @@ Deno.serve(async (req) => {
     }
 
     const userClient = createUserClient(authHeader);
+
+    // Demo accounts: reading/downloading stays allowed, every storage mutation
+    // is refused server-side (Bunny credentials never reach the client).
+    const STORAGE_WRITE_ACTIONS = new Set([
+      "create-upload-session",
+      "upload",
+      "upload-chunk",
+      "finalize-upload",
+      "delete",
+    ]);
+    if (STORAGE_WRITE_ACTIONS.has(action ?? "") && (await isDemoUserId(userId))) {
+      return jsonResponse({ error: DEMO_READ_ONLY_CODE, code: DEMO_READ_ONLY_CODE, message: DEMO_READ_ONLY_MESSAGE }, 403);
+    }
 
     // Action: create-upload-session — lightweight handshake used by the client
     // before chunking. It validates auth/path and returns a server-generated id

@@ -24,6 +24,7 @@ import {
   parseLessonDiagram,
   type LessonDiagram,
 } from "../_shared/lessonAnswerPostProcess.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,10 @@ function gradeLabel(g?: string | null) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   try {
     const auth = req.headers.get("Authorization") || "";

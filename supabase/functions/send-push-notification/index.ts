@@ -4,6 +4,7 @@
 // of a service account key with Firebase Cloud Messaging API enabled).
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { create, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,6 +82,10 @@ function firebaseProjectMatchesClient(serviceAccount: any) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
 
   let parsedBody: any;
   try {

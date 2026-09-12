@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 
 async function sha256Hex(input: string) {
   const data = new TextEncoder().encode(input);
@@ -262,6 +263,13 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: "Unauthorized" }, 401);
   }
   const userClient = createUserClient(authHeader);
+
+  // Demo accounts: playback/thumbnail signing stays allowed, every Bunny Stream
+  // mutation is refused server-side.
+  const STREAM_WRITE_ACTIONS = new Set(["create-video", "delete-video", "reencode"]);
+  if (STREAM_WRITE_ACTIONS.has(action ?? "") && (await isDemoUserId(userId))) {
+    return jsonResponse({ error: DEMO_READ_ONLY_CODE, code: DEMO_READ_ONLY_CODE, message: DEMO_READ_ONLY_MESSAGE }, 403);
+  }
 
   try {
     if (action === "health") {

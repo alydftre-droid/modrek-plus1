@@ -7,9 +7,11 @@ import { initCapacitor } from "./capacitor-init";
 import { enforceCanonicalRuntimeOrigin, pruneLegacySupabaseAuthStorage } from "./lib/supabaseRuntimeGuard";
 import { initSentry } from "./lib/sentry";
 import { enforceDataSchemaVersion } from "./lib/dataIntegrity/cacheVersion";
+import { installDemoReadOnlyNotifier } from "./lib/demoReadOnly";
 
 initSentry();
 enforceDataSchemaVersion();
+installDemoReadOnlyNotifier();
 
 // Auto-recover from stale chunk errors after a new deploy. When the CDN has
 // rotated hashed asset filenames, in-page navigations that trigger a fresh
