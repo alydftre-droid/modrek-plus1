@@ -11,6 +11,7 @@ import { useExamQuestions } from "@/hooks/useExams";
 import { useReplaceExamQuestions } from "@/hooks/useExamMutations";
 import { useTeacherProfile } from "@/hooks/useTeacherData";
 import { cn } from "@/lib/utils";
+import StoredImage from "@/components/common/StoredImage";
 
 const STEPS = [
   { id: "ai", label: "المساعد الذكي" },
@@ -87,7 +88,7 @@ export default function ReviewQuestionsPage() {
 
           <div className="review-teacher-box">
             <div className="review-avatar">
-              {teacherProfile?.avatar_url ? <img src={teacherProfile.avatar_url} alt={teacherName} /> : <UserRound className="h-5 w-5" />}
+              {teacherProfile?.avatar_url ? <StoredImage source={teacherProfile.avatar_url} alt={teacherName} /> : <UserRound className="h-5 w-5" />}
             </div>
             <div className="min-w-0 text-right">
               <p className="review-hello">مرحباً بك أ. {teacherName} 👋</p>

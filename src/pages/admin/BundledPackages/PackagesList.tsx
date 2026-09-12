@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { displayBundleSection, formatBundleAudience, hexToRgba, type BundledPackage } from "@/lib/bundledPackages";
+import StoredImage from "@/components/common/StoredImage";
 
 const statusColors: Record<string, string> = {
   draft: "bg-muted text-foreground border-border",
@@ -79,7 +80,7 @@ export default function PackagesList() {
             >
               <div className="flex gap-4 p-4">
                 {pkg.image_url ? (
-                  <img src={pkg.image_url} alt="" className="h-16 w-16 rounded-2xl object-cover border border-border/60" />
+                  <StoredImage source={pkg.image_url} alt="" className="h-16 w-16 rounded-2xl object-cover border border-border/60" />
                 ) : (
                   <div
                     className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-border/60"

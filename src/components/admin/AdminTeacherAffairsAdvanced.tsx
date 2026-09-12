@@ -20,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import StoredImage from "@/components/common/StoredImage";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Activity, Ban, BookOpen, ChevronRight, CheckCircle2, Clock3, CreditCard,
@@ -221,7 +222,7 @@ const TeacherCard = ({ teacher, onOpen }: { teacher: TeacherProfile; onOpen: () 
   <button onClick={onOpen} className="sm-student-card">
     <div className="sm-student-avatar">
       {teacher.avatar_url ? (
-        <img src={teacher.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+        <StoredImage source={teacher.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
       ) : (
         <GraduationCap className="h-6 w-6 text-white" />
       )}
@@ -411,7 +412,7 @@ const DetailView = ({ teacher, onUpdate }: { teacher: TeacherProfile; onUpdate: 
         <div className="sm-cv-body">
           <div className="sm-cv-avatar">
             {teacher.avatar_url ? (
-              <img src={teacher.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
+              <StoredImage source={teacher.avatar_url} alt="" className="h-full w-full rounded-full object-cover" />
             ) : (
               <GraduationCap className="h-10 w-10 text-white" />
             )}

@@ -8,6 +8,7 @@ import { GradeChipFilter } from "@/components/admin/developer/shared/GradeChipFi
 import { EmptyState } from "@/components/admin/developer/shared/EmptyState";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Users } from "lucide-react";
+import StoredImage from "@/components/common/StoredImage";
 
 interface Row {
   student_id: string; full_name: string; avatar_url: string | null;
@@ -60,7 +61,7 @@ export default function DeveloperTeacherStudentsPage() {
     { key: "name", header: "الطالب", accessor: (r) => (
       <div className="flex items-center gap-2">
         <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden text-xs font-bold text-slate-600">
-          {r.avatar_url ? <img src={r.avatar_url} alt="" className="h-full w-full object-cover" /> : (r.full_name?.charAt(0) || "؟")}
+          {r.avatar_url ? <StoredImage source={r.avatar_url} alt="" className="h-full w-full object-cover" /> : (r.full_name?.charAt(0) || "؟")}
         </div>
         <div className="min-w-0">
           <div className="font-semibold text-slate-900 truncate">{r.full_name || "—"}</div>

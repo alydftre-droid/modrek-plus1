@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import StoredImage from "@/components/common/StoredImage";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile, type TeacherVideoUploadProgress } from "@/lib/teacherProfileUpload";
 import { useQueryClient } from "@tanstack/react-query";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
@@ -301,7 +302,7 @@ const TeacherProfileEditor = () => {
       <Card className="overflow-hidden border border-border/60 shadow-none">
         <div className="relative h-52 overflow-hidden bg-muted">
           {coverImageUrl ? (
-            <img src={coverImageUrl} alt="صورة الغلاف" className="h-full w-full object-cover" />
+            <StoredImage source={coverImageUrl} alt="صورة الغلاف" className="h-full w-full object-cover" />
           ) : (
             <div className="h-full w-full bg-[linear-gradient(135deg,hsl(var(--teacher-home-hero-from)),hsl(var(--teacher-home-hero-to)))]" />
           )}

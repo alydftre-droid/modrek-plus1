@@ -21,6 +21,7 @@ import {
   Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { ReactNode } from "react";
+import StoredImage from "@/components/common/StoredImage";
 import {
   fetchStudentProgressMonthlyFallback,
   fetchStudentTeachersFallback,
@@ -291,7 +292,7 @@ export function StudentProgressTab({ studentId }: { studentId: string }) {
             {t.map((x) => (
               <div key={x.teacher_id} className="group bg-gradient-to-br from-slate-50 to-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3 hover:shadow-md transition">
                 <div className="dev-student-teacher-avatar h-12 w-12 rounded-2xl overflow-hidden flex items-center justify-center font-black shrink-0">
-                  {x.avatar_url ? <img src={x.avatar_url} alt="" className="h-full w-full object-cover" /> : (x.teacher_name?.charAt(0) || "؟")}
+                  {x.avatar_url ? <StoredImage source={x.avatar_url} alt="" className="h-full w-full object-cover" /> : (x.teacher_name?.charAt(0) || "؟")}
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-sm text-slate-900 truncate">{x.teacher_name || "—"}</p>

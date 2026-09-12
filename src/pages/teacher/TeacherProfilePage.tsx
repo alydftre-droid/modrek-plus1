@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile, type TeacherVideoUploadProgress } from "@/lib/teacherProfileUpload";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
+import StoredImage from "@/components/common/StoredImage";
 import {
   Select,
   SelectContent,
@@ -258,7 +259,7 @@ export default function TeacherProfilePage() {
                 style={{ border: `1px solid ${C.border}` }}
               >
                 {photoUrl ? (
-                  <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                  <StoredImage source={photoUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-2xl font-bold" style={{ color: C.muted }}>{initials}</span>
                 )}
@@ -435,7 +436,7 @@ export default function TeacherProfilePage() {
                 style={{ border: `2px solid ${C.border}` }}
               >
                 {photoUrl ? (
-                  <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                  <StoredImage source={photoUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-lg font-bold" style={{ color: C.muted }}>{initials}</span>
                 )}
