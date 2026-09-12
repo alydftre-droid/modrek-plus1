@@ -681,12 +681,12 @@ Deno.serve(async (req) => {
         try {
           const token = await zoomAccessToken(cfg);
           const host = await resolveZoomHost(token, cfg.accountId);
-          const belongsToHost = await existingMeetingBelongsToHost(
+          const state = await inspectExistingMeeting(
             token,
             String(session.zoom_meeting_id),
             host.id,
           );
-          if (!belongsToHost) {
+          if (state === "other_host") {
             return fail("meeting_ended", 409, "meeting host mismatch", {
               step: "meeting_lookup",
               source: "GET /v2/meetings/{meetingId}",
@@ -696,6 +696,7 @@ Deno.serve(async (req) => {
               fileLine: "supabase/functions/zoom-live/index.ts",
             });
           }
+
           const zak = await zoomApi(
             token,
             `/users/${encodeURIComponent(host.id)}/token?type=zak`,
