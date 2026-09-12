@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import StudentAccountSheet from "@/components/student/StudentAccountSheet";
+import { formatSectionLabelForScope } from "@/lib/educationSection";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 import {
@@ -22,6 +23,7 @@ interface Profile {
   stage: string;
   grade: string;
   section: string;
+  education_type: string | null;
   avatar_url: string | null;
   student_code: string;
 }
@@ -60,6 +62,7 @@ export default function StudentProfilePage() {
         stage: p.stage || "",
         grade: p.grade || "",
         section: p.section || "",
+        education_type: p.education_type || null,
         avatar_url: p.avatar_url,
         student_code: p.student_code || "",
       });
