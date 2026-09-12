@@ -41,6 +41,34 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
   const [lastEndedSession, setLastEndedSession] = useState<{ id: string; title: string } | null>(null);
   const [recordingsKey, setRecordingsKey] = useState(0);
   const [showBoard, setShowBoard] = useState(false);
+  const [boardAvailable, setBoardAvailable] = useState(false);
+
+  // Students only see the board while the teacher keeps it open.
+  useEffect(() => {
+    if (isTeacher) return;
+    let active = true;
+    const load = async () => {
+      const { data } = await supabase
+        .from("live_boards")
+        .select("is_open")
+        .eq("group_id", groupId)
+        .maybeSingle();
+      if (active) setBoardAvailable(Boolean(data?.is_open));
+    };
+    void load();
+    const channel = supabase
+      .channel(`live-board-flag-${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_boards", filter: `group_id=eq.${groupId}` },
+        () => void load(),
+      )
+      .subscribe();
+    return () => {
+      active = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, isTeacher]);
 
   useEffect(() => {
     fetchLiveSession();
