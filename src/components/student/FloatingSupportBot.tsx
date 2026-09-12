@@ -239,6 +239,12 @@ export default function FloatingSupportBot() {
       return;
     }
 
+    // Human-support intent: show escalation confirm dialog directly (skip AI)
+    if (!escalated && HUMAN_SUPPORT_INTENT.test(text)) {
+      setShowEscalateConfirm(true);
+      return;
+    }
+
     setLoading(true);
     // Insert empty assistant placeholder we update progressively
     setMessages([...allMsgs, { role: "assistant", content: "" }]);
