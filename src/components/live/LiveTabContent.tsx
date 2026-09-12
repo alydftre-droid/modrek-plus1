@@ -139,6 +139,22 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
             </Card>
           )}
 
+          {/* Modrek explanation board */}
+          <Card className="border-primary/30">
+            <CardContent className="p-5 text-center space-y-3">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <PenLine className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="text-base font-bold">سبورة مدرك للشرح</h3>
+              <p className="text-muted-foreground text-xs">
+                ارفع صورة أو ملف PDF أو استخدم سبورة فارغة، واشرح بالقلم — الطلاب يشاهدون الشرح لحظيًا
+              </p>
+              <Button onClick={() => setShowBoard(true)} className="gap-2">
+                <PenLine className="h-4 w-4" /> افتح السبورة
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Upload prompt after ending session */}
           {lastEndedSession && (
             <Card className="border-primary/30 bg-primary/5">
