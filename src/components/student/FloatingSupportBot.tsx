@@ -19,6 +19,8 @@ type Msg = { role: "user" | "assistant" | "support"; content: string; id?: strin
 
 type SupportWidgetMessage = Msg & { id: string };
 
+const HUMAN_SUPPORT_INTENT = /الدعم\s*البشري|موظف\s*دعم|ممثل\s*(?:خدمة|دعم)|خدمة\s*العملاء|تحدث\s*مع\s*(?:ممثل|موظف|الدعم)|تواصل\s*مع\s*الدعم/i;
+
 const quickSuggestions = [
   "كيف أشترك في مادة؟",
   "كيف أعمل إيداع؟",
