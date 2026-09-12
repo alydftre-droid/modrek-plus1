@@ -4,8 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Eye, Play, Video as VideoIcon, Upload } from "lucide-react";
+import { Radio, Eye, Play, Video as VideoIcon, Upload, PenLine } from "lucide-react";
 import LiveProviderGate from "./LiveProviderGate";
+import ModrekLiveBoard from "./ModrekLiveBoard";
 import SessionRecordingUpload from "./SessionRecordingUpload";
 import SessionRecordingsList from "./SessionRecordingsList";
 
