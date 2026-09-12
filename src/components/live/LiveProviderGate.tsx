@@ -17,7 +17,7 @@ interface Props {
 
 export default function LiveProviderGate({ mode, groupId, groupTitle, session, onClose }: Props) {
   const { user } = useAuth();
-  const [activeSession, setActiveSession] = useState<any>(session ?? null);
+  const [activeSession, setActiveSession] = useState<any>(null);
   return (
     <>
       <ZoomMeetingView mode={mode} groupId={groupId} groupTitle={groupTitle} sessionId={session?.id} title={session?.title} onSessionReady={setActiveSession} onClose={onClose} />
