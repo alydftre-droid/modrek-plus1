@@ -10,6 +10,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import { getActiveAiApiKey } from "../_shared/aiProvider.ts";
 import {
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
   MODREK_TTS_SETTINGS,
   estimatePcmDurationSeconds,
   openRouterTts,
@@ -139,6 +140,10 @@ async function synthesizeTeacherWav(opts: {
 }
 
 serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   const debugId = crypto.randomUUID();
   const startedAt = performance.now();
   if (req.method === "OPTIONS") {

@@ -27,6 +27,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
 import { getDocumentProxy } from "npm:unpdf@0.11.0";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -437,6 +438,10 @@ async function runStage(db: any, job: any) {
 
 // ─── HTTP entry ─────────────────────────────────────────────────────
 Deno.serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const auth = req.headers.get("Authorization") || "";
   const wkey = req.headers.get("x-worker-key") || "";

@@ -8,6 +8,7 @@ import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSe
 import { aiEmbeddings, resolveFileApiRoute } from "../_shared/aiProvider.ts";
 import { parseCurriculumTitle } from "../_shared/lessonTargeting.ts";
 import {
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
   classifyPipelineError,
   countPdfPagesFromRawBytes,
   scanPdfPagesDeep,
@@ -152,6 +153,10 @@ async function describeFileApiRoute(admin: SupabaseClient, jobId?: string, extra
 }
 
 Deno.serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   // AUTH GUARD: only accept requests bearing the service-role key or the shared worker secret.
