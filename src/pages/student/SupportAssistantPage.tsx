@@ -345,6 +345,13 @@ export default function StudentSupportAssistantPage() {
       return;
     }
 
+    // Human-support intent: show escalation confirm dialog directly (skip AI)
+    if (!escalated && attachments.length === 0 && HUMAN_SUPPORT_INTENT.test(text)) {
+      appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
+      appendMessage({ id: `confirm-${Date.now()}`, role: "escalate-confirm", content: "", createdAt: new Date().toISOString() });
+      return;
+    }
+
     // AI branch: upload images (if any) then send one combined message to the assistant
     try {
       const imageDataUrls: string[] = [];
