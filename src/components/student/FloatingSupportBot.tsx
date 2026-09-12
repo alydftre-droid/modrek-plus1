@@ -22,7 +22,7 @@ type SupportWidgetMessage = Msg & { id: string };
 const quickSuggestions = [
   "كيف أشترك في مادة؟",
   "كيف أعمل إيداع؟",
-  "كيف أغير كلمة السر؟",
+  "أريد التواصل مع الدعم البشري",
   "عرّفني على المنصة",
 ];
 

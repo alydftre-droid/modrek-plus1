@@ -274,11 +274,51 @@ function translateNode(node: Node) {
   node.childNodes.forEach(translateNode);
 }
 
-/** Starts translating the Zoom Client View into Arabic (RTL). */
+const ZOOM_UI_FIX_STYLE_ID = "modrek-zoom-ui-fix";
+
+/**
+ * Zoom's Client View positions its toolbar pop-ups ("More", audio/video menus,
+ * share dialogs) with absolute LTR offsets and renders some of them into
+ * document.body. Forcing RTL on the root pushed those menus off-screen, which
+ * made the "More" button look dead. We keep Zoom's own layout LTR and only
+ * raise its menus above the SDK root so every tool stays reachable.
+ */
+function injectZoomUiFix() {
+  if (document.getElementById(ZOOM_UI_FIX_STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = ZOOM_UI_FIX_STYLE_ID;
+  style.textContent = `
+    #zmmtg-root { direction: ltr !important; }
+    #zmmtg-root .zm-dropdown-menu,
+    #zmmtg-root .dropdown-menu,
+    #zmmtg-root [class*="pop-menu"],
+    #zmmtg-root [class*="popover"],
+    #zmmtg-root [class*="tooltip"] {
+      z-index: 100000 !important;
+      display: block;
+      pointer-events: auto !important;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    #zmmtg-root .zm-dropdown-menu[aria-hidden="true"],
+    #zmmtg-root .dropdown-menu:not(.show):not([style*="display: block"]) { display: none; }
+    .zm-modal, .zmu-modal, .ReactModalPortal, .zm-new-modal, [class*="zm-modal"] {
+      z-index: 100001 !important;
+    }
+    #zmmtg-root .footer-button__button, #zmmtg-root .footer-button-base__button {
+      pointer-events: auto !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/** Starts translating the Zoom Client View labels into Arabic. */
 export function startZoomArabicLocalization() {
   const root = document.getElementById("zmmtg-root");
   if (!root || arObserver) return;
-  root.setAttribute("dir", "rtl");
+  injectZoomUiFix();
+  // Zoom's own layout must stay LTR: its menus are positioned with left offsets.
+  root.setAttribute("dir", "ltr");
   root.style.fontFamily = "Cairo, system-ui, sans-serif";
   translateNode(root);
   arObserver = new MutationObserver((records) => {

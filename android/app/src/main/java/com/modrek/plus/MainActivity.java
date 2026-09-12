@@ -4,6 +4,8 @@ import android.os.Bundle;
 import android.webkit.WebSettings;
 import com.capacitorjs.plugins.app.AppPlugin;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
+import com.capacitorjs.plugins.filesystem.FilesystemPlugin;
+import com.capacitorjs.plugins.share.SharePlugin;
 import com.capacitorjs.plugins.haptics.HapticsPlugin;
 import com.capacitorjs.plugins.keyboard.KeyboardPlugin;
 import com.capacitorjs.plugins.localnotifications.LocalNotificationsPlugin;
@@ -21,6 +23,8 @@ public class MainActivity extends BridgeActivity {
         // تسجيل الإضافات الأصلية يدوياً قبل super لضمان ثبات نسخة Android حتى لو لم يتولد ملف capacitor.plugins.json.
         registerPlugin(AppPlugin.class);
         registerPlugin(BrowserPlugin.class);
+        registerPlugin(FilesystemPlugin.class);
+        registerPlugin(SharePlugin.class);
         registerPlugin(HapticsPlugin.class);
         registerPlugin(KeyboardPlugin.class);
         registerPlugin(LocalNotificationsPlugin.class);

@@ -40,11 +40,11 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-const quickSuggestions = [
-  "كيف أشترك في مادة؟",
-  "أين آخر إيداع لي؟",
-  "كيف أغير كلمة السر؟",
-  "ما آخر نشاط قمت به؟",
+const quickSuggestions: { label: string; to?: string }[] = [
+  { label: "كيف أشترك في مادة؟" },
+  { label: "أين آخر إيداع لي؟" },
+  { label: "التواصل مع الدعم البشري", to: "/support" },
+  { label: "ما آخر نشاط قمت به؟" },
 ];
 
 export default function StudentSupportAssistantPage() {
@@ -538,9 +538,11 @@ export default function StudentSupportAssistantPage() {
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">أعرف كل شيء عن حسابك واشتراكاتك ورصيدك. اسألني أي سؤال!</p>
               <div className="flex flex-wrap gap-2 justify-center max-w-sm">
                 {quickSuggestions.map((s, i) => (
-                  <button key={i} onClick={() => setInput(s)}
-                    className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50">
-                    {s}
+                  <button key={i} onClick={() => (s.to ? navigate(s.to) : setInput(s.label))}
+                    className={s.to
+                      ? "text-xs px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:opacity-90 transition-opacity font-bold shadow-sm"
+                      : "text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50"}>
+                    {s.label}
                   </button>
                 ))}
               </div>

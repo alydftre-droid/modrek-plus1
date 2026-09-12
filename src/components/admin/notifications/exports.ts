@@ -1,17 +1,9 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { saveFile, savePdfDocument } from "@/lib/fileDownload";
 
 export type ExportRow = Record<string, string | number | null | undefined>;
-
-function download(filename: string, blob: Blob) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 500);
-}
 
 export function exportCsv(filename: string, rows: ExportRow[], headers?: string[]) {
   const cols = headers ?? Object.keys(rows[0] || {});
@@ -21,14 +13,21 @@ export function exportCsv(filename: string, rows: ExportRow[], headers?: string[
   };
   const csv = [cols.join(","), ...rows.map((r) => cols.map((c) => esc(r[c])).join(","))].join("\n");
   const bom = "\uFEFF";
-  download(filename.endsWith(".csv") ? filename : `${filename}.csv`, new Blob([bom + csv], { type: "text/csv;charset=utf-8" }));
+  void saveFile(
+    filename.endsWith(".csv") ? filename : `${filename}.csv`,
+    new Blob([bom + csv], { type: "text/csv;charset=utf-8" }),
+  );
 }
 
 export function exportXlsx(filename: string, rows: ExportRow[], sheetName = "البيانات") {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(wb, filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`);
+  const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  void saveFile(
+    filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`,
+    new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+  );
 }
 
 export async function exportPdfFromElement(filename: string, el: HTMLElement) {
@@ -49,5 +48,5 @@ export async function exportPdfFromElement(filename: string, el: HTMLElement) {
     pdf.addImage(img, "PNG", 20, y, imgW, imgH);
     heightLeft -= pageH - 40;
   }
-  pdf.save(filename.endsWith(".pdf") ? filename : `${filename}.pdf`);
+  await savePdfDocument(filename, pdf);
 }

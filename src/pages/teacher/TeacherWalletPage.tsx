@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { saveFile } from "@/lib/fileDownload";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTeacherProfile, useTeacherPaymentMethods, useTeacherWithdrawals, useTeacherAssignments } from "@/hooks/useTeacherData";
@@ -700,14 +701,7 @@ export default function TeacherWalletPage() {
 
     const csv = "\uFEFF" + csvRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `wallet-${focusedNode.stage}-${focusedNode.grade}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    void saveFile(`wallet-${focusedNode.stage}-${focusedNode.grade}.csv`, blob);
   };
 
   return (

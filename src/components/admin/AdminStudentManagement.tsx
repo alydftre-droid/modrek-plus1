@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
+import { savePdfDocument } from "@/lib/fileDownload";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -645,7 +646,7 @@ const DetailView = ({ student, onUpdate, onDeleted }: { student: StudentProfile;
       pdf.addImage(img, "PNG", m, pos, cw, ih, undefined, "FAST");
       rem -= ch;
       while (rem > 0) { pos = m - (ih - rem); pdf.addPage(); pdf.addImage(img, "PNG", m, pos, cw, ih, undefined, "FAST"); rem -= ch; }
-      pdf.save(`student-${student.student_code || student.id.slice(0, 8)}.pdf`);
+      await savePdfDocument(`student-${student.student_code || student.id.slice(0, 8)}.pdf`, pdf);
       toast.success("تم تحميل التقرير");
     } catch { toast.error("تعذر إنشاء PDF"); } finally {
       el.remove();

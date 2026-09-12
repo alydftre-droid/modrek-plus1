@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { saveFile } from "@/lib/fileDownload";
 import { useExam, useTeacherExamRoster } from "@/hooks/useExams";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,8 +72,7 @@ export default function TeacherExamAttemptsPage() {
     ]));
     const csv = csvRows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `attempts-${exam?.title}.csv`; a.click();
+    void saveFile(`attempts-${exam?.title}.csv`, blob);
   };
 
   return (
