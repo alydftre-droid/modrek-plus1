@@ -40,10 +40,12 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-const quickSuggestions: { label: string; to?: string }[] = [
+const HUMAN_SUPPORT_INTENT = /الدعم\s*البشري|موظف\s*دعم|ممثل\s*(?:خدمة|دعم)|خدمة\s*العملاء|تحدث\s*مع\s*(?:ممثل|موظف|الدعم)|تواصل\s*مع\s*الدعم/i;
+
+const quickSuggestions: { label: string }[] = [
   { label: "كيف أشترك في مادة؟" },
   { label: "أين آخر إيداع لي؟" },
-  { label: "التواصل مع الدعم البشري", to: "/support" },
+  { label: "التواصل مع الدعم البشري" },
   { label: "ما آخر نشاط قمت به؟" },
 ];
 
@@ -343,6 +345,13 @@ export default function StudentSupportAssistantPage() {
       return;
     }
 
+    // Human-support intent: show escalation confirm dialog directly (skip AI)
+    if (!escalated && attachments.length === 0 && HUMAN_SUPPORT_INTENT.test(text)) {
+      appendMessage({ id: `user-${Date.now()}`, role: "user", content: text, createdAt: new Date().toISOString() });
+      appendMessage({ id: `confirm-${Date.now()}`, role: "escalate-confirm", content: "", createdAt: new Date().toISOString() });
+      return;
+    }
+
     // AI branch: upload images (if any) then send one combined message to the assistant
     try {
       const imageDataUrls: string[] = [];
@@ -538,10 +547,8 @@ export default function StudentSupportAssistantPage() {
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">أعرف كل شيء عن حسابك واشتراكاتك ورصيدك. اسألني أي سؤال!</p>
               <div className="flex flex-wrap gap-2 justify-center max-w-sm">
                 {quickSuggestions.map((s, i) => (
-                  <button key={i} onClick={() => (s.to ? navigate(s.to) : setInput(s.label))}
-                    className={s.to
-                      ? "text-xs px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:opacity-90 transition-opacity font-bold shadow-sm"
-                      : "text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50"}>
+                  <button key={i} onClick={() => setInput(s.label)}
+                    className="text-xs px-4 py-2 rounded-full bg-gradient-to-r from-blue-50 to-purple-50 text-blue-700 hover:from-blue-100 hover:to-purple-100 transition-colors font-medium border border-blue-200/50">
                     {s.label}
                   </button>
                 ))}
