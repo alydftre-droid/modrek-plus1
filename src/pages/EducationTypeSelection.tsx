@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { GraduationCap, BookOpen, Loader2, FlaskConical, Calculator, ChevronRight, CheckCircle2 } from "lucide-react";
+import { BACCALAUREATE_SECTION, isBaccalaureateScope } from "@/lib/educationSection";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 
 type Step = "education" | "section" | "specialty";
