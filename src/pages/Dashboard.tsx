@@ -252,6 +252,11 @@ const Dashboard = () => {
     // General first secondary: no sections at all — save directly.
     if (selectedStage === "secondary" && gradeId === "first" && profileData?.education_type === "عام") {
       await saveOnboarding(selectedStage, gradeId, null);
+      return;
+    }
+    // نظام البكالوريا: الصف الثاني الثانوي (عام) — تسجيل تلقائي على المسار العلمي.
+    if (isBaccalaureateScope({ stage: selectedStage, grade: gradeId, educationType: profileData?.education_type })) {
+      await saveOnboarding(selectedStage!, gradeId, BACCALAUREATE_SECTION);
     }
   };
   const handleSectionSelect = async (sectionId: string) => {
