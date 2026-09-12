@@ -467,21 +467,25 @@ Deno.serve(async (req) => {
         });
       }
 
-      const canReuseExisting = existing &&
-        existing.provider === "zoom" &&
-        existing.zoom_meeting_id &&
-        await existingMeetingBelongsToHost(
-          token,
-          String(existing.zoom_meeting_id),
-          host.id,
-        );
+      const existingState: MeetingState = existing && existing.provider === "zoom" && existing.zoom_meeting_id
+        ? await inspectExistingMeeting(token, String(existing.zoom_meeting_id), host.id)
+        : "missing";
+      // A rejoin after a reload/exit must land back on the SAME meeting the
+      // teacher started. Only a meeting owned by a different host is unusable.
+      const canReuseExisting = existingState === "match" || existingState === "unknown";
 
-      if (canReuseExisting) {
+      if (existing && canReuseExisting) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
+        if (existing.status !== "live") {
+          await supabase
+            .from("live_sessions")
+            .update({ status: "live", ended_at: null, updated_at: new Date().toISOString() })
+            .eq("id", existing.id);
+        }
         return ok({
           provider: "zoom",
           reused: true,
-          session: existing,
+          session: { ...existing, status: "live" },
           sdkKey: cfg.sdkKey,
           signature,
           meetingNumber: String(existing.zoom_meeting_id),
@@ -502,6 +506,11 @@ Deno.serve(async (req) => {
           .update({ status: "ended", ended_at: new Date().toISOString(), viewer_count: 0, updated_at: new Date().toISOString() })
           .eq("id", existing.id);
       }
+
+      // Clear anything still running on the Zoom host so the new meeting can
+      // actually start (otherwise Zoom answers with SDK error 3000).
+      await endHostLiveMeetings(token, host.id);
+
 
 
       const title = String(body.title || "حصة مباشرة").slice(0, 160);
