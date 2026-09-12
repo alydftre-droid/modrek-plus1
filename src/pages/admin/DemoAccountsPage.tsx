@@ -233,34 +233,34 @@ export default function DemoAccountsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            اختر نوع الحساب واضغط إنشاء — يتم توليد البريد وكلمة المرور تلقائيًا.
+          </p>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="sm:col-span-2 space-y-1.5">
-              <Label htmlFor="demo-email">البريد الإلكتروني</Label>
-              <Input
-                id="demo-email"
-                dir="ltr"
-                placeholder="demo.student@modrekplus.demo"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
+            <div className="sm:col-span-1 space-y-1.5">
               <Label>نوع الحساب</Label>
               <Select value={newRole} onValueChange={(v) => setNewRole(v as DemoRole)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="student">ديمو طالب</SelectItem>
                   <SelectItem value="teacher">ديمو معلم</SelectItem>
-                  <SelectItem value="admin">ديمو مطور</SelectItem>
+                  <SelectItem value="admin">ديمو مطور (أدمن)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="demo-email">بريد مخصص (اختياري)</Label>
+              <Input
+                id="demo-email"
+                dir="ltr"
+                placeholder="يُترك فارغًا للتوليد التلقائي"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={!newEmail.trim() || createMutation.isPending}
-            >
+            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : <Plus className="h-4 w-4 ml-1" />}
               إنشاء الحساب
             </Button>
@@ -269,6 +269,7 @@ export default function DemoAccountsPage() {
               إنشاء حسابات الديمو الافتراضية
             </Button>
           </div>
+
         </CardContent>
       </Card>
 
