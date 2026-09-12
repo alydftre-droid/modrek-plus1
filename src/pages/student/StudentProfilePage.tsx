@@ -213,6 +213,13 @@ export default function StudentProfilePage() {
                 </span>
               </div>
 
+              {sectionLabel && (
+                <div className="flex items-center justify-between bg-muted/50 rounded-xl h-12 px-4 mb-3">
+                  <span className="text-sm text-muted-foreground">الشعبة</span>
+                  <span className="text-sm font-bold text-foreground">{sectionLabel}</span>
+                </div>
+              )}
+
               {profile?.student_code && (
                 <div className="flex items-center justify-between bg-muted/50 rounded-xl h-12 px-4">
                   <span className="text-sm text-muted-foreground">كود الطالب</span>
