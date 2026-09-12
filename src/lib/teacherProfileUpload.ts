@@ -12,7 +12,6 @@ export interface TeacherVideoUploadProgress {
   phase: "preparing" | "uploading" | "finalizing";
 }
 
-const BUCKET = "teacher-profiles";
 
 const getSafeExtension = (fileName: string, fallback: string) => {
   const ext = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");
