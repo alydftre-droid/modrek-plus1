@@ -7,6 +7,8 @@ import StudentLayout from "@/components/student/StudentLayout";
 import AdsCarousel from "@/components/student/AdsCarousel";
 import { useStudentAds } from "@/hooks/useStudentAds";
 import {
+  BACCALAUREATE_SECTION,
+  isBaccalaureateScope,
   isLiteraryTrack,
   isMathSpecialty,
   isScienceSpecialty,
@@ -155,11 +157,22 @@ const Dashboard = () => {
           setProfileData(profile);
           const isAzharSecondary = profile.stage === "secondary" && profile.education_type === "أزهر";
           const isGeneralSecondary = profile.stage === "secondary" && profile.education_type === "عام";
+          // نظام البكالوريا: الصف الثاني الثانوي (عام) بدون شعبة — يُسجّل تلقائيًا كعلمي.
+          const isBaccalaureate = isBaccalaureateScope({
+            stage: profile.stage,
+            grade: profile.grade,
+            educationType: profile.education_type,
+          });
+          if (isBaccalaureate && profile.section !== BACCALAUREATE_SECTION) {
+            await supabase.from("profiles").update({ section: BACCALAUREATE_SECTION }).eq("id", user.id);
+            profile.section = BACCALAUREATE_SECTION;
+            setProfileData({ ...profile });
+          }
           // Azhar secondary needs section (علمي/أدبي) for all grades.
           const needsAzharSection = isAzharSecondary && !profile.section;
-          // General secondary: 1st grade needs nothing extra (no sections). 2nd grade needs section only.
+          // General secondary: 1st grade needs nothing extra (no sections). 2nd grade = بكالوريا (auto).
           // 3rd grade scientific needs specialty (علمي علوم / علمي رياضة).
-          const needsGeneralSection = isGeneralSecondary && profile.grade !== "first" && !profile.section;
+          const needsGeneralSection = isGeneralSecondary && profile.grade !== "first" && !isBaccalaureate && !profile.section;
           const needsGeneralSpecialty = isGeneralSecondary && profile.grade === "third"
             && isScientificTrack(profile.section) && !isScienceSpecialty(profile.section) && !isMathSpecialty(profile.section);
           setNeedsOnboarding(!profile.stage || !profile.grade || needsAzharSection || needsGeneralSection || needsGeneralSpecialty);
@@ -241,6 +254,11 @@ const Dashboard = () => {
     // General first secondary: no sections at all — save directly.
     if (selectedStage === "secondary" && gradeId === "first" && profileData?.education_type === "عام") {
       await saveOnboarding(selectedStage, gradeId, null);
+      return;
+    }
+    // نظام البكالوريا: الصف الثاني الثانوي (عام) — تسجيل تلقائي على المسار العلمي.
+    if (isBaccalaureateScope({ stage: selectedStage, grade: gradeId, educationType: profileData?.education_type })) {
+      await saveOnboarding(selectedStage!, gradeId, BACCALAUREATE_SECTION);
     }
   };
   const handleSectionSelect = async (sectionId: string) => {
@@ -319,7 +337,14 @@ const Dashboard = () => {
   const isSecondaryOnboarding = selectedStage === "secondary";
   const isGeneralSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "عام";
   const isAzharSecondaryOnboarding = isSecondaryOnboarding && profileData?.education_type === "أزهر";
-  const showSectionStep = isSecondaryOnboarding && !(isGeneralSecondaryOnboarding && selectedGrade === "first");
+  const isBaccalaureateOnboarding = isBaccalaureateScope({
+    stage: selectedStage,
+    grade: selectedGrade,
+    educationType: profileData?.education_type,
+  });
+  const showSectionStep = isSecondaryOnboarding
+    && !isBaccalaureateOnboarding
+    && !(isGeneralSecondaryOnboarding && selectedGrade === "first");
   // Specialty step: ONLY general 3rd secondary scientific.
   const showSpecialtyStep = isGeneralSecondaryOnboarding && selectedGrade === "third" && selectedSection === "scientific";
 

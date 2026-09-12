@@ -227,3 +227,32 @@ export function matchesEducationType(
   if (!studentEduType) return true; // student without type sees everything
   return normalizeEducationType(contentEduType) === normalizeEducationType(studentEduType);
 }
+
+/* ------------------------------------------------------------------------- */
+/* Baccalaureate system (الصف الثاني الثانوي - تعليم عام)                    */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Second secondary (عام) has no علمي/أدبي split any more: every student is
+ * registered on the scientific track and the UI label reads "بكالوريا".
+ * The stored section stays "علمي" so all existing subject/content/teacher
+ * matching keeps working exactly as before.
+ */
+export const BACCALAUREATE_SECTION = "علمي";
+export const BACCALAUREATE_LABEL = "بكالوريا";
+
+export type BaccalaureateScope = CurriculumScope & { educationType?: string | null };
+
+export function isBaccalaureateScope(scope: BaccalaureateScope): boolean {
+  if (normalizeCurriculumStage(scope.stage) !== "secondary") return false;
+  if (normalizeCurriculumGrade(scope.grade) !== "second") return false;
+  // Azhar secondary keeps its own علمي/أدبي sections.
+  if (normalizeEducationType(scope.educationType) === "أزهر") return false;
+  return true;
+}
+
+/** Section label for a student, showing "بكالوريا" for second secondary (عام). */
+export function formatSectionLabelForScope(section: StudentSectionValue, scope: BaccalaureateScope) {
+  if (isBaccalaureateScope(scope)) return BACCALAUREATE_LABEL;
+  return formatSectionLabel(section);
+}

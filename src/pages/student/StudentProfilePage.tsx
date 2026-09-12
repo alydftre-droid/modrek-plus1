@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import StudentAccountSheet from "@/components/student/StudentAccountSheet";
+import { formatSectionLabelForScope } from "@/lib/educationSection";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import { getPostSignOutPath, isImpersonating } from "@/lib/devImpersonation";
 import {
@@ -22,6 +23,7 @@ interface Profile {
   stage: string;
   grade: string;
   section: string;
+  education_type: string | null;
   avatar_url: string | null;
   student_code: string;
 }
@@ -60,6 +62,7 @@ export default function StudentProfilePage() {
         stage: p.stage || "",
         grade: p.grade || "",
         section: p.section || "",
+        education_type: p.education_type || null,
         avatar_url: p.avatar_url,
         student_code: p.student_code || "",
       });
@@ -109,6 +112,11 @@ export default function StudentProfilePage() {
   }
 
   const initials = profile?.full_name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "؟";
+  const sectionLabel = formatSectionLabelForScope(profile?.section, {
+    stage: profile?.stage,
+    grade: profile?.grade,
+    educationType: profile?.education_type,
+  });
   const nameParts = (profile?.full_name || "").split(" ");
   const firstName = nameParts[0] || "";
   const lastName = nameParts.slice(1).join(" ") || "";
@@ -212,6 +220,13 @@ export default function StudentProfilePage() {
                   {stageLabels[profile?.stage || ""] ? `الصف ${gradeLabels[profile?.grade || ""] || ""} ${stageLabels[profile?.stage || ""]}` : "—"}
                 </span>
               </div>
+
+              {sectionLabel && (
+                <div className="flex items-center justify-between bg-muted/50 rounded-xl h-12 px-4 mb-3">
+                  <span className="text-sm text-muted-foreground">الشعبة</span>
+                  <span className="text-sm font-bold text-foreground">{sectionLabel}</span>
+                </div>
+              )}
 
               {profile?.student_code && (
                 <div className="flex items-center justify-between bg-muted/50 rounded-xl h-12 px-4">
