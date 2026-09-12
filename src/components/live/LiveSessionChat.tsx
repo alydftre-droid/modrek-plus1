@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, MessageCircle, X, ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { Send, MessageCircle, X } from "lucide-react";
 
 interface Message {
   id: string;
@@ -79,13 +80,17 @@ export default function LiveSessionChat({ sessionId, isTeacher, userName }: Prop
     const text = newMessage.trim();
     setNewMessage("");
 
-    await supabase.from("live_session_messages").insert({
+    const { error } = await supabase.from("live_session_messages").insert({
       session_id: sessionId,
       user_id: user.id,
       user_name: userName,
       message: text,
       is_teacher: isTeacher,
     });
+    if (error) {
+      setNewMessage(text);
+      toast.error("تعذر إرسال الرسالة");
+    }
     setSending(false);
     inputRef.current?.focus();
   }, [newMessage, sending, user, sessionId, userName, isTeacher]);
@@ -105,56 +110,59 @@ export default function LiveSessionChat({ sessionId, isTeacher, userName }: Prop
   // Floating button
   if (!isOpen) {
     return (
-      <button
+      <Button
+        type="button"
+        size="icon"
         onClick={toggleChat}
-        className="absolute bottom-20 right-3 z-30 w-12 h-12 rounded-full bg-primary/90 backdrop-blur-sm flex items-center justify-center text-primary-foreground shadow-lg active:scale-90 transition-transform"
+        aria-label="فتح دردشة الحصة"
+        className="fixed bottom-20 right-3 z-[10004] h-12 w-12 rounded-full shadow-lg"
       >
         <MessageCircle className="h-5 w-5" />
         {unread > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[10px] flex items-center justify-center font-bold">
+          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <div className="absolute bottom-16 right-2 left-2 z-30 max-w-sm mx-auto" dir="rtl">
-      <div className="bg-black/85 backdrop-blur-md rounded-2xl border border-white/10 flex flex-col overflow-hidden shadow-2xl" style={{ maxHeight: "55vh" }}>
+    <div className="fixed bottom-16 right-2 left-2 z-[10004] mx-auto max-w-sm" dir="rtl">
+      <div className="flex max-h-[55vh] flex-col overflow-hidden rounded-lg border bg-card/95 shadow-2xl backdrop-blur-md">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
+        <div className="flex items-center justify-between border-b px-3 py-2">
           <div className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-primary" />
-            <span className="text-white text-sm font-semibold">الدردشة</span>
-            <span className="text-white/40 text-xs">({messages.length})</span>
+            <span className="text-sm font-semibold text-foreground">الدردشة</span>
+            <span className="text-xs text-muted-foreground">({messages.length})</span>
           </div>
-          <button onClick={toggleChat} className="p-1 rounded-full hover:bg-white/10 text-white/60 transition-colors">
+          <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={toggleChat} aria-label="إغلاق الدردشة">
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
 
         {/* Messages */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[120px] max-h-[40vh]">
           {messages.length === 0 && (
-            <p className="text-center text-white/30 text-xs py-8">لا توجد رسائل بعد...</p>
+            <p className="py-8 text-center text-xs text-muted-foreground">لا توجد رسائل بعد...</p>
           )}
           {messages.map((msg) => {
             const isMine = msg.user_id === user?.id;
             return (
               <div key={msg.id} className={`flex flex-col ${isMine ? "items-start" : "items-end"}`}>
                 <div className="flex items-center gap-1 mb-0.5">
-                  <span className={`text-[10px] font-medium ${msg.is_teacher ? "text-yellow-400" : "text-white/50"}`}>
-                    {msg.is_teacher ? `🎓 ${msg.user_name}` : msg.user_name}
+                  <span className={`text-[10px] font-medium ${msg.is_teacher ? "text-primary" : "text-muted-foreground"}`}>
+                    {msg.is_teacher ? `المعلم: ${msg.user_name}` : msg.user_name}
                   </span>
                 </div>
                 <div
                   className={`max-w-[85%] px-3 py-1.5 rounded-xl text-xs leading-relaxed ${
                     isMine
-                      ? "bg-primary/80 text-white rounded-br-sm"
+                      ? "bg-primary text-primary-foreground rounded-br-sm"
                       : msg.is_teacher
-                      ? "bg-yellow-500/20 text-yellow-100 border border-yellow-500/30 rounded-bl-sm"
-                      : "bg-white/10 text-white/90 rounded-bl-sm"
+                      ? "border border-primary/30 bg-primary/10 text-foreground rounded-bl-sm"
+                      : "bg-muted text-foreground rounded-bl-sm"
                   }`}
                 >
                   {msg.message}
@@ -165,7 +173,7 @@ export default function LiveSessionChat({ sessionId, isTeacher, userName }: Prop
         </div>
 
         {/* Input */}
-        <div className="border-t border-white/10 p-2 flex items-center gap-2">
+        <div className="flex items-center gap-2 border-t p-2">
           <input
             ref={inputRef}
             value={newMessage}
@@ -173,15 +181,18 @@ export default function LiveSessionChat({ sessionId, isTeacher, userName }: Prop
             onKeyDown={handleKeyDown}
             placeholder="اكتب رسالة..."
             maxLength={500}
-            className="flex-1 bg-white/10 text-white text-xs rounded-full px-3 py-2 placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-primary/50 border-none"
+            className="flex-1 rounded-full border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
           />
-          <button
+          <Button
+            type="button"
+            size="icon"
             onClick={sendMessage}
             disabled={!newMessage.trim() || sending}
-            className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-40 active:scale-90 transition-transform shrink-0"
+            className="h-8 w-8 shrink-0 rounded-full"
+            aria-label="إرسال الرسالة"
           >
             <Send className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>
