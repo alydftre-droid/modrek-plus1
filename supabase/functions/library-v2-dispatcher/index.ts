@@ -14,6 +14,7 @@
 // -------------------------------------------------------------------
 
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -282,6 +283,10 @@ try {
 }
 
 Deno.serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const bearer = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();

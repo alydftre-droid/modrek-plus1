@@ -2,6 +2,7 @@
 // Called by admin UI right after a book is uploaded. Creates the root
 // v2_extract_pages job for a book and pings the dispatcher immediately.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,6 +19,10 @@ function json(b: unknown, s = 200) {
 }
 
 Deno.serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     const body = await req.json().catch(() => ({}));

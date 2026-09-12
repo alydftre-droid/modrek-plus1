@@ -53,9 +53,18 @@ const record = (group, name, pass, detail = "") => {
 const isDemoBlocked = (r) => !r.ok && /DEMO_READ_ONLY/.test(r.out);
 
 async function main() {
-  const demoId = await psql(
-    "select id from public.profiles where is_demo = true order by created_at desc limit 1",
-  );
+  // Prefer a demo account that ALSO holds the admin role: it is the strongest
+  // case (admin-level RPCs reachable, so only the demo guard can stop them).
+  const demoId =
+    process.env.DEMO_USER_ID ||
+    (await psql(
+      `select p.id from public.profiles p
+         where p.is_demo = true
+         order by (exists (select 1 from public.user_roles ur where ur.user_id = p.id and ur.role = 'admin')) desc,
+                  p.created_at desc
+         limit 1`,
+    ));
+
   const adminId = await psql(
     "select ur.user_id from public.user_roles ur join public.profiles p on p.id = ur.user_id where ur.role = 'admin' and coalesce(p.is_demo,false) = false limit 1",
   );

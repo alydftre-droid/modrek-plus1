@@ -28,6 +28,31 @@ const sections = [
 const SettingsPage = () => {
   const [activeSection, setActiveSection] = useState<SettingsSection>("menu");
   const navigate = useNavigate();
+  const { isDemo } = useIsDemoAccount();
+
+  // Preview accounts never reach the platform information screen (it exposes
+  // administrator contact details and service keys) — neither through the menu
+  // nor by opening it directly.
+  const visibleSections = sections.filter((section) => !(isDemo && section.id === "info"));
+  const blockedForDemo = isDemo && activeSection === "info";
+
+  if (blockedForDemo) {
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={() => setActiveSection("menu")}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          رجوع للإعدادات
+        </button>
+        <div className="rounded-xl border bg-card p-6 text-center space-y-2">
+          <ShieldAlert className="h-8 w-8 mx-auto text-rose-500" />
+          <p className="font-semibold">هذه الصفحة غير متاحة لحسابات المعاينة</p>
+        </div>
+      </div>
+    );
+  }
 
   if (activeSection !== "menu") {
     const current = sections.find(s => s.id === activeSection);
@@ -56,6 +81,7 @@ const SettingsPage = () => {
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">

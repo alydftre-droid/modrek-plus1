@@ -9072,6 +9072,7 @@ export type Database = {
       increment_voice_usage: { Args: { p_id: string }; Returns: undefined }
       is_approved_teacher: { Args: { _user_id: string }; Returns: boolean }
       is_demo_account: { Args: { _user_id: string }; Returns: boolean }
+      is_demo_email: { Args: { p_email: string }; Returns: boolean }
       is_developer_admin: { Args: { _user_id: string }; Returns: boolean }
       is_exam_non_answer: { Args: { _answer: string }; Returns: boolean }
       is_modrek_admin: { Args: { _user_id?: string }; Returns: boolean }

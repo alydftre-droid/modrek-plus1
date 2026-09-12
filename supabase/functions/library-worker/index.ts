@@ -20,6 +20,7 @@ import {
   callGeminiWithFallback,
 } from "../_shared/aiSettings.ts";
 import {
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
   openRouterEmbed,
   openRouterTts,
   pcmToWav,
@@ -1130,6 +1131,10 @@ async function runOneJob(admin: any): Promise<{ ran: boolean; jobId?: string; er
 }
 
 Deno.serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const body = await req.json().catch(() => ({}));

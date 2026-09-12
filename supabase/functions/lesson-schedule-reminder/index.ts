@@ -5,6 +5,7 @@
 // per occurrence (guarded by public.group_lesson_reminder_log).
 // Designed to be invoked every 1-5 minutes.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -56,6 +57,10 @@ function slotMinutes(time: string): number | null {
 }
 
 Deno.serve(async (req) => {
+  // Demo accounts are read-only (server-side boundary, cannot be bypassed).
+  // Preflight and service-role/cron callers carry no user token and pass through.
+  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  if (demoBlock) return demoBlock;
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
