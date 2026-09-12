@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { saveFile } from "@/lib/fileDownload";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTeacherProfile, useTeacherPaymentMethods, useTeacherWithdrawals, useTeacherAssignments } from "@/hooks/useTeacherData";
