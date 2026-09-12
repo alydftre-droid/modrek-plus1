@@ -82,7 +82,7 @@ async function moveToDlq(
 Deno.serve(async (req) => {
   // Demo accounts are read-only (server-side boundary, cannot be bypassed).
   // Preflight and service-role/cron callers carry no user token and pass through.
-  const demoBlock = await blockDemoWrites(req, corsHeaders);
+  const demoBlock = await blockDemoWrites(req);
   if (demoBlock) return demoBlock;
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
