@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FolderOpen, BookOpen, ChevronLeft, User as UserIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { getCurrentTermForStageGrade } from "@/lib/termSystem";
+import StoredImage from "@/components/common/StoredImage";
 
 interface SubscribedGroup {
   id: string;
