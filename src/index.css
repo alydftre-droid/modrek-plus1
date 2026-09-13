@@ -4963,3 +4963,23 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.65);
 }
+
+/*
+ * Android app: keep every page and nested panel touch-scrollable without
+ * exposing Chromium's painted scrollbar at the RTL screen edge.
+ */
+html[data-native-app="true"],
+html[data-native-app="true"] body,
+html[data-native-app="true"] * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html[data-native-app="true"]::-webkit-scrollbar,
+html[data-native-app="true"] body::-webkit-scrollbar,
+html[data-native-app="true"] *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
