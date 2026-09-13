@@ -10,7 +10,6 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { getJwtClaimsFromAuthHeader } from "../_shared/auth.ts";
 import { getActiveAiApiKey } from "../_shared/aiProvider.ts";
 import {
-import { blockDemoWrites } from "../_shared/demoGuard.ts";
   MODREK_TTS_SETTINGS,
   estimatePcmDurationSeconds,
   openRouterTts,
@@ -20,6 +19,7 @@ import { blockDemoWrites } from "../_shared/demoGuard.ts";
   OPENROUTER_TTS_QUALITY,
   preprocessSpeechForTeacher,
 } from "../_shared/openrouter.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

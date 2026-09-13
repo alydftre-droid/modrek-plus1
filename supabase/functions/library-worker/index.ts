@@ -20,7 +20,6 @@ import {
   callGeminiWithFallback,
 } from "../_shared/aiSettings.ts";
 import {
-import { blockDemoWrites } from "../_shared/demoGuard.ts";
   openRouterEmbed,
   openRouterTts,
   pcmToWav,
@@ -30,6 +29,7 @@ import { blockDemoWrites } from "../_shared/demoGuard.ts";
   OPENROUTER_DEFAULT_TTS_VOICE,
   toOpenRouterTtsModelId,
 } from "../_shared/openrouter.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -125,11 +125,19 @@ Deno.serve(async (req) => {
       return data as any | null;
     };
 
+    // Creating a preview account is all-or-nothing. If any step after the auth
+    // user fails, the auth user is removed again — otherwise a half-created
+    // account would stay behind as a NORMAL account with full write access,
+    // which is exactly how demo accounts once became able to edit real data.
     const createDemoAccount = async (input: { role: DemoRole; email: string; label?: string }) => {
       const email = input.email.trim().toLowerCase();
       const role = input.role;
       const label = (input.label || ROLE_LABELS[role]).trim();
       const password = generatePassword();
+
+      if (!email.endsWith("@modrekplus.demo")) {
+        throw new Error("بريد حساب المعاينة يجب أن ينتهي بـ @modrekplus.demo");
+      }
 
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
@@ -143,52 +151,82 @@ Deno.serve(async (req) => {
       }
       const userId = created.user.id;
 
-      // Profile: flagged as demo AND as a test account so every existing
-      // teacher-facing / statistics filter already excludes it.
-      const { error: profileErr } = await admin.from("profiles").upsert(
-        {
-          id: userId,
-          full_name: label,
-          email,
-          role: role === "admin" ? "admin" : role,
-          is_demo: true,
-          is_test_account: true,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "id" },
-      );
-      if (profileErr) throw profileErr;
-
-      await admin.from("user_roles").upsert({ user_id: userId, role }, { onConflict: "user_id,role" });
-
-      if (role === "teacher") {
-        await admin.from("teacher_profiles").upsert(
-          { teacher_id: userId, is_approved: true, bio: "حساب معلم تجريبي (ديمو)" },
-          { onConflict: "teacher_id" },
+      try {
+        // Profile: flagged as demo AND as a test account so every existing
+        // teacher-facing / statistics filter already excludes it.
+        const { error: profileErr } = await admin.from("profiles").upsert(
+          {
+            id: userId,
+            full_name: label,
+            email,
+            role: role === "admin" ? "admin" : role,
+            is_demo: true,
+            is_test_account: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" },
         );
-      }
-      if (role === "student") {
-        await admin.from("wallets").upsert({ user_id: userId, balance: 5000 }, { onConflict: "user_id" });
-      }
+        if (profileErr) throw profileErr;
 
-      const { data: row, error: rowErr } = await admin
-        .from("demo_accounts")
-        .insert({
-          user_id: userId,
-          email,
-          label,
-          role,
-          is_active: true,
-          created_by: callerId,
-          last_password_reset_at: new Date().toISOString(),
-        })
-        .select("*")
-        .maybeSingle();
-      if (rowErr) throw rowErr;
+        const { error: roleErr } = await admin
+          .from("user_roles")
+          .upsert({ user_id: userId, role }, { onConflict: "user_id,role" });
+        if (roleErr) throw roleErr;
 
-      await audit("create", { user_id: userId, email, role });
-      return { account: row, password };
+        if (role === "teacher") {
+          const { error: tErr } = await admin.from("teacher_profiles").upsert(
+            { teacher_id: userId, is_approved: true, bio: "حساب معلم تجريبي (ديمو)" },
+            { onConflict: "teacher_id" },
+          );
+          if (tErr) throw tErr;
+        }
+        if (role === "student") {
+          const { error: wErr } = await admin
+            .from("wallets")
+            .upsert({ user_id: userId, balance: 5000 }, { onConflict: "user_id" });
+          if (wErr) throw wErr;
+        }
+
+        const { data: row, error: rowErr } = await admin
+          .from("demo_accounts")
+          .insert({
+            user_id: userId,
+            email,
+            label,
+            role,
+            is_active: true,
+            created_by: callerId,
+            last_password_reset_at: new Date().toISOString(),
+          })
+          .select("*")
+          .maybeSingle();
+        if (rowErr) throw rowErr;
+        if (!row?.id) throw new Error("تعذر تسجيل حساب المعاينة في السجل");
+
+        // Final proof that the read-only boundary now recognises this account.
+        const { data: check } = await admin
+          .from("profiles")
+          .select("is_demo")
+          .eq("id", userId)
+          .maybeSingle();
+        if (check?.is_demo !== true) {
+          throw new Error("لم يتم تفعيل وضع المشاهدة فقط على الحساب");
+        }
+
+        await audit("create", { user_id: userId, email, role });
+        return { account: row, password };
+      } catch (e) {
+        // Roll back: never leave a privileged leftover account behind.
+        try {
+          await admin.from("demo_accounts").delete().eq("user_id", userId);
+          await admin.auth.admin.deleteUser(userId);
+        } catch (cleanupError) {
+          console.error("[demo-create] rollback failed", (cleanupError as Error)?.message);
+        }
+        throw e;
+      }
     };
+
 
     // Auto-generated demo email: the developer only picks the role.
     const buildAutoEmail = (role: DemoRole) => {
