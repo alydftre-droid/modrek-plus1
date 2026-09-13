@@ -1,6 +1,7 @@
 package com.modrek.plus;
 
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.WebSettings;
 import com.capacitorjs.plugins.app.AppPlugin;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
@@ -55,6 +56,12 @@ public class MainActivity extends BridgeActivity {
             settings.setSupportZoom(false);
             settings.setBuiltInZoomControls(false);
             settings.setDisplayZoomControls(false);
+
+            // التمرير يظل يعمل باللمس، لكن بدون شريط Chromium الجانبي
+            // الذي ظهر بعد توحيد تنسيق أشرطة التمرير بين الهاتف والكمبيوتر.
+            this.bridge.getWebView().setVerticalScrollBarEnabled(false);
+            this.bridge.getWebView().setHorizontalScrollBarEnabled(false);
+            this.bridge.getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
         }
     }
 
