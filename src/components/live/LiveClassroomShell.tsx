@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, Eye, PenLine, Radio } from "lucide-react";
+import { Clock3, Eye, Minimize2, PenLine, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { setZoomRootVisible } from "@/lib/zoomMeeting";
 import LiveSessionChat from "./LiveSessionChat";
 import ModrekLiveBoard from "./ModrekLiveBoard";
 
