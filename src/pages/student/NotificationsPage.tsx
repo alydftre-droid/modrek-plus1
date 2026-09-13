@@ -290,9 +290,25 @@ const NotificationsPage = () => {
                                 </span>
                               </div>
 
-                              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-2">
+                              <p
+                                dir="auto"
+                                className={`text-xs text-muted-foreground leading-relaxed mb-2 whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${
+                                  expandedIds.has(n.id) ? "" : "line-clamp-2"
+                                }`}
+                              >
                                 {n.message}
                               </p>
+
+                              {(n.message || "").length > 90 && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpanded(n.id)}
+                                  className="mb-2 text-[11px] font-bold text-primary hover:underline"
+                                >
+                                  {expandedIds.has(n.id) ? "عرض أقل" : "عرض المزيد"}
+                                </button>
+                              )}
+
 
                               <div className="flex items-center gap-2 flex-wrap">
                                 <Badge variant="outline" className="rounded-full text-[10px] h-5 px-2 border-border/60 text-muted-foreground">
