@@ -24,6 +24,7 @@ function elapsedLabel(startedAt?: string) {
 
 export default function LiveClassroomShell({ sessionId, groupId, title, viewerCount = 0, startedAt, isTeacher, userName }: Props) {
   const [showBoard, setShowBoard] = useState(false);
+  const [minimized, setMinimized] = useState(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -33,8 +34,26 @@ export default function LiveClassroomShell({ sessionId, groupId, title, viewerCo
 
   const elapsed = useMemo(() => elapsedLabel(startedAt), [startedAt, tick]);
 
+  // Stepping out of the broadcast only hides the meeting screen: the class keeps
+  // running and one button brings it back.
+  const goBackToBroadcast = () => {
+    setMinimized(false);
+    setZoomRootVisible(true);
+  };
+
+  if (minimized) {
+    return (
+      <div className="fixed bottom-4 left-1/2 z-[10003] -translate-x-1/2" dir="rtl">
+        <Button size="lg" className="gap-2 rounded-full shadow-xl" onClick={goBackToBroadcast}>
+          <Radio className="h-4 w-4 animate-pulse" />
+          العودة للبث ({elapsed})
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-[10002] pointer-events-none" dir="rtl" aria-label="أدوات حصة مدرك">
+    <div className="fixed inset-0 z-[10002] pointer-events-none max-w-[100vw] overflow-hidden" dir="rtl" aria-label="أدوات حصة مدرك">
       <header className="pointer-events-auto absolute inset-x-2 top-2 mx-auto flex max-w-3xl items-center justify-between gap-2 rounded-lg border bg-card/95 px-3 py-2 shadow-lg backdrop-blur-sm">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -46,9 +65,23 @@ export default function LiveClassroomShell({ sessionId, groupId, title, viewerCo
             <span className="flex items-center gap-1"><Eye className="h-3.5 w-3.5" />{viewerCount} حاضر</span>
           </div>
         </div>
-        <Button size="sm" variant="secondary" className="shrink-0 gap-1.5" onClick={() => setShowBoard(true)}>
-          <PenLine className="h-4 w-4" /> السبورة والكتاب
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setShowBoard(true)}>
+            <PenLine className="h-4 w-4" /> السبورة والكتاب
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => {
+              setShowBoard(false);
+              setZoomRootVisible(false);
+              setMinimized(true);
+            }}
+          >
+            <Minimize2 className="h-4 w-4" /> خروج مؤقت
+          </Button>
+        </div>
       </header>
       <div className="pointer-events-auto">
         <LiveSessionChat sessionId={sessionId} isTeacher={isTeacher} userName={userName} />
