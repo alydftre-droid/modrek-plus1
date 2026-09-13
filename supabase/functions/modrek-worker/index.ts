@@ -8,7 +8,6 @@ import { callGeminiWithFallback, resolveOpenRouterApiKey } from "../_shared/aiSe
 import { aiEmbeddings, resolveFileApiRoute } from "../_shared/aiProvider.ts";
 import { parseCurriculumTitle } from "../_shared/lessonTargeting.ts";
 import {
-import { blockDemoWrites } from "../_shared/demoGuard.ts";
   classifyPipelineError,
   countPdfPagesFromRawBytes,
   scanPdfPagesDeep,
@@ -20,6 +19,7 @@ import { blockDemoWrites } from "../_shared/demoGuard.ts";
   resolvePdfPageCount,
   tokenBudgetForStage,
 } from "./pdfPipeline.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

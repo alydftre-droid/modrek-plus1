@@ -4,7 +4,6 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-import { blockDemoWrites } from "../_shared/demoGuard.ts";
   aiChatCompletion,
   aiEmbeddings,
   aiListModels,
@@ -14,6 +13,7 @@ import { blockDemoWrites } from "../_shared/demoGuard.ts";
   probeAiProviderFileApi,
   resolveAiProvider,
 } from "../_shared/aiProvider.ts";
+import { blockDemoWrites } from "../_shared/demoGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
