@@ -196,14 +196,17 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
       // or when the browser plays HLS natively (no hls.js level API).
       const buildManualLevels = async () => {
         const fresh = status || (await getBunnyVideoStatus(videoId));
-        const heights = Array.from(
+        let heights = Array.from(
           new Set(
             (fresh?.availableResolutions || [])
               .map((r) => parseInt(String(r).replace(/\D/g, ""), 10))
               .filter((h) => Number.isFinite(h) && h > 0)
           )
         ).sort((a, b) => b - a);
-        if (!heights.length) return;
+        // Android WebView / offline status lookups can return no resolution list.
+        // Fall back to Bunny's standard encoding ladder so the student always has
+        // a manual quality menu inside the mobile app.
+        if (!heights.length) heights = [1080, 720, 480, 360];
         const built: QualityLevel[] = [{ index: -1, label: "Auto", height: 0 }];
         heights.forEach((h, i) =>
           built.push({
@@ -216,7 +219,15 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
         if (!cancelled) setLevels(built);
       };
 
-      if (Hls.isSupported() && !video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Prefer hls.js everywhere it works (Android WebView reports "maybe" for
+      // native HLS but gives no level API, which is why the in-app quality menu
+      // used to be empty). Only Safari/iOS keeps the native path.
+      const isAppleNative =
+        /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+        /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      if (Hls.isSupported() && !isAppleNative) {
+
         let networkRetries = 0;
         const hls = new Hls({
           enableWorker: true,
