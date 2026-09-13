@@ -91,7 +91,7 @@ const SettingsPage = () => {
         الإعدادات
       </h2>
       <div className="grid gap-3">
-        {sections.map((section) => (
+        {visibleSections.map((section) => (
           <button
             key={section.id}
             onClick={() => setActiveSection(section.id)}
