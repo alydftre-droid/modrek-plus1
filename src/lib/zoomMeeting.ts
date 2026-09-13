@@ -308,7 +308,32 @@ function injectZoomUiFix() {
   style.id = ZOOM_UI_FIX_STYLE_ID;
   style.textContent = `
     #zmmtg-root { direction: ltr !important; }
+    /* The meeting must fill the whole screen on laptops and desktops too, with
+       no page scrolling or sideways stretching behind it. */
+    html.modrek-live-open, body.modrek-live-open { overflow: hidden !important; overscroll-behavior: none; }
+    #zmmtg-root {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100dvh !important;
+      max-width: 100vw !important;
+      overflow: hidden !important;
+    }
+    #zmmtg-root #wc-container-left,
+    #zmmtg-root .meeting-client,
+    #zmmtg-root .meeting-client-inner,
+    #zmmtg-root .meeting-app,
+    #zmmtg-root [class*="meeting-client"] {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100vw !important;
+    }
+    #zmmtg-root .main-content, #zmmtg-root .gallery-video-container {
+      max-width: 100vw !important;
+    }
     /* Zoom renders the "More" menu and its tool pop-ups into document.body,
+       OUTSIDE #zmmtg-root. Scoping the fix to the root left them stacked
+
        OUTSIDE #zmmtg-root. Scoping the fix to the root left them stacked
        behind the SDK root (z-index 9999), so the button looked dead.
        These rules are intentionally global. */
