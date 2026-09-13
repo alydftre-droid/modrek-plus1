@@ -9,6 +9,7 @@ import SupportChannelsSettings from "@/components/admin/settings/SupportChannels
 import SupportLogsPage from "@/pages/admin/SupportLogsPage";
 import DeletionAuditPage from "@/pages/admin/DeletionAuditPage";
 import DemoAccountsPage from "@/pages/admin/DemoAccountsPage";
+import { useIsDemoAccount } from "@/hooks/useIsDemoAccount";
 
 type SettingsSection = "menu" | "info" | "terms" | "withdrawal" | "ai" | "support" | "support-logs" | "audit" | "demo";
 
