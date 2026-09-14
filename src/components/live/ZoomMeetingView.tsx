@@ -53,6 +53,7 @@ export default function ZoomMeetingView({
   const startingRef = useRef(false);
   const retriedRef = useRef(false);
   const endedRef = useRef(false);
+  const lastConnectedAtRef = useRef(0);
 
 
   useEffect(() => {
@@ -140,16 +141,38 @@ export default function ZoomMeetingView({
             if (cancelledRef.current) return;
             if (data?.meetingStatus === 2) {
               joinedRef.current = true;
+              lastConnectedAtRef.current = Date.now();
               setStatus("in-meeting");
-            } else if (data?.meetingStatus === 3 && joinedRef.current && !endedRef.current) {
-              endedRef.current = true;
-              const id = activeSessionId.current;
-              if (mode === "host" && id) void endZoomSession(id).finally(onClose);
-              else {
-                if (id) void leaveZoomSession(id);
-                onClose();
-              }
+              return;
             }
+            if (data?.meetingStatus !== 3 || !joinedRef.current || endedRef.current) return;
+            // Zoom emits status 3 transiently while its own audio/video
+            // permission dialog is open. Never end the class on that signal:
+            // wait, then confirm with the server before closing anything.
+            const closedAt = Date.now();
+            window.setTimeout(() => {
+              if (cancelledRef.current || endedRef.current) return;
+              // A newer "connected" event means the meeting is still alive.
+              if (lastConnectedAtRef.current > closedAt) return;
+              const id = activeSessionId.current;
+              if (!id) {
+                endedRef.current = true;
+                onClose();
+                return;
+              }
+              void reconcileZoomSession(id)
+                .then((result) => {
+                  if (cancelledRef.current || endedRef.current) return;
+                  if (lastConnectedAtRef.current > closedAt) return;
+                  if (result?.active) return; // still live on Zoom — stay put
+                  endedRef.current = true;
+                  if (mode === "attendee") void leaveZoomSession(id);
+                  onClose();
+                })
+                .catch(() => {
+                  /* keep the teacher in the class if we cannot verify */
+                });
+            }, 4000);
           });
         } catch {
           /* listener is optional */
