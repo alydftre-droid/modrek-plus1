@@ -8,6 +8,7 @@ import {
   joinZoomSession,
   leaveZoomSession,
   loadZoomSdk,
+  reconcileZoomSession,
   requestZoomMediaPermissions,
   setZoomRootVisible,
   startZoomArabicLocalization,
