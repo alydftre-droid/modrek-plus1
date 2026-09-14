@@ -10,6 +10,7 @@ import { Loader2, Send, MessageCircle, Image, Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import teacherChatAvatar from "@/assets/teacher-chat-avatar.png";
+import StoredImage from "@/components/common/StoredImage";
 import ChatAttachment from "@/components/chat/ChatAttachment";
 
 interface Props {
@@ -180,15 +181,16 @@ export default function StudentTeacherChat({ teacherId, teacherName, teacherPhot
     return acc;
   }, []);
 
-  const displayPhoto = teacherPhotoUrl || teacherChatAvatar;
+  const displayPhoto = teacherPhotoUrl || null;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
         <button className="student-chat-trigger relative flex flex-col items-center gap-1 rounded-2xl px-2 py-1 transition-all duration-300" title={`راسل ${teacherName}`}>
           <div className="student-chat-trigger-avatar h-8 w-8 shrink-0 overflow-hidden rounded-full border-2 border-primary/30 bg-white shadow-sm">
-            <img
-              src={displayPhoto}
+            <StoredImage
+              source={displayPhoto}
+              fallbackSrc={teacherChatAvatar}
               alt={teacherName}
               className="h-full w-full object-cover"
               loading="lazy"
@@ -210,8 +212,9 @@ export default function StudentTeacherChat({ teacherId, teacherName, teacherPhot
           <div className="teacher-chat-sheet-header p-4">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 overflow-hidden rounded-full border-2 border-white/40 shadow-lg bg-white">
-                <img
-                  src={displayPhoto}
+                <StoredImage
+                  source={displayPhoto}
+                  fallbackSrc={teacherChatAvatar}
                   alt={teacherName}
                   className="h-full w-full object-cover"
                   loading="lazy"
