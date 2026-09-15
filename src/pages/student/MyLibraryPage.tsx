@@ -175,7 +175,7 @@ export default function MyLibraryPage() {
                           >
                             <div className="absolute inset-y-0 left-0 w-3 bg-gradient-to-r from-black/20 to-transparent z-10 pointer-events-none" />
                             {book.cover_url ? (
-                              <img src={resolveBunnyStorageUrl(book.cover_url)} alt={book.title} className="h-full w-full object-cover" loading="lazy" />
+                              <StoredImage source={book.cover_url} alt={book.title} className="h-full w-full object-cover" loading="lazy" />
                             ) : (
                               <div className="flex h-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/15 via-accent/40 to-primary/10 p-3">
                                 <BookOpen className="h-8 w-8 text-primary/60" />
