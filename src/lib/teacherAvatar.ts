@@ -16,8 +16,16 @@ const toTime = (value?: string | null) => {
   return Number.isFinite(time) ? time : 0;
 };
 
-export const appendImageCacheBuster = (url: string) =>
-  `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+/**
+ * Adds a cache-busting query only to real web URLs. A Bunny reference
+ * (`bstorage://…`) is a storage KEY, not a URL: appending `?v=` to it produces a
+ * path that does not exist, which is what made freshly uploaded photos render
+ * as broken images everywhere.
+ */
+export const appendImageCacheBuster = (url: string) => {
+  if (!url || url.startsWith("bstorage://") || url.startsWith("bunny://") || url.startsWith("data:")) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+};
 
 export function selectTeacherAvatarUrl(
   profileAvatarUrl?: string | null,
