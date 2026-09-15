@@ -12,6 +12,7 @@ import { ArrowRight, User, Mail, Phone, Hash, Camera, Loader2, Check, Pencil } f
 import { toast } from "sonner";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
+import StoredImage from "@/components/common/StoredImage";
 
 export default function TeacherAccountInfoPage() {
   const { user } = useAuth();
