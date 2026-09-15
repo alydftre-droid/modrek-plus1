@@ -610,6 +610,31 @@ Deno.serve(async (req) => {
         await closeModrekSession(supabase, existing);
       }
 
+      // Another teacher's running class must never be terminated to make room
+      // for this one: refuse instead of silently kicking them out.
+      const { data: otherLive } = await supabase
+        .from("live_sessions")
+        .select("id, group_id, zoom_meeting_id, started_at")
+        .eq("status", "live")
+        .eq("provider", "zoom")
+        .neq("group_id", groupId)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (otherLive?.zoom_meeting_id) {
+        const otherStillLive = await isMeetingCurrentlyLive(token, host.id, String(otherLive.zoom_meeting_id));
+        if (otherStillLive === true) {
+          return fail("zoom_host_busy", 409, "another modrek live session is running", {
+            step: "meeting_lookup",
+            source: "GET /v2/users/{userId}/meetings?type=live",
+            httpStatus: 409,
+            zoomCode: "zoom_host_busy",
+            zoomMessage: "حساب مضيف Zoom مشغول بحصة أخرى جارية",
+            fileLine: "supabase/functions/zoom-live/index.ts",
+          });
+        }
+      }
+
       // Clear anything still running on the Zoom host so the new meeting can
       // actually start (otherwise Zoom answers with SDK error 3000).
       await endHostLiveMeetings(token, host.id);
