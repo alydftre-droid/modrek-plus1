@@ -48,6 +48,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   meeting_ended: "انتهت هذه الحصة",
   session_not_found: "لم يتم العثور على البث",
   sdk_signature_failed: "فشل تهيئة Zoom SDK",
+  zoom_host_busy: "هناك حصة مباشرة أخرى جارية الآن على المنصة. انتظر انتهاءها ثم ابدأ حصتك.",
   internal_error: "حدث خطأ غير متوقع",
 };
 
