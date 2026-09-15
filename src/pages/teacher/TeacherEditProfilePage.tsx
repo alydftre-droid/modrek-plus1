@@ -91,7 +91,7 @@ export default function TeacherEditProfilePage() {
           <div className="relative">
             <div className="h-24 w-24 rounded-full bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center overflow-hidden ring-4 ring-primary/20 shadow-xl">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                <StoredImage source={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-10 w-10 text-white" />
               )}
