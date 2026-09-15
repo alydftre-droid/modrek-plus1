@@ -31,6 +31,7 @@ type ErrorCode =
   | "meeting_ended"
   | "session_not_found"
   | "sdk_signature_failed"
+  | "zoom_host_busy"
   | "internal_error";
 
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
@@ -47,6 +48,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   meeting_ended: "انتهت هذه الحصة",
   session_not_found: "لم يتم العثور على البث",
   sdk_signature_failed: "فشل تهيئة Zoom SDK",
+  zoom_host_busy: "هناك حصة مباشرة أخرى جارية الآن على المنصة. انتظر انتهاءها ثم ابدأ حصتك.",
   internal_error: "حدث خطأ غير متوقع",
 };
 
@@ -555,12 +557,28 @@ Deno.serve(async (req) => {
         });
       }
 
-      const existingState: MeetingState = existing && existing.provider === "zoom" && existing.zoom_meeting_id
-        ? await inspectExistingMeeting(token, String(existing.zoom_meeting_id), host.id)
-        : "missing";
       // A rejoin after a reload/exit must land back on the SAME meeting the
-      // teacher started. Only a meeting owned by a different host is unusable.
-      const canReuseExisting = existingState === "match" || existingState === "unknown";
+      // teacher started. Instant meetings (type 1) regularly disappear from
+      // GET /meetings while they are actually running, so a bare 404 must NOT
+      // be read as "gone": doing that recreated the meeting and ended the one
+      // the teacher had just joined — the class died seconds after going live.
+      const existingMeetingId = existing && existing.provider === "zoom" && existing.zoom_meeting_id
+        ? String(existing.zoom_meeting_id)
+        : null;
+      let canReuseExisting = false;
+      if (existingMeetingId) {
+        const existingState: MeetingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
+        if (existingState === "match" || existingState === "unknown") {
+          canReuseExisting = true;
+        } else if (existingState === "missing") {
+          const liveNow = await isMeetingCurrentlyLive(token, host.id, existingMeetingId);
+          const startedAtMs = new Date(existing.started_at ?? Date.now()).getTime();
+          const ageMs = Date.now() - (Number.isFinite(startedAtMs) ? startedAtMs : Date.now());
+          // Reuse when Zoom still reports it live, when Zoom could not be
+          // checked, or while the host is still completing the join.
+          canReuseExisting = liveNow !== false || ageMs < 3 * 60 * 1000;
+        }
+      }
 
       if (existing && canReuseExisting) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
@@ -590,6 +608,31 @@ Deno.serve(async (req) => {
         // Never reuse a stale meeting created for another Zoom host. A ZAK is
         // user-bound; combining it with that meeting produces Zoom's "Token error".
         await closeModrekSession(supabase, existing);
+      }
+
+      // Another teacher's running class must never be terminated to make room
+      // for this one: refuse instead of silently kicking them out.
+      const { data: otherLive } = await supabase
+        .from("live_sessions")
+        .select("id, group_id, zoom_meeting_id, started_at")
+        .eq("status", "live")
+        .eq("provider", "zoom")
+        .neq("group_id", groupId)
+        .order("started_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (otherLive?.zoom_meeting_id) {
+        const otherStillLive = await isMeetingCurrentlyLive(token, host.id, String(otherLive.zoom_meeting_id));
+        if (otherStillLive === true) {
+          return fail("zoom_host_busy", 409, "another modrek live session is running", {
+            step: "meeting_lookup",
+            source: "GET /v2/users/{userId}/meetings?type=live",
+            httpStatus: 409,
+            zoomCode: "zoom_host_busy",
+            zoomMessage: "حساب مضيف Zoom مشغول بحصة أخرى جارية",
+            fileLine: "supabase/functions/zoom-live/index.ts",
+          });
+        }
       }
 
       // Clear anything still running on the Zoom host so the new meeting can

@@ -12,6 +12,7 @@ import { ArrowRight, Camera, User, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
+import StoredImage from "@/components/common/StoredImage";
 
 export default function TeacherEditProfilePage() {
   const { user } = useAuth();
@@ -91,7 +92,7 @@ export default function TeacherEditProfilePage() {
           <div className="relative">
             <div className="h-24 w-24 rounded-full bg-gradient-to-br from-[hsl(158,64%,28%)] to-[hsl(158,55%,22%)] flex items-center justify-center overflow-hidden ring-4 ring-primary/20 shadow-xl">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                <StoredImage source={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-10 w-10 text-white" />
               )}

@@ -18,6 +18,7 @@ import supportAgentImg from "@/assets/support-agent.png";
 import mudrikLogo from "@/assets/mudrik-logo.png";
 import { useDevGradeDelete } from "@/components/teacher/useDevGradeDelete";
 import { useQueryClient } from "@tanstack/react-query";
+import StoredImage from "@/components/common/StoredImage";
 
 const ARABIC_MONTHS = [
   "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
@@ -159,8 +160,8 @@ export default function TeacherHomePage() {
                   }}
                 >
                   {teacherAvatar ? (
-                    <img
-                      src={teacherAvatar}
+                    <StoredImage
+                      source={teacherAvatar}
                       alt={teacherName}
                       className="h-20 w-20 md:h-24 md:w-24 rounded-full object-cover bg-white"
                       loading="lazy"
