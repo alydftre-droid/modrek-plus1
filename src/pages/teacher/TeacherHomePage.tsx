@@ -159,8 +159,8 @@ export default function TeacherHomePage() {
                   }}
                 >
                   {teacherAvatar ? (
-                    <img
-                      src={teacherAvatar}
+                    <StoredImage
+                      source={teacherAvatar}
                       alt={teacherName}
                       className="h-20 w-20 md:h-24 md:w-24 rounded-full object-cover bg-white"
                       loading="lazy"
