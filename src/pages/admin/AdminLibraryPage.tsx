@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { ArrowLeft, BookOpen, Loader2, Plus, RefreshCw, Trash2, Eye, EyeOff, Play, Pause, ChevronRight, FileText, Image as ImageIcon, Sparkles, Layers, GraduationCap, HardDrive, Volume2 } from "lucide-react";
 import { uploadBookToBunny } from "@/lib/studentLibrary";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import StoredImage from "@/components/common/StoredImage";
 import { useAuth } from "@/hooks/useAuth";
 import LibraryUploadPage from "@/components/admin/LibraryUploadPage";
 import LibraryProcessingMonitor from "@/components/admin/LibraryProcessingMonitor";
