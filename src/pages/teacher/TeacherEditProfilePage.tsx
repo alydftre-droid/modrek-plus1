@@ -12,6 +12,7 @@ import { ArrowRight, Camera, User, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { getTeacherProfileUploadErrorMessage, uploadTeacherProfileFile } from "@/lib/teacherProfileUpload";
 import { appendImageCacheBuster, saveTeacherAccountAvatar, setTeacherProfileAvatarCache } from "@/lib/teacherAvatar";
+import StoredImage from "@/components/common/StoredImage";
 
 export default function TeacherEditProfilePage() {
   const { user } = useAuth();
