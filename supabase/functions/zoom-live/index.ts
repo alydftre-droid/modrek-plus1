@@ -557,12 +557,28 @@ Deno.serve(async (req) => {
         });
       }
 
-      const existingState: MeetingState = existing && existing.provider === "zoom" && existing.zoom_meeting_id
-        ? await inspectExistingMeeting(token, String(existing.zoom_meeting_id), host.id)
-        : "missing";
       // A rejoin after a reload/exit must land back on the SAME meeting the
-      // teacher started. Only a meeting owned by a different host is unusable.
-      const canReuseExisting = existingState === "match" || existingState === "unknown";
+      // teacher started. Instant meetings (type 1) regularly disappear from
+      // GET /meetings while they are actually running, so a bare 404 must NOT
+      // be read as "gone": doing that recreated the meeting and ended the one
+      // the teacher had just joined — the class died seconds after going live.
+      const existingMeetingId = existing && existing.provider === "zoom" && existing.zoom_meeting_id
+        ? String(existing.zoom_meeting_id)
+        : null;
+      let canReuseExisting = false;
+      if (existingMeetingId) {
+        const existingState: MeetingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
+        if (existingState === "match" || existingState === "unknown") {
+          canReuseExisting = true;
+        } else if (existingState === "missing") {
+          const liveNow = await isMeetingCurrentlyLive(token, host.id, existingMeetingId);
+          const startedAtMs = new Date(existing.started_at ?? Date.now()).getTime();
+          const ageMs = Date.now() - (Number.isFinite(startedAtMs) ? startedAtMs : Date.now());
+          // Reuse when Zoom still reports it live, when Zoom could not be
+          // checked, or while the host is still completing the join.
+          canReuseExisting = liveNow !== false || ageMs < 3 * 60 * 1000;
+        }
+      }
 
       if (existing && canReuseExisting) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
