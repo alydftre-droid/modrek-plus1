@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { BookOpen, Loader2 } from "lucide-react";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
+import StoredImage from "@/components/common/StoredImage";
 import {
   educationMatchesBook,
   fetchLibraryTaxonomy,
