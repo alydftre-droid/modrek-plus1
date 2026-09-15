@@ -31,6 +31,7 @@ type ErrorCode =
   | "meeting_ended"
   | "session_not_found"
   | "sdk_signature_failed"
+  | "zoom_host_busy"
   | "internal_error";
 
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
