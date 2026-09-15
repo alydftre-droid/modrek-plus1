@@ -231,7 +231,7 @@ export default function AdminLibraryPage() {
                       className="block w-full aspect-[3/4] bg-gradient-to-br from-blue-50 to-indigo-50 relative overflow-hidden text-left"
                     >
                       {b.cover_url ? (
-                        <img src={resolveBunnyStorageUrl(b.cover_url) || b.cover_url} alt={b.title} className="w-full h-full object-cover" loading="lazy" />
+                        <StoredImage source={b.cover_url} alt={b.title} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <BookOpen className="h-10 w-10 text-blue-300" />
