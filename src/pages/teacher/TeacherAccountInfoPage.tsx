@@ -101,7 +101,7 @@ export default function TeacherAccountInfoPage() {
           <div className="relative">
             <div className="h-20 w-20 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center overflow-hidden ring-3 ring-border shadow-lg">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                <StoredImage source={avatarUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 <User className="h-8 w-8 text-primary-foreground" />
               )}
