@@ -291,28 +291,42 @@ async function inspectExistingMeeting(
   return "unknown";
 }
 
-/** End every meeting still in progress for this Zoom host (except one we intend
- *  to keep). Required before creating a fresh meeting: a single-host Zoom
- *  account rejects a second concurrent meeting with SDK error 3000. */
-async function endHostLiveMeetings(token: string, hostId: string, keepMeetingId?: string) {
+/** Return the meetings currently running for this Zoom host. Starting a new
+ * class must never end one of them implicitly: doing so disconnects an active
+ * teacher and makes the matching webhook close the Modrek session too. */
+async function listHostLiveMeetings(token: string, hostId: string) {
   const live = await zoomApi(
     token,
     `/users/${encodeURIComponent(hostId)}/meetings?type=live&page_size=30`,
     {},
     "meeting_lookup",
   );
-  if (!live.ok) return;
-  const meetings: any[] = Array.isArray(live.json?.meetings) ? live.json.meetings : [];
-  for (const meeting of meetings) {
-    const id = String(meeting?.id ?? "");
-    if (!id || (keepMeetingId && id === keepMeetingId)) continue;
-    await zoomApi(
-      token,
-      `/meetings/${encodeURIComponent(id)}/status`,
-      { method: "PUT", body: JSON.stringify({ action: "end" }) },
-      "meeting_lookup",
-    );
-  }
+  if (!live.ok) return null;
+  return Array.isArray(live.json?.meetings) ? live.json.meetings : [];
+}
+
+async function readStoredZoomCredentials(supabase: any, sessionId: string) {
+  const { data } = await supabase
+    .from("zoom_live_credentials")
+    .select("meeting_password,zoom_host_id")
+    .eq("live_session_id", sessionId)
+    .maybeSingle();
+  return data as { meeting_password?: string | null; zoom_host_id?: string | null } | null;
+}
+
+async function storeZoomCredentials(
+  supabase: any,
+  sessionId: string,
+  hostId: string,
+  meetingPassword: string | null,
+) {
+  const { error } = await supabase.from("zoom_live_credentials").upsert({
+    live_session_id: sessionId,
+    zoom_host_id: hostId,
+    meeting_password: meetingPassword,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
 }
 
 async function closeModrekSession(supabase: any, session: { id: string; group_id?: string | null }) {
@@ -580,7 +594,13 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (existing && canReuseExisting) {
+      const existingCredentials = existing?.id
+        ? await readStoredZoomCredentials(supabase, String(existing.id))
+        : null;
+      // Sessions created before secure credential storage cannot be joined
+      // safely: the `pwd` value in Zoom's join URL is encrypted and is not the
+      // plaintext `passWord` expected by Meeting SDK.
+      if (existing && canReuseExisting && existingCredentials?.zoom_host_id === host.id) {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
         if (existing.status !== "live") {
           await supabase
@@ -595,9 +615,7 @@ Deno.serve(async (req) => {
           sdkKey: cfg.sdkKey,
           signature,
           meetingNumber: String(existing.zoom_meeting_id),
-          password: existing.zoom_join_url?.includes("pwd=")
-            ? new URL(existing.zoom_join_url).searchParams.get("pwd")
-            : null,
+          password: existingCredentials.meeting_password || null,
           zak: zakToken,
           role: 1,
           userName: ctx.userName,
@@ -635,9 +653,22 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Clear anything still running on the Zoom host so the new meeting can
-      // actually start (otherwise Zoom answers with SDK error 3000).
-      await endHostLiveMeetings(token, host.id);
+      // Never terminate a live Zoom meeting automatically. If the shared host
+      // is busy, fail clearly instead of disconnecting another class.
+      const hostLiveMeetings = await listHostLiveMeetings(token, host.id);
+      if (hostLiveMeetings === null) {
+        return fail("meeting_creation_failed", 502, "unable to verify host availability", {
+          step: "meeting_lookup",
+          source: "GET /v2/users/{userId}/meetings?type=live",
+          httpStatus: 502,
+          zoomCode: "host_availability_unknown",
+          zoomMessage: "تعذر التحقق من جاهزية حساب Zoom. حاول مرة أخرى.",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
+      }
+      if (hostLiveMeetings.length > 0) {
+        return fail("zoom_host_busy", 409, "zoom host already has a live meeting");
+      }
 
 
 
@@ -703,6 +734,16 @@ Deno.serve(async (req) => {
           zoomMessage: insert.error?.message || "تعذر حفظ جلسة Zoom بعد إنشائها",
           fileLine: "supabase/functions/zoom-live/index.ts",
         });
+        // The concurrent request owns the winning meeting. End only the unused
+        // meeting created by this request, never the winning live class.
+        await zoomApi(token, `/meetings/${encodeURIComponent(meetingNumber)}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ action: "end" }),
+        }, "meeting_lookup");
+        const racedCredentials = await readStoredZoomCredentials(supabase, String(raced.id));
+        if (!racedCredentials || racedCredentials.zoom_host_id !== host.id) {
+          return fail("meeting_creation_failed", 409, "concurrent session credentials unavailable");
+        }
         const signature = await buildSdkSignature(cfg, String(raced.zoom_meeting_id ?? meetingNumber), 1);
         return ok({
           provider: raced.provider,
@@ -711,7 +752,7 @@ Deno.serve(async (req) => {
           sdkKey: cfg.sdkKey,
           signature,
           meetingNumber: String(raced.zoom_meeting_id ?? meetingNumber),
-          password: created.json.password || null,
+          password: racedCredentials.meeting_password || null,
           zak: zakToken,
           role: 1,
           userName: ctx.userName,
@@ -719,6 +760,29 @@ Deno.serve(async (req) => {
       }
 
       const session = insert.data;
+
+      try {
+        await storeZoomCredentials(
+          supabase,
+          String(session.id),
+          host.id,
+          typeof created.json.password === "string" ? created.json.password : null,
+        );
+      } catch (error) {
+        await zoomApi(token, `/meetings/${encodeURIComponent(meetingNumber)}/status`, {
+          method: "PUT",
+          body: JSON.stringify({ action: "end" }),
+        }, "meeting_lookup");
+        await closeModrekSession(supabase, session);
+        return fail("meeting_creation_failed", 500, error instanceof Error ? error.message : String(error), {
+          step: "database",
+          source: "UPSERT public.zoom_live_credentials",
+          httpStatus: 500,
+          zoomCode: "credential_store_failed",
+          zoomMessage: "تعذر حفظ بيانات دخول الحصة بأمان. حاول بدء الحصة مرة أخرى.",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
+      }
 
       const { data: subscribers } = await supabase
         .from("student_group_purchases")
@@ -805,6 +869,7 @@ Deno.serve(async (req) => {
       }
 
       let zakToken: string | null = null;
+      let storedPassword: string | null = null;
       if (isOwner) {
         try {
           const token = await zoomAccessToken(cfg);
@@ -824,6 +889,19 @@ Deno.serve(async (req) => {
               fileLine: "supabase/functions/zoom-live/index.ts",
             });
           }
+
+          const credentials = await readStoredZoomCredentials(supabase, sessionId);
+          if (!credentials || credentials.zoom_host_id !== host.id) {
+            return fail("meeting_ended", 409, "secure meeting credentials unavailable", {
+              step: "database",
+              source: "SELECT public.zoom_live_credentials",
+              httpStatus: 409,
+              zoomCode: "zoom_credentials_stale",
+              zoomMessage: "بيانات الحصة القديمة غير صالحة. أنهِ البطاقة الحالية وابدأ حصة جديدة.",
+              fileLine: "supabase/functions/zoom-live/index.ts",
+            });
+          }
+          storedPassword = credentials.meeting_password || null;
 
           const zak = await zoomApi(
             token,
@@ -847,9 +925,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      const password = session.zoom_join_url?.includes("pwd=")
-        ? new URL(session.zoom_join_url).searchParams.get("pwd")
-        : null;
+      if (!isOwner) {
+        const credentials = await readStoredZoomCredentials(supabase, sessionId);
+        storedPassword = credentials?.meeting_password || null;
+      }
 
       let displayName = ctx.userName;
 
@@ -898,7 +977,7 @@ Deno.serve(async (req) => {
         sdkKey: cfg.sdkKey,
         signature,
         meetingNumber: String(session.zoom_meeting_id),
-        password,
+        password: storedPassword,
         zak: zakToken,
         role: isOwner ? 1 : 0,
         userName: displayName,
