@@ -18,7 +18,6 @@ import {
 import { callExamsAssistant, callStudyAssistant } from "./api";
 import type { AssistantType, ModrekConversation, ModrekMessage } from "./types";
 import { useStudentAiQuota } from "@/hooks/useStudentAiQuota";
-import { AiQuotaBadge } from "./AiQuotaBadge";
 import { AiQuotaLimitDialog } from "./AiQuotaLimitDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveBunnyStorageUrl } from "@/lib/bunnyStorage";
@@ -417,17 +416,7 @@ export default function ModrekChatWindow({
           </div>
           <div className="flex items-center gap-2">
             {meteredAssistant && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => quota?.plan === "free" && setLimitDialogOpen(true)}
-                  className="shrink-0"
-                  aria-label="تفاصيل الاستخدام اليومي"
-                >
-                  <AiQuotaBadge quota={quota} />
-                </button>
-                <AiQuotaLimitDialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen} quota={quota} />
-              </>
+              <AiQuotaLimitDialog open={limitDialogOpen} onOpenChange={setLimitDialogOpen} quota={quota} />
             )}
             <button
               onClick={openSidebar}

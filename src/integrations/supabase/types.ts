@@ -7570,6 +7570,38 @@ export type Database = {
           },
         ]
       }
+      zoom_live_credentials: {
+        Row: {
+          created_at: string
+          live_session_id: string
+          meeting_password: string | null
+          updated_at: string
+          zoom_host_id: string
+        }
+        Insert: {
+          created_at?: string
+          live_session_id: string
+          meeting_password?: string | null
+          updated_at?: string
+          zoom_host_id: string
+        }
+        Update: {
+          created_at?: string
+          live_session_id?: string
+          meeting_password?: string | null
+          updated_at?: string
+          zoom_host_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoom_live_credentials_live_session_id_fkey"
+            columns: ["live_session_id"]
+            isOneToOne: true
+            referencedRelation: "live_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zoom_webhook_events: {
         Row: {
           created_at: string

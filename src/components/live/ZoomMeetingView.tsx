@@ -225,7 +225,6 @@ export default function ZoomMeetingView({
             isSupportAV: true,
             success: () => {
               const joinPayload = {
-                sdkKey: payload.sdkKey,
                 signature: payload.signature,
                 meetingNumber: payload.meetingNumber,
                 passWord: payload.password || "",
@@ -243,7 +242,7 @@ export default function ZoomMeetingView({
                   },
                 )),
               };
-              if (!joinPayload.sdkKey || !joinPayload.signature || !joinPayload.meetingNumber) {
+              if (!payload.sdkKey || !joinPayload.signature || !joinPayload.meetingNumber) {
                 abort(new ZoomLiveError(
                   "بيانات دخول اجتماع Zoom غير مكتملة. أغلق الحصة وابدأ حصة جديدة.",
                   "zoom_join_payload_missing",
