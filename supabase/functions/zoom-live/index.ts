@@ -594,9 +594,28 @@ Deno.serve(async (req) => {
         }
       }
 
-      const existingCredentials = existing?.id
+      let existingCredentials = existing?.id
         ? await readStoredZoomCredentials(supabase, String(existing.id))
         : null;
+      if (existing && canReuseExisting && !existingCredentials && existing.zoom_meeting_id) {
+        const legacyMeeting = await zoomApi(
+          token,
+          `/meetings/${encodeURIComponent(String(existing.zoom_meeting_id))}`,
+          { method: "GET" },
+          "meeting_lookup",
+        );
+        const legacyHostId = String(legacyMeeting.json?.host_id ?? "");
+        if (legacyMeeting.ok && legacyHostId === host.id) {
+          const legacyPassword = typeof legacyMeeting.json?.password === "string"
+            ? legacyMeeting.json.password
+            : null;
+          await storeZoomCredentials(supabase, String(existing.id), host.id, legacyPassword);
+          existingCredentials = {
+            zoom_host_id: host.id,
+            meeting_password: legacyPassword,
+          };
+        }
+      }
       // Sessions created before secure credential storage cannot be joined
       // safely: the `pwd` value in Zoom's join URL is encrypted and is not the
       // plaintext `passWord` expected by Meeting SDK.
