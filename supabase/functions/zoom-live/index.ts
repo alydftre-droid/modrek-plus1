@@ -329,6 +329,35 @@ async function storeZoomCredentials(
   if (error) throw error;
 }
 
+/** Sessions created before secure credential storage have no row yet. Backfill
+ * it straight from Zoom so teachers and students are never locked out of a
+ * class that is still running. */
+async function ensureZoomCredentials(
+  supabase: any,
+  token: string,
+  sessionId: string,
+  meetingId: string,
+  hostId: string,
+) {
+  const existing = await readStoredZoomCredentials(supabase, sessionId);
+  if (existing?.zoom_host_id === hostId) return existing;
+  const meeting = await zoomApi(
+    token,
+    `/meetings/${encodeURIComponent(meetingId)}`,
+    { method: "GET" },
+    "meeting_lookup",
+  );
+  if (!meeting.ok || String(meeting.json?.host_id ?? "") !== hostId) return null;
+  const password = typeof meeting.json?.password === "string" ? meeting.json.password : null;
+  try {
+    await storeZoomCredentials(supabase, sessionId, hostId, password);
+  } catch (error) {
+    console.error("[zoom-live] credential_backfill_failed", String(error));
+  }
+  return { zoom_host_id: hostId, meeting_password: password };
+}
+
+
 async function closeModrekSession(supabase: any, session: { id: string; group_id?: string | null }) {
   const now = new Date().toISOString();
   const tasks: PromiseLike<unknown>[] = [
