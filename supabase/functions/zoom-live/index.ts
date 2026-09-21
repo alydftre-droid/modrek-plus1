@@ -981,9 +981,27 @@ Deno.serve(async (req) => {
       }
 
       if (!isOwner) {
-        const credentials = await readStoredZoomCredentials(supabase, sessionId);
+        let credentials = await readStoredZoomCredentials(supabase, sessionId);
+        if (!credentials?.meeting_password) {
+          // Legacy session without stored credentials: backfill from Zoom so
+          // students are not stuck with an empty meeting password.
+          try {
+            const token = await zoomAccessToken(cfg);
+            const host = await resolveZoomHost(token, cfg.accountId);
+            credentials = await ensureZoomCredentials(
+              supabase,
+              token,
+              sessionId,
+              String(session.zoom_meeting_id),
+              host.id,
+            ) ?? credentials;
+          } catch (error) {
+            console.error("[zoom-live] student_credential_backfill_failed", String(error));
+          }
+        }
         storedPassword = credentials?.meeting_password || null;
       }
+
 
       let displayName = ctx.userName;
 
