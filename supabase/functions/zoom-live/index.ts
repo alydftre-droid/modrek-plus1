@@ -938,8 +938,14 @@ Deno.serve(async (req) => {
             });
           }
 
-          const credentials = await readStoredZoomCredentials(supabase, sessionId);
-          if (!credentials || credentials.zoom_host_id !== host.id) {
+          const credentials = await ensureZoomCredentials(
+            supabase,
+            token,
+            sessionId,
+            String(session.zoom_meeting_id),
+            host.id,
+          );
+          if (!credentials) {
             return fail("meeting_ended", 409, "secure meeting credentials unavailable", {
               step: "database",
               source: "SELECT public.zoom_live_credentials",
@@ -950,6 +956,7 @@ Deno.serve(async (req) => {
             });
           }
           storedPassword = credentials.meeting_password || null;
+
 
           const zak = await zoomApi(
             token,
