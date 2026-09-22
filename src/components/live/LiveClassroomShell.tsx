@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, Eye, Minimize2, PenLine, Radio } from "lucide-react";
+import { Clock3, Copy, Eye, ExternalLink, HelpCircle, Minimize2, PenLine, Radio, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { setZoomRootVisible } from "@/lib/zoomMeeting";
 import LiveSessionChat from "./LiveSessionChat";
@@ -13,6 +14,8 @@ interface Props {
   startedAt?: string;
   isTeacher: boolean;
   userName: string;
+  /** Direct Zoom meeting link (teacher fallback + student invitation). */
+  joinUrl?: string;
 }
 
 function elapsedLabel(startedAt?: string) {

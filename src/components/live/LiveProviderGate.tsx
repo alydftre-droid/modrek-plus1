@@ -30,6 +30,7 @@ export default function LiveProviderGate({ mode, groupId, groupTitle, session, o
           startedAt={activeSession.started_at || session?.started_at}
           isTeacher={mode === "host"}
           userName={String(user?.user_metadata?.full_name || user?.email?.split("@")[0] || "مستخدم")}
+          joinUrl={String(activeSession.zoom_join_url || session?.zoom_join_url || "")}
         />
       )}
     </>
