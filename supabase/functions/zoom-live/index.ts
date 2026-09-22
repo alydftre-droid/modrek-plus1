@@ -706,8 +706,43 @@ Deno.serve(async (req) => {
         });
       }
       if (hostLiveMeetings.length > 0) {
+        // Recovery path: the running meeting may be this teacher's own class
+        // (reload / rejoin). Reopen it instead of locking the teacher out.
+        const ownRunning = existingMeetingId
+          ? hostLiveMeetings.find((m: any) => String(m?.id ?? "") === String(existingMeetingId))
+          : null;
+        if (ownRunning && existing?.id) {
+          const recovered = await ensureZoomCredentials(
+            supabase,
+            token,
+            String(existing.id),
+            String(existingMeetingId),
+            host.id,
+          );
+          if (recovered) {
+            const signature = await buildSdkSignature(cfg, String(existingMeetingId), 1);
+            const now = new Date().toISOString();
+            await supabase
+              .from("live_sessions")
+              .update({ status: "live", ended_at: null, updated_at: now })
+              .eq("id", existing.id);
+            return ok({
+              provider: "zoom",
+              reused: true,
+              session: { ...existing, status: "live", ended_at: null },
+              sdkKey: cfg.sdkKey,
+              signature,
+              meetingNumber: String(existingMeetingId),
+              password: recovered.meeting_password || null,
+              zak: zakToken,
+              role: 1,
+              userName: ctx.userName,
+            });
+          }
+        }
         return fail("zoom_host_busy", 409, "zoom host already has a live meeting");
       }
+
 
 
 
