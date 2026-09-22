@@ -204,9 +204,25 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
           )
         ).sort((a, b) => b - a);
         // Android WebView / offline status lookups can return no resolution list.
-        // Fall back to Bunny's standard encoding ladder so the student always has
-        // a manual quality menu inside the mobile app.
-        if (!heights.length) heights = [1080, 720, 480, 360];
+        // Fall back to Bunny's standard ladder, but only keep renditions whose
+        // playlist actually exists — offering a missing one breaks playback.
+        if (!heights.length) {
+          const guesses = [1080, 720, 480, 360];
+          const checked = await Promise.all(
+            guesses.map(async (h) => {
+              try {
+                const res = await fetch(getBunnyResolutionPlaylistUrl(videoId, `${h}p`), {
+                  method: "GET",
+                  cache: "no-store",
+                });
+                return res.ok ? h : null;
+              } catch {
+                return null;
+              }
+            })
+          );
+          heights = checked.filter((h): h is number => h !== null);
+        }
         const built: QualityLevel[] = [{ index: -1, label: "Auto", height: 0 }];
         heights.forEach((h, i) =>
           built.push({
@@ -217,6 +233,7 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
           })
         );
         if (!cancelled) setLevels(built);
+
       };
 
       // Prefer hls.js everywhere it works (Android WebView reports "maybe" for

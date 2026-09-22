@@ -329,6 +329,35 @@ async function storeZoomCredentials(
   if (error) throw error;
 }
 
+/** Sessions created before secure credential storage have no row yet. Backfill
+ * it straight from Zoom so teachers and students are never locked out of a
+ * class that is still running. */
+async function ensureZoomCredentials(
+  supabase: any,
+  token: string,
+  sessionId: string,
+  meetingId: string,
+  hostId: string,
+) {
+  const existing = await readStoredZoomCredentials(supabase, sessionId);
+  if (existing?.zoom_host_id === hostId) return existing;
+  const meeting = await zoomApi(
+    token,
+    `/meetings/${encodeURIComponent(meetingId)}`,
+    { method: "GET" },
+    "meeting_lookup",
+  );
+  if (!meeting.ok || String(meeting.json?.host_id ?? "") !== hostId) return null;
+  const password = typeof meeting.json?.password === "string" ? meeting.json.password : null;
+  try {
+    await storeZoomCredentials(supabase, sessionId, hostId, password);
+  } catch (error) {
+    console.error("[zoom-live] credential_backfill_failed", String(error));
+  }
+  return { zoom_host_id: hostId, meeting_password: password };
+}
+
+
 async function closeModrekSession(supabase: any, session: { id: string; group_id?: string | null }) {
   const now = new Date().toISOString();
   const tasks: PromiseLike<unknown>[] = [
@@ -598,24 +627,15 @@ Deno.serve(async (req) => {
         ? await readStoredZoomCredentials(supabase, String(existing.id))
         : null;
       if (existing && canReuseExisting && !existingCredentials && existing.zoom_meeting_id) {
-        const legacyMeeting = await zoomApi(
+        existingCredentials = await ensureZoomCredentials(
+          supabase,
           token,
-          `/meetings/${encodeURIComponent(String(existing.zoom_meeting_id))}`,
-          { method: "GET" },
-          "meeting_lookup",
+          String(existing.id),
+          String(existing.zoom_meeting_id),
+          host.id,
         );
-        const legacyHostId = String(legacyMeeting.json?.host_id ?? "");
-        if (legacyMeeting.ok && legacyHostId === host.id) {
-          const legacyPassword = typeof legacyMeeting.json?.password === "string"
-            ? legacyMeeting.json.password
-            : null;
-          await storeZoomCredentials(supabase, String(existing.id), host.id, legacyPassword);
-          existingCredentials = {
-            zoom_host_id: host.id,
-            meeting_password: legacyPassword,
-          };
-        }
       }
+
       // Sessions created before secure credential storage cannot be joined
       // safely: the `pwd` value in Zoom's join URL is encrypted and is not the
       // plaintext `passWord` expected by Meeting SDK.
@@ -909,8 +929,14 @@ Deno.serve(async (req) => {
             });
           }
 
-          const credentials = await readStoredZoomCredentials(supabase, sessionId);
-          if (!credentials || credentials.zoom_host_id !== host.id) {
+          const credentials = await ensureZoomCredentials(
+            supabase,
+            token,
+            sessionId,
+            String(session.zoom_meeting_id),
+            host.id,
+          );
+          if (!credentials) {
             return fail("meeting_ended", 409, "secure meeting credentials unavailable", {
               step: "database",
               source: "SELECT public.zoom_live_credentials",
@@ -921,6 +947,7 @@ Deno.serve(async (req) => {
             });
           }
           storedPassword = credentials.meeting_password || null;
+
 
           const zak = await zoomApi(
             token,
@@ -945,9 +972,27 @@ Deno.serve(async (req) => {
       }
 
       if (!isOwner) {
-        const credentials = await readStoredZoomCredentials(supabase, sessionId);
+        let credentials = await readStoredZoomCredentials(supabase, sessionId);
+        if (!credentials?.meeting_password) {
+          // Legacy session without stored credentials: backfill from Zoom so
+          // students are not stuck with an empty meeting password.
+          try {
+            const token = await zoomAccessToken(cfg);
+            const host = await resolveZoomHost(token, cfg.accountId);
+            credentials = await ensureZoomCredentials(
+              supabase,
+              token,
+              sessionId,
+              String(session.zoom_meeting_id),
+              host.id,
+            ) ?? credentials;
+          } catch (error) {
+            console.error("[zoom-live] student_credential_backfill_failed", String(error));
+          }
+        }
         storedPassword = credentials?.meeting_password || null;
       }
+
 
       let displayName = ctx.userName;
 
