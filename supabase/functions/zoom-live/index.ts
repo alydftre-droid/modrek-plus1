@@ -695,17 +695,18 @@ Deno.serve(async (req) => {
       // Never terminate a live Zoom meeting automatically. If the shared host
       // is busy, fail clearly instead of disconnecting another class.
       const hostLiveMeetings = await listHostLiveMeetings(token, host.id);
+      // Zoom can intermittently reject or time out on the optional `type=live`
+      // lookup even while OAuth, ZAK and meeting creation are healthy. This
+      // probe must therefore never become a hard prerequisite for starting a
+      // class. When unavailable, continue to POST /meetings: Zoom remains the
+      // authoritative concurrency guard and will reject a genuinely busy host.
       if (hostLiveMeetings === null) {
-        return fail("meeting_creation_failed", 502, "unable to verify host availability", {
-          step: "meeting_lookup",
-          source: "GET /v2/users/{userId}/meetings?type=live",
-          httpStatus: 502,
-          zoomCode: "host_availability_unknown",
-          zoomMessage: "تعذر التحقق من جاهزية حساب Zoom. حاول مرة أخرى.",
-          fileLine: "supabase/functions/zoom-live/index.ts",
+        console.warn("[zoom-live] host_availability_probe_unavailable", {
+          hostId: host.id,
+          groupId,
         });
       }
-      if (hostLiveMeetings.length > 0) {
+      if (hostLiveMeetings && hostLiveMeetings.length > 0) {
         // Recovery path: the running meeting may be this teacher's own class
         // (reload / rejoin). Reopen it instead of locking the teacher out.
         const ownRunning = existingMeetingId
