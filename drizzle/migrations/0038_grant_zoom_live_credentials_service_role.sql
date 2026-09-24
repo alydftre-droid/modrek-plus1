@@ -1,0 +1,1 @@
+GRANT ALL ON public.zoom_live_credentials TO service_role;
