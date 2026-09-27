@@ -281,6 +281,13 @@
       "when": 1790386926390,
       "tag": "0039_grant_zoom_live_credentials_service_access",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790546882547,
+      "tag": "0040_repair_zoom_live_credentials_upsert_contract",
+      "breakpoints": true
     }
   ]
 }
