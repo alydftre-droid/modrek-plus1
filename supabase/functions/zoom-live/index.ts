@@ -320,12 +320,14 @@ async function storeZoomCredentials(
   hostId: string,
   meetingPassword: string | null,
 ) {
-  const { error } = await supabase.from("zoom_live_credentials").upsert({
-    live_session_id: sessionId,
-    zoom_host_id: hostId,
-    meeting_password: meetingPassword,
-    updated_at: new Date().toISOString(),
-  });
+  const { error } = await supabase
+    .from("zoom_live_credentials")
+    .upsert({
+      live_session_id: sessionId,
+      zoom_host_id: hostId,
+      meeting_password: meetingPassword,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "live_session_id" });
   if (error) throw error;
 }
 
@@ -844,12 +846,22 @@ Deno.serve(async (req) => {
           typeof created.json.password === "string" ? created.json.password : null,
         );
       } catch (error) {
+        const storageError = error && typeof error === "object"
+          ? error as { code?: string; message?: string; details?: string; hint?: string }
+          : null;
+        console.error("[zoom-live] credential_store_failed", {
+          code: storageError?.code || "unknown",
+          message: storageError?.message || String(error),
+          details: storageError?.details || null,
+          hint: storageError?.hint || null,
+          sessionId: String(session.id),
+        });
         await zoomApi(token, `/meetings/${encodeURIComponent(meetingNumber)}/status`, {
           method: "PUT",
           body: JSON.stringify({ action: "end" }),
         }, "meeting_lookup");
         await closeModrekSession(supabase, session);
-        return fail("meeting_creation_failed", 500, error instanceof Error ? error.message : String(error), {
+        return fail("meeting_creation_failed", 500, storageError?.message || String(error), {
           step: "database",
           source: "UPSERT public.zoom_live_credentials",
           httpStatus: 500,
