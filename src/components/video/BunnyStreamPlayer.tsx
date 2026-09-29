@@ -232,7 +232,11 @@ const BunnyStreamPlayer = ({ url, title, onClose, contentId }: Props) => {
             url: getBunnyResolutionPlaylistUrl(videoId, `${h}p`),
           })
         );
-        if (!cancelled) setLevels(built);
+        // Only replace the menu when probing actually found renditions. If the
+        // probe requests all fail (CORS, offline, flaky network), keeping the
+        // current list — including hls.js levels or at minimum Auto — beats
+        // clobbering it with an empty manual list.
+        if (!cancelled && built.length > 1) setLevels(built);
 
       };
 
