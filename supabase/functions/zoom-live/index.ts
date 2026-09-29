@@ -483,9 +483,11 @@ Deno.serve(async (req) => {
         return ok({ status: session.status, active: session.status === "live" });
       }
 
-      // Give the host enough time to approve permissions and complete SDK join.
+      // Students must never close the class: the join link stays visible
+      // until the teacher ends it (or Zoom's meeting.ended webhook fires).
+      // Only the owning teacher's check may reconcile a missed webhook.
       const ageMs = Date.now() - new Date(session.started_at).getTime();
-      if (!isDemo && ageMs >= 5 * 60 * 1000) {
+      if (!isDemo && isOwner && ageMs >= 15 * 60 * 1000) {
         const cfg = zoomConfig();
         if (cfg) {
           try {
@@ -880,8 +882,8 @@ Deno.serve(async (req) => {
         await supabase.from("notifications").insert(
           subscribers.map((s: any) => ({
             user_id: s.student_id,
-            title: "🔴 بث مباشر الآن!",
-            message: `بدأ المعلم ${ctx.userName} حصة مباشرة: ${title}`,
+            title: "🔴 بدأت حصة زوم مباشرة الآن!",
+            message: `بدأ المعلم ${ctx.userName} حصة: ${title} — ادخل من تبويب البث المباشر، والرابط متاح طوال الحصة حتى ينهيها المعلم.`,
             notification_type: "live",
             created_by: user.id,
           })),

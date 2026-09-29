@@ -288,6 +288,9 @@ export default function LiveTabContent({ groupId, groupTitle, isTeacher }: Props
               >
                 <Play className="h-5 w-5" /> انضم للبث المباشر
               </Button>
+              <p className="text-xs text-muted-foreground">
+                يمكنك الدخول أو الخروج والعودة في أي وقت طالما الحصة شغالة — الرابط يظل ظاهرًا حتى ينهي المعلم الحصة.
+              </p>
             </CardContent>
           </Card>
         ) : (
