@@ -26,10 +26,20 @@ function elapsedLabel(startedAt?: string) {
   return hours ? `${hours} س ${remainder} د` : `${minutes} دقيقة`;
 }
 
-export default function LiveClassroomShell({ sessionId, groupId, title, viewerCount = 0, startedAt, isTeacher, userName }: Props) {
+export default function LiveClassroomShell({ sessionId, groupId, title, viewerCount = 0, startedAt, isTeacher, userName, joinUrl = "" }: Props) {
   const [showBoard, setShowBoard] = useState(false);
   const [minimized, setMinimized] = useState(false);
+  const [showTeacherHelp, setShowTeacherHelp] = useState(false);
   const [tick, setTick] = useState(0);
+
+  const copyJoinUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(joinUrl);
+      toast.success("تم نسخ رابط الحصة");
+    } catch {
+      toast.error("تعذر النسخ — انسخ الرابط يدويًا");
+    }
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => setTick((value) => value + 1), 30000);
