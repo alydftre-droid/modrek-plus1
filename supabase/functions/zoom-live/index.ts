@@ -848,28 +848,18 @@ Deno.serve(async (req) => {
           typeof created.json.password === "string" ? created.json.password : null,
         );
       } catch (error) {
+        // Non-fatal: the password can always be re-read from Zoom by
+        // ensureZoomCredentials() when the teacher/students join. Never end a
+        // freshly created class just because the credential cache failed.
         const storageError = error && typeof error === "object"
           ? error as { code?: string; message?: string; details?: string; hint?: string }
           : null;
-        console.error("[zoom-live] credential_store_failed", {
+        console.error("[zoom-live] credential_store_failed (non-fatal)", {
           code: storageError?.code || "unknown",
           message: storageError?.message || String(error),
           details: storageError?.details || null,
           hint: storageError?.hint || null,
           sessionId: String(session.id),
-        });
-        await zoomApi(token, `/meetings/${encodeURIComponent(meetingNumber)}/status`, {
-          method: "PUT",
-          body: JSON.stringify({ action: "end" }),
-        }, "meeting_lookup");
-        await closeModrekSession(supabase, session);
-        return fail("meeting_creation_failed", 500, storageError?.message || String(error), {
-          step: "database",
-          source: "UPSERT public.zoom_live_credentials",
-          httpStatus: 500,
-          zoomCode: "credential_store_failed",
-          zoomMessage: "تعذر حفظ بيانات دخول الحصة بأمان. حاول بدء الحصة مرة أخرى.",
-          fileLine: "supabase/functions/zoom-live/index.ts",
         });
       }
 

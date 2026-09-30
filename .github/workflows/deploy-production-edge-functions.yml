@@ -7,6 +7,7 @@ on:
     paths:
       - "supabase/functions/**"
       - "supabase/migrations/**"
+      - "scripts/production-migrations/**"
       - ".github/workflows/deploy-production-edge-functions.yml"
   workflow_dispatch:
 
@@ -109,6 +110,16 @@ jobs:
           set -euo pipefail
           python3 scripts/harden_modrek_migration.py
 
+      - name: Stage production-only migrations
+        run: |
+          set -euo pipefail
+          # Schema fixes authored outside supabase/migrations (e.g. Zoom
+          # credential storage) must still reach production via db push.
+          for f in scripts/production-migrations/*.sql; do
+            [ -e "$f" ] || continue
+            cp -n "$f" supabase/migrations/ && echo "Staged $(basename "$f")"
+          done
+
       - name: Apply production database migrations
         run: |
           set -euo pipefail
@@ -178,6 +189,7 @@ jobs:
           }
 
           probe table 'teacher_platforms?select=id&limit=1' GET
+          probe zoom-credentials 'zoom_live_credentials?select=live_session_id&limit=1' GET
           probe list-rpc 'rpc/admin_list_teacher_platforms' POST '{}'
           # A deliberately unauthenticated request must reach the function and be
           # rejected by its internal admin check, not fail schema discovery.
