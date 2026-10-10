@@ -4,3 +4,4 @@
 - Production (modrekplus.com) schema changes must also be placed in `scripts/production-migrations/` (timestamped SQL), because the production workflow only runs `supabase db push` and Lovable migrations land in `drizzle/migrations`.
 - A failed `zoom_live_credentials` write is non-fatal in `zoom-live`, because credentials are re-read from Zoom on join and a class must never be ended by a cache failure.
 - `zoom-live` and `zoom-webhook` are pre-deployed to production before migrations run, because a failing `db push` previously left live classes on stale server code.
+- Reuse a Zoom meeting only when Zoom still recognizes it as live, never from local session age alone, because an instant meeting can end as soon as its only host leaves.

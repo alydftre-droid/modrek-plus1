@@ -253,7 +253,7 @@ const ZOOM_AR_LABELS: Record<string, string> = {
   "Connecting...": "جاري الاتصال...",
   "Joining Meeting...": "جاري الانضمام...",
   "Joining Meeting Timeout or Browser restriction": "تعذر الانضمام للاجتماع",
-  "Token error": "رمز دخول الاجتماع غير صالح",
+  "Token error": "انتهت صلاحية دخول اجتماع Zoom السابق. أعد المحاولة للعودة إلى الحصة.",
   Retry: "إعادة المحاولة",
   OK: "حسنًا",
   "Send Report": "إرسال تقرير",
@@ -330,6 +330,13 @@ function injectZoomUiFix() {
     }
     #zmmtg-root .main-content, #zmmtg-root .gallery-video-container {
       max-width: 100vw !important;
+    }
+    /* Zoom Client View mirrors only the teacher's local preview by default.
+       Flip the two documented self-preview surfaces back so right and left
+       match the teacher's real movement. Remote student video is untouched. */
+    #zmmtg-root #main-video,
+    #zmmtg-root #suspension-video {
+      transform: scaleX(-1) !important;
     }
     /* Zoom renders the "More" menu and its tool pop-ups into document.body,
        OUTSIDE #zmmtg-root. Scoping the fix to the root left them stacked
