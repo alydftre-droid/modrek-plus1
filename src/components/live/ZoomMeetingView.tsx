@@ -55,6 +55,7 @@ export default function ZoomMeetingView({
   const retriedRef = useRef(false);
   const endedRef = useRef(false);
   const lastConnectedAtRef = useRef(0);
+  const joinedMeetingNumberRef = useRef<string | null>(null);
 
 
   useEffect(() => {
@@ -68,7 +69,12 @@ export default function ZoomMeetingView({
       if (id && mode === "attendee") void leaveZoomSession(id);
       if (joinedRef.current) {
         try {
-          (window as any).ZoomMtg?.leaveMeeting({});
+          (window as any).ZoomMtg?.leaveMeeting({
+            success: () => {
+              joinedRef.current = false;
+              joinedMeetingNumberRef.current = null;
+            },
+          });
         } catch {
           /* SDK already torn down */
         }
@@ -127,6 +133,7 @@ export default function ZoomMeetingView({
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
+        joinedMeetingNumberRef.current = payload.meetingNumber ?? null;
         onSessionReady?.(payload.session);
 
         const ZoomMtg = await loadZoomSdk();
@@ -232,7 +239,9 @@ export default function ZoomMeetingView({
                 zak: payload.role === 1 ? payload.zak || undefined : undefined,
                 success: () => finish(),
                 error: (err: any) => abort(new ZoomLiveError(
-                  err?.errorMessage || err?.reason || "فشل الانضمام للاجتماع",
+                  err?.errorMessage === "Token error"
+                    ? "انتهى اجتماع Zoom السابق أثناء خروج المعلم. أعد المحاولة لفتح حصة جديدة تلقائيًا."
+                    : err?.errorMessage || err?.reason || "فشل الانضمام للاجتماع",
                   `zoom_join_${err?.errorCode ?? err?.errorCodeName ?? "unknown"}`,
                   {
                     step: "sdk_join",

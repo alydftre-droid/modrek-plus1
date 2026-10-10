@@ -9,6 +9,7 @@
 //   active live session. Meeting IDs alone grant nothing through Modrek.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
+import { shouldReuseZoomMeeting, type ZoomMeetingState } from "../_shared/zoomSessionReuse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -267,8 +268,6 @@ async function resolveZoomHost(token: string, expectedAccountId: string) {
   return { id: String(response.json.id), status: String(response.json.status || "") };
 }
 
-type MeetingState = "match" | "other_host" | "missing" | "unknown";
-
 /** Classify an existing Zoom meeting so a rejoin never churns a live meeting.
  *  "unknown" (transient Zoom/API failure) is treated as reusable by callers:
  *  creating a second meeting while the first is still running is exactly what
@@ -277,7 +276,7 @@ async function inspectExistingMeeting(
   token: string,
   meetingNumber: string,
   hostId: string,
-): Promise<MeetingState> {
+): Promise<ZoomMeetingState> {
   const response = await zoomApi(
     token,
     `/meetings/${encodeURIComponent(meetingNumber)}`,
@@ -614,17 +613,14 @@ Deno.serve(async (req) => {
         : null;
       let canReuseExisting = false;
       if (existingMeetingId) {
-        const existingState: MeetingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
-        if (existingState === "match" || existingState === "unknown") {
-          canReuseExisting = true;
-        } else if (existingState === "missing") {
-          const liveNow = await isMeetingCurrentlyLive(token, host.id, existingMeetingId);
-          const startedAtMs = new Date(existing.started_at ?? Date.now()).getTime();
-          const ageMs = Date.now() - (Number.isFinite(startedAtMs) ? startedAtMs : Date.now());
-          // Reuse when Zoom still reports it live, when Zoom could not be
-          // checked, or while the host is still completing the join.
-          canReuseExisting = liveNow !== false || ageMs < 3 * 60 * 1000;
-        }
+        const existingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
+        const liveNow = existingState === "missing"
+          ? await isMeetingCurrentlyLive(token, host.id, existingMeetingId)
+          : null;
+        // Never let a recent local row revive an instant meeting that Zoom has
+        // already ended after the only host left. A direct missing result is
+        // reusable only when Zoom explicitly still lists that exact meeting live.
+        canReuseExisting = shouldReuseZoomMeeting(existingState, liveNow);
       }
 
       let existingCredentials = existing?.id
@@ -644,6 +640,18 @@ Deno.serve(async (req) => {
       // safely: the `pwd` value in Zoom's join URL is encrypted and is not the
       // plaintext `passWord` expected by Meeting SDK.
       if (existing && canReuseExisting && existingCredentials?.zoom_host_id === host.id) {
+        // Refresh the plaintext Meeting SDK password from Zoom before every
+        // host rejoin. The join URL's encrypted `pwd` value is not valid here.
+        const refreshedCredentials = await refreshZoomCredentials(
+          supabase,
+          token,
+          String(existing.id),
+          String(existing.zoom_meeting_id),
+          host.id,
+        );
+        if (!refreshedCredentials) {
+          canReuseExisting = false;
+        } else {
         const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
         if (existing.status !== "live") {
           await supabase
@@ -658,11 +666,12 @@ Deno.serve(async (req) => {
           sdkKey: cfg.sdkKey,
           signature,
           meetingNumber: String(existing.zoom_meeting_id),
-          password: existingCredentials.meeting_password || null,
+          password: refreshedCredentials.meeting_password || null,
           zak: zakToken,
           role: 1,
           userName: ctx.userName,
         });
+        }
       }
 
       if (existing) {
