@@ -55,7 +55,6 @@ export default function ZoomMeetingView({
   const retriedRef = useRef(false);
   const endedRef = useRef(false);
   const lastConnectedAtRef = useRef(0);
-  const joinedMeetingNumberRef = useRef<string | null>(null);
 
 
   useEffect(() => {
@@ -72,7 +71,6 @@ export default function ZoomMeetingView({
           (window as any).ZoomMtg?.leaveMeeting({
             success: () => {
               joinedRef.current = false;
-              joinedMeetingNumberRef.current = null;
             },
           });
         } catch {
@@ -133,7 +131,6 @@ export default function ZoomMeetingView({
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
-        joinedMeetingNumberRef.current = payload.meetingNumber ?? null;
         onSessionReady?.(payload.session);
 
         const ZoomMtg = await loadZoomSdk();
