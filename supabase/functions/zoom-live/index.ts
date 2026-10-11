@@ -9,7 +9,11 @@
 //   active live session. Meeting IDs alone grant nothing through Modrek.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
-import { shouldReuseZoomMeeting, type ZoomMeetingState } from "../_shared/zoomSessionReuse.ts";
+import {
+  shouldRefreshZoomCredentials,
+  shouldReuseZoomMeeting,
+  type ZoomMeetingState,
+} from "../_shared/zoomSessionReuse.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -636,8 +640,9 @@ Deno.serve(async (req) => {
         ? String(existing.zoom_meeting_id)
         : null;
       let canReuseExisting = false;
+      let existingState: ZoomMeetingState | null = null;
       if (existingMeetingId) {
-        const existingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
+        existingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
         const liveNow = existingState === "missing"
           ? await isMeetingCurrentlyLive(token, host.id, existingMeetingId)
           : null;
@@ -664,18 +669,20 @@ Deno.serve(async (req) => {
       // safely: the `pwd` value in Zoom's join URL is encrypted and is not the
       // plaintext `passWord` expected by Meeting SDK.
       if (existing && canReuseExisting && existingCredentials?.zoom_host_id === host.id) {
-        // Refresh the plaintext Meeting SDK password from Zoom before every
-        // host rejoin. The join URL's encrypted `pwd` value is not valid here.
-        const refreshedCredentials = await refreshZoomCredentials(
-          supabase,
-          token,
-          String(existing.id),
-          String(existing.zoom_meeting_id),
-          host.id,
-        );
-        if (!refreshedCredentials) {
-          canReuseExisting = false;
-        } else {
+        // Repeat the details request only after Zoom directly confirmed the
+        // meeting. For missing-but-live or unknown states, use the matching
+        // server-only cache; repeating the failed lookup used to close the
+        // class, attendance and board while students were still connected.
+        const credentialsForJoin = existingState && shouldRefreshZoomCredentials(existingState)
+          ? await refreshZoomCredentials(
+            supabase,
+            token,
+            String(existing.id),
+            String(existing.zoom_meeting_id),
+            host.id,
+          ) ?? existingCredentials
+          : existingCredentials;
+        if (credentialsForJoin) {
           const signature = await buildSdkSignature(cfg, String(existing.zoom_meeting_id), 1);
           if (existing.status !== "live") {
             await supabase
@@ -690,12 +697,26 @@ Deno.serve(async (req) => {
             sdkKey: cfg.sdkKey,
             signature,
             meetingNumber: String(existing.zoom_meeting_id),
-            password: refreshedCredentials.meeting_password || null,
+            password: credentialsForJoin.meeting_password || null,
             zak: zakToken,
             role: 1,
             userName: ctx.userName,
           });
         }
+      }
+
+      if (existing && canReuseExisting) {
+        // Zoom still considers this meeting reusable, but no safe plaintext
+        // password is available. Preserve the running class and ask the host to
+        // retry instead of closing student attendance or creating a duplicate.
+        return fail("meeting_creation_failed", 503, "reusable meeting credentials temporarily unavailable", {
+          step: "meeting_lookup",
+          source: "GET /v2/meetings/{meetingId}",
+          httpStatus: 503,
+          zoomCode: "zoom_credentials_temporarily_unavailable",
+          zoomMessage: "تعذر تحديث دخول المعلم مؤقتًا. الحصة ما زالت مفتوحة للطلاب؛ حاول الانضمام مرة أخرى.",
+          fileLine: "supabase/functions/zoom-live/index.ts",
+        });
       }
 
       if (existing) {

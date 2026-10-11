@@ -13,3 +13,10 @@ export function shouldReuseZoomMeeting(
   if (state === "missing") return isCurrentlyLive === true;
   return false;
 }
+
+/** A direct meeting match is the only state where another details lookup is
+ * useful. For missing-but-live or unknown states it would repeat the failing
+ * request and could incorrectly tear down a class that students are attending. */
+export function shouldRefreshZoomCredentials(state: ZoomMeetingState): boolean {
+  return state === "match";
+}
