@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
+import { canReadReferencedMedia } from "./referencedMedia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -480,6 +481,12 @@ async function canReadStoredFile(sb: ReturnType<typeof createClient>, filePath: 
   if (isUnifiedNamespacePath(filePath)) {
     if (isSharedNamespacePath(filePath)) return true;
     if (isOwnerScopedPath(filePath, userId)) return true;
+    // A teacher's profile photo and a message attachment belong to their
+    // uploader, but must also be readable by the profile/message audience.
+    // The caller's RLS client preserves recipient and tenant isolation.
+    if (filePath.startsWith("modrek/users/") && await canReadReferencedMedia(
+      sb, filePath, Deno.env.get("BUNNY_STORAGE_CDN_HOSTNAME") || "",
+    )) return true;
     // Owner folders of other users and modrek/private/** stay staff-only.
     return await hasStaffRole(sb, userId);
   }
