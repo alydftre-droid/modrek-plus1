@@ -19,12 +19,18 @@ Avatar.displayName = AvatarPrimitive.Root.displayName;
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, src, ...props }, ref) => {
-  const resolvedSrc = useStoredFileUrl(src);
+>(({ className, src, onLoadingStatusChange, ...props }, ref) => {
+  const [retry, setRetry] = React.useState(0);
+  React.useEffect(() => setRetry(0), [src]);
+  const resolvedSrc = useStoredFileUrl(src, true, retry);
   return (
     <AvatarPrimitive.Image
       ref={ref}
       src={resolvedSrc}
+      onLoadingStatusChange={(status) => {
+        if (status === "error" && retry < 2) setRetry(n => n + 1);
+        onLoadingStatusChange?.(status);
+      }}
       className={cn("aspect-square h-full w-full", className)}
       {...props}
     />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useStoredFileUrl } from "@/hooks/useStoredFileUrl";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -61,18 +61,16 @@ export async function getPrivateFileSignedUrl(
   // New files live on Bunny (`bstorage://...`). Route them through the storage
   // proxy so every existing viewer keeps working without changes.
   if (urlOrPath.startsWith("bstorage://") || urlOrPath.includes("b-cdn.net")) {
-    const { resolveBunnyStorageUrl } = await import("@/lib/bunnyStorage");
-    return resolveBunnyStorageUrl(urlOrPath);
+    const { resolveBunnyStorageMediaUrl } = await import("@/lib/bunnyStorage");
+    return resolveBunnyStorageMediaUrl(urlOrPath);
   }
   if (urlOrPath.startsWith("data:")) return urlOrPath;
+  if (urlOrPath.startsWith("blob:") || (urlOrPath.startsWith("http") && !urlOrPath.includes("/storage/v1/object/"))) return urlOrPath;
   const path = extractStoragePath(bucket, urlOrPath);
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSec);
   if (error || !data?.signedUrl) return urlOrPath;
   return data.signedUrl;
 }
-
-// Tiny in-memory cache so repeated renders don't re-sign the same path.
-const signedCache = new Map<string, { url: string; expiresAt: number }>();
 
 /**
  * React hook: resolves a bucket URL/path to a signed URL transparently.
@@ -83,32 +81,5 @@ export function useSignedBucketUrl(
   urlOrPath: string | null | undefined,
   expiresInSec = 3600,
 ): string | undefined {
-  const [resolved, setResolved] = useState<string | undefined>(urlOrPath || undefined);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!urlOrPath) {
-      setResolved(undefined);
-      return;
-    }
-    const cacheKey = `${bucket}::${urlOrPath}`;
-    const cached = signedCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now() + 60_000) {
-      setResolved(cached.url);
-      return;
-    }
-    getPrivateFileSignedUrl(bucket, urlOrPath, expiresInSec).then((signed) => {
-      if (cancelled) return;
-      signedCache.set(cacheKey, {
-        url: signed,
-        expiresAt: Date.now() + expiresInSec * 1000,
-      });
-      setResolved(signed);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [bucket, urlOrPath, expiresInSec]);
-
-  return resolved;
+  return useStoredFileUrl(urlOrPath, true, 0, bucket);
 }
