@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getPrivateFileSignedUrl } from "@/lib/privateStorage";
+import { useStoredFileUrl } from "@/hooks/useStoredFileUrl";
 
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   bucket: string;
@@ -7,18 +7,21 @@ interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   fallback?: string;
 }
 
-export default function PrivateImage({ bucket, urlOrPath, fallback, ...img }: Props) {
-  const [src, setSrc] = useState<string | undefined>(fallback);
+export default function PrivateImage({ bucket, urlOrPath, fallback, onError, ...img }: Props) {
+  const [retry, setRetry] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const resolved = useStoredFileUrl(urlOrPath, true, retry, bucket);
+  const src = failed ? fallback : resolved || fallback;
 
   useEffect(() => {
-    let cancelled = false;
-    if (!urlOrPath) { setSrc(fallback); return; }
-    getPrivateFileSignedUrl(bucket, urlOrPath, 3600).then((u) => {
-      if (!cancelled) setSrc(u);
-    });
-    return () => { cancelled = true; };
-  }, [bucket, urlOrPath, fallback]);
+    setRetry(0);
+    setFailed(false);
+  }, [bucket, urlOrPath]);
+  useEffect(() => setFailed(false), [resolved]);
 
   if (!src) return null;
-  return <img {...img} src={src} />;
+  return <img {...img} src={src} onError={(event) => {
+    if (src === resolved && retry < 2) setRetry(n => n + 1);
+    else { setFailed(true); onError?.(event); }
+  }} />;
 }

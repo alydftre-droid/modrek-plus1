@@ -191,7 +191,7 @@ export async function getFileUrl(
   if (isBunnyStorageFile(urlOrPath)) {
     return opts.media ? resolveBunnyStorageMediaUrl(urlOrPath) : resolveBunnyStorageUrl(urlOrPath);
   }
-  if (urlOrPath.startsWith("data:")) return urlOrPath;
+  if (urlOrPath.startsWith("data:") || urlOrPath.startsWith("blob:")) return urlOrPath;
   if (opts.legacyBucket && !urlOrPath.startsWith("http")) {
     const { data } = await supabase.storage
       .from(opts.legacyBucket)
