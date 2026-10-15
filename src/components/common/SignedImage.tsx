@@ -1,5 +1,5 @@
 import { ImgHTMLAttributes } from "react";
-import { useSignedBucketUrl } from "@/lib/privateStorage";
+import PrivateImage from "@/components/PrivateImage";
 
 interface SignedImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> {
   bucket: string;
@@ -12,7 +12,5 @@ interface SignedImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "sr
  * private-bucket URL/path into a signed URL. Preserves all visual styling.
  */
 export function SignedImage({ bucket, url, expiresInSec, ...imgProps }: SignedImageProps) {
-  const signed = useSignedBucketUrl(bucket, url, expiresInSec);
-  if (!signed) return null;
-  return <img src={signed} {...imgProps} />;
+  return <PrivateImage bucket={bucket} urlOrPath={url} {...imgProps} />;
 }
