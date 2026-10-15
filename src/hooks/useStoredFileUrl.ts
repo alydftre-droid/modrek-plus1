@@ -12,7 +12,10 @@ export function useStoredFileUrl(value: string | null | undefined, media = true,
   const [result, setResult] = useState<{ value: string; url: string }>();
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange(() => setEpoch(n => n + 1));
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT" || event === "SIGNED_IN") setResult(undefined);
+      setEpoch(n => n + 1);
+    });
     const refresh = () => setEpoch(n => n + 1);
     window.addEventListener("online", refresh);
     window.addEventListener("focus", refresh);
