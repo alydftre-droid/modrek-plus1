@@ -58,6 +58,6 @@ export function useStoredFileUrl(value: string | null | undefined, media = true,
   }, [value, media, retry, legacyBucket, epoch]);
 
   // Never display another source's previous URL, or a raw storage protocol.
-  if (result?.value === value) return result.url || undefined;
+  if (result && result.value === value) return result.url || undefined;
   return value && !isBunnyStorageFile(value) && !legacyBucket ? value : undefined;
 }

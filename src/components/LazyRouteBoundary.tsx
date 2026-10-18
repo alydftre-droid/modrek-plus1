@@ -5,6 +5,7 @@ interface State {
   hasError: boolean;
   isChunkError: boolean;
   key: number;
+  error: unknown;
 }
 
 /**
@@ -16,7 +17,7 @@ export default class LazyRouteBoundary extends Component<
   { children: ReactNode },
   State
 > {
-  state: State = { hasError: false, isChunkError: false, key: 0 };
+  state: State = { hasError: false, isChunkError: false, key: 0, error: null };
 
   static getDerivedStateFromError(err: unknown): State {
     const msg = String((err as any)?.message || err || "");
@@ -25,7 +26,7 @@ export default class LazyRouteBoundary extends Component<
       /Importing a module script failed/i.test(msg) ||
       /Loading chunk [\w-]+ failed/i.test(msg) ||
       /error loading dynamically imported module/i.test(msg);
-    return { hasError: true, isChunkError, key: 0 };
+    return { hasError: true, isChunkError, key: 0, error: err };
   }
 
   componentDidCatch(error: unknown) {
@@ -42,7 +43,7 @@ export default class LazyRouteBoundary extends Component<
   }
 
   retry = () => {
-    this.setState((s) => ({ hasError: false, isChunkError: false, key: s.key + 1 }));
+    this.setState((s) => ({ hasError: false, isChunkError: false, key: s.key + 1, error: null }));
   };
 
   render() {
@@ -56,7 +57,7 @@ export default class LazyRouteBoundary extends Component<
         return <OfflineFallback onRetry={() => window.location.reload()} title="حدث خطأ أثناء تحميل الصفحة" message="جاري إعادة تحميل التطبيق..." />;
       }
       // Unknown error → let the outer ErrorBoundary render its UI on next render
-      throw new Error("LazyRouteBoundary: unknown error");
+      throw this.state.error;
     }
     return <div key={this.state.key}>{this.props.children}</div>;
   }
