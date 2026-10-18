@@ -1,5 +1,8 @@
 # Architecture Rules
 
+- Stored media hooks must narrow the resolved-result object before reading its URL, because an undefined source can match an undefined result field during initial rendering.
+- Lazy route boundaries must rethrow the original non-chunk exception, because replacing it hides the failing component's cause from diagnostics.
+
 - Stored media hooks must await auth, refresh on session/network changes and retry failed image delivery without a CDN redirect, because cached expired or anonymous URLs must not permanently hide photos.
 - Owner-folder profile and chat media may be shared only through references visible to the caller's RLS client, because uploader ownership alone excludes recipients while broad folder access leaks private files.
 - Chat images open in an in-app dialog rather than navigating the native webview to a protected binary URL, because navigation loses the chat and can fail on Android.
