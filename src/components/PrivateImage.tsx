@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useStoredFileUrl } from "@/hooks/useStoredFileUrl";
+import { canRetryStoredFile, useStoredFileUrl } from "@/hooks/useStoredFileUrl";
 
 interface Props extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   bucket: string;
@@ -21,7 +21,7 @@ export default function PrivateImage({ bucket, urlOrPath, fallback, onError, ...
 
   if (!src) return null;
   return <img {...img} src={src} onError={(event) => {
-    if (src === resolved && retry < 2) setRetry(n => n + 1);
+    if (src === resolved && retry < 2 && canRetryStoredFile(urlOrPath)) setRetry(n => n + 1);
     else { setFailed(true); onError?.(event); }
   }} />;
 }

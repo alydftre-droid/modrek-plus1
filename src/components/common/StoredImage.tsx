@@ -1,5 +1,5 @@
 import { useEffect, useState, type ImgHTMLAttributes } from "react";
-import { useStoredFileUrl } from "@/hooks/useStoredFileUrl";
+import { canRetryStoredFile, useStoredFileUrl } from "@/hooks/useStoredFileUrl";
 
 interface StoredImageProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> {
   source: string | null | undefined;
@@ -25,7 +25,7 @@ export default function StoredImage({ source, fallbackSrc, onError, ...props }: 
   if (!finalSrc) return null;
 
   return <img {...props} src={finalSrc} onError={(event) => {
-    if (finalSrc === src && retry < 2) setRetry(n => n + 1);
+    if (finalSrc === src && retry < 2 && canRetryStoredFile(source)) setRetry(n => n + 1);
     else { setFailed(true); onError?.(event); }
   }} />;
 }
