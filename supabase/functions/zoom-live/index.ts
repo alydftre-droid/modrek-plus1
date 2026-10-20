@@ -10,6 +10,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 import {
+  classifyZoomMeetingLookup,
   shouldRefreshZoomCredentials,
   shouldReuseZoomMeeting,
   type ZoomMeetingState,
