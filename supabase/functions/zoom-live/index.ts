@@ -1219,6 +1219,9 @@ Deno.serve(async (req) => {
               method: "PUT",
               body: JSON.stringify({ action: "end" }),
             });
+            // Scheduled meetings outlive their host; remove the finished one so
+            // an old shared link can never reopen an ended class.
+            await zoomApi(token, `/meetings/${session.zoom_meeting_id}`, { method: "DELETE" });
           } catch (error) {
             console.error("[zoom-live] end_meeting_failed", String(error));
           }
