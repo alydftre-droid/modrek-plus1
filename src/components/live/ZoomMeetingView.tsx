@@ -289,6 +289,9 @@ export default function ZoomMeetingView({
           };
           ZoomMtg.init({
             leaveUrl: window.location.href,
+            // Zoom navigates to leaveUrl after any leave — including network
+            // drops — which reloaded the whole page in the middle of a class.
+            leaveRedirect: false,
             patchJsMedia: true,
             leaveOnPageUnload: true,
             disableInvite: true,
@@ -339,8 +342,11 @@ export default function ZoomMeetingView({
         });
 
         if (cancelledRef.current) return;
+        (window as any).__modrekZoomUsed = true;
         joinedRef.current = true;
         setStatus("in-meeting");
+        applyNoMirror();
+        scheduleRecording();
       } catch (error) {
         if (cancelledRef.current) return;
         setZoomRootVisible(false);
