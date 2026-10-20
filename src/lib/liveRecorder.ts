@@ -120,7 +120,6 @@ export async function stopAndSaveLiveRecording(
     category: "live-recordings",
     file: new File([blob], `${current.sessionId}_${Date.now()}.${ext}`, { type: blob.type }),
     fileName: `${current.sessionId}_${Date.now()}.${ext}`,
-    maxBytes: 900 * 1024 * 1024,
     onProgress: (loaded, total) => onProgress?.(Math.round((loaded / Math.max(total, 1)) * 100)),
   });
 

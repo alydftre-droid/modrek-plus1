@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, X, Copy, Camera, Mic, ShieldCheck, RotateCcw } from "lucide-react";
+import { Loader2, AlertTriangle, X, Copy, Camera, Mic, ShieldCheck, RotateCcw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import {
   ZoomLiveError,
+  disableZoomSelfMirror,
   endZoomSession,
   joinZoomSession,
   leaveZoomSession,
@@ -16,6 +18,22 @@ import {
   stopZoomArabicLocalization,
   type ZoomJoinPayload,
 } from "@/lib/zoomMeeting";
+import { isLiveRecordingActive, startLiveRecording, stopAndSaveLiveRecording } from "@/lib/liveRecorder";
+
+/** Saves the teacher's class recording and reports progress in one toast. */
+async function saveRecordingWithToast() {
+  if (!isLiveRecordingActive()) return;
+  const toastId = toast.loading("جاري حفظ تسجيل الحصة... لا تغلق الصفحة");
+  try {
+    const result = await stopAndSaveLiveRecording((percent) =>
+      toast.loading(`جاري رفع تسجيل الحصة ${percent}% — لا تغلق الصفحة`, { id: toastId }),
+    );
+    if (result.saved) toast.success("تم حفظ تسجيل الحصة في الحصص المسجلة ✅", { id: toastId });
+    else toast.dismiss(toastId);
+  } catch (error) {
+    toast.error(error instanceof Error ? `تعذر حفظ التسجيل: ${error.message}` : "تعذر حفظ تسجيل الحصة", { id: toastId });
+  }
+}
 
 interface Props {
   mode: "host" | "attendee";
