@@ -392,8 +392,16 @@ export default function ZoomMeetingView({
       toast.error(error instanceof Error ? error.message : "تعذر إنهاء البث");
       return;
     }
+    // Upload continues in the background after the class screen closes.
+    if (mode === "host") void saveRecordingWithToast();
     setZoomRootVisible(false);
     onClose();
+  };
+
+  const rejoinAfterDisconnect = async () => {
+    // Keep what was recorded so far before the clean reload.
+    if (mode === "host") await saveRecordingWithToast();
+    window.location.reload();
   };
 
   const copyReport = async () => {
