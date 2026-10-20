@@ -70,6 +70,7 @@ export function startZoomSession(input: {
   title: string;
   allowCamera?: boolean;
   allowMic?: boolean;
+  forceNew?: boolean;
 }): Promise<ZoomJoinPayload> {
   return callZoomLive({ action: "start", ...input });
 }

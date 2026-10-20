@@ -76,6 +76,8 @@ export default function ZoomMeetingView({
   const lastConnectedAtRef = useRef(0);
   const sessionInfoRef = useRef<{ id: string; groupId: string; title: string } | null>(null);
   const recordingScheduledRef = useRef(false);
+  const reusedMeetingRef = useRef(false);
+  const forceNewRef = useRef(false);
 
   /** Zoom's default mirror makes the teacher's right hand look like the left. */
   const applyNoMirror = () => {
@@ -166,7 +168,9 @@ export default function ZoomMeetingView({
           payload = await startZoomSession({
             groupId,
             title: title || `حصة مباشرة — ${groupTitle || ""}`.trim(),
+            forceNew: forceNewRef.current,
           });
+          reusedMeetingRef.current = Boolean(payload.reused);
         } else {
           if (!sessionId) throw new ZoomLiveError("لا توجد جلسة محددة", "invalid_payload");
           payload = await joinZoomSession(sessionId);
@@ -354,6 +358,15 @@ export default function ZoomMeetingView({
         // Zoom 3000 = "already has other meetings in progress": a previous
         // browser session of this same meeting has not been released yet.
         // The server reuses/clears it, so one silent retry restores the class.
+        // The reused meeting already ended on Zoom (an older class): open a
+        // fresh one once instead of leaving the teacher on an error screen.
+        if (mode === "host" && reusedMeetingRef.current && code.startsWith("zoom_join_") && !forceNewRef.current) {
+          forceNewRef.current = true;
+          startingRef.current = false;
+          setStatus("preparing");
+          if (cancelledRef.current) return;
+          return await beginMeeting();
+        }
         if (/_3000$/.test(code) && !retriedRef.current) {
           retriedRef.current = true;
           startingRef.current = false;
