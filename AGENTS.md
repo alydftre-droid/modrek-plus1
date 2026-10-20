@@ -13,3 +13,7 @@
 - `zoom-live` and `zoom-webhook` are pre-deployed to production before migrations run, because a failing `db push` previously left live classes on stale server code.
 - Reuse a Zoom meeting only when Zoom still recognizes it as live, never from local session age alone, because an instant meeting can end as soon as its only host leaves.
 - Credential refresh failure must preserve a reusable Zoom session and use its host-matched server cache or return a retryable error, because closing it also closes student attendance and the live board.
+- Zoom Client View is initialised with `leaveRedirect: false`, and automatic chunk-error reloads skip foreign-origin errors and open live classes, because any page reload drops the host and ends the class for students.
+- Never flip Zoom video with CSS; turn off the host self-view mirror only through `ZoomMtg.mirrorVideo`, because `#main-video` shows the active speaker and flipping it mirrors the teacher for every student.
+- Live classes create scheduled Zoom meetings (type 2) and treat Zoom code 4711 (missing read scope) as an unknown lookup, because instant meetings die with the host and a scope error is not proof that a meeting ended.
+- Live class recordings are captured in the teacher's browser (`src/lib/liveRecorder.ts`) and saved on end, because the Zoom host plan has no cloud recording.

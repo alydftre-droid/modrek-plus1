@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertTriangle, X, Copy, Camera, Mic, ShieldCheck, RotateCcw } from "lucide-react";
+import { Loader2, AlertTriangle, X, Copy, Camera, Mic, ShieldCheck, RotateCcw, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 import {
   ZoomLiveError,
+  disableZoomSelfMirror,
   endZoomSession,
   joinZoomSession,
   leaveZoomSession,
@@ -16,6 +18,22 @@ import {
   stopZoomArabicLocalization,
   type ZoomJoinPayload,
 } from "@/lib/zoomMeeting";
+import { isLiveRecordingActive, startLiveRecording, stopAndSaveLiveRecording } from "@/lib/liveRecorder";
+
+/** Saves the teacher's class recording and reports progress in one toast. */
+async function saveRecordingWithToast() {
+  if (!isLiveRecordingActive()) return;
+  const toastId = toast.loading("جاري حفظ تسجيل الحصة... لا تغلق الصفحة");
+  try {
+    const result = await stopAndSaveLiveRecording((percent) =>
+      toast.loading(`جاري رفع تسجيل الحصة ${percent}% — لا تغلق الصفحة`, { id: toastId }),
+    );
+    if (result.saved) toast.success("تم حفظ تسجيل الحصة في الحصص المسجلة ✅", { id: toastId });
+    else toast.dismiss(toastId);
+  } catch (error) {
+    toast.error(error instanceof Error ? `تعذر حفظ التسجيل: ${error.message}` : "تعذر حفظ تسجيل الحصة", { id: toastId });
+  }
+}
 
 interface Props {
   mode: "host" | "attendee";
@@ -41,8 +59,9 @@ export default function ZoomMeetingView({
   onSessionReady,
   onUnavailable,
 }: Props) {
+  const { user } = useAuth();
   const [status, setStatus] = useState<
-    "permission" | "requesting-permission" | "permission-blocked" | "preparing" | "joining" | "in-meeting" | "error"
+    "permission" | "requesting-permission" | "permission-blocked" | "preparing" | "joining" | "in-meeting" | "disconnected" | "error"
   >("permission");
   const [mediaPermission, setMediaPermission] = useState({ audio: false, video: false });
   const [errorText, setErrorText] = useState("");
@@ -55,7 +74,33 @@ export default function ZoomMeetingView({
   const retriedRef = useRef(false);
   const endedRef = useRef(false);
   const lastConnectedAtRef = useRef(0);
+  const sessionInfoRef = useRef<{ id: string; groupId: string; title: string } | null>(null);
+  const recordingScheduledRef = useRef(false);
+  const reusedMeetingRef = useRef(false);
+  const forceNewRef = useRef(false);
 
+  /** Zoom's default mirror makes the teacher's right hand look like the left. */
+  const applyNoMirror = () => {
+    disableZoomSelfMirror();
+    window.setTimeout(disableZoomSelfMirror, 3000);
+    window.setTimeout(disableZoomSelfMirror, 10000);
+  };
+
+  /** The teacher's browser records the class so it can be saved afterwards. */
+  const scheduleRecording = () => {
+    if (mode !== "host" || recordingScheduledRef.current || !user?.id) return;
+    const info = sessionInfoRef.current;
+    if (!info) return;
+    recordingScheduledRef.current = true;
+    // Give Zoom a few seconds to own the camera before opening a second reader.
+    window.setTimeout(() => {
+      if (cancelledRef.current || endedRef.current) return;
+      void startLiveRecording({ sessionId: info.id, groupId: info.groupId, teacherId: user.id, title: info.title })
+        .then((started) => {
+          if (started) toast.success("بدأ تسجيل الحصة تلقائيًا، وسيُحفظ في الحصص المسجلة عند إنهاء البث");
+        });
+    }, 6000);
+  };
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -64,6 +109,7 @@ export default function ZoomMeetingView({
       startingRef.current = false;
       stopZoomArabicLocalization();
       setZoomRootVisible(false);
+      if (mode === "host") void saveRecordingWithToast();
       const id = activeSessionId.current;
       if (id && mode === "attendee") void leaveZoomSession(id);
       if (joinedRef.current) {
@@ -82,6 +128,13 @@ export default function ZoomMeetingView({
 
   const beginMeeting = async () => {
     if (startingRef.current) return;
+    // Zoom's Client View can only join once per page load. A second join in
+    // the same page (after leaving) is done through a clean reload that the
+    // user asked for, never automatically.
+    if ((window as any).__modrekZoomUsed) {
+      window.location.reload();
+      return;
+    }
     startingRef.current = true;
     setErrorText("");
     setStatus("requesting-permission");
@@ -115,7 +168,9 @@ export default function ZoomMeetingView({
           payload = await startZoomSession({
             groupId,
             title: title || `حصة مباشرة — ${groupTitle || ""}`.trim(),
+            forceNew: forceNewRef.current,
           });
+          reusedMeetingRef.current = Boolean(payload.reused);
         } else {
           if (!sessionId) throw new ZoomLiveError("لا توجد جلسة محددة", "invalid_payload");
           payload = await joinZoomSession(sessionId);
@@ -131,6 +186,13 @@ export default function ZoomMeetingView({
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
+        if (payload.session?.id) {
+          sessionInfoRef.current = {
+            id: String(payload.session.id),
+            groupId: String(payload.session.group_id || groupId || ""),
+            title: String(payload.session.title || title || groupTitle || "حصة مباشرة"),
+          };
+        }
         onSessionReady?.(payload.session);
 
         const ZoomMtg = await loadZoomSdk();
@@ -148,6 +210,8 @@ export default function ZoomMeetingView({
               joinedRef.current = true;
               lastConnectedAtRef.current = Date.now();
               setStatus("in-meeting");
+              applyNoMirror();
+              scheduleRecording();
               return;
             }
             if (data?.meetingStatus !== 3 || !joinedRef.current || endedRef.current) return;
@@ -169,13 +233,20 @@ export default function ZoomMeetingView({
                 .then((result) => {
                   if (cancelledRef.current || endedRef.current) return;
                   if (lastConnectedAtRef.current > closedAt) return;
-                  if (result?.active) return; // still live on Zoom — stay put
+                  if (result?.active) {
+                    // The class is still running: show a clear way back in
+                    // instead of a frozen Zoom screen or a surprise reload.
+                    setZoomRootVisible(false);
+                    setStatus("disconnected");
+                    return;
+                  }
                   endedRef.current = true;
                   if (mode === "attendee") void leaveZoomSession(id);
                   onClose();
                 })
                 .catch(() => {
-                  /* keep the teacher in the class if we cannot verify */
+                  setZoomRootVisible(false);
+                  setStatus("disconnected");
                 });
             }, 4000);
           });
@@ -222,6 +293,9 @@ export default function ZoomMeetingView({
           };
           ZoomMtg.init({
             leaveUrl: window.location.href,
+            // Zoom navigates to leaveUrl after any leave — including network
+            // drops — which reloaded the whole page in the middle of a class.
+            leaveRedirect: false,
             patchJsMedia: true,
             leaveOnPageUnload: true,
             disableInvite: true,
@@ -272,8 +346,11 @@ export default function ZoomMeetingView({
         });
 
         if (cancelledRef.current) return;
+        (window as any).__modrekZoomUsed = true;
         joinedRef.current = true;
         setStatus("in-meeting");
+        applyNoMirror();
+        scheduleRecording();
       } catch (error) {
         if (cancelledRef.current) return;
         setZoomRootVisible(false);
@@ -281,6 +358,15 @@ export default function ZoomMeetingView({
         // Zoom 3000 = "already has other meetings in progress": a previous
         // browser session of this same meeting has not been released yet.
         // The server reuses/clears it, so one silent retry restores the class.
+        // The reused meeting already ended on Zoom (an older class): open a
+        // fresh one once instead of leaving the teacher on an error screen.
+        if (mode === "host" && reusedMeetingRef.current && code.startsWith("zoom_join_") && !forceNewRef.current) {
+          forceNewRef.current = true;
+          startingRef.current = false;
+          setStatus("preparing");
+          if (cancelledRef.current) return;
+          return await beginMeeting();
+        }
         if (/_3000$/.test(code) && !retriedRef.current) {
           retriedRef.current = true;
           startingRef.current = false;
@@ -319,8 +405,16 @@ export default function ZoomMeetingView({
       toast.error(error instanceof Error ? error.message : "تعذر إنهاء البث");
       return;
     }
+    // Upload continues in the background after the class screen closes.
+    if (mode === "host") void saveRecordingWithToast();
     setZoomRootVisible(false);
     onClose();
+  };
+
+  const rejoinAfterDisconnect = async () => {
+    // Keep what was recorded so far before the clean reload.
+    if (mode === "host") await saveRecordingWithToast();
+    window.location.reload();
   };
 
   const copyReport = async () => {
@@ -418,6 +512,26 @@ export default function ZoomMeetingView({
           </Button>
           <Button variant="ghost" className="w-full" onClick={onClose} disabled={requesting}>
             إلغاء والعودة
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "disconnected") {
+    return (
+      <div className="fixed inset-0 z-[10001] bg-background/95 flex items-center justify-center p-4" dir="rtl">
+        <div className="max-w-md w-full rounded-lg border bg-card p-6 space-y-4 text-center shadow-lg">
+          <WifiOff className="h-10 w-10 mx-auto text-primary" />
+          <h3 className="font-bold text-lg">انقطع اتصالك بالحصة</h3>
+          <p className="text-sm text-muted-foreground leading-6">
+            الحصة ما زالت مستمرة{mode === "host" ? " للطلاب" : ""}. اضغط «العودة للحصة» للدخول مرة أخرى.
+          </p>
+          <Button className="w-full min-h-12 gap-2" onClick={rejoinAfterDisconnect}>
+            <RotateCcw className="h-5 w-5" /> العودة للحصة
+          </Button>
+          <Button variant={mode === "host" ? "destructive" : "outline"} className="w-full" onClick={handleEnd}>
+            {mode === "host" ? "إنهاء الحصة نهائيًا" : "خروج"}
           </Button>
         </div>
       </div>

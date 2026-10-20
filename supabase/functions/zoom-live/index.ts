@@ -10,6 +10,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 import { isDemoUserId, DEMO_READ_ONLY_CODE, DEMO_READ_ONLY_MESSAGE } from "../_shared/demoGuard.ts";
 import {
+  classifyZoomMeetingLookup,
   shouldRefreshZoomCredentials,
   shouldReuseZoomMeeting,
   type ZoomMeetingState,
@@ -287,11 +288,12 @@ async function inspectExistingMeeting(
     {},
     "meeting_lookup",
   );
-  if (response.ok) {
-    return String(response.json?.host_id || "") === hostId ? "match" : "other_host";
-  }
-  if (response.status === 404 || response.status === 400) return "missing";
-  return "unknown";
+  return classifyZoomMeetingLookup({
+    ok: response.ok,
+    status: response.status,
+    zoomCode: response.json?.code,
+    hostMatches: String(response.json?.host_id || "") === hostId,
+  });
 }
 
 /** Return the meetings currently running for this Zoom host. Starting a new
@@ -641,7 +643,10 @@ Deno.serve(async (req) => {
         : null;
       let canReuseExisting = false;
       let existingState: ZoomMeetingState | null = null;
-      if (existingMeetingId) {
+      // forceNew: the client already failed to join the reused meeting (it
+      // ended on Zoom), so a fresh meeting is the only way back in.
+      const forceNew = body.forceNew === true;
+      if (existingMeetingId && !forceNew) {
         existingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
         const liveNow = existingState === "missing"
           ? await isMeetingCurrentlyLive(token, host.id, existingMeetingId)
@@ -810,7 +815,14 @@ Deno.serve(async (req) => {
         method: "POST",
         body: JSON.stringify({
           topic: `${group.title} — ${title}`.slice(0, 200),
-          type: 1, // instant meeting
+          // Scheduled (type 2), not instant: an instant meeting is destroyed the
+          // moment the host's connection drops, which threw every student out and
+          // forced a brand-new meeting on rejoin. A scheduled meeting keeps the
+          // same ID so the teacher can come back to the same class.
+          type: 2,
+          start_time: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+          duration: 240,
+          timezone: "UTC",
           default_password: true,
           settings: {
             host_video: true,
@@ -1212,6 +1224,9 @@ Deno.serve(async (req) => {
               method: "PUT",
               body: JSON.stringify({ action: "end" }),
             });
+            // Scheduled meetings outlive their host; remove the finished one so
+            // an old shared link can never reopen an ended class.
+            await zoomApi(token, `/meetings/${session.zoom_meeting_id}`, { method: "DELETE" });
           } catch (error) {
             console.error("[zoom-live] end_meeting_failed", String(error));
           }
