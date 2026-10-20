@@ -128,17 +128,28 @@ export function loadZoomSdk(): Promise<any> {
     ZoomMtg.setZoomJSLib(`${ZOOM_CDN}/lib`, "/av");
     ZoomMtg.preLoadWasm();
     ZoomMtg.prepareWebSDK();
-    try {
-      ZoomMtg.i18n.load("ar-SA");
-    } catch {
-      /* Arabic pack is optional */
-    }
+    // Zoom ships no Arabic pack (the ar-SA file returns 403); requesting it only
+    // produced failed loads. Labels are translated by startZoomArabicLocalization.
     return ZoomMtg;
   })().catch((error) => {
     sdkPromise = null;
     throw error;
   });
   return sdkPromise;
+}
+
+/**
+ * Zoom shows your own camera like a mirror by default, so a raised right hand
+ * appears on the left. Students always receive the real (unmirrored) picture;
+ * this turns the mirror off for the teacher's own preview too.
+ */
+export function disableZoomSelfMirror() {
+  const ZoomMtg = (window as any).ZoomMtg;
+  try {
+    ZoomMtg?.mirrorVideo?.({ mirrored: false, success: () => {}, error: () => {} });
+  } catch {
+    /* older SDKs without mirrorVideo */
+  }
 }
 
 /**
@@ -331,13 +342,9 @@ function injectZoomUiFix() {
     #zmmtg-root .main-content, #zmmtg-root .gallery-video-container {
       max-width: 100vw !important;
     }
-    /* Zoom Client View mirrors only the teacher's local preview by default.
-       Flip the two documented self-preview surfaces back so right and left
-       match the teacher's real movement. Remote student video is untouched. */
-    #zmmtg-root #main-video,
-    #zmmtg-root #suspension-video {
-      transform: scaleX(-1) !important;
-    }
+    /* No CSS flipping of video here: #main-video shows the active speaker, so
+       flipping it mirrored the teacher for every student. Self-view mirroring
+       is turned off through Zoom's own mirrorVideo API (disableZoomSelfMirror). */
     /* Zoom renders the "More" menu and its tool pop-ups into document.body,
        OUTSIDE #zmmtg-root. Scoping the fix to the root left them stacked
 
