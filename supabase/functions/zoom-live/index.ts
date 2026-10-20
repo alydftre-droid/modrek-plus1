@@ -810,7 +810,14 @@ Deno.serve(async (req) => {
         method: "POST",
         body: JSON.stringify({
           topic: `${group.title} — ${title}`.slice(0, 200),
-          type: 1, // instant meeting
+          // Scheduled (type 2), not instant: an instant meeting is destroyed the
+          // moment the host's connection drops, which threw every student out and
+          // forced a brand-new meeting on rejoin. A scheduled meeting keeps the
+          // same ID so the teacher can come back to the same class.
+          type: 2,
+          start_time: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+          duration: 240,
+          timezone: "UTC",
           default_password: true,
           settings: {
             host_video: true,
