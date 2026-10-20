@@ -287,15 +287,12 @@ async function inspectExistingMeeting(
     {},
     "meeting_lookup",
   );
-  if (response.ok) {
-    return String(response.json?.host_id || "") === hostId ? "match" : "other_host";
-  }
-  // 4711 = the Zoom app lacks the meeting:read scope. That says nothing about
-  // the meeting itself; treating it as "missing" closed every running class
-  // on teacher rejoin and opened a new meeting the students were not in.
-  if (Number(response.json?.code) === 4711) return "unknown";
-  if (response.status === 404 || response.status === 400) return "missing";
-  return "unknown";
+  return classifyZoomMeetingLookup({
+    ok: response.ok,
+    status: response.status,
+    zoomCode: response.json?.code,
+    hostMatches: String(response.json?.host_id || "") === hostId,
+  });
 }
 
 /** Return the meetings currently running for this Zoom host. Starting a new
