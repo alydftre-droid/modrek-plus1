@@ -182,6 +182,13 @@ export default function ZoomMeetingView({
         }
 
         activeSessionId.current = payload.session?.id ?? sessionId ?? null;
+        if (payload.session?.id) {
+          sessionInfoRef.current = {
+            id: String(payload.session.id),
+            groupId: String(payload.session.group_id || groupId || ""),
+            title: String(payload.session.title || title || groupTitle || "حصة مباشرة"),
+          };
+        }
         onSessionReady?.(payload.session);
 
         const ZoomMtg = await loadZoomSdk();
@@ -199,6 +206,8 @@ export default function ZoomMeetingView({
               joinedRef.current = true;
               lastConnectedAtRef.current = Date.now();
               setStatus("in-meeting");
+              applyNoMirror();
+              scheduleRecording();
               return;
             }
             if (data?.meetingStatus !== 3 || !joinedRef.current || endedRef.current) return;
@@ -220,13 +229,20 @@ export default function ZoomMeetingView({
                 .then((result) => {
                   if (cancelledRef.current || endedRef.current) return;
                   if (lastConnectedAtRef.current > closedAt) return;
-                  if (result?.active) return; // still live on Zoom — stay put
+                  if (result?.active) {
+                    // The class is still running: show a clear way back in
+                    // instead of a frozen Zoom screen or a surprise reload.
+                    setZoomRootVisible(false);
+                    setStatus("disconnected");
+                    return;
+                  }
                   endedRef.current = true;
                   if (mode === "attendee") void leaveZoomSession(id);
                   onClose();
                 })
                 .catch(() => {
-                  /* keep the teacher in the class if we cannot verify */
+                  setZoomRootVisible(false);
+                  setStatus("disconnected");
                 });
             }, 4000);
           });
