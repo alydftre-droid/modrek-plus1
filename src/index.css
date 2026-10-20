@@ -3218,24 +3218,17 @@
   to { transform: translateX(100%); }
 }
 
-/* تحسين شريط التمرير */
+/* إخفاء شريط التمرير نهائيًا على كل الصفحات مع بقاء التمرير يعمل */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
 }
 
-::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.3);
-  border-radius: 4px;
-}
-
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.5);
+  background: transparent !important;
 }
 
 /* إخفاء شريط التمرير الأفقي للتبويبات */
@@ -4949,19 +4942,23 @@ button {
   font-family: inherit;
 }
 
+/* إخفاء شريط التمرير نهائيًا على المتصفح والتطبيق مع بقاء التمرير يعمل */
+html,
+body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
 }
-::-webkit-scrollbar-track {
-  background: hsl(var(--muted));
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.45);
-  border-radius: 999px;
-}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.65);
+  background: transparent !important;
 }
 
 /*
