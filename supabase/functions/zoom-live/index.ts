@@ -645,7 +645,10 @@ Deno.serve(async (req) => {
         : null;
       let canReuseExisting = false;
       let existingState: ZoomMeetingState | null = null;
-      if (existingMeetingId) {
+      // forceNew: the client already failed to join the reused meeting (it
+      // ended on Zoom), so a fresh meeting is the only way back in.
+      const forceNew = body.forceNew === true;
+      if (existingMeetingId && !forceNew) {
         existingState = await inspectExistingMeeting(token, existingMeetingId, host.id);
         const liveNow = existingState === "missing"
           ? await isMeetingCurrentlyLive(token, host.id, existingMeetingId)
