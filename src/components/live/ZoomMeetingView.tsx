@@ -59,8 +59,9 @@ export default function ZoomMeetingView({
   onSessionReady,
   onUnavailable,
 }: Props) {
+  const { user } = useAuth();
   const [status, setStatus] = useState<
-    "permission" | "requesting-permission" | "permission-blocked" | "preparing" | "joining" | "in-meeting" | "error"
+    "permission" | "requesting-permission" | "permission-blocked" | "preparing" | "joining" | "in-meeting" | "disconnected" | "error"
   >("permission");
   const [mediaPermission, setMediaPermission] = useState({ audio: false, video: false });
   const [errorText, setErrorText] = useState("");
@@ -73,7 +74,31 @@ export default function ZoomMeetingView({
   const retriedRef = useRef(false);
   const endedRef = useRef(false);
   const lastConnectedAtRef = useRef(0);
+  const sessionInfoRef = useRef<{ id: string; groupId: string; title: string } | null>(null);
+  const recordingScheduledRef = useRef(false);
 
+  /** Zoom's default mirror makes the teacher's right hand look like the left. */
+  const applyNoMirror = () => {
+    disableZoomSelfMirror();
+    window.setTimeout(disableZoomSelfMirror, 3000);
+    window.setTimeout(disableZoomSelfMirror, 10000);
+  };
+
+  /** The teacher's browser records the class so it can be saved afterwards. */
+  const scheduleRecording = () => {
+    if (mode !== "host" || recordingScheduledRef.current || !user?.id) return;
+    const info = sessionInfoRef.current;
+    if (!info) return;
+    recordingScheduledRef.current = true;
+    // Give Zoom a few seconds to own the camera before opening a second reader.
+    window.setTimeout(() => {
+      if (cancelledRef.current || endedRef.current) return;
+      void startLiveRecording({ sessionId: info.id, groupId: info.groupId, teacherId: user.id, title: info.title })
+        .then((started) => {
+          if (started) toast.success("بدأ تسجيل الحصة تلقائيًا، وسيُحفظ في الحصص المسجلة عند إنهاء البث");
+        });
+    }, 6000);
+  };
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -82,6 +107,7 @@ export default function ZoomMeetingView({
       startingRef.current = false;
       stopZoomArabicLocalization();
       setZoomRootVisible(false);
+      if (mode === "host") void saveRecordingWithToast();
       const id = activeSessionId.current;
       if (id && mode === "attendee") void leaveZoomSession(id);
       if (joinedRef.current) {
@@ -100,6 +126,13 @@ export default function ZoomMeetingView({
 
   const beginMeeting = async () => {
     if (startingRef.current) return;
+    // Zoom's Client View can only join once per page load. A second join in
+    // the same page (after leaving) is done through a clean reload that the
+    // user asked for, never automatically.
+    if ((window as any).__modrekZoomUsed) {
+      window.location.reload();
+      return;
+    }
     startingRef.current = true;
     setErrorText("");
     setStatus("requesting-permission");
