@@ -8,6 +8,7 @@ import { enforceCanonicalRuntimeOrigin, pruneLegacySupabaseAuthStorage } from ".
 import { initSentry } from "./lib/sentry";
 import { enforceDataSchemaVersion } from "./lib/dataIntegrity/cacheVersion";
 import { installDemoReadOnlyNotifier } from "./lib/demoReadOnly";
+import { isLiveClassOpen, shouldAutoReloadForChunkError } from "./lib/chunkReload";
 
 initSentry();
 enforceDataSchemaVersion();
@@ -20,11 +21,15 @@ installDemoReadOnlyNotifier();
 // one guarded hard reload to pick up the new asset manifest.
 if (typeof window !== "undefined") {
   const RELOAD_KEY = "mp-chunk-reload-at";
-  const isChunkError = (msg: string) =>
-    /Failed to fetch dynamically imported module/i.test(msg) ||
-    /Importing a module script failed/i.test(msg) ||
-    /Loading chunk [\w-]+ failed/i.test(msg) ||
-    /error loading dynamically imported module/i.test(msg);
+  // Zoom's SDK raises its own "Loading chunk N failed" errors; reloading for
+  // those kicked teachers out of live classes. See src/lib/chunkReload.ts.
+  const isChunkError = (msg: string, name = "") =>
+    shouldAutoReloadForChunkError({
+      message: msg,
+      errorName: name,
+      liveClassOpen: isLiveClassOpen(),
+      appOrigin: window.location.origin,
+    });
   const tryReload = () => {
     try {
       // Skip reload while offline — reloading with no network would blank the app.
@@ -39,12 +44,12 @@ if (typeof window !== "undefined") {
   };
   window.addEventListener("error", (event) => {
     const msg = String(event?.message || (event as any)?.error?.message || "");
-    if (isChunkError(msg)) tryReload();
+    if (isChunkError(msg, String((event as any)?.error?.name || ""))) tryReload();
   });
   window.addEventListener("unhandledrejection", (event) => {
     const reason: any = (event as PromiseRejectionEvent).reason;
     const msg = String(reason?.message || reason || "");
-    if (isChunkError(msg)) tryReload();
+    if (isChunkError(msg, String(reason?.name || ""))) tryReload();
   });
 }
 
