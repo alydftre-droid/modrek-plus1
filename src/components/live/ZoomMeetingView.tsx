@@ -505,6 +505,26 @@ export default function ZoomMeetingView({
     );
   }
 
+  if (status === "disconnected") {
+    return (
+      <div className="fixed inset-0 z-[10001] bg-background/95 flex items-center justify-center p-4" dir="rtl">
+        <div className="max-w-md w-full rounded-lg border bg-card p-6 space-y-4 text-center shadow-lg">
+          <WifiOff className="h-10 w-10 mx-auto text-primary" />
+          <h3 className="font-bold text-lg">انقطع اتصالك بالحصة</h3>
+          <p className="text-sm text-muted-foreground leading-6">
+            الحصة ما زالت مستمرة{mode === "host" ? " للطلاب" : ""}. اضغط «العودة للحصة» للدخول مرة أخرى.
+          </p>
+          <Button className="w-full min-h-12 gap-2" onClick={rejoinAfterDisconnect}>
+            <RotateCcw className="h-5 w-5" /> العودة للحصة
+          </Button>
+          <Button variant={mode === "host" ? "destructive" : "outline"} className="w-full" onClick={handleEnd}>
+            {mode === "host" ? "إنهاء الحصة نهائيًا" : "خروج"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (status === "in-meeting") {
     return (
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[10000]">
