@@ -1,4 +1,5 @@
 import { usePrivateFileUrl } from "@/hooks/usePrivateFileUrl";
+import { canRetryStoredFile } from "@/hooks/useStoredFileUrl";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -23,7 +24,7 @@ export default function ChatAttachment({ url, type, bucket = "payment-receipts" 
   useEffect(() => { setRetry(0); setFailed(false); }, [url]);
   useEffect(() => setFailed(false), [src]);
   const imageError = () => {
-    if (retry < 2) setRetry(n => n + 1);
+    if (retry < 2 && canRetryStoredFile(url)) setRetry(n => n + 1);
     else setFailed(true);
   };
 
