@@ -80,11 +80,24 @@ export default function ZoomMeetingView({
   const forceNewRef = useRef(false);
 
   /** Zoom's default mirror makes the teacher's right hand look like the left. */
+  // Zoom re-enables its mirror every time the camera is switched (front/back)
+  // or restarted, so keep enforcing it for the whole meeting, not only at join.
+  const mirrorTimerRef = useRef<number | null>(null);
   const applyNoMirror = () => {
     disableZoomSelfMirror();
-    window.setTimeout(disableZoomSelfMirror, 3000);
-    window.setTimeout(disableZoomSelfMirror, 10000);
+    if (mirrorTimerRef.current !== null) return;
+    mirrorTimerRef.current = window.setInterval(() => {
+      if (!(window as any).ZoomMtg) return;
+      disableZoomSelfMirror();
+    }, 1500);
+    const onTap = () => window.setTimeout(disableZoomSelfMirror, 600);
+    document.addEventListener("click", onTap, true);
+    document.addEventListener("touchend", onTap, true);
   };
+  useEffect(() => () => {
+    if (mirrorTimerRef.current !== null) window.clearInterval(mirrorTimerRef.current);
+    mirrorTimerRef.current = null;
+  }, []);
 
   /** The teacher's browser records the class so it can be saved afterwards. */
   const scheduleRecording = () => {
