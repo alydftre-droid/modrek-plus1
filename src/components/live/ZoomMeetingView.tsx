@@ -19,6 +19,7 @@ import {
   type ZoomJoinPayload,
 } from "@/lib/zoomMeeting";
 import { isLiveRecordingActive, startLiveRecording, stopAndSaveLiveRecording } from "@/lib/liveRecorder";
+import { startZoomMirrorGuard, stopZoomMirrorGuard } from "@/lib/zoomMirrorGuard";
 
 /** Saves the teacher's class recording and reports progress in one toast. */
 async function saveRecordingWithToast() {
