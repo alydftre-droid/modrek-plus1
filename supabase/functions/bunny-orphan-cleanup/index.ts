@@ -51,7 +51,17 @@ Deno.serve(async (req) => {
 
     let body: { dry_run?: boolean } = {};
     try { body = await req.json(); } catch { /* body optional */ }
-    const dryRun = body.dry_run !== false; // default true — safe
+    // Real deletion is permanently disabled: on 2026-10-10 this tool deleted
+    // hundreds of files that were still shown in the app (teacher photos, group
+    // images, chat images) because its reference list missed most tables.
+    // Only the read-only report is allowed.
+    if (body.dry_run === false) {
+      return json({
+        error: "حذف الملفات من هنا متوقف نهائيًا لحماية صور وملفات المنصة. يمكنك تشغيل الفحص فقط.",
+        code: "orphan_delete_disabled",
+      }, 403);
+    }
+    const dryRun = true;
 
     const streamApiKey  = Deno.env.get("BUNNY_STREAM_API_KEY") || Deno.env.get("BUNNY_API_KEY") || "";
     const streamLibrary = Deno.env.get("BUNNY_STREAM_LIBRARY_ID") || "686928";
@@ -88,8 +98,8 @@ Deno.serve(async (req) => {
     }
     // teacher_profiles
     {
-      const { data } = await admin.from("teacher_profiles").select("intro_video_url, avatar_url");
-      for (const r of data ?? []) { collect(r.intro_video_url); collect(r.avatar_url); }
+      const { data } = await admin.from("teacher_profiles").select("photo_url, cover_image_url, video_url");
+      for (const r of data ?? []) { collect(r.photo_url); collect(r.cover_image_url); collect(r.video_url); }
     }
     // ads / any other Bunny-holding tables can be added later.
 

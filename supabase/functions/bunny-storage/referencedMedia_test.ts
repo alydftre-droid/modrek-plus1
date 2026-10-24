@@ -24,3 +24,9 @@ Deno.test("unrelated user or tenant cannot read an image with no visible referen
 Deno.test("a different visible attachment does not grant access to an arbitrary owner file", async () => {
   assertEquals(await canReadReferencedMedia(client({ teacher_messages: [{ file_url: "bstorage://modrek/users/other/chat/other.jpg" }] }), path, "cdn.test"), false);
 });
+Deno.test("student can read a group cover a teacher uploaded into the teacher folder", async () => {
+  assertEquals(await canReadReferencedMedia(client({ content_groups: [{ image_url: `bstorage://${path}` }] }), path, "cdn.test"), true);
+});
+Deno.test("subscribed student can watch a saved live recording from the teacher folder", async () => {
+  assertEquals(await canReadReferencedMedia(client({ live_session_recordings: [{ video_url: `bstorage://${path}` }] }), path, "cdn.test"), true);
+});

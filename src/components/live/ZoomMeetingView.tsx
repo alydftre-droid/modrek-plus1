@@ -19,6 +19,7 @@ import {
   type ZoomJoinPayload,
 } from "@/lib/zoomMeeting";
 import { isLiveRecordingActive, startLiveRecording, stopAndSaveLiveRecording } from "@/lib/liveRecorder";
+import { startZoomMirrorGuard, stopZoomMirrorGuard } from "@/lib/zoomMirrorGuard";
 
 /** Saves the teacher's class recording and reports progress in one toast. */
 async function saveRecordingWithToast() {
@@ -80,23 +81,28 @@ export default function ZoomMeetingView({
   const forceNewRef = useRef(false);
 
   /** Zoom's default mirror makes the teacher's right hand look like the left. */
-  // Zoom re-enables its mirror every time the camera is switched (front/back)
-  // or restarted, so keep enforcing it for the whole meeting, not only at join.
+  // Zoom flips the front camera with inline transforms on the self view AND on
+  // every receiver (from the sender's mirror metadata), and re-enables it on each
+  // camera switch. The guard strips those flips for host and attendees alike; the
+  // API call additionally keeps the encoder/self-view canvas un-mirrored.
   const mirrorTimerRef = useRef<number | null>(null);
   const applyNoMirror = () => {
+    startZoomMirrorGuard();
     disableZoomSelfMirror();
     if (mirrorTimerRef.current !== null) return;
+    // Zoom rate-limits mirrorVideo to one call per second.
     mirrorTimerRef.current = window.setInterval(() => {
       if (!(window as any).ZoomMtg) return;
       disableZoomSelfMirror();
-    }, 1500);
-    const onTap = () => window.setTimeout(disableZoomSelfMirror, 600);
-    document.addEventListener("click", onTap, true);
-    document.addEventListener("touchend", onTap, true);
+    }, 2000);
   };
-  useEffect(() => () => {
-    if (mirrorTimerRef.current !== null) window.clearInterval(mirrorTimerRef.current);
-    mirrorTimerRef.current = null;
+  useEffect(() => {
+    startZoomMirrorGuard();
+    return () => {
+      stopZoomMirrorGuard();
+      if (mirrorTimerRef.current !== null) window.clearInterval(mirrorTimerRef.current);
+      mirrorTimerRef.current = null;
+    };
   }, []);
 
   /** The teacher's browser records the class so it can be saved afterwards. */

@@ -168,14 +168,11 @@ const DeletionAuditPage = () => {
           <div className="flex-1">
             <p className="font-semibold text-sm">تنظيف الملفات اليتيمة على Bunny</p>
             <p className="text-xs text-muted-foreground mb-2">
-              يفحص كل الفيديوهات والملفات على Bunny ويحذف كل ما لا يوجد له مرجع في قاعدة البيانات (متبقي من حذف حسابات معلمين قديمة).
+              يعرض الفيديوهات والملفات على Bunny التي لا يظهر لها مرجع. الحذف الفعلي متوقف نهائيًا لأنه حذف سابقًا صور معلمين ومجموعات ما زالت مستخدمة.
             </p>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" disabled={cleanupBusy !== null} onClick={() => runOrphanCleanup(true)}>
                 {cleanupBusy === "dry" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Filter className="h-3.5 w-3.5"/>} فحص فقط
-              </Button>
-              <Button size="sm" variant="destructive" disabled={cleanupBusy !== null} onClick={() => runOrphanCleanup(false)}>
-                {cleanupBusy === "run" ? <Loader2 className="h-3.5 w-3.5 animate-spin"/> : <Trash2 className="h-3.5 w-3.5"/>} تنظيف فعلي
               </Button>
             </div>
           </div>
