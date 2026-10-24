@@ -11,6 +11,11 @@ export async function canReadReferencedMedia(
     { table: "profiles", columns: ["avatar_url"], id: "id" },
     { table: "teacher_messages", columns: ["file_url"], id: "id" },
     { table: "support_messages", columns: ["file_url"], id: "id" },
+    // Teachers upload these into their own folder; students reach them only
+    // through rows their RLS already lets them see (active groups, purchases).
+    { table: "content_groups", columns: ["image_url"], id: "id" },
+    { table: "live_session_recordings", columns: ["video_url"], id: "id" },
+    { table: "ai_lesson_pages", columns: ["image_url"], id: "id" },
   ];
   for (const check of checks) {
     for (const column of check.columns) {
