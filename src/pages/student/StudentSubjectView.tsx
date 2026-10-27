@@ -1631,7 +1631,7 @@ const StudentSubjectView = () => {
                               <BookText className="h-10 w-10 text-primary-foreground" />
                             </div>
                           }
-                        />}
+                        />
                         <div className="student-group-media-overlay absolute inset-0" />
 
                         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
