@@ -1621,18 +1621,17 @@ const StudentSubjectView = () => {
                   >
                     <Card className={`student-group-card overflow-hidden rounded-[1.5rem] transition-all duration-300 ${isPurchased ? "student-group-card-active" : ""}`}>
                       <div className="student-group-media relative overflow-hidden">
-                        {course.image_url ? (
-                          <img
-                            src={resolveBunnyStorageUrl(course.image_url)}
-                            alt={`صورة المجموعة ${course.title}`}
-                            className="student-group-media-image h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="student-group-media-fallback flex h-full w-full items-center justify-center">
-                            <BookText className="h-10 w-10 text-primary-foreground" />
-                          </div>
-                        )}
+                        <StoredImage
+                          source={course.image_url}
+                          alt={`صورة المجموعة ${course.title}`}
+                          className="student-group-media-image h-full w-full object-cover"
+                          loading="lazy"
+                          fallbackNode={
+                            <div className="student-group-media-fallback flex h-full w-full items-center justify-center">
+                              <BookText className="h-10 w-10 text-primary-foreground" />
+                            </div>
+                          }
+                        />
                         <div className="student-group-media-overlay absolute inset-0" />
 
                         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">

@@ -133,7 +133,7 @@
     "workbox-window": "^7.4.1"
   },
   "overrides": {
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.17",
     "lodash": "^4.18.1",
     "ws": "^8.21.0",
     "minimatch": "^10.2.5",
@@ -146,7 +146,7 @@
     }
   },
   "resolutions": {
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.17",
     "lodash": "^4.18.1",
     "ws": "^8.21.0",
     "minimatch": "^10.2.5",
